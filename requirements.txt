@@ -1,9 +1,9 @@
-# Fase 1 — Core mínimo funcional.
-# Novas dependências entram conforme cada fase (Flask-Login/RBAC na
-# Fase 2, etc.) — nunca adicionar dependência "adiantada" para uma
-# fase futura.
+# Fase 2 — RBAC + Usuários.
+# Novas dependências entram conforme cada fase (CrudGen na Fase 4,
+# etc.) — nunca adicionar dependência "adiantada" para uma fase futura.
 Flask>=3.0,<4.0
 Flask-SQLAlchemy>=3.1,<4.0
+Flask-Login>=0.6,<0.7
 
 # Driver de Postgres — só usado quando TESSERACT_ENV=production e
 # DATABASE_URL apontar para postgres://. Em dev (SQLite) não é

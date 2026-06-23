@@ -9,9 +9,10 @@ OData).
 Uso inicial: gestão de cervejaria caseira. Uso de longo prazo: base
 reaproveitável para outros sistemas.
 
-> **Status atual: Fase 1 — Core mínimo.** `ModuleManager`, `EventBus` e DB
-> factory (SQLite dev / Postgres prod) funcionando e testados. Ainda sem
-> nenhum Addon/Plugin de domínio real — entra na Fase 5.
+> **Status atual: Fase 2 — RBAC + Usuários.** Login por sessão, RBAC
+> (`has_permission`, `@permission` Camada 2), API admin-only de usuários
+> com soft-delete e validação de CPF. Ainda sem nenhum Addon/Plugin de
+> domínio real — entra na Fase 5.
 
 ## Navegação
 
@@ -44,14 +45,21 @@ reaproveitável para outros sistemas.
 
 - [`BACKLOG.md`](BACKLOG.md) — backlog vivo, organizado por fase
 
-## Como rodar (Fase 1)
+## Como rodar (Fase 2)
 
 ```bash
 pip install -r requirements.txt
 
 # Dev (SQLite, criado em instance/tesseract_dev.db na primeira execução)
 flask --app wsgi run --debug
-# GET /health → confirma Core + DB + EventBus ativos
+
+# Primeiro usuário admin (toda a API de usuários é admin-only)
+flask --app wsgi init-admin --username admin --password admin123
+
+# Login (sessão via cookie)
+curl -i -c cookies.txt -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "admin123"}'
 
 # Produção (Postgres obrigatório via DATABASE_URL)
 export TESSERACT_ENV=production
@@ -68,8 +76,8 @@ TESSERACT_ENV=testing python -m pytest tests/ -v
 |---|---|---|
 | 0 | Scaffold de pastas, Core mínimo, README navegável | ✅ |
 | 1 | `ModuleManager`, `EventBus`, template loader, DB factory | ✅ |
-| 2 | RBAC + Usuários (portado do PyTeca) | ⏳ próxima |
-| 3 | Versionamento (`CodeSnapshot`, portado do PyTeca) | |
+| 2 | RBAC + Usuários (portado do PyTeca) | ✅ |
+| 3 | Versionamento (`CodeSnapshot`, portado do PyTeca) | ⏳ próxima |
 | 4 | CrudGen + Anotações (portado do PyTeca) | |
 | 5 | `addon_brewstation` — primeira Feature real (`yeast_bank`) | |
 | 6 | Demais Features Brew (`mash_control`, `device_manager`, `integ_bfather`) | |

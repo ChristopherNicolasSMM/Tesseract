@@ -47,14 +47,38 @@
 
 ## Fase 2 — RBAC + Usuários
 
-- [ ] `model/core/user.py`, `role.py`, `permission.py`
-      (`tesseract_user`, `tesseract_role`, `tesseract_permission`)
-- [ ] `User.has_permission()` — ponto único de decisão de autorização
-- [ ] Sync automático de Permission a partir de rota gerada / `@permission`
-- [ ] `/api/admin/users` — admin-only, soft-delete (deactivate/activate),
-      validação de CPF (portado do PyTeca)
-- [ ] Hooks `pbo_*`/`pai_*` (padrão de customização sem editar gerado)
-- [ ] Teste: criar usuário, atribuir Role, confirmar 403 sem Permission
+- [x] `model/core/user.py`, `role.py`, `permission.py`, `associations.py`
+      (`tesseract_user`, `tesseract_role`, `tesseract_permission`,
+      `tesseract_user_roles`, `tesseract_role_permissions`)
+- [x] `User.has_permission()` — ponto único de decisão de autorização
+- [x] `core/permissions.py` (`permission_required`) — 401 sem login, 403
+      sem permissão
+- [x] `core/auth.py` — Flask-Login com eager load (joinedload) de
+      roles+permissions no `user_loader`
+- [x] `@permission` (Camada 2) em `annotations/__init__.py` +
+      `core/permissions_sync.py` — sincronização "código lidera, banco
+      segue". **Camada 1** (permissão automática por rota gerada) só
+      entra na Fase 4, junto com o CrudGen
+- [x] `/api/admin/users` — admin-only, soft-delete (deactivate/activate),
+      validação de CPF (dígito verificador + rejeita sequência repetida)
+- [x] `/api/auth/login`, `/logout`, `/me`
+- [x] `core/cli.py` (`flask init-admin`) — resolve o bootstrap do primeiro
+      usuário (toda a API é admin-only, então precisa nascer por fora)
+- [x] 14 testes automatizados (`tests/test_phase2_rbac.py`)
+- [ ] Hooks `pbo_*`/`pai_*` (padrão de customização sem editar gerado) —
+      ainda não aplicável: só existem para código *gerado* pelo CrudGen,
+      que entra na Fase 4. Registrado aqui para não esquecer de aplicar
+      no `users.py` gerado quando o CrudGen existir
+- [ ] **Decisão pendente**: `RegistrationRequest` (fluxo de auto-cadastro
+      órfão herdado do BrewStation) não foi portado. Hoje só existe
+      criação admin-only. Decidir se/quando o auto-cadastro entra.
+
+**Achado de comportamento (não é bug, vale documentar)**: o
+`UserMixin.is_authenticated` do Flask-Login é definido como
+`return self.is_active`. Se um usuário desativar a própria conta, a
+sessão dele desautentica sozinha na requisição seguinte — sem precisar
+de logout explícito. Coberto por
+`test_autodesativacao_invalida_a_propria_sessao`.
 
 ## Fase 3 — Versionamento
 
