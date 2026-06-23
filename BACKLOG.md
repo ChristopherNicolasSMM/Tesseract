@@ -82,11 +82,22 @@ de logout explícito. Coberto por
 
 ## Fase 3 — Versionamento
 
-- [ ] `model/core/code_snapshot.py` (`tesseract_code_snapshot`)
-- [ ] `core/versioning/snapshot_if_needed()`, `cleanup_old_snapshots()`
-- [ ] Chaves `versioning.*` em `system_config` (skill 03, seção 5)
-- [ ] Teste: gerar/escrever um arquivo duas vezes, confirmar 2 snapshots e
-      diff entre eles
+- [x] `model/core/code_snapshot.py` (`tesseract_code_snapshot`) — versão
+      completa do conteúdo (não diff incremental), `generation_run_id`,
+      `parent_snapshot_id` (linha do tempo real), `is_current`
+- [x] `core/versioning.py` — `start_generation_run()`,
+      `snapshot_if_needed()` (com captura de edição manual perdida via
+      `PRE_OVERWRITE`), `cleanup_old_snapshots()`
+- [x] `core/config_service.py` + `core/seed_config.py` — seed idempotente
+      de `versioning.*`/`rbac.*` em `system_config`, chamado no boot
+- [x] 9 testes (`tests/test_phase3_versioning.py`) — seed idempotente,
+      criação de snapshot, `on_diff` sem mudança real, agrupamento por
+      `generation_run_id`, captura de edição manual perdida, retenção
+- [ ] **Decisão registrada**: nenhuma chamada automática a
+      `snapshot_if_needed()` existe ainda — a infraestrutura está pronta
+      e testada, mas só passa a ser usada de fato quando o CrudGen
+      (Fase 4) escrever arquivo via `_write_file()`. Não adiantar a
+      integração antes de existir o que versionar.
 
 ## Fase 4 — CrudGen + Anotações
 

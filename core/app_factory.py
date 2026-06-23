@@ -1,13 +1,15 @@
 """
 core/app_factory.py
 
-Fase 2 — RBAC + Usuários.
+Fase 3 — Versionamento.
 create_app() agora também:
-- inicializa Flask-Login (core/auth.py)
-- registra os Blueprints de autenticação e admin de usuários
-- registra o comando CLI `init-admin`
+- importa o model CodeSnapshot (tesseract_code_snapshot)
+- semeia as chaves padrão de system_config (versioning.*, rbac.*) de
+  forma idempotente, via core/seed_config.py
 
-CrudGen/versionamento entram nas Fases 3/4.
+CrudGen entra na Fase 4 — é só ali que snapshot_if_needed() passa a
+ser chamado automaticamente (em _write_file()). Por enquanto a
+infraestrutura de core/versioning.py já está pronta e testada.
 """
 from flask import Flask, jsonify
 
@@ -18,6 +20,7 @@ from core.event_bus import event_bus, register_example_listener
 from core.module_manager import ModuleManager
 from core.auth import init_auth
 from core.cli import register_cli_commands
+from core.seed_config import ensure_default_system_config
 
 
 def create_app(env: str | None = None) -> Flask:
@@ -39,7 +42,9 @@ def create_app(env: str | None = None) -> Flask:
     with app.app_context():
         from model.core import module_state, system_config  # noqa: F401
         from model.core import permission, role, associations, user  # noqa: F401
+        from model.core import code_snapshot  # noqa: F401
         app.module_manager.create_all_pending_tables()
+        ensure_default_system_config()
 
     from api.routes.core.auth import auth_api_bp
     from api.routes.core.admin.users import users_api_bp
@@ -51,9 +56,9 @@ def create_app(env: str | None = None) -> Flask:
         return jsonify(
             status="ok",
             project="Tesseract",
-            phase=2,
+            phase=3,
             active_modules=list(app.module_manager.active_modules.keys()),
-            message="Core no ar. ModuleManager, EventBus, DB e RBAC ativos.",
+            message="Core no ar. ModuleManager, EventBus, DB, RBAC e Versionamento ativos.",
         )
 
     return app
