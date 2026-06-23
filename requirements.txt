@@ -1,5 +1,17 @@
-# Fase 0 — só o essencial para o Core subir.
-# Novas dependências entram conforme cada fase (SQLAlchemy na Fase 1,
-# Flask-Login/RBAC na Fase 2, etc.) — nunca adicionar dependência
-# "adiantada" para uma fase futura.
+# Fase 1 — Core mínimo funcional.
+# Novas dependências entram conforme cada fase (Flask-Login/RBAC na
+# Fase 2, etc.) — nunca adicionar dependência "adiantada" para uma
+# fase futura.
 Flask>=3.0,<4.0
+Flask-SQLAlchemy>=3.1,<4.0
+
+# Driver de Postgres — só usado quando TESSERACT_ENV=production e
+# DATABASE_URL apontar para postgres://. Em dev (SQLite) não é
+# carregado em runtime, mas fica instalado para já testar localmente
+# contra Postgres se você quiser (ex.: via docker-compose).
+psycopg2-binary>=2.9,<3.0
+
+# Dependência de teste (não vai pra produção, mas fica no requirements.txt
+# único por simplicidade nesta fase — separar em requirements-dev.txt
+# quando o projeto crescer)
+pytest>=8.0,<9.0

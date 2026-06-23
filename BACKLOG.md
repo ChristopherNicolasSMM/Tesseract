@@ -20,17 +20,30 @@
 
 ## Fase 1 — Core mínimo
 
-- [ ] `core/module_manager.py` — ciclo de vida de Addon/Plugin com estado em
-      banco (`tesseract_module_state`), motor de discovery de rotas por
-      convenção (portado de `PluginManager`/`PluginInstaller` do BrewStation)
-- [ ] `core/event_bus.py` — namespace de evento por ponto (skill 00)
-- [ ] `core/template_loader.py` — `ChoiceLoader` mesclando templates de
-      módulos ativos com o core
-- [ ] Algoritmo de múltiplas passadas para criação de tabela com FK entre
-      módulos (portado do BrewStation, `module_manager.table_creation_max_passes`)
-- [ ] DB factory (SQLAlchemy) + `system_config` (chave/valor, skill 03)
-- [ ] Teste: registrar um Addon fake (sem tabela real), ativar/desativar,
-      confirmar blueprint montado e desmontado corretamente
+- [x] `core/module_manager.py` — ciclo de vida de Addon/Plugin com estado em
+      banco (`tesseract_module_state`). **Decisão**: Opção B (sem loop de
+      múltiplas passadas) — discovery/import de todos os models ativos
+      antes de uma única chamada a `db.create_all()`; SQLAlchemy ordena
+      por FK automaticamente. Ver `core/module_manager.py` para o
+      racional completo.
+- [x] `core/event_bus.py` — pub/sub síncrono em memória, com 1 listener de
+      exemplo (`register_example_listener`) provando o fluxo ponta a ponta
+- [x] `core/template_loader.py` — `ChoiceLoader` mesclando templates de
+      módulos ativos com o core (ainda sem nenhum módulo real pra mesclar)
+- [x] DB factory (`core/db.py`) + `core/config.py` — **SQLite em dev/test,
+      Postgres em produção** (`TESSERACT_ENV`), trocando só a
+      `DATABASE_URL`
+- [x] `model/core/module_state.py`, `model/core/system_config.py`
+- [x] Testes automatizados (`tests/test_phase1_core.py`) — `/health`,
+      criação de tabelas de Core, publish/subscribe, listener com erro
+      não quebra os demais
+- [ ] Algoritmo de múltiplas passadas do BrewStation — **descartado**
+      (ver Opção B acima); registrado aqui só para não se perder a decisão
+- [ ] Discovery automático de Addon/Plugin a partir de manifesto em disco
+      (`addon.json`/`plugin.json`) — ainda não implementado; hoje
+      `register_module()` espera um módulo já instanciado. Entra quando
+      tivermos o primeiro Addon real (Fase 5) ou antes, se preferir
+      adiantar
 
 ## Fase 2 — RBAC + Usuários
 

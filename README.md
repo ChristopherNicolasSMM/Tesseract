@@ -9,8 +9,9 @@ OData).
 Uso inicial: gestão de cervejaria caseira. Uso de longo prazo: base
 reaproveitável para outros sistemas.
 
-> **Status atual: Fase 0 — Scaffold.** Não há Addons/Plugins de domínio
-> ainda. O Core sobe e responde em `/health`.
+> **Status atual: Fase 1 — Core mínimo.** `ModuleManager`, `EventBus` e DB
+> factory (SQLite dev / Postgres prod) funcionando e testados. Ainda sem
+> nenhum Addon/Plugin de domínio real — entra na Fase 5.
 
 ## Navegação
 
@@ -43,27 +44,37 @@ reaproveitável para outros sistemas.
 
 - [`BACKLOG.md`](BACKLOG.md) — backlog vivo, organizado por fase
 
-## Como rodar (Fase 0)
+## Como rodar (Fase 1)
 
 ```bash
 pip install -r requirements.txt
+
+# Dev (SQLite, criado em instance/tesseract_dev.db na primeira execução)
 flask --app wsgi run --debug
-# GET /health → confirma que o Core subiu
+# GET /health → confirma Core + DB + EventBus ativos
+
+# Produção (Postgres obrigatório via DATABASE_URL)
+export TESSERACT_ENV=production
+export DATABASE_URL=postgresql://user:senha@host:5432/tesseract
+flask --app wsgi run
+
+# Testes (SQLite em memória, isolado)
+TESSERACT_ENV=testing python -m pytest tests/ -v
 ```
 
 ## Fases de construção (resumo — detalhe completo no `BACKLOG.md`)
 
-| Fase | Entregável |
-|---|---|
-| 0 | Scaffold de pastas, Core mínimo, README navegável |
-| 1 | `ModuleManager`, `EventBus`, template loader, DB factory |
-| 2 | RBAC + Usuários (portado do PyTeca) |
-| 3 | Versionamento (`CodeSnapshot`, portado do PyTeca) |
-| 4 | CrudGen + Anotações (portado do PyTeca) |
-| 5 | `addon_brewstation` — primeira Feature real (`yeast_bank`) |
-| 6 | Demais Features Brew (`mash_control`, `device_manager`, `integ_bfather`) |
-| 7 | `addon_builder` — Designer drag-and-drop + motor de regras (DEVStationFlask) |
-| 8 | OData / Screen Generator (DEVStationFlask) |
+| Fase | Entregável | Status |
+|---|---|---|
+| 0 | Scaffold de pastas, Core mínimo, README navegável | ✅ |
+| 1 | `ModuleManager`, `EventBus`, template loader, DB factory | ✅ |
+| 2 | RBAC + Usuários (portado do PyTeca) | ⏳ próxima |
+| 3 | Versionamento (`CodeSnapshot`, portado do PyTeca) | |
+| 4 | CrudGen + Anotações (portado do PyTeca) | |
+| 5 | `addon_brewstation` — primeira Feature real (`yeast_bank`) | |
+| 6 | Demais Features Brew (`mash_control`, `device_manager`, `integ_bfather`) | |
+| 7 | `addon_builder` — Designer drag-and-drop + motor de regras (DEVStationFlask) | |
+| 8 | OData / Screen Generator (DEVStationFlask) | |
 
 ## Assets estáticos (Nice Admin)
 
