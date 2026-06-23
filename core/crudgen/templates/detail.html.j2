@@ -1,0 +1,5 @@
+{% extends "core/base.html" %}
+{% block content %}
+<h1>@@label@@ #{{ item.id }}</h1>
+<a href="{{ url_for('@@plural@@.manage') }}">Voltar</a>
+{% endblock %}

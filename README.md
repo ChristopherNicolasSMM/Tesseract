@@ -9,7 +9,10 @@ OData).
 Uso inicial: gestão de cervejaria caseira. Uso de longo prazo: base
 reaproveitável para outros sistemas.
 
-> **Status atual: Fase 3 — Versionamento.** `CodeSnapshot` funcionando
+> **Status atual: Fase 4 — CrudGen + Anotações.** Geração automática de
+> Service/Controller/Routes/Templates a partir de model anotado, com
+> prefixo de tabela tri-nível e permissões Camada 1 (automática) já reais.
+> Ainda sem nenhum Addon/Feature de domínio real — entra na Fase 5.
 > (com captura automática de edição manual perdida), `system_config`
 > com seed idempotente de chaves padrão. Ainda sem CrudGen — entra na
 > Fase 4 — e sem nenhum Addon/Plugin de domínio real — entra na Fase 5.
@@ -78,8 +81,8 @@ TESSERACT_ENV=testing python -m pytest tests/ -v
 | 1 | `ModuleManager`, `EventBus`, template loader, DB factory | ✅ |
 | 2 | RBAC + Usuários (portado do PyTeca) | ✅ |
 | 3 | Versionamento (`CodeSnapshot`, portado do PyTeca) | ✅ |
-| 4 | CrudGen + Anotações (portado do PyTeca) | ⏳ próxima |
-| 5 | `addon_brewstation` — primeira Feature real (`yeast_bank`) | |
+| 4 | CrudGen + Anotações (portado do PyTeca) | ✅ |
+| 5 | `addon_brewstation` — primeira Feature real (`yeast_bank`) | ⏳ próxima |
 | 6 | Demais Features Brew (`mash_control`, `device_manager`, `integ_bfather`) | |
 | 7 | `addon_builder` — Designer drag-and-drop + motor de regras (DEVStationFlask) | |
 | 8 | OData / Screen Generator (DEVStationFlask) | |

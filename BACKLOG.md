@@ -101,15 +101,40 @@ de logout explícito. Coberto por
 
 ## Fase 4 — CrudGen + Anotações
 
-- [ ] Portar decorators do PyTeca para `annotations/__init__.py`
-      (`@label`, `@plural`, `@listview`, `@form`, `@required`, `@permission`...)
-- [ ] `core/crudgen/generate_from_model.py` adaptado para escrever dentro de
-      `addons/addon_x/...` (ou `addons/addon_x/features/feature_y/...`) com
-      prefixo de tabela tri-nível (skill 02)
-- [ ] CLI `tesseract generate --model ... [--addon] [--feature] [--overwrite]`
-      (skill 03, seção 4)
-- [ ] Teste: gerar um `addon_smoketest` a partir de 1 model simples, validar
-      nome de tabela com prefixo correto e os 7 arquivos esperados
+- [x] `annotations/__init__.py` completo — portado do PyTeca quase 1:1:
+      `@label`, `@plural`, `@listview`/`Column`/`Filter`, `@form`/`Group`,
+      `@required`/`@max_length`/`@min_length`/`@min_value`, `@choices`,
+      `@display_field`, `get_model_metadata()` (+ `@permission` da Fase 2)
+- [x] `core/crudgen/manifest_utils.py` — lê `addon.json`/`feature.json` em
+      disco, resolve o prefixo tri-nível completo
+- [x] `core/crudgen/table_prefix.py` — aplica o prefixo ao `__table__` do
+      model em runtime (dev escreve `__tablename__` curto)
+- [x] `core/crudgen/generator.py` + templates Jinja2 — gera
+      `service.py`, `controller.py`, `routes.py` + 3 `_hooks.py` (nunca
+      sobrescritos) + 3 templates HTML (`manage`/`detail`/`form_modal`)
+- [x] `core/permissions_sync.py` estendido — **Camada 1 agora é real**:
+      toda entidade gerada ganha as 7 permissões padrão automaticamente
+- [x] CLI `flask generate --model <arquivo> --addon <nome> [--feature <nome>] [--overwrite]`
+      (skill 03, seção 4) — testado ponta a ponta de verdade (banco real,
+      manifesto real em disco, fora da suíte de testes)
+- [x] 8 testes (`tests/test_phase4_crudgen.py`) + 23 das fases anteriores
+      = 31 passando
+- [ ] **Decisão registrada — divergência deliberada do PyTeca**: o
+      `service.py` gerado usa soft-delete `is_deleted`/`deleted_at`
+      (skill 02), não o workflow de `Status` Enum com
+      draft/publish/trash do PyTeca original. Filtros `@choices`/
+      `distinct_values()` e autosave de rascunho **não foram portados**
+      nesta fase — ficam para quando um caso de uso real (Fase 5/6)
+      pedir.
+- [ ] **Decisão registrada — onde o prefixo é aplicado**: skill 02 diz
+      "no momento do registro" (sugerindo `ModuleManager`); implementei
+      no momento da GERAÇÃO (CrudGen), efeito prático equivalente com
+      bem menos máquina, já que ainda não existem classes reais de
+      Addon/Feature para o `ModuleManager` descobrir (chegam na Fase 5).
+      Revisitar se a Fase 5 expuser um caso que isso não cubra.
+- [ ] Templates HTML gerados são MVP deliberadamente simples (Bootstrap
+      puro, sem o visual completo do Nice Admin) — refinar na Fase 5,
+      quando houver de fato uma tela sendo usada.
 
 ## Fase 5 — `addon_brewstation`: primeira Feature real
 

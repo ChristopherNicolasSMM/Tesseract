@@ -1,6 +1,7 @@
-# Fase 2 — RBAC + Usuários.
-# Novas dependências entram conforme cada fase (CrudGen na Fase 4,
-# etc.) — nunca adicionar dependência "adiantada" para uma fase futura.
+# Fase 4 — CrudGen + Anotações.
+# Jinja2 já vem com Flask (não precisa listar separado).
+# Novas dependências entram conforme cada fase — nunca adicionar
+# dependência "adiantada" para uma fase futura.
 Flask>=3.0,<4.0
 Flask-SQLAlchemy>=3.1,<4.0
 Flask-Login>=0.6,<0.7

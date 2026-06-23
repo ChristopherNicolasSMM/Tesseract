@@ -1,0 +1,41 @@
+TESSERACT SOURCE-AVAILABLE AND MERITOCRATIC LICENSE (TSAML)
+Version 1.0, 2026
+
+Copyright (c) 2026 Christopher Nicolas Santa Maria Mauricio. All rights reserved.
+
+1. DEFINIÇÕES
+"Software" refere-se ao framework Tesseract e todos os seus componentes, addons, plugins e documentação associada.
+"Autor" refere-se a Christopher Nicolas Santa Maria Mauricio, o criador original e detentor dos direitos autorais.
+"Usuário" refere-se a qualquer indivíduo ou entidade que utilize, modifique ou integre o Software.
+"Uso Pessoal" designa a utilização do Software para fins de estudo, hobby ou projetos sem fins lucrativos.
+"Uso Comercial" designa a utilização do Software para desenvolver produtos internos de empresas, produtos para clientes, ou qualquer serviço que gere receita direta ou indiretamente.
+
+2. CONCESSÃO DE LICENÇA E TAXAS
+O acesso ao código-fonte é disponibilizado publicamente, mas O SEU USO É CONDICIONADO a uma das seguintes formas de licenciamento:
+
+2.1. Licenciamento Financeiro (Pay-to-Play)
+Para utilizar o Software sem contribuir com código, o Usuário deve adquirir uma licença através do pagamento das seguintes taxas:
+- Uso Pessoal: $5 USD trimestrais ou $20 USD em pagamento único (vitalício com atualizações).
+- Uso Comercial: $100 USD por usuário (vitalício) ou $20 USD por usuário anualmente.
+
+2.2. Licenciamento Meritocrático (Work-to-Play)
+O Usuário pode adquirir uma Licença Vitalícia isenta de taxas ao contribuir ativamente para o repositório oficial. 
+A cada 5 (cinco) pontos acumulados mediante Pull Requests formalmente aprovados e integrados (merged) pelo Autor, o Usuário ou sua organização recebe 1 (uma) Licença Vitalícia.
+
+Sistema de Pontuação:
+- 1 Ponto: Correções visuais, falhas de caractere, documentação ou adição de novas legendas/idiomas.
+- 2 Pontos: Implementação de segurança básica ou correções de bugs de impacto moderado.
+- 4 Pontos: Correções de vulnerabilidades críticas de segurança ou falhas severas de sistema/dados.
+- 5 Pontos: Desenvolvimento e aprovação de novas funcionalidades completas, Addons ou Plugins.
+
+3. RESTRIÇÕES
+Independentemente do tipo de licença (Financeira ou Meritocrática), as seguintes restrições aplicam-se estritamente:
+a) É terminantemente PROIBIDO redistribuir, sublicenciar ou revender o código-fonte original do Tesseract.
+b) O Software deve ser utilizado como BASE para a construção de outras aplicações. É proibido empacotar o Tesseract em sua forma pura e comercializá-lo como um framework concorrente.
+c) Todos os avisos de direitos autorais ("Copyright") e referências ao Autor original devem ser mantidos intactos no código-fonte.
+
+4. ISENÇÃO DE GARANTIAS
+O SOFTWARE É FORNECIDO "NO ESTADO EM QUE SE ENCONTRA", SEM GARANTIA DE QUALQUER TIPO, EXPRESSA OU IMPLÍCITA, INCLUINDO, MAS NÃO SE LIMITANDO A, GARANTIAS DE COMERCIALIZAÇÃO, ADEQUAÇÃO A UM FIM ESPECÍFICO E NÃO VIOLAÇÃO. EM NENHUMA CIRCUNSTÂNCIA O AUTOR OU OS TITULARES DOS DIREITOS AUTORAIS SERÃO RESPONSÁVEIS POR QUALQUER RECLAMAÇÃO, DANOS OU OUTRA RESPONSABILIDADE, SEJA EM UMA AÇÃO DE CONTRATO, DANO OU DE OUTRA FORMA, DECORRENTE DE, OU EM CONEXÃO COM O SOFTWARE OU O USO OU OUTRAS NEGOCIAÇÕES NO SOFTWARE.
+
+5. RESCISÃO
+Esta licença será automaticamente rescindida caso o Usuário viole quaisquer de seus termos. Após a rescisão, o Usuário deve cessar imediatamente o uso do Software e destruir todas as cópias em sua posse.
