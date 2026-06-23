@@ -31,3 +31,11 @@ class AddonBase(ModuleBase):
         db.create_all().
         """
         raise NotImplementedError
+
+    def get_features(self) -> list:
+        """
+        Retorna as Features ativas deste Addon (instâncias de
+        FeatureBase). Vazio por padrão — Addons sem Feature não
+        precisam sobrescrever.
+        """
+        return []

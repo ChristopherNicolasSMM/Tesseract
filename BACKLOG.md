@@ -136,12 +136,80 @@ de logout explícito. Coberto por
       puro, sem o visual completo do Nice Admin) — refinar na Fase 5,
       quando houver de fato uma tela sendo usada.
 
+## Ajuste transversal — `run.py`
+
+- [x] `run.py` na raiz — ponto de entrada único via `python run.py ...`,
+      sem depender do executável `flask` instalado globalmente. Usa
+      `flask.cli.FlaskGroup` por baixo, então `init-admin` e `generate`
+      (já registrados em `core/cli.py`) funcionam automaticamente, sem
+      duplicar lógica. Comando `start` adicionado como alias amigável
+      para `flask run`. Testado ponta a ponta (`--help`, `init-admin`,
+      `start`) sem o executável `flask` no PATH.
+
 ## Fase 5 — `addon_brewstation`: primeira Feature real
 
-- [ ] Migrar `feature_yeast_bank` (mais madura e isolada no BrewStation atual)
-- [ ] `addon.json` + `feature.json` válidos conforme checklist da skill 03
-- [ ] `docs/technical/` e `docs/manual/` preenchidos (skill 04) para esse Addon
-- [ ] Teste: ativar o Addon, CRUD funcional via UI
+- [x] `core/feature_base.py` — classe `FeatureBase`, paralela ao
+      `AddonBase` mas sem ciclo de ativação próprio (vive com o Addon pai)
+- [x] `AddonBase.get_features()` — Addon expõe suas Features ativas
+- [x] `ModuleManager.discover_and_register_addons()` — descoberta real a
+      partir de `addons/addon_*/addon.json` + `addon.py` (lacuna aberta
+      desde a Fase 1, fechada agora)
+- [x] `addons/addon_brewstation/addon.json` + `addon.py`
+      (`AddonBrewstation`)
+- [x] `addons/addon_brewstation/features/feature_yeast_bank/feature.json`
+      + `feature.py` (`FeatureYeastBank`)
+- [x] `model/yeast_strain.py` — portado de
+      `plugin_yeast_bank/model/yeast_bank_models.py` (BrewStation),
+      anotado (`@label`, `@plural`, `@required`, `@max_length`,
+      `@permission`)
+- [x] CRUD gerado via `python run.py generate` — 9 arquivos, tabela
+      `tesseract_brewstation_yeastbank_strain`, 8 permissões
+- [x] `docs/technical/01-*.md` e `docs/manual/01-*.md` preenchidos no
+      Addon e na Feature (skill 04)
+- [x] 9 testes (`tests/test_phase5_module_manager.py` +
+      `tests/test_phase5_yeast_bank.py`) + 31 das fases anteriores =
+      40 passando
+- [x] Teste manual ponta a ponta via HTTP real (login → create → list →
+      detail → update → trash → restore), confirmando CRUD funcional
+
+### 3 bugs reais encontrados só ao migrar o primeiro Addon de verdade
+
+1. **Prefixo de tabela só se aplicava no `generate` (CLI), não em todo
+   boot.** Um `python run.py start` normal reimporta `model/
+   yeast_strain.py` com o nome curto (`strain`), sem prefixo — porque
+   nada além do CrudGen aplicava `apply_table_prefix()`. Corrigido: o
+   `ModuleManager.register_module()` agora aplica o prefixo também,
+   de forma idempotente, em todo registro de módulo — esse é o
+   comportamento real que a skill 02 sempre pediu ("no momento do
+   registro"), a Fase 4 tinha feito um atalho que não sobrevivia a um
+   reboot.
+2. **Mesmo problema com a sincronização de permissão** — só rodava no
+   `generate`, então um banco novo (ex.: o de teste) nunca recebia as
+   7+1 permissões de `yeast_strains`. Corrigido: `ModuleManager` agora
+   enfileira a sincronização durante o registro e a executa em
+   `sync_all_permissions()`, chamado **depois** de
+   `create_all_pending_tables()` (a sincronização precisa que
+   `tesseract_permission`/`tesseract_role` já existam — ordem importa).
+3. **Colisão de nome de tabela entre o smoke-test da Fase 5a e o
+   `YeastStrain` real** — o teste de `ModuleManager` usava
+   `__tablename__ = "strain"` (mesmo nome curto do model real) no seu
+   model fictício; como a metadata do SQLAlchemy é global por processo,
+   os dois competiam pela mesma tabela quando a suíte completa rodava
+   junto. Corrigido renomeando o model de teste.
+
+### Decisões registradas — escopo desta fatia
+
+- [ ] Migradas apenas `YeastStrain` nesta Fase 5. As 7 tabelas restantes
+      de `yeast_bank` (`YeastBankItem`, `YeastStarterLog`,
+      `YeastStorageDevice`, `YeastStorageReading`, `YeastBankConfig`,
+      `YeastCellCountHistory`, `YeastBankEvent`) ficam para a "Fase 5b"
+      — mesma Feature, mais entidades, sem trabalho de arquitetura novo
+      (o pipeline já está provado).
+- [ ] Templates HTML gerados continuam MVP (Bootstrap puro) — Nice
+      Admin real entra quando a tela for de fato usada.
+- [ ] Ação de negócio `yeast_strains.recalculate_viability` tem só a
+      permissão sincronizada — a lógica de cálculo de viabilidade em si
+      (presente no BrewStation original) não foi portada ainda.
 
 ## Fase 6 — Demais Features Brew
 

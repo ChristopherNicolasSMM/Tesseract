@@ -9,13 +9,14 @@ OData).
 Uso inicial: gestão de cervejaria caseira. Uso de longo prazo: base
 reaproveitável para outros sistemas.
 
-> **Status atual: Fase 4 — CrudGen + Anotações.** Geração automática de
-> Service/Controller/Routes/Templates a partir de model anotado, com
-> prefixo de tabela tri-nível e permissões Camada 1 (automática) já reais.
-> Ainda sem nenhum Addon/Feature de domínio real — entra na Fase 5.
-> (com captura automática de edição manual perdida), `system_config`
-> com seed idempotente de chaves padrão. Ainda sem CrudGen — entra na
-> Fase 4 — e sem nenhum Addon/Plugin de domínio real — entra na Fase 5.
+
+> **Status atual: Fase 5 — primeiro Addon real.** `addon_brewstation`/
+> `feature_yeast_bank` descoberto automaticamente a partir de `addons/`,
+> com `YeastStrain` gerado via CrudGen, tabela
+> `tesseract_brewstation_yeastbank_strain`, CRUD funcional via HTTP e
+> permissões reais. As demais 7 tabelas de `yeast_bank` ficam para a
+> Fase 5b — o pipeline Addon+Feature+ModuleManager+CrudGen já está
+> provado de ponta a ponta.
 
 ## Navegação
 
@@ -48,16 +49,28 @@ reaproveitável para outros sistemas.
 
 - [`BACKLOG.md`](BACKLOG.md) — backlog vivo, organizado por fase
 
-## Como rodar (Fase 3)
+## Como rodar (Fase 5)
+
+Não é necessário ter o executável `flask` instalado globalmente —
+`run.py` expõe todos os comandos via `python run.py ...`.
 
 ```bash
 pip install -r requirements.txt
 
 # Dev (SQLite, criado em instance/tesseract_dev.db na primeira execução)
-flask --app wsgi run --debug
+python run.py start
+python run.py start --port 8000 --debug
 
 # Primeiro usuário admin (toda a API de usuários é admin-only)
-flask --app wsgi init-admin --username admin --password admin123
+python run.py init-admin --username admin --password admin123
+
+# Gerar CRUD a partir de um model anotado (Fase 4 — CrudGen)
+python run.py generate --model caminho/para/model.py --addon brewstation [--feature yeast_bank] [--overwrite]
+
+# Outros comandos úteis (built-in do Flask, vêm de graça)
+python run.py routes      # lista todas as rotas registradas
+python run.py shell       # shell Python com o app já carregado
+python run.py --help      # lista todos os comandos disponíveis
 
 # Login (sessão via cookie)
 curl -i -c cookies.txt -X POST http://localhost:5000/api/auth/login \
@@ -67,7 +80,7 @@ curl -i -c cookies.txt -X POST http://localhost:5000/api/auth/login \
 # Produção (Postgres obrigatório via DATABASE_URL)
 export TESSERACT_ENV=production
 export DATABASE_URL=postgresql://user:senha@host:5432/tesseract
-flask --app wsgi run
+python run.py start
 
 # Testes (SQLite em memória, isolado)
 TESSERACT_ENV=testing python -m pytest tests/ -v
@@ -82,15 +95,16 @@ TESSERACT_ENV=testing python -m pytest tests/ -v
 | 2 | RBAC + Usuários (portado do PyTeca) | ✅ |
 | 3 | Versionamento (`CodeSnapshot`, portado do PyTeca) | ✅ |
 | 4 | CrudGen + Anotações (portado do PyTeca) | ✅ |
-| 5 | `addon_brewstation` — primeira Feature real (`yeast_bank`) | ⏳ próxima |
-| 6 | Demais Features Brew (`mash_control`, `device_manager`, `integ_bfather`) | |
+| 5 | `addon_brewstation` — primeira Feature real (`yeast_bank`) | ✅ (YeastStrain; demais tabelas em 5b) |
+| 6 | Demais Features Brew / resto do yeast_bank | ⏳ próxima |
 | 7 | `addon_builder` — Designer drag-and-drop + motor de regras (DEVStationFlask) | |
 | 8 | OData / Screen Generator (DEVStationFlask) | |
 
 ## Assets estáticos (Nice Admin)
 
-A pasta `static/` está vazia de propósito nesta fase — assets de
-CSS/JS/fontes do template Nice Admin entram depois, via commit separado.
+Já presentes em `static/` (Bootstrap, ApexCharts, Boxicons, Quill,
+TinyMCE, ECharts + CSS próprios do PyTeca) — subidos direto no
+repositório, fora do fluxo desta conversa.
 
 ## Licença / Autor
 

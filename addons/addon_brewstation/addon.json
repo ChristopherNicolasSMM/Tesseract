@@ -1,0 +1,24 @@
+{
+  "name": "brewstation",
+  "label": "BrewStation",
+  "version": "1.0.0",
+  "description": "Plataforma de gestão para cervejarias artesanais",
+  "author": "S2M Tech",
+  "type": "addon",
+  "table_prefix": "brewstation",
+  "tesseract_min_version": "1.0.0",
+  "requires": [],
+  "provides": ["recipe_data", "inventory_data"],
+  "features": [
+    {
+      "name": "feature_yeast_bank",
+      "label": "Yeast Bank",
+      "table_prefix_suffix": "yeastbank",
+      "enabled_by_default": true,
+      "requires": []
+    }
+  ],
+  "env_keys": [],
+  "default_locale": "pt_BR",
+  "available_locales": ["pt_BR"]
+}

@@ -20,6 +20,9 @@ logada — rastreabilidade alta de propósito para facilitar debug.
 import logging
 
 from core.db import db
+from core.crudgen.table_prefix import apply_table_prefix
+from core.permissions_sync import sync_model_permissions
+from annotations import get_model_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +32,18 @@ class ModuleManager:
         self.app = app
         self._registered_modules: dict[str, object] = {}
         self._pending_model_classes: list = []
+        self._pending_permission_sync: list = []  # [(model_cls, plural), ...]
 
     def register_module(self, module) -> None:
         """
         Registra um Addon/Plugin já instanciado (vindo de discovery).
-        Não cria tabela aqui — só acumula os models pendentes.
+
+        Aplica o prefixo de tabela AQUI (não precisa de DB, só muta o
+        metadata do SQLAlchemy em memória — seguro chamar antes do
+        create_all). A sincronização de PERMISSÃO é só enfileirada
+        aqui e executada de fato em sync_all_permissions(), chamado
+        DEPOIS de create_all_pending_tables() — sync precisa que
+        tesseract_permission/tesseract_role já existam.
         """
         logger.debug("Registrando módulo: %r", module)
 
@@ -42,11 +52,32 @@ class ModuleManager:
 
         if module.module_type == "addon":
             models = module.register_models()
+            for model_cls in models:
+                apply_table_prefix(model_cls, module.table_prefix)
+                self._pending_permission_sync.append(
+                    (model_cls, get_model_metadata(model_cls)["plural"])
+                )
             logger.debug(
                 "%s: %d model(s) pendente(s) de criação: %s",
                 module.name, len(models), [m.__name__ for m in models],
             )
             self._pending_model_classes.extend(models)
+
+            for feature in module.get_features():
+                logger.debug("Registrando feature %s de %s", feature.name, module.name)
+                feature.register_routes(self.app)
+                feature_models = feature.register_models()
+                for model_cls in feature_models:
+                    apply_table_prefix(model_cls, feature.table_prefix)
+                    self._pending_permission_sync.append(
+                        (model_cls, get_model_metadata(model_cls)["plural"])
+                    )
+                logger.debug(
+                    "%s/%s: %d model(s) pendente(s): %s",
+                    module.name, feature.name, len(feature_models),
+                    [m.__name__ for m in feature_models],
+                )
+                self._pending_model_classes.extend(feature_models)
 
         self._registered_modules[module.name] = module
 
@@ -56,6 +87,73 @@ class ModuleManager:
             module_name=module.name,
             module_type=module.module_type,
         )
+
+    def sync_all_permissions(self) -> None:
+        """
+        Chamado DEPOIS de create_all_pending_tables() — sincroniza
+        Camada 1 + Camada 2 de todo model registrado nesta sessão de
+        boot. Idempotente (core/permissions_sync.py), seguro em todo
+        boot, não só logo após um `generate`.
+        """
+        if not self._pending_permission_sync:
+            return
+        logger.debug(
+            "Sincronizando permissões de %d model(s) registrado(s)...",
+            len(self._pending_permission_sync),
+        )
+        for model_cls, plural in self._pending_permission_sync:
+            sync_model_permissions(model_cls, plural)
+
+    def discover_and_register_addons(self, addons_dir) -> list[str]:
+        """
+        Descoberta a partir do disco — escaneia addons_dir por
+        addon_*/addon.json, importa addon.py, instancia a classe
+        declarada em __module__ (skill 01) e registra.
+
+        Retorna a lista de nomes de Addon registrados.
+        """
+        import importlib.util
+        import json
+        from pathlib import Path
+
+        addons_dir = Path(addons_dir)
+        registered = []
+
+        if not addons_dir.is_dir():
+            logger.debug("Pasta de addons não existe: %s", addons_dir)
+            return registered
+
+        for addon_dir in sorted(addons_dir.glob("addon_*")):
+            manifest_path = addon_dir / "addon.json"
+            addon_py_path = addon_dir / "addon.py"
+
+            if not manifest_path.exists() or not addon_py_path.exists():
+                logger.debug("Ignorando %s (sem addon.json ou addon.py)", addon_dir.name)
+                continue
+
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+            module_name = f"_tesseract_dynamic_{addon_dir.name}"
+            spec = importlib.util.spec_from_file_location(module_name, addon_py_path)
+            py_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(py_module)
+
+            class_name = getattr(py_module, "__module__", None)
+            if not class_name or not hasattr(py_module, class_name):
+                logger.warning(
+                    "%s: __module__ não declarado ou classe não encontrada — ignorando.",
+                    addon_dir.name,
+                )
+                continue
+
+            addon_class = getattr(py_module, class_name)
+            addon_instance = addon_class(manifest)
+
+            self.register_module(addon_instance)
+            registered.append(addon_instance.name)
+            logger.info("Addon descoberto e registrado: %s", addon_instance.name)
+
+        return registered
 
     def create_all_pending_tables(self) -> None:
         """

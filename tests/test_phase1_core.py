@@ -31,7 +31,11 @@ def test_health_endpoint_responde_ok(client):
     body = resp.get_json()
     assert body["status"] == "ok"
     assert body["project"] == "Tesseract"
-    assert body["active_modules"] == []
+    # Desde a Fase 5, addon_brewstation é descoberto automaticamente a
+    # partir de addons/ — não dá mais para assumir "nenhum módulo ativo".
+    # O que importa aqui é só confirmar que o endpoint responde e que a
+    # chave existe (lista, não erro).
+    assert isinstance(body["active_modules"], list)
 
 
 def test_tabelas_de_core_sao_criadas(app):

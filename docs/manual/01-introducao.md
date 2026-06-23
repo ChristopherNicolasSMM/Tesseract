@@ -1,13 +1,11 @@
 # 01 — Introdução
 
-> Esqueleto — preencher quando houver uma tela de usuário real para descrever.
+O Tesseract é o sistema que vai te ajudar a gerenciar sua cervejaria
+caseira no dia a dia — controle de receitas, estoque, banco de
+levedura, e (no futuro) dispositivos conectados como freezers e
+sensores de temperatura.
 
-Este é o manual de uso do Tesseract — a plataforma que vai gerenciar a
-cervejaria caseira (e, no futuro, outros domínios). Aqui você encontra
-como usar o sistema no dia a dia, sem termos técnicos.
-
-## Documentos relacionados
-
-- [02-primeiros-passos.md](02-primeiros-passos.md)
-- [03-funcionalidades.md](03-funcionalidades.md)
-- [04-perguntas-frequentes.md](04-perguntas-frequentes.md)
+Hoje o sistema ainda está em construção: a primeira parte funcionando
+é o **Banco de Levedura**, onde você cadastra e acompanha suas cepas.
+As demais telas (receitas, estoque, dispositivos) chegam nas próximas
+atualizações.

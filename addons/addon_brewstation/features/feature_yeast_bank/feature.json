@@ -1,0 +1,11 @@
+{
+  "name": "feature_yeast_bank",
+  "label": "Yeast Bank",
+  "version": "1.0.0",
+  "description": "Congelamento de cepas, slants e decaimento vital",
+  "table_prefix_suffix": "yeastbank",
+  "enabled": true,
+  "requires": [],
+  "provides": ["yeast_strain_data"],
+  "settings": {}
+}
