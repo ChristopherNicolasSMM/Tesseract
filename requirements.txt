@@ -1,0 +1,5 @@
+# Fase 0 — só o essencial para o Core subir.
+# Novas dependências entram conforme cada fase (SQLAlchemy na Fase 1,
+# Flask-Login/RBAC na Fase 2, etc.) — nunca adicionar dependência
+# "adiantada" para uma fase futura.
+Flask>=3.0,<4.0

@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.db
+*.sqlite3
+.env
+instance/
+.vscode/
+.idea/
+docs/skills/.DS_Store
