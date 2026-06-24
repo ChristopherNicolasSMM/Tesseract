@@ -28,42 +28,98 @@
         </form>
       </div>
 
-      <form method="get" class="row g-2 mb-3">
-        <div class="col-md-4">
+      <form method="get" class="row g-2 mb-3 align-items-end">
+        <div class="col-md-3">
           <input type="text" name="q" class="form-control" placeholder="Buscar..." value="{{ search }}">
         </div>
+
+        {% for field in boolean_fields %}
         <div class="col-md-2">
-          <button class="btn btn-outline-primary w-100" type="submit"><i class="bi bi-search"></i> Filtrar</button>
+          <label class="form-label small mb-0">{{ field.replace('_', ' ').title() }}</label>
+          <select name="filter_{{ field }}" class="form-select form-select-sm">
+            <option value="">Todos</option>
+            <option value="true" {% if request_args.get('filter_' + field) == 'true' %}selected{% endif %}>Sim</option>
+            <option value="false" {% if request_args.get('filter_' + field) == 'false' %}selected{% endif %}>Não</option>
+          </select>
         </div>
-        {% if search %}
+        {% endfor %}
+
+        {% for field in choices_fields %}
         <div class="col-md-2">
-          <a href="{{ url_for('yeast_strains.manage') }}" class="btn btn-outline-secondary w-100"><i class="bi bi-x-circle"></i> Limpar</a>
+          <label class="form-label small mb-0">{{ field.replace('_', ' ').title() }}</label>
+          <select name="filter_{{ field }}" class="form-select form-select-sm">
+            <option value="">Todos</option>
+            {% for opt in choices_options.get(field, []) %}
+            <option value="{{ opt }}" {% if request_args.get('filter_' + field) == opt %}selected{% endif %}>{{ opt }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endfor %}
+
+        <div class="col-md-1">
+          <button class="btn btn-outline-primary w-100" type="submit"><i class="bi bi-search"></i></button>
+        </div>
+        {% if search or boolean_fields or choices_fields %}
+        <div class="col-md-1">
+          <a href="{{ url_for('yeast_strains.manage') }}" class="btn btn-outline-secondary w-100"><i class="bi bi-x-circle"></i></a>
         </div>
         {% endif %}
-        <div class="col-md-2 ms-auto">
-          <span class="badge bg-secondary"><i class="bi bi-list-ul me-1"></i>{{ total }} registro(s)</span>
+
+        <div class="col-md-auto ms-auto d-flex gap-2">
+          <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#colunasConfig">
+            <i class="bi bi-table"></i> Colunas
+          </button>
+          <a class="btn btn-outline-success btn-sm" href="{{ url_for('yeast_strains.export_csv', **request_args) }}"><i class="bi bi-filetype-csv"></i> CSV</a>
+          <a class="btn btn-outline-success btn-sm" href="{{ url_for('yeast_strains.export_xlsx', **request_args) }}"><i class="bi bi-file-earmark-excel"></i> Excel</a>
+          <span class="badge bg-secondary align-self-center"><i class="bi bi-list-ul me-1"></i>{{ total }} registro(s)</span>
         </div>
       </form>
 
-      <table class="table table-striped">
-        <thead><tr><th>ID</th><th>Resumo</th><th>Ações</th></tr></thead>
-        <tbody>
-          {% for item in items %}
-          <tr>
-            <td>{{ item.id }}</td>
-            <td>{{ item.to_dict().get(summary_field) }}</td>
-            <td>
-              <a href="{{ url_for('yeast_strains.detail', id=item.id) }}" class="btn btn-sm btn-outline-primary">Ver / Editar</a>
-              <form method="post" action="{{ url_for('yeast_strains.trash', id=item.id) }}" class="d-inline" onsubmit="return confirm('Mover para a lixeira?');">
-                <button type="submit" class="btn btn-sm btn-outline-danger">Lixeira</button>
-              </form>
-            </td>
-          </tr>
-          {% else %}
-          <tr><td colspan="3" class="text-muted">Nenhum registro encontrado.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <div class="collapse mb-3" id="colunasConfig">
+        <div class="card card-body">
+          <form method="post" action="{{ url_for('yeast_strains.save_column_prefs') }}">
+            <p class="small text-muted mb-2">Escolha quais colunas aparecem na lista (só pra você).</p>
+            <div class="d-flex flex-wrap gap-3 mb-2">
+              {% for field in fields %}
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="columns" id="col_{{ field }}" value="{{ field }}" {% if field in visible_columns %}checked{% endif %}>
+                <label class="form-check-label" for="col_{{ field }}">{{ field.replace('_', ' ').title() }}</label>
+              </div>
+              {% endfor %}
+            </div>
+            <button class="btn btn-primary btn-sm" type="submit">Salvar colunas</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>ID</th>
+              {% for col in visible_columns %}<th>{{ col.replace('_', ' ').title() }}</th>{% endfor %}
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+            {% set data = item.to_dict() %}
+            <tr>
+              <td>{{ item.id }}</td>
+              {% for col in visible_columns %}<td>{{ data.get(col) }}</td>{% endfor %}
+              <td>
+                <a href="{{ url_for('yeast_strains.detail', id=item.id) }}" class="btn btn-sm btn-outline-primary">Ver / Editar</a>
+                <form method="post" action="{{ url_for('yeast_strains.trash', id=item.id) }}" class="d-inline" onsubmit="return confirm('Mover para a lixeira?');">
+                  <button type="submit" class="btn btn-sm btn-outline-danger">Lixeira</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="{{ visible_columns|length + 2 }}" class="text-muted">Nenhum registro encontrado.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
 
       {% if pages > 1 %}
       <nav>

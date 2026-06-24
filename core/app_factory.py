@@ -53,6 +53,7 @@ def create_app(env: str | None = None) -> Flask:
         from model.core import permission, role, associations, user  # noqa: F401
         from model.core import code_snapshot  # noqa: F401
         from model.core import transaction  # noqa: F401
+        from model.core import user_list_preference  # noqa: F401
 
         app.module_manager.discover_and_register_addons(project_root / "addons")
         app.module_manager.apply_template_loader()

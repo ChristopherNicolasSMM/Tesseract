@@ -4,10 +4,15 @@ addons/addon_brewstation/features/feature_device_manager/controller/emulated_dev
 Rotas web (HTML) — gerado pelo CrudGen. NÃO editar diretamente.
 Customizações via emulated_devices_hooks.py (nunca sobrescrito).
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash
-from flask_login import login_required
+import csv
+import io
 
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
+from flask_login import login_required, current_user
+
+from core.db import db
 from core.permissions import permission_required
+from annotations import get_choices_fields
 from addons.addon_brewstation.features.feature_device_manager.services.emulated_device_service import EmulatedDeviceService
 from addons.addon_brewstation.features.feature_device_manager.model.emulated_device import EmulatedDevice
 
@@ -30,22 +35,77 @@ _SUMMARY_FIELD = next(
     _EDITABLE_FIELDS[0] if _EDITABLE_FIELDS else "id",
 )
 
+# Campos booleanos — viram filtro <select> Todos/Sim/Não (smart-list-lite).
+_BOOLEAN_FIELDS = [
+    c.name for c in EmulatedDevice.__table__.columns
+    if c.name in _EDITABLE_FIELDS and c.type.python_type is bool
+]
+
+# Campos com @choices no model — viram filtro <select> com valores
+# distintos do banco (skill 00/04, anotação já existia desde a Fase 4
+# mas nunca tinha sido conectada a nenhum filtro de verdade).
+_CHOICES_FIELDS = [f["field"] for f in get_choices_fields(EmulatedDevice) if f["field"] in _EDITABLE_FIELDS]
+
+_LIST_KEY = "emulated_devices"
+
+
+def _get_column_prefs() -> list[str]:
+    """
+    Colunas visíveis na lista, por usuário — default é só o campo de
+    resumo (mantém o comportamento anterior pra quem nunca configurou).
+    """
+    from model.core.user_list_preference import UserListPreference
+
+    pref = UserListPreference.query.filter_by(user_id=current_user.id, list_key=_LIST_KEY).first()
+    if pref and pref.visible_columns_json:
+        # Filtra qualquer coluna que tenha deixado de existir (model mudou)
+        return [c for c in pref.visible_columns_json if c in _EDITABLE_FIELDS] or [_SUMMARY_FIELD]
+    return [_SUMMARY_FIELD]
+
+
+def _apply_filters(query):
+    """
+    Compartilhado entre manage() e os exports — busca textual no campo
+    de resumo + filtros tipados (boolean/choices) lidos da querystring.
+    """
+    search = (request.args.get("q") or "").strip()
+    if search:
+        search_field = getattr(EmulatedDevice, _SUMMARY_FIELD, None)
+        if search_field is not None:
+            query = query.filter(search_field.ilike(f"%{search}%"))
+
+    for field in _BOOLEAN_FIELDS:
+        value = request.args.get(f"filter_{field}")
+        if value in ("true", "false"):
+            query = query.filter(getattr(EmulatedDevice, field).is_(value == "true"))
+
+    for field in _CHOICES_FIELDS:
+        value = request.args.get(f"filter_{field}")
+        if value:
+            query = query.filter(getattr(EmulatedDevice, field) == value)
+
+    return query
+
+
+def _choices_options() -> dict:
+    """Valores distintos do banco para cada campo com @choices."""
+    options = {}
+    for field in _CHOICES_FIELDS:
+        column = getattr(EmulatedDevice, field)
+        rows = db.session.query(column).filter(column.isnot(None)).distinct().order_by(column).all()
+        options[field] = [r[0] for r in rows]
+    return options
+
 
 @emulated_devices_bp.route("/", methods=["GET"])
 @login_required
 @permission_required("emulated_devices.list")
 def manage():
-    from flask import request
-
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
     search = (request.args.get("q") or "").strip()
 
-    query = EmulatedDevice.query.filter(EmulatedDevice.is_deleted.is_(False))
-    if search:
-        search_field = getattr(EmulatedDevice, _SUMMARY_FIELD, None)
-        if search_field is not None:
-            query = query.filter(search_field.ilike(f"%{search}%"))
+    query = _apply_filters(EmulatedDevice.query.filter(EmulatedDevice.is_deleted.is_(False)))
 
     total = query.count()
     items = query.order_by(EmulatedDevice.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
@@ -55,6 +115,79 @@ def manage():
         "emulated_devices/manage.html",
         items=items, label="Dispositivo Emulado", fields=_EDITABLE_FIELDS, summary_field=_SUMMARY_FIELD,
         page=page, pages=pages, total=total, per_page=per_page, search=search,
+        visible_columns=_get_column_prefs(),
+        boolean_fields=_BOOLEAN_FIELDS, choices_fields=_CHOICES_FIELDS,
+        choices_options=_choices_options(), request_args=request.args,
+    )
+
+
+@emulated_devices_bp.route("/column-prefs", methods=["POST"])
+@login_required
+@permission_required("emulated_devices.list")
+def save_column_prefs():
+    from model.core.user_list_preference import UserListPreference
+
+    selected = [f for f in request.form.getlist("columns") if f in _EDITABLE_FIELDS]
+    if not selected:
+        selected = [_SUMMARY_FIELD]
+
+    pref = UserListPreference.query.filter_by(user_id=current_user.id, list_key=_LIST_KEY).first()
+    if not pref:
+        pref = UserListPreference(user_id=current_user.id, list_key=_LIST_KEY)
+        db.session.add(pref)
+    pref.visible_columns_json = selected
+    db.session.commit()
+
+    flash("Colunas atualizadas.", "success")
+    return redirect(url_for("emulated_devices.manage"))
+
+
+@emulated_devices_bp.route("/export.csv", methods=["GET"])
+@login_required
+@permission_required("emulated_devices.list")
+def export_csv():
+    query = _apply_filters(EmulatedDevice.query.filter(EmulatedDevice.is_deleted.is_(False)))
+    items = query.order_by(EmulatedDevice.id.desc()).all()
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["id"] + _EDITABLE_FIELDS)
+    for item in items:
+        data = item.to_dict()
+        writer.writerow([data.get("id")] + [data.get(f) for f in _EDITABLE_FIELDS])
+
+    return Response(
+        buffer.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={_LIST_KEY}.csv"},
+    )
+
+
+@emulated_devices_bp.route("/export.xlsx", methods=["GET"])
+@login_required
+@permission_required("emulated_devices.list")
+def export_xlsx():
+    from openpyxl import Workbook
+
+    query = _apply_filters(EmulatedDevice.query.filter(EmulatedDevice.is_deleted.is_(False)))
+    items = query.order_by(EmulatedDevice.id.desc()).all()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Dispositivo Emulado"[:31]  # limite do Excel pro nome da aba
+    ws.append(["id"] + _EDITABLE_FIELDS)
+    for item in items:
+        data = item.to_dict()
+        ws.append([data.get("id")] + [str(data.get(f)) if data.get(f) is not None else "" for f in _EDITABLE_FIELDS])
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    return Response(
+        buffer.getvalue(),
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={_LIST_KEY}.xlsx"},
     )
 
 

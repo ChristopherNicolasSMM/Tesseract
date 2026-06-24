@@ -132,9 +132,44 @@ class AutomationRuleLogService:
 
     def _apply_fields(self, obj, data: dict) -> None:
         data = _hook("pbo_apply_fields")(obj, data) or data
+        columns = {c.name: c for c in obj.__table__.columns}
         for key, value in data.items():
             if key in _READONLY or not hasattr(obj, key):
                 continue
+            value = self._coerce_value(columns.get(key), value)
             setattr(obj, key, value)
         _hook("pai_apply_fields")(obj, data)
         obj.updated_at = datetime.now(timezone.utc)
+
+    @staticmethod
+    def _coerce_value(column, value):
+        """
+        Dados de formulário HTML chegam sempre como string — sem isso,
+        qualquer coluna boolean levanta `TypeError: Not a boolean
+        value: 'true'` ao tentar salvar (bug real encontrado só ao
+        testar filtro/checkbox de verdade, não em uso via API JSON,
+        que já manda o tipo certo).
+        """
+        if column is None or not isinstance(value, str):
+            return value
+
+        try:
+            python_type = column.type.python_type
+        except (NotImplementedError, AttributeError):
+            return value
+
+        if python_type is bool:
+            return value.strip().lower() in ("true", "1", "on", "yes", "sim")
+        if python_type is int and value.strip() != "":
+            try:
+                return int(value)
+            except ValueError:
+                return value
+        if python_type is float and value.strip() != "":
+            try:
+                return float(value)
+            except ValueError:
+                return value
+        if value == "":
+            return None
+        return value

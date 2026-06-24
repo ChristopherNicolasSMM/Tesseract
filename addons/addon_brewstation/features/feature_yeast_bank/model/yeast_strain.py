@@ -15,11 +15,12 @@ central e mais simples de yeast_bank.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length, permission
+from annotations import label, plural, required, max_length, permission, choices
 
 
 @label("Cepa de Levedura")
 @plural("yeast_strains")
+@choices("status", label="Status")
 @required("name", message="Nome da cepa é obrigatório")
 @max_length("name", 200)
 @permission(

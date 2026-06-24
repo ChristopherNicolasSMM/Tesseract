@@ -65,10 +65,19 @@
 - [x] `core/cli.py` (`flask init-admin`) — resolve o bootstrap do primeiro
       usuário (toda a API é admin-only, então precisa nascer por fora)
 - [x] 14 testes automatizados (`tests/test_phase2_rbac.py`)
-- [ ] Hooks `pbo_*`/`pai_*` (padrão de customização sem editar gerado) —
-      ainda não aplicável: só existem para código *gerado* pelo CrudGen,
-      que entra na Fase 4. Registrado aqui para não esquecer de aplicar
-      no `users.py` gerado quando o CrudGen existir
+- [x] **Esclarecido (não é mais um pendente)**: o padrão `pbo_*`/`pai_*`
+      em si está implementado e funcionando desde a Fase 4 (todo
+      `service.py` gerado tem `_hook("pbo_apply_fields")`/
+      `_hook("pai_apply_fields")`, com `*_hooks.py` real, nunca
+      sobrescrito). O item original previa "aplicar no `users.py`
+      gerado quando o CrudGen existir" — **essa premissa estava errada
+      desde a Fase 2**: `User` é Core e nunca passa pelo CrudGen (já
+      documentado no próprio cabeçalho de
+      `api/routes/core/admin/users.py`), então não existe nem vai
+      existir um `users.py` gerado. Se `admin_users.py`/`admin_roles.py`
+      (código de Core escrito à mão) precisarem de um ponto de
+      customização equivalente no futuro, será um mecanismo próprio,
+      não o `pbo_*`/`pai_*` do CrudGen.
 - [ ] **Decisão tomada**: `RegistrationRequest` (auto-cadastro) **entra
       no sistema**, mas será detalhado e implementado pelo Christopher
       diretamente — não faz parte das entregas desta conversa.
@@ -464,13 +473,40 @@ simplificada, inspirada no componente `smart_list` do PyTeca).
       bloqueio de exclusão com usuário atribuído, diff real
       (`-linha`/`+linha`) e restauração gravando no disco de verdade
 
-### Decisões registradas — fora do escopo desta rodada
+### Decisões registradas — fora do escopo desta rodada (resolvidas depois)
 
-- [ ] Export (Excel/CSV/PDF) das listas — peça do `smart_list` do
-      PyTeca explicitamente deixada de fora
-- [ ] Configuração de colunas (mostrar/ocultar, reordenar, salvar
-      layout por usuário) — mesma decisão
-- [ ] Filtros por tipo (select/boolean), só busca textual por ora
+- [x] **Resolvido (CSV + Excel; PDF deixado de fora)**: Export das
+      listas — botões na tela, respeitam filtro/busca ativos, nunca
+      incluem registros na lixeira. `openpyxl` adicionado ao
+      `requirements.txt`. PDF não implementado nesta rodada — exportar
+      tabela tabular pra PDF tem menos valor prático que CSV/Excel
+      (que abrem direto em planilha); revisitar se houver pedido real.
+- [x] **Resolvido (mostrar/ocultar; reordenar por drag-and-drop
+      deixado de fora)**: Configuração de colunas — checkbox por
+      campo, salvo por usuário+lista
+      (`tesseract_user_list_preference`, tabela nova, sem migration
+      necessária). Lista volta ao padrão (só o campo de resumo) se o
+      usuário nunca configurou. Ordem das colunas selecionadas segue a
+      ordem de declaração no model — reordenar via drag-and-drop
+      precisaria de JS adicional, fica para quando houver pedido real.
+- [x] **Resolvido**: Filtros tipados — campos `Boolean` viram `<select>`
+      Todos/Sim/Não automaticamente (introspecção de coluna); campos
+      anotados com `@choices` (existia desde a Fase 4, nunca tinha sido
+      conectado a nada) viram `<select>` com valores distintos do
+      banco. Aplicado em `DeviceFunction.category`, `YeastStrain.status`,
+      `BrewSession.status`, `BrewSessionAlarm.severity`.
+
+### Bug real encontrado ao validar filtro booleano
+
+`service.py.j2` (`_apply_fields`) fazia `setattr(obj, key, value)`
+direto com a string crua do formulário HTML — **qualquer coluna
+`Boolean` editada via tela sempre falhava** com
+`TypeError: Not a boolean value: 'true'`. Nunca tinha aparecido porque
+todo teste anterior usava a API JSON (que já manda o tipo certo), não
+um formulário HTML de verdade votando booleano. Corrigido com
+`_coerce_value()` — converte string vinda de formulário pra
+bool/int/float conforme o tipo real da coluna, antes do `setattr`.
+Afeta as 24 entidades (regeneradas).
 
 ## Ajuste transversal — Migrations reais (Flask-Migrate/Alembic) + 2 bugs reais corrigidos
 

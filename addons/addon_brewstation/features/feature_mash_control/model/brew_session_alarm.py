@@ -6,11 +6,12 @@ Alarme disparado durante uma sessão.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required
+from annotations import label, plural, required, choices
 
 
 @label("Alarme da Sessão")
 @plural("brew_session_alarms")
+@choices("severity", label="Severidade")
 @required("message", message="Mensagem do alarme é obrigatória")
 class BrewSessionAlarm(db.Model):
     __tablename__ = "session_alarm"
