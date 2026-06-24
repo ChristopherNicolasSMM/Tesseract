@@ -117,22 +117,27 @@ de logout explícito. Coberto por
       manifesto real em disco, fora da suíte de testes)
 - [x] 8 testes (`tests/test_phase4_crudgen.py`) + 23 das fases anteriores
       = 31 passando
-- [ ] **Decisão registrada — divergência deliberada do PyTeca**: o
+- [x] **Decisão registrada — divergência deliberada do PyTeca**: o
       `service.py` gerado usa soft-delete `is_deleted`/`deleted_at`
       (skill 02), não o workflow de `Status` Enum com
       draft/publish/trash do PyTeca original. Filtros `@choices`/
       `distinct_values()` e autosave de rascunho **não foram portados**
-      nesta fase — ficam para quando um caso de uso real (Fase 5/6)
-      pedir.
-- [ ] **Decisão registrada — onde o prefixo é aplicado**: skill 02 diz
-      "no momento do registro" (sugerindo `ModuleManager`); implementei
-      no momento da GERAÇÃO (CrudGen), efeito prático equivalente com
-      bem menos máquina, já que ainda não existem classes reais de
-      Addon/Feature para o `ModuleManager` descobrir (chegam na Fase 5).
-      Revisitar se a Fase 5 expuser um caso que isso não cubra.
-- [ ] Templates HTML gerados são MVP deliberadamente simples (Bootstrap
-      puro, sem o visual completo do Nice Admin) — refinar na Fase 5,
-      quando houver de fato uma tela sendo usada.
+      — decisão mantida; o que existe hoje de filtro/paginação é o
+      smart-list-lite (ver ajuste transversal correspondente), escopo
+      ainda menor que o `@choices` completo do PyTeca.
+- [x] **Resolvido na Fase 5**: a aplicação do prefixo só na GERAÇÃO
+      (CrudGen) não sobrevivia a um reboot normal do app — exatamente o
+      caso que este item previa "revisitar". Corrigido movendo a
+      aplicação para `ModuleManager.register_module()`, que é onde a
+      skill 02 sempre disse que deveria estar. Ver Fase 5, "3 bugs
+      reais encontrados".
+- [x] **Superado**: o `form_modal.html` mencionado aqui foi **removido**
+      na rodada de validação de cliques — estava órfão (nunca incluído
+      em nenhum template). O formulário de criação/edição hoje é
+      embutido e funcional em `manage.html`/`detail.html`, com filtro e
+      paginação (smart-list-lite). Visual completo do Nice Admin (mais
+      do que os componentes Bootstrap básicos já usados) continua não
+      refinado.
 
 ## Ajuste transversal — `run.py`
 
@@ -197,14 +202,18 @@ de logout explícito. Coberto por
 
 ### Decisões registradas — escopo desta fatia
 
-- [ ] Migradas apenas `YeastStrain` nesta Fase 5. As 7 tabelas restantes
-      de `yeast_bank` (`YeastBankItem`, `YeastStarterLog`,
-      `YeastStorageDevice`, `YeastStorageReading`, `YeastBankConfig`,
-      `YeastCellCountHistory`, `YeastBankEvent`) ficam para a "Fase 5b"
-      — mesma Feature, mais entidades, sem trabalho de arquitetura novo
-      (o pipeline já está provado).
-- [ ] Templates HTML gerados continuam MVP (Bootstrap puro) — Nice
-      Admin real entra quando a tela for de fato usada.
+- [x] **Concluído na Fase 5b**: migradas apenas `YeastStrain` nesta
+      Fase 5 originalmente; as 7 tabelas restantes de `yeast_bank`
+      (`YeastBankItem`, `YeastStarterLog`, `YeastStorageDevice`,
+      `YeastStorageReading`, `YeastBankConfig`, `YeastCellCountHistory`,
+      `YeastBankEvent`) foram migradas na "Fase 5b" (seção abaixo) —
+      mesma Feature, mais entidades, sem trabalho de arquitetura novo,
+      como previsto.
+- [x] **Superado**: templates HTML MVP (Bootstrap puro) foram
+      substituídos por formulários funcionais com filtro/paginação
+      (smart-list-lite) na rodada de validação de cliques — ver ajuste
+      transversal correspondente. Visual completo do Nice Admin
+      continua não refinado.
 - [ ] Ação de negócio `yeast_strains.recalculate_viability` tem só a
       permissão sincronizada — a lógica de cálculo de viabilidade em si
       (presente no BrewStation original) não foi portada ainda.
@@ -567,11 +576,16 @@ lacuna já registrada como pendência desde a Fase 1/6.
 
 ## Pendências em aberto (não bloqueiam Fase 0, mas precisam de decisão)
 
-- [ ] Limite de 63 caracteres (Postgres `NAMEDATALEN`) ainda não foi
-      incorporado à skill 02 — ver conversa de arquitetura
-- [ ] Definir se `addon_builder` (Fase 7) e OData (Fase 8) entram antes ou
-      depois das Features Brew restantes, dependendo de prioridade de uso real
+- [x] **Resolvido**: limite de 63 caracteres (Postgres `NAMEDATALEN`)
+      incorporado à skill 02 (margem de segurança: máx. 55 caracteres),
+      checklist da skill 03 atualizado, e **a checagem roda no código**
+      (`core/crudgen/table_prefix.py`, `TableNameTooLongError`) — não é
+      só regra escrita, rejeita a geração antes de chegar ao banco.
+      Testado (`tests/test_phase4_crudgen.py`).
+- [x] **Obsoleto** (a pergunta não se aplica mais): a Fase 6 (Features
+      Brew restantes — `mash_control`/`device_manager`) já foi concluída
+      *antes* da Fase 7 (`addon_builder`) ter avançado, então a ordem já
+      ficou definida na prática, não por uma decisão explícita prévia.
 - [x] **Respondido**: SQLite em dev/test, Postgres obrigatório em
       produção (`TESSERACT_ENV`) — implementado desde a Fase 1
       (`core/config.py`)
-EOF

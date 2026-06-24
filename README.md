@@ -21,12 +21,15 @@ A fusão arquitetural de três projetos anteriores:
 
 > **Versão:** 0.0.1
 
-> **Status atual: Páginas HTML de Core entregues.** Login, home com
-> menu dinâmico (catálogo de Transações) e todas as 24 telas de CRUD
-> já geradas agora renderizam de verdade — corrigido um bug que
-> afetava toda tela HTML desde a Fase 4 (ChoiceLoader nunca estava
-> conectado). Reset de senha de admin via CLI. Próximo: Fase 7b
-> (motor de regras) ou Fase 7c (Designer visual).
+> **Status atual: Validado de ponta a ponta — Core completo +
+> Migrations.** Login, navegação, CRUD com clique real (criar/editar/
+> lixeira/restaurar/excluir), Roles/Permissions, Versionamento
+> (histórico/diff/restauração), tema claro/escuro por usuário, perfil,
+> e filtro/paginação nas listas (smart-list-lite). `Flask-Migrate`
+> integrado — `db.create_all()` nunca altera tabela existente, então
+> qualquer coluna nova exige `python run.py db migrate && db upgrade`
+> a partir de agora. Próximo: Fase 7b (motor de regras) ou Fase 7c
+> (Designer visual).
 
 ---
 
