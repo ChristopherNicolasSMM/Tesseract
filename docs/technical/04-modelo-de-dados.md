@@ -1,10 +1,10 @@
-# 04 — Modelo de Dados (Sistema — tabelas de Core + o que existe hoje)
+# 04 — Modelo de Dados (Sistema — tabelas de Core)
 
-> Cobre só as tabelas de **Core** e a única tabela de domínio existente
-> até a Fase 5 (`tesseract_brewstation_yeastbank_strain`). O ER completo
-> de `yeast_bank` (8 tabelas) entra no
-> `addons/addon_brewstation/features/feature_yeast_bank/docs/technical/04-modelo-de-dados.md`
-> quando a Fase 5b portar o restante.
+> Cobre as tabelas de **Core**. O ER completo de cada domínio vive no
+> próprio Addon/Feature:
+> - `addons/addon_brewstation/features/feature_yeast_bank/docs/technical/04-modelo-de-dados.md` (8 tabelas)
+> - `addons/addon_brewstation/features/feature_device_manager/docs/technical/04-modelo-de-dados.md` (4 tabelas)
+> - `addons/addon_brewstation/features/feature_mash_control/docs/technical/04-modelo-de-dados.md` (12 tabelas)
 
 ```mermaid
 erDiagram
@@ -23,6 +23,7 @@ erDiagram
         bool is_active
         bool is_admin
         string cpf
+        string theme
     }
     tesseract_role {
         int id PK
@@ -52,13 +53,19 @@ erDiagram
         bool is_current
         int parent_snapshot_id FK
     }
-    tesseract_brewstation_yeastbank_strain {
+    tesseract_transaction {
         int id PK
-        string name
-        string family
-        string supplier
-        float daily_viability_loss_pct
-        bool is_deleted
+        string code
+        string label
+        string group
+        string route
+        string permission_required
+        bool is_active
+        bool is_standard
+        string source_module
+    }
+    alembic_version {
+        string version_num PK
     }
 ```
 
@@ -66,14 +73,24 @@ erDiagram
 
 | Tabela | Coluna | Descrição de negócio |
 |---|---|---|
-| `tesseract_user` | `is_admin` | Bypassa toda checagem de `has_permission()` — acesso total |
-| `tesseract_code_snapshot` | `is_current` | Só a versão marcada como atual aparece em consultas de "estado hoje" — histórico fica com `is_current=False` |
+| `tesseract_user` | `is_admin` | Bypassa toda checagem de `has_permission()` |
+| `tesseract_user` | `theme` | `"light"`/`"dark"` — preferência de UI por usuário |
+| `tesseract_code_snapshot` | `is_current` | Só a versão marcada como atual aparece como "estado hoje" |
 | `tesseract_code_snapshot` | `generation_run_id` | Agrupa N arquivos escritos numa mesma execução de `generate()` |
-| `tesseract_brewstation_yeastbank_strain` | `viability_model` | Nome do algoritmo de decaimento de viabilidade (hoje só `linear_decay_default` é usado; o cálculo em si ainda não foi portado) |
+| `tesseract_transaction` | `is_standard` | `True` = catálogo de Core (`TX_*`); `False` = contribuída por Addon/Feature |
+| `tesseract_transaction` | `permission_required` | Nome de Permission real — nunca um tier separado |
+| `alembic_version` | `version_num` | Controlada pelo Flask-Migrate — nunca editar manualmente |
 
 ## Regra de soft-delete
 
-`tesseract_brewstation_yeastbank_strain` segue o padrão `is_deleted`/
-`deleted_at` da skill 02 — `trash`/`restore` alternam a flag,
-`delete_permanent` remove a linha de fato (e só é permitido quando
-`is_deleted=True`).
+Todas as tabelas de domínio (Addon/Feature) seguem `is_deleted`/
+`deleted_at` (skill 02). Tabelas de Core (`tesseract_user`,
+`tesseract_role` etc.) não têm soft-delete — usam `is_active` (User)
+ou são removidas de fato quando vazias de referência (Role).
+
+## Migrations
+
+`db.create_all()` cria tabela nova (Addon/Feature recém-instalado).
+**Nunca altera coluna de tabela já existente** — isso é
+responsabilidade do Flask-Migrate (`python run.py db migrate && db
+upgrade`). Ver `migrations/` na raiz do projeto.

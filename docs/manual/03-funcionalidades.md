@@ -1,27 +1,36 @@
 # 03 — Funcionalidades
 
-## Banco de Levedura
+## Banco de Levedura, Dispositivos, Receitas, Sessões
 
-### Cadastrar uma cepa
+Cada área segue o mesmo padrão: lista de registros, um botão "+" pra
+cadastrar um novo (o formulário fica escondido até você clicar), busca
+por texto, e em cada registro você pode editar, mover pra lixeira,
+restaurar, ou excluir de vez (só depois de já estar na lixeira).
 
-Na lista de cepas, clique em "Nova Cepa" e preencha:
-- **Nome** (obrigatório) — ex.: "US-05"
-- **Família** — ex.: "Ale", "Lager"
-- **Fornecedor** — ex.: "Fermentis"
-- **Parâmetros de viabilidade** — usados para estimar como a cepa
-  perde força ao longo do tempo (preenchimento avançado, pode deixar
-  no padrão se não souber).
+## Meu Perfil
 
-### Mover para a lixeira / restaurar
+Edite seus próprios dados, troque sua senha (precisa informar a senha
+atual), e escolha entre tema claro ou escuro — fica salvo só pra você,
+não afeta os outros usuários.
 
-Toda cepa pode ser movida para a lixeira (não aparece mais na lista
-principal, mas não é apagada) e restaurada depois, se precisar.
+## Gestão de Usuários (administrador)
 
-### Excluir permanentemente
+Cadastre usuários, edite dados, atribua Papéis, redefina senha de
+qualquer um, e ative/desative acesso.
 
-Só é possível excluir de vez uma cepa que já está na lixeira — é uma
-proteção contra exclusão acidental.
+## Papéis e Permissões (administrador)
 
-> As demais funcionalidades (receitas, estoque, dispositivos) ainda
-> não existem nesta versão — esta seção cresce conforme forem
-> implementadas.
+Crie grupos de acesso (Papéis) e marque quais permissões cada um tem,
+organizadas por área do sistema. Depois, atribua o Papel a um ou mais
+usuários em "Gestão de Usuários".
+
+## Versionamento (administrador)
+
+Toda vez que uma tela/funcionalidade é gerada ou alterada pelo
+sistema, uma cópia da versão anterior fica guardada. Em
+"Versionamento" você vê o histórico, compara duas versões lado a lado,
+e pode voltar pra uma versão anterior se precisar.
+
+> As demais funcionalidades (motor de regras, montagem visual de
+> tela) ainda não existem nesta versão — esta seção cresce conforme
+> forem implementadas.

@@ -46,19 +46,33 @@ A fusão arquitetural de três projetos anteriores:
 
 ### Documentação técnica (sistema)
 
-- [`docs/technical/01-visao-geral.md`](docs/technical/01-visao-geral.md)
-- `docs/technical/02-diagrama-c4.md` *(a criar)*
-- `docs/technical/03-fluxos.md` *(a criar)*
-- `docs/technical/04-modelo-de-dados.md` *(a criar)*
-- `docs/technical/05-casos-de-uso.md` *(a criar)*
-- `docs/technical/06-manutencao-e-expansao.md` *(a criar)*
+- [01 — Visão Geral](docs/technical/01-visao-geral.md)
+- [02 — Diagrama C4](docs/technical/02-diagrama-c4.md)
+- [03 — Fluxos](docs/technical/03-fluxos.md)
+- [04 — Modelo de Dados](docs/technical/04-modelo-de-dados.md)
+- [05 — Casos de Uso](docs/technical/05-casos-de-uso.md)
+- [06 — Manutenção e Expansão](docs/technical/06-manutencao-e-expansao.md)
 
-### Manual do usuário final
+### Manual do usuário final (sistema)
 
-- [`docs/manual/01-introducao.md`](docs/manual/01-introducao.md)
-- `docs/manual/02-primeiros-passos.md` *(a criar)*
-- `docs/manual/03-funcionalidades.md` *(a criar)*
-- `docs/manual/04-perguntas-frequentes.md` *(a criar)*
+- [01 — Introdução](docs/manual/01-introducao.md)
+- [02 — Primeiros Passos](docs/manual/02-primeiros-passos.md)
+- [03 — Funcionalidades](docs/manual/03-funcionalidades.md)
+- [04 — Perguntas Frequentes](docs/manual/04-perguntas-frequentes.md)
+
+### Documentação por Addon / Feature
+
+- **`addon_brewstation`** — [técnica](addons/addon_brewstation/docs/technical/01-visao-geral.md) · [manual](addons/addon_brewstation/docs/manual/01-introducao.md)
+  - **`feature_yeast_bank`** (8 entidades) — [técnica](addons/addon_brewstation/features/feature_yeast_bank/docs/technical/01-visao-geral.md) · [modelo de dados](addons/addon_brewstation/features/feature_yeast_bank/docs/technical/04-modelo-de-dados.md) · [manual](addons/addon_brewstation/features/feature_yeast_bank/docs/manual/01-introducao.md)
+  - **`feature_device_manager`** (4 entidades) — [técnica](addons/addon_brewstation/features/feature_device_manager/docs/technical/01-visao-geral.md) · [modelo de dados](addons/addon_brewstation/features/feature_device_manager/docs/technical/04-modelo-de-dados.md) · [manual](addons/addon_brewstation/features/feature_device_manager/docs/manual/01-introducao.md)
+  - **`feature_mash_control`** (12 entidades) — [técnica](addons/addon_brewstation/features/feature_mash_control/docs/technical/01-visao-geral.md) · [modelo de dados](addons/addon_brewstation/features/feature_mash_control/docs/technical/04-modelo-de-dados.md) · [manual](addons/addon_brewstation/features/feature_mash_control/docs/manual/01-introducao.md)
+
+### Migrations
+
+- [`migrations/`](migrations/) — Flask-Migrate/Alembic. Baseline já
+  stampada; toda alteração de coluna em tabela existente precisa de
+  `python run.py db migrate && db upgrade` (ver
+  [docs/technical/06-manutencao-e-expansao.md](docs/technical/06-manutencao-e-expansao.md))
 
 ### Planejamento
 

@@ -1,11 +1,11 @@
 # 01 — Introdução
 
 O Tesseract é o sistema que vai te ajudar a gerenciar sua cervejaria
-caseira no dia a dia — controle de receitas, estoque, banco de
-levedura, e (no futuro) dispositivos conectados como freezers e
-sensores de temperatura.
+caseira no dia a dia — receitas, planta de brassagem, sessões de
+brassagem, dispositivos conectados (freezers, sensores de
+temperatura) e banco de levedura.
 
-Hoje o sistema ainda está em construção: a primeira parte funcionando
-é o **Banco de Levedura**, onde você cadastra e acompanha suas cepas.
-As demais telas (receitas, estoque, dispositivos) chegam nas próximas
-atualizações.
+Funcionando hoje: Banco de Levedura, Dispositivos, Receitas e Sessões
+de Brassagem (cadastro e acompanhamento — sem automação de
+temperatura por sensor ainda), além de Usuários/Papéis e
+Versionamento para administradores.
