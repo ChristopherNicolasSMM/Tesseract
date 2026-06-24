@@ -79,6 +79,12 @@ python run.py init-admin --username admin --password admin123
 # Gerar CRUD a partir de um model anotado (Fase 4 — CrudGen)
 python run.py generate --model caminho/para/model.py --addon brewstation [--feature yeast_bank] [--overwrite]
 
+# Migrations — sempre que ALTERAR coluna de um model que JÁ tinha
+# tabela criada (db.create_all() nunca faz ALTER, só CREATE de tabela
+# nova). Addon/Feature/model novo não precisa disso.
+python run.py db migrate -m "descrição da mudança"
+python run.py db upgrade
+
 # Outros comandos úteis (built-in do Flask, vêm de graça)
 python run.py routes      # lista todas as rotas registradas
 python run.py shell       # shell Python com o app já carregado

@@ -40,11 +40,21 @@ cli = FlaskGroup(
 )
 def start(host, port, debug):
     """Inicia o servidor de desenvolvimento (equivalente a `flask run`)."""
+    import os
+
+    # FlaskGroup força FLASK_RUN_FROM_CLI=true em TODA invocação (não só
+    # `flask run`), pra evitar bloquear o terminal por engano quando
+    # app.run() aparece sem guarda de __main__ em algum import. Como aqui
+    # é explicitamente um comando pra rodar o servidor, removemos a
+    # variável antes de chamar app.run() — senão ele vira no-op silencioso
+    # (gera o aviso "Ignoring a call to 'app.run()'...").
+    os.environ.pop("FLASK_RUN_FROM_CLI", None)
+
     app = create_app()
     if debug is None:
-        debug = bool(app.config.get("DEBUG", True))#Padrão ativo
+        debug = bool(app.config.get("DEBUG", True))  # Padrão ativo
     app.run(host=host, port=port, debug=debug)
 
 
 if __name__ == "__main__":
-    start()
+    cli()

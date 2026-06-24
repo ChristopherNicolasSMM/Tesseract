@@ -463,6 +463,59 @@ simplificada, inspirada no componente `smart_list` do PyTeca).
       layout por usuário) — mesma decisão
 - [ ] Filtros por tipo (select/boolean), só busca textual por ora
 
+## Ajuste transversal — Migrations reais (Flask-Migrate/Alembic) + 2 bugs reais corrigidos
+
+Disparado por um erro real em ambiente do Christopher: `no such
+column: tesseract_user.theme`. Causa raiz: `db.create_all()` nunca
+altera tabela já existente, só cria a que não existe — exatamente a
+lacuna já registrada como pendência desde a Fase 1/6.
+
+### Correção estrutural: Flask-Migrate integrado
+
+- [x] `core/db.py` — `migrate = Migrate()`, `migrate.init_app(app, db)`
+- [x] `migrations/` — baseline gerada e commitada (schema completo
+      atual, stampada como "já aplicada" — `db.create_all()` continua
+      criando tabela de Addon novo no primeiro boot; Alembic só entra
+      para ALTER de tabela já existente)
+- [x] **Testado de ponta a ponta**: adicionei uma coluna de teste,
+      `flask db migrate` detectou exatamente
+      `"Detected added column 'tesseract_user.teste_coluna_nova'"` (nada
+      mais), `flask db upgrade` aplicou de verdade, confirmado lendo o
+      schema real do SQLite. Revertido depois do teste.
+- [x] **Fluxo daqui pra frente, sempre que adicionar/alterar coluna de
+      um model já existente**:
+      ```
+      python run.py db migrate -m "descrição da mudança"
+      python run.py db upgrade
+      ```
+      Tabela de Addon **novo** (nunca existiu) continua não precisando
+      de migration — `db.create_all()` já resolve.
+
+### 2 outros bugs reais encontrados no mesmo diagnóstico
+
+1. **`run.py` tinha `start()` chamada direto no `if __name__ ==
+   "__main__"`**, em vez de `cli()` — alguém (possivelmente ajuste
+   manual) trocou isso, e o efeito foi **todos os outros comandos
+   pararem de existir** (`init-admin`, `generate`, e agora `db`),
+   silenciosamente — só `python run.py start` continuava funcionando,
+   `python run.py qualquer-outra-coisa` também "funcionava" (Click
+   simplesmente ignorava os argumentos e chamava `start` de qualquer
+   jeito, sem erro nenhum). **Corrigido.**
+2. **Causa provável do bug 1**: `FlaskGroup` define
+   `FLASK_RUN_FROM_CLI=true` em **toda** invocação (não só `flask
+   run`), o que faz `app.run()` virar no-op silencioso com um aviso em
+   vermelho ("Ignoring a call to 'app.run()'..."). Quem bypassou
+   `cli()` provavelmente fez isso pra contornar esse aviso, sem saber
+   da causa raiz. **Corrigido de verdade**: `start()` remove
+   `FLASK_RUN_FROM_CLI` do ambiente antes de chamar `app.run()` — os
+   outros comandos continuam funcionando normalmente.
+3. **`requirements.txt` estava em UTF-16`** — efeito de `pip freeze >
+   requirements.txt` direto no PowerShell (que grava em UTF-16 por
+   padrão). `pip install -r` geralmente tolera isso, mas não é
+   portável. Reescrito em UTF-8, mantendo as versões fixadas (boa
+   prática) e adicionando `Flask-Migrate`/`alembic`/`Mako`, que
+   faltavam.
+
 ## Fase 7 — `addon_builder` (Designer)
 
 ### Fase 7a — Catálogo de Transações (concluída)
