@@ -1,0 +1,11 @@
+{
+  "name": "feature_device_manager",
+  "label": "Device Manager",
+  "version": "1.0.0",
+  "description": "Gestão de dispositivos IoT (sensores/atuadores), funções e emulação",
+  "table_prefix_suffix": "dvm",
+  "enabled": true,
+  "requires": [],
+  "provides": ["device_data", "device_actor_data"],
+  "settings": {}
+}

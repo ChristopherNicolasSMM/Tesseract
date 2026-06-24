@@ -10,13 +10,11 @@ Uso inicial: gestão de cervejaria caseira. Uso de longo prazo: base
 reaproveitável para outros sistemas.
 
 
-> **Status atual: Fase 5 — primeiro Addon real.** `addon_brewstation`/
-> `feature_yeast_bank` descoberto automaticamente a partir de `addons/`,
-> com `YeastStrain` gerado via CrudGen, tabela
-> `tesseract_brewstation_yeastbank_strain`, CRUD funcional via HTTP e
-> permissões reais. As demais 7 tabelas de `yeast_bank` ficam para a
-> Fase 5b — o pipeline Addon+Feature+ModuleManager+CrudGen já está
-> provado de ponta a ponta.
+> **Status atual: Fase 7a concluída — Catálogo de Transações.**
+> `tesseract_transaction` com seed de Core + sincronização de
+> transações contribuídas por Addon/Feature, filtrado por RBAC real
+> (sem tier separado). Próximo: Fase 7b (motor de regras) ou Fase 7c
+> (Designer visual).
 
 ## Navegação
 
@@ -95,9 +93,10 @@ TESSERACT_ENV=testing python -m pytest tests/ -v
 | 2 | RBAC + Usuários (portado do PyTeca) | ✅ |
 | 3 | Versionamento (`CodeSnapshot`, portado do PyTeca) | ✅ |
 | 4 | CrudGen + Anotações (portado do PyTeca) | ✅ |
-| 5 | `addon_brewstation` — primeira Feature real (`yeast_bank`) | ✅ (YeastStrain; demais tabelas em 5b) |
-| 6 | Demais Features Brew / resto do yeast_bank | ⏳ próxima |
-| 7 | `addon_builder` — Designer drag-and-drop + motor de regras (DEVStationFlask) | |
+| 5 + 5b | `addon_brewstation`/`feature_yeast_bank` completo (8 tabelas) | ✅ |
+| 6 | Demais Features Brew (`mash_control`, `device_manager` — CRUD; `integ_bfather` fora) | ✅ |
+| 7a | Catálogo de Transações | ✅ |
+| 7b/7c | Motor de regras / Designer visual | ⏳ próxima |
 | 8 | OData / Screen Generator (DEVStationFlask) | |
 
 ## Assets estáticos (Nice Admin)

@@ -31,7 +31,7 @@ class _SmoketestStrain(db.Model):
 
 
 class _SmoketestRecipe(db.Model):
-    __tablename__ = "recipe"
+    __tablename__ = "modmgrtest_addon_core_item"  # era "recipe" — colidia com MashRecipe real (Fase 6)
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100))
 
@@ -71,8 +71,21 @@ def test_register_module_aplica_prefixo_no_addon_e_na_feature(app):
     with app.app_context():
         app.module_manager.register_module(addon)
 
-        assert _SmoketestRecipe.__tablename__ == "tesseract_addonsmoke_recipe"
+        assert _SmoketestRecipe.__tablename__ == "tesseract_addonsmoke_modmgrtest_addon_core_item"
         assert _SmoketestStrain.__tablename__ == "tesseract_addonsmoke_smokefeat_modmgrtest_feature_item"
+
+
+class _SmoketestRecipeEvento(db.Model):
+    __tablename__ = "recipe_evento"
+    id = db.Column(db.Integer, primary_key=True)
+
+
+class _AddonSmokeEvento(AddonBase):
+    def register_routes(self, app):
+        pass
+
+    def register_models(self):
+        return [_SmoketestRecipeEvento]
 
 
 def test_register_module_dispara_evento_core_module_activated(app):
@@ -86,8 +99,8 @@ def test_register_module_dispara_evento_core_module_activated(app):
 
     event_bus.subscribe("core.module.activated", _listener)
 
-    addon = _AddonSmoke({"name": "addonsmoke2", "label": "Addon Smoke 2",
-                          "version": "1.0.0", "table_prefix": "addonsmoke2"})
+    addon = _AddonSmokeEvento({"name": "addonsmoke2", "label": "Addon Smoke 2",
+                                "version": "1.0.0", "table_prefix": "addonsmoke2"})
 
     with app.app_context():
         app.module_manager.register_module(addon)

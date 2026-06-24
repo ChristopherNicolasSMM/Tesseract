@@ -14,16 +14,27 @@ class AddonBrewstation(AddonBase):
         return []  # núcleo do addon ainda não tem model próprio nesta fase
 
     def get_features(self) -> list:
-        from core.feature_base import FeatureBase
-        from addons.addon_brewstation.features.feature_yeast_bank.feature import FeatureYeastBank
-
-        feature_manifest = self.manifest.get("features", [{}])[0]
-        # feature.json é a fonte completa — addon.json só tem o resumo
         import json
         from pathlib import Path
-        feature_json_path = (
-            Path(__file__).parent / "features" / "feature_yeast_bank" / "feature.json"
-        )
-        full_manifest = json.loads(feature_json_path.read_text(encoding="utf-8"))
 
-        return [FeatureYeastBank(full_manifest, addon_table_prefix=self.table_prefix)]
+        from addons.addon_brewstation.features.feature_yeast_bank.feature import FeatureYeastBank
+        from addons.addon_brewstation.features.feature_device_manager.feature import FeatureDeviceManager
+        from addons.addon_brewstation.features.feature_mash_control.feature import FeatureMashControl
+
+        base = Path(__file__).parent / "features"
+
+        yeast_bank_manifest = json.loads(
+            (base / "feature_yeast_bank" / "feature.json").read_text(encoding="utf-8")
+        )
+        device_manager_manifest = json.loads(
+            (base / "feature_device_manager" / "feature.json").read_text(encoding="utf-8")
+        )
+        mash_control_manifest = json.loads(
+            (base / "feature_mash_control" / "feature.json").read_text(encoding="utf-8")
+        )
+
+        return [
+            FeatureYeastBank(yeast_bank_manifest, addon_table_prefix=self.table_prefix),
+            FeatureDeviceManager(device_manager_manifest, addon_table_prefix=self.table_prefix),
+            FeatureMashControl(mash_control_manifest, addon_table_prefix=self.table_prefix),
+        ]

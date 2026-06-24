@@ -14,9 +14,9 @@
       `docs/manual/`
 - [x] Skills 00–04 copiadas para `docs/skills/`
 - [x] `BACKLOG.md` (este arquivo)
-- [ ] Pasta `static/` vazia — aguardando você subir os assets do Nice Admin
-      (`static/.gitkeep` criado como placeholder)
-- [ ] Primeiro commit no GitHub + link compartilhado de volta nesta conversa
+- [x] Pasta `static/` populada com os assets do Nice Admin (Bootstrap,
+      ApexCharts, Boxicons, Quill, TinyMCE, ECharts + CSS do PyTeca)
+- [x] Primeiro commit no GitHub — https://github.com/ChristopherNicolasSMM/Tesseract
 
 ## Fase 1 — Core mínimo
 
@@ -39,11 +39,11 @@
       não quebra os demais
 - [ ] Algoritmo de múltiplas passadas do BrewStation — **descartado**
       (ver Opção B acima); registrado aqui só para não se perder a decisão
-- [ ] Discovery automático de Addon/Plugin a partir de manifesto em disco
-      (`addon.json`/`plugin.json`) — ainda não implementado; hoje
-      `register_module()` espera um módulo já instanciado. Entra quando
-      tivermos o primeiro Addon real (Fase 5) ou antes, se preferir
-      adiantar
+- [x] Discovery automático de Addon/Plugin a partir de manifesto em
+      disco — **implementado na Fase 5**
+      (`ModuleManager.discover_and_register_addons`), não nesta fase
+      como planejado originalmente; ficou pendente até existir um
+      Addon real para testar contra
 
 ## Fase 2 — RBAC + Usuários
 
@@ -69,9 +69,9 @@
       ainda não aplicável: só existem para código *gerado* pelo CrudGen,
       que entra na Fase 4. Registrado aqui para não esquecer de aplicar
       no `users.py` gerado quando o CrudGen existir
-- [ ] **Decisão pendente**: `RegistrationRequest` (fluxo de auto-cadastro
-      órfão herdado do BrewStation) não foi portado. Hoje só existe
-      criação admin-only. Decidir se/quando o auto-cadastro entra.
+- [ ] **Decisão tomada**: `RegistrationRequest` (auto-cadastro) **entra
+      no sistema**, mas será detalhado e implementado pelo Christopher
+      diretamente — não faz parte das entregas desta conversa.
 
 **Achado de comportamento (não é bug, vale documentar)**: o
 `UserMixin.is_authenticated` do Flask-Login é definido como
@@ -93,11 +93,9 @@ de logout explícito. Coberto por
 - [x] 9 testes (`tests/test_phase3_versioning.py`) — seed idempotente,
       criação de snapshot, `on_diff` sem mudança real, agrupamento por
       `generation_run_id`, captura de edição manual perdida, retenção
-- [ ] **Decisão registrada**: nenhuma chamada automática a
-      `snapshot_if_needed()` existe ainda — a infraestrutura está pronta
-      e testada, mas só passa a ser usada de fato quando o CrudGen
-      (Fase 4) escrever arquivo via `_write_file()`. Não adiantar a
-      integração antes de existir o que versionar.
+- [x] **Resolvido na Fase 4**: `core/crudgen/generator.py` chama
+      `snapshot_if_needed()` a cada arquivo escrito — toda geração de
+      CRUD agora é versionada automaticamente.
 
 ## Fase 4 — CrudGen + Anotações
 
@@ -211,23 +209,144 @@ de logout explícito. Coberto por
       permissão sincronizada — a lógica de cálculo de viabilidade em si
       (presente no BrewStation original) não foi portada ainda.
 
+## Fase 5b — Resto do `yeast_bank` (concluída)
+
+- [x] 7 entidades restantes portadas: `YeastStorageDevice`,
+      `YeastStorageReading`, `YeastBankItem`, `YeastStarterLog`,
+      `YeastCellCountHistory`, `YeastBankEvent`, `YeastBankConfig`
+- [x] CRUD gerado para todas via `core.crudgen.generator.generate()`
+      (chamado diretamente, não pelo `run.py generate` — ver nota abaixo)
+- [x] FK entre tabelas da mesma Feature confirmada funcionando,
+      inclusive em cadeia (`strain -> bank_item -> starter_log`,
+      `device -> reading`) — testado e validado **antes** de migrar
+      tudo, não só depois
+- [x] Todos os 8 nomes de tabela de `yeast_bank` confirmados dentro do
+      limite de 55 caracteres (skill 02) — o maior tem 50
+      (`tesseract_brewstation_yeastbank_cell_count_history`)
+- [x] `FeatureYeastBank.register_models()`/`register_routes()`
+      atualizados para as 8 entidades
+- [x] 6 testes novos (`tests/test_phase5b_yeast_bank_full.py`) — tabelas,
+      permissões, cadeia de FK via HTTP real, soft-delete em entidade nova
+- [x] Teste manual ponta a ponta confirmando a cadeia completa via HTTP
+      (strain → device → bank_item com serialização aninhada → starter_log)
+
+### Nota técnica: por que não usei `run.py generate` para as 7 entidades
+
+O comando `generate` da CLI importa o arquivo de model via
+`importlib.util.spec_from_file_location` com um nome de módulo
+próprio, criando uma classe Python **separada** da que o pacote real
+(`addons.addon_brewstation...`) usa — isso colide quando o model já
+existe dentro do pacote (duas classes "YeastBankItem" distintas
+competindo pela mesma tabela). Usei um script único, descartado depois,
+que importa os models pelo caminho real do pacote e chama
+`generate()` diretamente. Registrado aqui para não se perder: o
+comando `generate` da CLI é o caminho certo para gerar uma entidade
+**nova**, mas para portar entidades que **já vivem dentro do pacote**
+(como esta migração em lote), chamar `generate()` direto é mais seguro.
+
 ## Fase 6 — Demais Features Brew
 
-- [ ] `feature_mash_control` (revisar/testar pontos already sinalizados como
-      pendentes no BrewStation original)
-- [ ] `feature_device_manager` (idem)
-- [ ] `feature_integ_bfather` — reescrita (não só migração), conforme
-      decisão já tomada na conversa de arquitetura
-- [ ] Smoke test individual por Feature
+- [x] `feature_device_manager` — 4 entidades (`DeviceFunction`,
+      `DeviceMetadata`, `DeviceActor`, `EmulatedDevice`), descartado
+      `model/exemplo.py` (placeholder do BrewStation original)
+- [x] `feature_mash_control` — 12 entidades, escopo **CRUD apenas**
+      (decisão tomada: motor de controle em tempo real — PID,
+      automação contínua, scheduler de processo — fora desta fase,
+      precisa de job runner/background que o Tesseract não tem ainda)
+- [x] `integ_bfather` — **fora desta fase**, decisão anterior mantida:
+      precisa de reescrita, não migração, fica para conversa dedicada
+- [x] 12 testes novos (`tests/test_phase6a_device_manager.py` +
+      `tests/test_phase6b_mash_control.py`) + 47 das fases anteriores
+      = 59 passando
+- [x] Teste manual ponta a ponta via HTTP confirmando: cadeia
+      function→device→actor→emulated_device (device_manager) e
+      cadeia plant→vessel→mapping (FK cross-Feature pra device_manager)
+      + recipe→session→step→log/alarm (mash_control)
+
+### Decisão de arquitetura: PK Integer + `external_id` UUID
+
+Conflito real entre o BrewStation original (PK UUID em
+`DeviceMetadata`/`DeviceActor`) e a skill 02 (`id` sempre Integer).
+Resolvido com os dois: `id` Integer interno (todas as FKs internas
+usam ele) + `external_id` String(36) UUID, gerado automaticamente,
+para uso externo (broker MQTT, etc.). Documentado na skill 02 como
+padrão formal, não só uma decisão pontual.
+
+### 3 bugs/lacunas reais encontrados só ao migrar Features com mais
+### entidades e FK entre Features do mesmo Addon
+
+1. **FK cross-Feature quebrava** (`BrewPlantMapping.device_function_id`
+   → `DeviceFunction`) porque o `ModuleManager` prefixava Feature por
+   Feature — quando chegava em `mash_control`, `device_manager` já
+   tinha renomeado `function`, e a string da FK não encontrava mais a
+   tabela pelo nome curto. **Corrigido**: `register_module()` agora
+   importa TODOS os models de TODAS as Features do Addon primeiro, e
+   só depois aplica qualquer prefixo (ver `core/module_manager.py`).
+2. **Nome curto de tabela colidindo entre Features-irmãs**:
+   `YeastStorageDevice` (yeast_bank) e `DeviceMetadata`
+   (device_manager) usavam o mesmo nome curto `device`. Como a
+   correção do bug 1 agora importa tudo antes de prefixar, os dois
+   competiam pelo mesmo nome na metadata global ao mesmo tempo.
+   **Corrigido**: `YeastStorageDevice` renomeado para `storage_device`.
+   **Nova regra documentada na skill 02**: nome curto de tabela deve
+   ser único em todo o Addon, não só dentro da Feature.
+3. **Mesmo padrão se repetiu com `MashRecipe`** colidindo com o
+   `_SmoketestRecipe` de um teste da Fase 5a (`tests/
+   test_phase5_module_manager.py`) — corrigido renomeando o model de
+   teste.
+
+### Bug do BrewStation original corrigido na migração
+
+`EmulatedDevice.functions_config` usava `default={}` (dict mutável
+compartilhado entre todas as instâncias sem valor explícito) —
+trocado por `default=lambda: {}`.
+
+### Clarificação de skill registrada
+
+Skill 02: FK entre **duas Features do mesmo Addon** é permitida (só
+FK entre Addons diferentes é proibida) — não estava explícito antes
+desta fase.
 
 ## Fase 7 — `addon_builder` (Designer)
 
-- [ ] Catálogo de transações `DS_*`/`NDS_*` (portado de
-      `transactions/registry.py` do DEVStationFlask)
-- [ ] Motor de regras (`rules/rule_types.py` — validação, visibilidade,
-      cálculo, status)
-- [ ] Designer drag-and-drop (UI) conectado ao `ModuleManager` do Tesseract
-- [ ] Teste: criar 1 tela via designer, confirmar export
+### Fase 7a — Catálogo de Transações (concluída)
+
+- [x] `model/core/transaction.py` (`tesseract_transaction`) — adaptado
+      de `transactions/catalog.py` + `models/transaction.py`
+      (DEVStationFlask)
+- [x] **Decisão de arquitetura**: sem `min_profile` (tier separado
+      USER/DEVELOPER/ADMIN do original) — usa `permission_required`
+      resolvido por `User.has_permission()` real. Sem o conceito de
+      "Plugin" do DEVStationFlask (descoberta de pasta própria,
+      ativação separada) — redundante com o `ModuleManager` que o
+      Tesseract já tem.
+- [x] `ModuleBase.get_transactions()`/`FeatureBase.get_transactions()`
+      — qualquer Addon/Feature/Plugin contribui transações, mesmo
+      padrão "código lidera, banco segue" das Permissions
+      (`core/transactions_sync.py`)
+- [x] `core/transactions_catalog.py` — catálogo de Core (`TX_HOME`,
+      `TX_ADMIN_USERS`), seedado no boot; descartadas entradas do
+      original que dependem de peças não migradas (`DS_ODATA`,
+      `DS_BUILD` — Fase 8+)
+- [x] 4 transações reais contribuídas pelas Features já existentes
+      (`TX_YEAST_BANK`, `TX_DEVICE_MANAGER`, `TX_MASH_RECIPES`,
+      `TX_BREW_SESSIONS`)
+- [x] `GET /api/core/transactions/` — lista filtrada por permissão real
+- [x] 8 testes (`tests/test_phase7a_transactions.py`) + 59 das fases
+      anteriores = 67 passando
+- [x] Teste manual via HTTP confirmando filtro real: admin vê 6
+      transações, usuário sem nenhuma permissão vê só `TX_HOME`,
+      usuário com `yeast_strains.list` vê `TX_YEAST_BANK` mas não
+      `TX_DEVICE_MANAGER`
+
+### Fase 7b — Motor de regras (pendente)
+
+- [ ] Validação/visibilidade/cálculo (`rules/rule_types.py` do
+      DEVStationFlask) — ainda não iniciado
+
+### Fase 7c — Designer visual drag-and-drop (pendente)
+
+- [ ] Maior peça, precisa de JS/canvas no frontend — ainda não iniciado
 
 ## Fase 8 — OData / Screen Generator
 
@@ -243,6 +362,7 @@ de logout explícito. Coberto por
       incorporado à skill 02 — ver conversa de arquitetura
 - [ ] Definir se `addon_builder` (Fase 7) e OData (Fase 8) entram antes ou
       depois das Features Brew restantes, dependendo de prioridade de uso real
-- [ ] Confirmar com você se haverá Postgres em algum ambiente (hoje os 3
-      projetos de origem usam SQLite) — impacta diretamente o item acima
+- [x] **Respondido**: SQLite em dev/test, Postgres obrigatório em
+      produção (`TESSERACT_ENV`) — implementado desde a Fase 1
+      (`core/config.py`)
 EOF

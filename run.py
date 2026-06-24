@@ -42,9 +42,9 @@ def start(host, port, debug):
     """Inicia o servidor de desenvolvimento (equivalente a `flask run`)."""
     app = create_app()
     if debug is None:
-        debug = bool(app.config.get("DEBUG", False))
+        debug = bool(app.config.get("DEBUG", True))#Padrão ativo
     app.run(host=host, port=port, debug=debug)
 
 
 if __name__ == "__main__":
-    cli()
+    start()

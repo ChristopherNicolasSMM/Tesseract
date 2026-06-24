@@ -25,5 +25,19 @@ class ModuleBase(ABC):
         """Registra os Blueprints (web/API) do módulo."""
         raise NotImplementedError
 
+    def get_transactions(self) -> list[dict]:
+        """
+        Transações navegáveis que este módulo expõe (skill 00, termo
+        "Transação"). Vazio por padrão — sobrescrever quando o módulo
+        tiver pontos de entrada para o launcher/menu.
+
+        Cada item: {"code": "BRW_YEAST_BANK", "label": "Banco de
+        Levedura", "route": "/brewstation/yeast-strains",
+        "permission_required": "yeast_strains.list", "icon": "...",
+        "group": "..."}. `permission_required` é opcional — None
+        significa visível a qualquer usuário autenticado.
+        """
+        return []
+
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} name={self.name!r} v{self.version}>"

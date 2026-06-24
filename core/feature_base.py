@@ -37,5 +37,9 @@ class FeatureBase(ABC):
         """
         pass
 
+    def get_transactions(self) -> list[dict]:
+        """Ver ModuleBase.get_transactions() — mesmo contrato."""
+        return []
+
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} name={self.name!r} v{self.version}>"

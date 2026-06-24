@@ -1,12 +1,15 @@
 """
 core/app_factory.py
 
-Fase 5 — primeiro Addon real (addon_brewstation/feature_yeast_bank).
+Fase 7a — Catálogo de Transações (backend, sem UI ainda).
 create_app() agora também:
-- descobre e registra Addons automaticamente a partir de addons/
-  (core/module_manager.discover_and_register_addons), ANTES de criar
-  as tabelas — assim o prefixo de tabela (skill 02) é aplicado em todo
-  boot normal, não só durante `generate` (CrudGen, Fase 4)
+- importa o model Transaction (tesseract_transaction)
+- seeda o catálogo de Core (core/transactions_catalog.py)
+- sincroniza as transações contribuídas por Addons/Features
+  (ModuleManager.sync_all_transactions(), depois de create_all e do
+  sync de permissões — mesma ordem, mesma razão: precisa de tabela
+  já criada)
+- registra /api/core/transactions (lista filtrada por permissão)
 """
 from pathlib import Path
 
@@ -44,26 +47,34 @@ def create_app(env: str | None = None) -> Flask:
         from model.core import module_state, system_config  # noqa: F401
         from model.core import permission, role, associations, user  # noqa: F401
         from model.core import code_snapshot  # noqa: F401
+        from model.core import transaction  # noqa: F401
 
         app.module_manager.discover_and_register_addons(project_root / "addons")
 
         app.module_manager.create_all_pending_tables()
         app.module_manager.sync_all_permissions()
+        app.module_manager.sync_all_transactions()
+
+        from core.transactions_sync import sync_core_transactions
+        sync_core_transactions()
+
         ensure_default_system_config()
 
     from api.routes.core.auth import auth_api_bp
     from api.routes.core.admin.users import users_api_bp
+    from api.routes.core.transactions import transactions_api_bp
     app.register_blueprint(auth_api_bp)
     app.register_blueprint(users_api_bp)
+    app.register_blueprint(transactions_api_bp)
 
     @app.route("/health")
     def health():
         return jsonify(
             status="ok",
             project="Tesseract",
-            phase=5,
+            phase=7,
             active_modules=list(app.module_manager.active_modules.keys()),
-            message="Core no ar. ModuleManager, EventBus, DB, RBAC, Versionamento e Addons ativos.",
+            message="Core no ar. ModuleManager, EventBus, DB, RBAC, Versionamento, Addons e Transações ativos.",
         )
 
     return app

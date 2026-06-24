@@ -33,16 +33,25 @@ class ModuleManager:
         self._registered_modules: dict[str, object] = {}
         self._pending_model_classes: list = []
         self._pending_permission_sync: list = []  # [(model_cls, plural), ...]
+        self._pending_transactions: list = []  # [(tx_dict, source_module), ...]
 
     def register_module(self, module) -> None:
         """
         Registra um Addon/Plugin já instanciado (vindo de discovery).
 
-        Aplica o prefixo de tabela AQUI (não precisa de DB, só muta o
-        metadata do SQLAlchemy em memória — seguro chamar antes do
-        create_all). A sincronização de PERMISSÃO é só enfileirada
-        aqui e executada de fato em sync_all_permissions(), chamado
-        DEPOIS de create_all_pending_tables() — sync precisa que
+        Ordem importante (bug real encontrado na Fase 6, FK cross-Feature
+        mash_control -> device_manager): primeiro IMPORTA todos os models
+        de TODAS as Features do Addon (declarando suas tabelas com nome
+        curto na metadata), e só DEPOIS aplica o prefixo em qualquer um
+        deles. Se prefixássemos Feature por Feature (como nas Fases 5/5b),
+        uma FK de uma Feature processada depois, apontando para uma
+        tabela de uma Feature processada antes, falharia — a string da
+        FK ("function.id") não encontraria mais a tabela, já renomeada
+        para "tesseract_..._function".
+
+        A sincronização de PERMISSÃO é só enfileirada aqui e executada
+        de fato em sync_all_permissions(), chamado DEPOIS de
+        create_all_pending_tables() — sync precisa que
         tesseract_permission/tesseract_role já existam.
         """
         logger.debug("Registrando módulo: %r", module)
@@ -50,37 +59,52 @@ class ModuleManager:
         module.register_routes(self.app)
         logger.debug("Rotas de %s registradas", module.name)
 
-        if module.module_type == "addon":
-            models = module.register_models()
-            for model_cls in models:
-                apply_table_prefix(model_cls, module.table_prefix)
-                self._pending_permission_sync.append(
-                    (model_cls, get_model_metadata(model_cls)["plural"])
-                )
-            logger.debug(
-                "%s: %d model(s) pendente(s) de criação: %s",
-                module.name, len(models), [m.__name__ for m in models],
-            )
-            self._pending_model_classes.extend(models)
+        if module.module_type != "addon":
+            self._registered_modules[module.name] = module
+            self._publish_activated(module)
+            return
 
-            for feature in module.get_features():
-                logger.debug("Registrando feature %s de %s", feature.name, module.name)
-                feature.register_routes(self.app)
-                feature_models = feature.register_models()
-                for model_cls in feature_models:
-                    apply_table_prefix(model_cls, feature.table_prefix)
-                    self._pending_permission_sync.append(
-                        (model_cls, get_model_metadata(model_cls)["plural"])
-                    )
-                logger.debug(
-                    "%s/%s: %d model(s) pendente(s): %s",
-                    module.name, feature.name, len(feature_models),
-                    [m.__name__ for m in feature_models],
-                )
-                self._pending_model_classes.extend(feature_models)
+        # ── Passo 1: importar TUDO (core do Addon + todas as Features) ──
+        pending: list[tuple[object, str]] = []  # [(model_cls, table_prefix), ...]
+
+        core_models = module.register_models()
+        for model_cls in core_models:
+            pending.append((model_cls, module.table_prefix))
+        logger.debug(
+            "%s: %d model(s) de núcleo: %s",
+            module.name, len(core_models), [m.__name__ for m in core_models],
+        )
+
+        for tx in module.get_transactions():
+            self._pending_transactions.append((tx, module.name))
+
+        for feature in module.get_features():
+            logger.debug("Registrando feature %s de %s", feature.name, module.name)
+            feature.register_routes(self.app)
+            feature_models = feature.register_models()
+            for model_cls in feature_models:
+                pending.append((model_cls, feature.table_prefix))
+            logger.debug(
+                "%s/%s: %d model(s): %s",
+                module.name, feature.name, len(feature_models),
+                [m.__name__ for m in feature_models],
+            )
+            for tx in feature.get_transactions():
+                self._pending_transactions.append((tx, module.name))
+
+        # ── Passo 2: SÓ AGORA aplicar prefixo, com tudo já importado ────
+        for model_cls, prefix in pending:
+            apply_table_prefix(model_cls, prefix)
+            self._pending_permission_sync.append(
+                (model_cls, get_model_metadata(model_cls)["plural"])
+            )
+
+        self._pending_model_classes.extend(model_cls for model_cls, _ in pending)
 
         self._registered_modules[module.name] = module
+        self._publish_activated(module)
 
+    def _publish_activated(self, module) -> None:
         from core.event_bus import event_bus
         event_bus.publish(
             "core.module.activated",
@@ -103,6 +127,27 @@ class ModuleManager:
         )
         for model_cls, plural in self._pending_permission_sync:
             sync_model_permissions(model_cls, plural)
+
+    def sync_all_transactions(self) -> None:
+        """
+        Chamado DEPOIS de create_all_pending_tables() (precisa de
+        tesseract_transaction já criada). Sincroniza as transações
+        contribuídas por todo Addon/Feature registrado nesta sessão
+        de boot — o catálogo de Core (core/transactions_catalog.py)
+        é sincronizado separadamente, em core/app_factory.py.
+        """
+        from core.transactions_sync import sync_transaction
+        from core.db import db as _db
+
+        if not self._pending_transactions:
+            return
+        logger.debug(
+            "Sincronizando %d transação(ões) de módulo(s)...",
+            len(self._pending_transactions),
+        )
+        for tx_data, source_module in self._pending_transactions:
+            sync_transaction(tx_data, source_module=source_module, is_standard=False)
+        _db.session.commit()
 
     def discover_and_register_addons(self, addons_dir) -> list[str]:
         """

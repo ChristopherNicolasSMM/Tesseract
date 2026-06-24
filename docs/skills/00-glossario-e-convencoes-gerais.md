@@ -130,3 +130,16 @@ arquivo gigante central.
 > Se um nome (pasta, tabela, rota, evento, permissão) não segue o padrão
 > descrito nas skills 01–03, a geração/PR é rejeitada — não existe exceção
 > "por agora resolve assim". Ajustar a skill antes de violar a convenção.
+
+## Adendo (Fase 7a): Transação como tabela de Core
+
+A definição original de "Transação" (tabela acima) ganhou
+implementação na Fase 7a: vive em `tesseract_transaction` (Core, não
+passa pelo CrudGen — é infraestrutura como `User`/`Permission`).
+Catálogo de Core (`TX_*`) seedado no boot; cada Addon/Feature/Plugin
+contribui as suas via `get_transactions()` (`ModuleBase`/
+`FeatureBase`), sincronizado pelo `ModuleManager` com o mesmo padrão
+"código lidera, banco segue" das Permissions. Filtro de visibilidade
+usa `User.has_permission()` real — nenhum sistema de tier separado
+(decisão tomada ao adaptar o catálogo `DS_*`/`min_profile` do
+DEVStationFlask, que tinha um tier próprio redundante com o RBAC).

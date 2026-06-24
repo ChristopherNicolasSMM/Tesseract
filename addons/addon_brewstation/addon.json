@@ -16,6 +16,13 @@
       "table_prefix_suffix": "yeastbank",
       "enabled_by_default": true,
       "requires": []
+    },
+    {
+      "name": "feature_device_manager",
+      "label": "Device Manager",
+      "table_prefix_suffix": "dvm",
+      "enabled_by_default": true,
+      "requires": []
     }
   ],
   "env_keys": [],

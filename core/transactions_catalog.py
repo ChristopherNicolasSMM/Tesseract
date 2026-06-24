@@ -1,0 +1,37 @@
+"""
+core/transactions_catalog.py
+
+Catálogo inicial de transações de Core — seed executado no boot
+(idempotente, igual ao seed de system_config). Adaptado de
+transactions/catalog.py (DEVStationFlask) — mantidas só as entradas
+que já existem no Tesseract hoje ou que fazem sentido como destino
+"a criar"; descartadas as que dependem de peças que não migramos
+ainda (DS_ODATA, DS_BUILD — Fase 8 e além).
+
+Convenção de código: TX_<NOME>, paralela ao DS_*/NDS_* do original
+mas sem o prefixo "DS" (que no DEVStationFlask distinguia núcleo de
+plugin — aqui essa distinção já é o campo `is_standard`).
+"""
+
+CORE_TRANSACTIONS = [
+    {
+        "code": "TX_HOME",
+        "label": "Início",
+        "group": "Core",
+        "description": "Tela inicial.",
+        "icon": "bi-house-fill",
+        "route": "/",
+        "permission_required": None,  # qualquer usuário autenticado
+        "is_standard": True,
+    },
+    {
+        "code": "TX_ADMIN_USERS",
+        "label": "Gestão de Usuários",
+        "group": "Admin",
+        "description": "Cadastro e configuração de usuários, papéis e permissões.",
+        "icon": "bi-people-fill",
+        "route": "/api/admin/users",
+        "permission_required": "admin",
+        "is_standard": True,
+    },
+]

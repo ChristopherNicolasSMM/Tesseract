@@ -1,0 +1,11 @@
+{
+  "name": "feature_mash_control",
+  "label": "Mash Control",
+  "version": "1.0.0",
+  "description": "Receitas, plantas/equipamentos, sessões de brassagem, dashboards e regras de automação (escopo CRUD — sem motor de controle em tempo real nesta fase)",
+  "table_prefix_suffix": "mashctrl",
+  "enabled": true,
+  "requires": ["feature_device_manager"],
+  "provides": ["recipe_data", "session_data"],
+  "settings": {}
+}
