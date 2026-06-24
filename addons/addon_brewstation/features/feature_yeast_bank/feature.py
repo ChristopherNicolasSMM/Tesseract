@@ -49,6 +49,7 @@ class FeatureYeastBank(FeatureBase):
         from addons.addon_brewstation.features.feature_yeast_bank.api.routes.yeast_bank_events_routes import yeast_bank_events_api_bp
         from addons.addon_brewstation.features.feature_yeast_bank.controller.yeast_bank_configs import yeast_bank_configs_bp
         from addons.addon_brewstation.features.feature_yeast_bank.api.routes.yeast_bank_configs_routes import yeast_bank_configs_api_bp
+        from addons.addon_brewstation.features.feature_yeast_bank.controller.yeast_bank_viability import yeast_bank_viability_bp
 
         for bp in [
             yeast_strains_bp, yeast_strains_api_bp,
@@ -59,6 +60,7 @@ class FeatureYeastBank(FeatureBase):
             yeast_cell_count_histories_bp, yeast_cell_count_histories_api_bp,
             yeast_bank_events_bp, yeast_bank_events_api_bp,
             yeast_bank_configs_bp, yeast_bank_configs_api_bp,
+            yeast_bank_viability_bp,
         ]:
             app.register_blueprint(bp)
 
@@ -72,6 +74,15 @@ class FeatureYeastBank(FeatureBase):
                 "icon": "bi-droplet-fill",
                 "route": "/brewstation/yeast-strains",
                 "permission_required": "yeast_strains.list",
+            },
+            {
+                "code": "TX_YEAST_BANK_RECALC_VIABILITY",
+                "label": "Recalcular Viabilidade",
+                "group": "BrewStation",
+                "description": "Recalcula a viabilidade estimada de todos os itens do banco.",
+                "icon": "bi-arrow-repeat",
+                "route": "/brewstation/yeast-bank-tools/recalculate-viability",
+                "permission_required": "yeast_bank_items.recalculate_viability",
             },
         ]
 

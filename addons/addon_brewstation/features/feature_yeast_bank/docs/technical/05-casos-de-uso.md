@@ -31,10 +31,19 @@
   lixeira → `400`
 - **Permissão**: `yeast_strains.trash` / `.restore` / `.delete_permanent`
 
-## UC05 — Recalcular viabilidade (ainda não implementado)
+## UC05 — Recalcular viabilidade (implementado)
 
-- **Ator**: Usuário com `yeast_strains.recalculate_viability`
-- **Status**: permissão já sincronizada (Camada 2, `@permission` no
-  model), **lógica de cálculo ainda não portada** — fica para a Fase
-  5b, quando `YeastBankItem` (onde a viabilidade *estimada* realmente
-  vive) for migrado.
+- **Ator**: usuário com `yeast_bank_items.recalculate_viability`
+- **Fluxo principal**: `/brewstation/yeast-bank-tools/recalculate-viability`
+  → botão "Recalcular agora" → recalcula TODOS os itens do banco em
+  lote (não é uma ação por cepa — usa os parâmetros de cada cepa
+  relacionada)
+- **Lógica**: ver `services/viability_engine.py` — prioridade de
+  referência (histórico real > estimado > starter > valor inicial da
+  cepa), modelo linear ou exponencial conforme `YeastStrain.viability_model`
+- **Status**: itens com status `discarded`/`contaminated`/etc. são
+  ignorados; itens sem nenhuma referência disponível ficam marcados
+  como `no_reference` no resultado
+- **Permissão**: `yeast_bank_items.recalculate_viability` (corrigido
+  da Fase 5 — estava por engano em `yeast_strains`, a ação opera
+  sobre `YeastBankItem`, não sobre a cepa)

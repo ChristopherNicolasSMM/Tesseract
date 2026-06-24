@@ -223,9 +223,40 @@ de logout explícito. Coberto por
       (smart-list-lite) na rodada de validação de cliques — ver ajuste
       transversal correspondente. Visual completo do Nice Admin
       continua não refinado.
-- [ ] Ação de negócio `yeast_strains.recalculate_viability` tem só a
-      permissão sincronizada — a lógica de cálculo de viabilidade em si
-      (presente no BrewStation original) não foi portada ainda.
+- [x] **Resolvido**: motor de viabilidade portado fielmente de
+      `plugin_yeast_bank/api/routes/yeast_bank_routes.py` (BrewStation
+      original) — `compute_estimated_viability()` (modelo linear e
+      exponencial) e `best_viability_reference_for_item()` (prioridade:
+      histórico real > histórico estimado > starter > valor inicial da
+      cepa, todos excluindo registros contaminados).
+
+      **Correção de design encontrada ao portar**: a ação original
+      opera em **lote sobre `YeastBankItem`** (todos os itens do
+      banco), usando os parâmetros de modelo da `YeastStrain`
+      relacionada — nunca foi uma ação "por cepa". A permissão
+      `recalculate_viability` (Camada 2) estava registrada em
+      `YeastStrain` desde a Fase 5 por engano; movida para
+      `YeastBankItem`. A permissão antiga
+      (`yeast_strains.recalculate_viability`) fica órfã em bancos já
+      existentes — sem limpeza automática (mesma lacuna já registrada
+      em "Como adicionar/remover" no `docs/technical/06-*`); pode ser
+      removida manualmente pela tela de Roles se desejado.
+
+      `services/viability_engine.py` (Feature, não Core — é lógica de
+      domínio) + tela `/brewstation/yeast-bank-tools/recalculate-viability`
+      (ação em lote com resultado por item, não um CRUD comum) +
+      transação navegável `TX_YEAST_BANK_RECALC_VIABILITY`.
+
+      **Achado lateral**: coluna com `default=` no SQLAlchemy aplica o
+      valor padrão no INSERT mesmo se `None` for passado explicitamente
+      no construtor — só fica `None` de fato após um UPDATE separado.
+      Não é bug, é comportamento padrão do SQLAlchemy; só vale ter em
+      mente ao testar/depurar campos com default.
+
+      13 testes (`tests/test_viability_engine.py`): cálculo linear e
+      exponencial, piso/teto, prioridade de referência, exclusão de
+      contaminados, skip de descartados, permissão no lugar certo,
+      fluxo completo via HTTP.
 
 ## Fase 5b — Resto do `yeast_bank` (concluída)
 

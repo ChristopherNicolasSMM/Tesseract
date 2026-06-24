@@ -1,0 +1,71 @@
+{% extends "core/base.html" %}
+{% block title %}Recalcular Viabilidade - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Recalcular Viabilidade</h1>
+  <p class="text-muted">
+    Recalcula a viabilidade estimada de todos os itens do banco de
+    levedura, com base na melhor referência disponível (histórico real
+    &gt; histórico estimado &gt; starter &gt; valor inicial da cepa) e
+    no modelo de decaimento configurado em cada cepa.
+  </p>
+</div>
+
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <button class="btn btn-primary" id="runBtn">
+        <i class="bi bi-arrow-repeat"></i> Recalcular agora
+      </button>
+
+      <div id="resultBox" class="mt-4 d-none">
+        <div class="row text-center mb-3">
+          <div class="col"><div class="card card-body"><h3 id="rProcessed">0</h3><small class="text-muted">Processados</small></div></div>
+          <div class="col"><div class="card card-body"><h3 id="rUpdated" class="text-success">0</h3><small class="text-muted">Atualizados</small></div></div>
+          <div class="col"><div class="card card-body"><h3 id="rSkipped" class="text-warning">0</h3><small class="text-muted">Ignorados (descartados)</small></div></div>
+          <div class="col"><div class="card card-body"><h3 id="rNoRef" class="text-danger">0</h3><small class="text-muted">Sem referência</small></div></div>
+        </div>
+
+        <table class="table table-sm table-striped">
+          <thead><tr><th>Item</th><th>Status</th><th>Referência</th><th>Dias</th><th>Viabilidade estimada</th></tr></thead>
+          <tbody id="resultTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+document.getElementById('runBtn').addEventListener('click', function () {
+  const btn = this;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Calculando...';
+
+  fetch(window.location.pathname, { method: 'POST' })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Recalcular agora';
+
+      document.getElementById('resultBox').classList.remove('d-none');
+      document.getElementById('rProcessed').textContent = data.processed;
+      document.getElementById('rUpdated').textContent = data.updated;
+      document.getElementById('rSkipped').textContent = data.skipped;
+      document.getElementById('rNoRef').textContent = data.items_without_reference;
+
+      const tbody = document.getElementById('resultTable');
+      tbody.innerHTML = '';
+      data.items.forEach(function (item) {
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>#' + item.item_id + '</td>' +
+          '<td>' + item.status + '</td>' +
+          '<td>' + (item.reference_type || '-') + '</td>' +
+          '<td>' + (item.days !== undefined ? item.days : '-') + '</td>' +
+          '<td>' + (item.estimated_viability_pct !== undefined ? item.estimated_viability_pct + '%' : '-') + '</td>';
+        tbody.appendChild(tr);
+      });
+    });
+});
+</script>
+{% endblock %}

@@ -8,12 +8,16 @@ parâmetros do modelo (ver yeast_strain.py).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required
+from annotations import label, plural, required, permission
 
 
 @label("Item do Banco")
 @plural("yeast_bank_items")
 @required("storage_type", message="Tipo de armazenamento é obrigatório")
+@permission(
+    "recalculate_viability",
+    description="Recalcular viabilidade estimada de todos os itens do banco",
+)
 class YeastBankItem(db.Model):
     __tablename__ = "bank_item"
 

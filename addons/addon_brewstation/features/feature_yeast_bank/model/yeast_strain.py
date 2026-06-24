@@ -15,7 +15,7 @@ central e mais simples de yeast_bank.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length, permission, choices
+from annotations import label, plural, required, max_length, choices
 
 
 @label("Cepa de Levedura")
@@ -23,10 +23,6 @@ from annotations import label, plural, required, max_length, permission, choices
 @choices("status", label="Status")
 @required("name", message="Nome da cepa é obrigatório")
 @max_length("name", 200)
-@permission(
-    "recalculate_viability",
-    description="Recalcular viabilidade estimada da cepa",
-)
 class YeastStrain(db.Model):
     __tablename__ = "strain"  # nome curto — CrudGen/ModuleManager aplicam o prefixo
 

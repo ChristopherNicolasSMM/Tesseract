@@ -54,7 +54,9 @@ def test_permissoes_de_yeast_strains_existem(app):
         for action in ("list", "detail", "create", "update", "trash", "restore", "delete_permanent"):
             assert f"yeast_strains.{action}" in nomes
         # Camada 2 — ação de negócio específica desta cepa
-        assert "yeast_strains.recalculate_viability" in nomes
+        # "recalculate_viability" foi movida pra yeast_bank_items
+        # (onde a ação de fato opera) — ver tests/test_viability_engine.py
+        assert "yeast_bank_items.recalculate_viability" in nomes
 
 
 def test_crud_completo_via_http(app, client):
