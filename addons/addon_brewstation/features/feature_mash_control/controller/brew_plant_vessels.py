@@ -9,11 +9,26 @@ from flask_login import login_required
 
 from core.permissions import permission_required
 from addons.addon_brewstation.features.feature_mash_control.services.brew_plant_vessel_service import BrewPlantVesselService
+from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_vessel import BrewPlantVessel
 
 brew_plant_vessels_bp = Blueprint(
     "brew_plant_vessels", __name__, url_prefix="/brewstation/brew-plant-vessels"
 )
 _service = BrewPlantVesselService()
+
+# Campos editáveis via formulário — calculado por introspecção das
+# colunas do model (genérico, não precisa saber o schema de antemão).
+_READONLY_FIELDS = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"}
+_EDITABLE_FIELDS = [c.name for c in BrewPlantVessel.__table__.columns if c.name not in _READONLY_FIELDS]
+
+# Campo usado como "resumo" na coluna da lista — prefere um nome
+# reconhecível em vez de simplesmente "a primeira coluna declarada"
+# (que poderia ser algo pouco informativo como um campo de código).
+_SUMMARY_FIELD_PRIORITY = ("name", "label_text", "title", "username")
+_SUMMARY_FIELD = next(
+    (f for f in _SUMMARY_FIELD_PRIORITY if f in _EDITABLE_FIELDS),
+    _EDITABLE_FIELDS[0] if _EDITABLE_FIELDS else "id",
+)
 
 
 @brew_plant_vessels_bp.route("/", methods=["GET"])
@@ -21,7 +36,10 @@ _service = BrewPlantVesselService()
 @permission_required("brew_plant_vessels.list")
 def manage():
     items = _service.list()
-    return render_template("brew_plant_vessels/manage.html", items=items, label="Vasilhame")
+    return render_template(
+        "brew_plant_vessels/manage.html",
+        items=items, label="Vasilhame", fields=_EDITABLE_FIELDS, summary_field=_SUMMARY_FIELD,
+    )
 
 
 @brew_plant_vessels_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +50,10 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("brew_plant_vessels.manage"))
-    return render_template("brew_plant_vessels/detail.html", item=item, label="Vasilhame")
+    return render_template(
+        "brew_plant_vessels/detail.html",
+        item=item, label="Vasilhame", fields=_EDITABLE_FIELDS,
+    )
 
 
 @brew_plant_vessels_bp.route("/", methods=["POST"])
@@ -42,6 +63,8 @@ def create():
     result = _service.create(request.form.to_dict())
     if not result.success:
         flash(result.error, "error")
+    else:
+        flash("Criado com sucesso.", "success")
     return redirect(url_for("brew_plant_vessels.manage"))
 
 
@@ -52,14 +75,18 @@ def update(id: int):
     result = _service.update(id, request.form.to_dict())
     if not result.success:
         flash(result.error, "error")
-    return redirect(url_for("brew_plant_vessels.manage"))
+    else:
+        flash("Salvo com sucesso.", "success")
+    return redirect(url_for("brew_plant_vessels.detail", id=id))
 
 
 @brew_plant_vessels_bp.route("/<int:id>/trash", methods=["POST"])
 @login_required
 @permission_required("brew_plant_vessels.trash")
 def trash(id: int):
-    _service.trash(id)
+    result = _service.trash(id)
+    if not result.success:
+        flash(result.error, "error")
     return redirect(url_for("brew_plant_vessels.manage"))
 
 
@@ -67,7 +94,9 @@ def trash(id: int):
 @login_required
 @permission_required("brew_plant_vessels.restore")
 def restore(id: int):
-    _service.restore(id)
+    result = _service.restore(id)
+    if not result.success:
+        flash(result.error, "error")
     return redirect(url_for("brew_plant_vessels.manage"))
 
 
@@ -75,5 +104,7 @@ def restore(id: int):
 @login_required
 @permission_required("brew_plant_vessels.delete_permanent")
 def delete_permanent(id: int):
-    _service.delete_permanent(id)
+    result = _service.delete_permanent(id)
+    if not result.success:
+        flash(result.error, "error")
     return redirect(url_for("brew_plant_vessels.manage"))

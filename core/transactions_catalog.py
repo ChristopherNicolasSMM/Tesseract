@@ -30,7 +30,7 @@ CORE_TRANSACTIONS = [
         "group": "Admin",
         "description": "Cadastro e configuração de usuários, papéis e permissões.",
         "icon": "bi-people-fill",
-        "route": "/api/admin/users",
+        "route": "/admin/users",
         "permission_required": "admin",
         "is_standard": True,
     },

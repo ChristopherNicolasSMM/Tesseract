@@ -1,15 +1,54 @@
 {% extends "core/base.html" %}
 {% block content %}
-<h1>Alarme da Sessão</h1>
-<table class="table">
-  <thead><tr><th>ID</th><th>Ações</th></tr></thead>
-  <tbody>
-    {% for item in items %}
-    <tr>
-      <td>{{ item.id }}</td>
-      <td><a href="{{ url_for('brew_session_alarms.detail', id=item.id) }}">Ver</a></td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="pagetitle">
+  <h1>Alarme da Sessão</h1>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Novo registro</h5>
+      <form method="post" action="{{ url_for('brew_session_alarms.create') }}" class="row g-3">
+        {% for field in fields %}
+        <div class="col-md-4">
+          <label class="form-label">{{ field.replace('_', ' ').title() }}</label>
+          <input type="text" name="{{ field }}" class="form-control">
+        </div>
+        {% endfor %}
+        <div class="col-12">
+          <button class="btn btn-primary" type="submit">Criar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card mt-3">
+    <div class="card-body">
+      <h5 class="card-title">Lista</h5>
+      <table class="table table-striped">
+        <thead><tr><th>ID</th><th>Resumo</th><th>Ações</th></tr></thead>
+        <tbody>
+          {% for item in items %}
+          <tr>
+            <td>{{ item.id }}</td>
+            <td>{{ item.to_dict().get(summary_field) }}</td>
+            <td>
+              <a href="{{ url_for('brew_session_alarms.detail', id=item.id) }}" class="btn btn-sm btn-outline-primary">Ver / Editar</a>
+              <form method="post" action="{{ url_for('brew_session_alarms.trash', id=item.id) }}" class="d-inline" onsubmit="return confirm('Mover para a lixeira?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Lixeira</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="text-muted">Nenhum registro ainda.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
 {% endblock %}

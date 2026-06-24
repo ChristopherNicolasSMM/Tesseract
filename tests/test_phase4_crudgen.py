@@ -95,10 +95,12 @@ def test_aplicar_prefixo_duas_vezes_eh_idempotente(app):
         assert nome1 == nome2 == "tesseract_smoketest_item"
 
 
-def test_gera_os_7_arquivos_esperados(generated):
+def test_gera_os_8_arquivos_esperados(generated):
     written = generated["written"]
-    assert len(written) == 9  # service + service_hooks + controller + controller_hooks
-    #                          # + routes + routes_hooks + manage.html + detail.html + form_modal.html
+    assert len(written) == 8  # service + service_hooks + controller + controller_hooks
+    #                          # + routes + routes_hooks + manage.html + detail.html
+    #                          # (form_modal.html removido — estava órfão, nunca incluído
+    #                          # em nenhum outro template; ver BACKLOG.md)
 
     nomes = [Path(p).name for p in written]
     assert "smoketest_item_service.py" in nomes
@@ -109,7 +111,6 @@ def test_gera_os_7_arquivos_esperados(generated):
     assert "smoketest_items_routes_hooks.py" in nomes
     assert "manage.html" in nomes
     assert "detail.html" in nomes
-    assert "form_modal.html" in nomes
 
 
 def test_servico_gerado_usa_soft_delete_is_deleted(generated):
@@ -132,7 +133,7 @@ def test_segunda_geracao_sem_overwrite_preserva_hooks_e_arquivos(app, generated)
         )
     assert len(resultado2["written"]) == 0
     assert len(resultado2["skipped_hooks"]) == 3       # service_hooks + controller_hooks + routes_hooks
-    assert len(resultado2["skipped_existing"]) == 6     # service/controller/routes/3 templates HTML
+    assert len(resultado2["skipped_existing"]) == 5     # service/controller/routes/2 templates HTML
 
 
 def test_segunda_geracao_com_overwrite_regenera_mas_preserva_hooks(app, generated):
@@ -143,7 +144,7 @@ def test_segunda_geracao_com_overwrite_regenera_mas_preserva_hooks(app, generate
             addon="smoketest",
             overwrite=True,
         )
-    assert len(resultado["written"]) == 6   # tudo, exceto os 3 hooks (sempre preservados)
+    assert len(resultado["written"]) == 5   # tudo, exceto os 3 hooks (sempre preservados)
     assert len(resultado["skipped_hooks"]) == 3
 
 

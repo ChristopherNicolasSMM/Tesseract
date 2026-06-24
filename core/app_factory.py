@@ -32,7 +32,7 @@ def create_app(env: str | None = None) -> Flask:
     # evita o Jinja procurar em core/templates/ por engano.
     project_root_guess = Path(__file__).parent.parent.resolve()
     app = Flask(__name__, template_folder=str(project_root_guess / "templates"), static_folder=str(project_root_guess / "static") )
-#####    app = Flask(__name__, template_folder="templates", static_folder="static")
+
     config_cls = get_config(env)
     app.config.from_object(config_cls)
 
@@ -70,10 +70,12 @@ def create_app(env: str | None = None) -> Flask:
     from api.routes.core.admin.users import users_api_bp
     from api.routes.core.transactions import transactions_api_bp
     from controller.core.pages import core_pages_bp
+    from controller.core.admin_users import admin_users_bp
     app.register_blueprint(auth_api_bp)
     app.register_blueprint(users_api_bp)
     app.register_blueprint(transactions_api_bp)
     app.register_blueprint(core_pages_bp)
+    app.register_blueprint(admin_users_bp)
 
     @app.context_processor
     def inject_transactions_menu():

@@ -1,0 +1,120 @@
+{% extends "core/base.html" %}
+{% block title %}Usuário {{ user.username }} - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Usuário: {{ user.username }}</h1>
+  <a href="{{ url_for('admin_users.manage') }}">&larr; Voltar para a lista</a>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  <div class="row">
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Dados</h5>
+          <form method="post" action="{{ url_for('admin_users.update', user_id=user.id) }}" class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Usuário (login)</label>
+              <input type="text" name="username" class="form-control" value="{{ user.username }}" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">E-mail</label>
+              <input type="email" name="email" class="form-control" value="{{ user.email }}" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Nickname</label>
+              <input type="text" name="nome" class="form-control" value="{{ user.nome }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Nome completo</label>
+              <input type="text" name="nome_completo" class="form-control" value="{{ user.nome_completo }}" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Celular</label>
+              <input type="text" name="celular" class="form-control" value="{{ user.celular }}" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">CPF</label>
+              <input type="text" name="cpf" class="form-control" value="{{ user.cpf or '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Empresa</label>
+              <input type="text" name="empresa" class="form-control" value="{{ user.empresa or '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Cargo</label>
+              <input type="text" name="cargo" class="form-control" value="{{ user.cargo or '' }}">
+            </div>
+            <div class="col-md-3">
+              <div class="form-check mt-4">
+                <input class="form-check-input" type="checkbox" name="is_admin" id="is_admin" value="1" {% if user.is_admin %}checked{% endif %}>
+                <label class="form-check-label" for="is_admin">Administrador (acesso total)</label>
+              </div>
+            </div>
+            <div class="col-12">
+              <button class="btn btn-primary" type="submit">Salvar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-body">
+          <h5 class="card-title">Papéis (Roles)</h5>
+          <form method="post" action="{{ url_for('admin_users.update_roles', user_id=user.id) }}">
+            {% set user_role_ids = user.roles | map(attribute='id') | list %}
+            {% for role in all_roles %}
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="role_ids" id="role_{{ role.id }}" value="{{ role.id }}" {% if role.id in user_role_ids %}checked{% endif %}>
+              <label class="form-check-label" for="role_{{ role.id }}">{{ role.name }}</label>
+            </div>
+            {% else %}
+            <p class="text-muted">Nenhum Role criado ainda no sistema.</p>
+            {% endfor %}
+            <button class="btn btn-primary mt-2" type="submit">Salvar papéis</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Status</h5>
+          <p>
+            {% if user.is_active %}
+              <span class="badge bg-success">Ativo</span>
+            {% else %}
+              <span class="badge bg-secondary">Inativo</span>
+            {% endif %}
+          </p>
+          {% if user.is_active %}
+          <form method="post" action="{{ url_for('admin_users.deactivate', user_id=user.id) }}" onsubmit="return confirm('Desativar este usuário?');">
+            <button type="submit" class="btn btn-warning w-100">Desativar</button>
+          </form>
+          {% else %}
+          <form method="post" action="{{ url_for('admin_users.activate', user_id=user.id) }}">
+            <button type="submit" class="btn btn-success w-100">Ativar</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-body">
+          <h5 class="card-title">Redefinir senha</h5>
+          <p class="small text-muted">Define uma nova senha imediatamente — equivalente ao comando <code>flask reset-password</code>.</p>
+          <form method="post" action="{{ url_for('admin_users.reset_password', user_id=user.id) }}">
+            <input type="password" name="new_password" class="form-control mb-2" placeholder="Nova senha (mín. 6 caracteres)" required minlength="6">
+            <button type="submit" class="btn btn-outline-primary w-100">Redefinir senha</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

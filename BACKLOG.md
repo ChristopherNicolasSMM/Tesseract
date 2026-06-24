@@ -357,6 +357,35 @@ aqui).
       sidebar, `/brewstation/yeast-strains/` (tela CRUD real) renderiza
       sem erro de template
 
+## Ajuste transversal — Telas de Admin de Usuários
+
+Disparado pela validação de páginas/cliques (item anterior) — a API
+de usuários (Fase 2) nunca tinha ganhado tela; `TX_ADMIN_USERS`
+apontava literalmente pra URL da API JSON.
+
+- [x] `controller/core/admin_users.py` — reaproveita
+      `_validate_payload`/`_apply_payload` da API existente, em vez de
+      duplicar a validação
+- [x] `templates/core/admin/users_manage.html` /
+      `users_detail.html` — criar, editar, atribuir Role, resetar
+      senha, ativar/desativar
+- [x] **Corrigido**: `TX_ADMIN_USERS.route` apontava para
+      `/api/admin/users` (JSON) — agora aponta para `/admin/users`
+      (tela). Propagado automaticamente no próximo boot via
+      `sync_transaction()` (idempotente, já existia)
+- [x] Atribuição de Role pela tela — RBAC não tinha nenhuma UI até
+      aqui, só a API
+- [x] Reset de senha pelo admin direto na tela (mais rápido que o
+      `flask reset-password` quando já está logado)
+- [x] **Autodesativação bloqueada na tela** (não na API) — evita o
+      admin se trancar fora sem entender por quê
+      (`UserMixin.is_authenticated == self.is_active`, Fase 2)
+- [x] 9 testes novos (`tests/test_admin_users_pages.py`) + 66 das
+      fases anteriores = 75 passando
+- [x] Teste manual via HTTP cobrindo os 7 passos: abrir tela → criar →
+      editar → atribuir role → resetar senha → login com senha nova →
+      desativar outro usuário → autodesativação bloqueada
+
 ## Fase 7 — `addon_builder` (Designer)
 
 ### Fase 7a — Catálogo de Transações (concluída)

@@ -1,0 +1,89 @@
+{% extends "core/base.html" %}
+{% block title %}Gestão de Usuários - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Gestão de Usuários</h1>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Novo usuário</h5>
+      <form method="post" action="{{ url_for('admin_users.create') }}" class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label">Usuário (login)</label>
+          <input type="text" name="username" class="form-control" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">E-mail</label>
+          <input type="email" name="email" class="form-control" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Senha</label>
+          <input type="password" name="password" class="form-control" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Nickname</label>
+          <input type="text" name="nome" class="form-control" required>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Nome completo</label>
+          <input type="text" name="nome_completo" class="form-control" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Celular</label>
+          <input type="text" name="celular" class="form-control" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">CPF (opcional)</label>
+          <input type="text" name="cpf" class="form-control" placeholder="000.000.000-00">
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="is_admin" id="is_admin" value="1">
+            <label class="form-check-label" for="is_admin">Administrador</label>
+          </div>
+        </div>
+        <div class="col-12">
+          <button class="btn btn-primary" type="submit">Criar usuário</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card mt-3">
+    <div class="card-body">
+      <h5 class="card-title">Usuários</h5>
+      <table class="table table-striped">
+        <thead><tr><th>Usuário</th><th>Nome</th><th>E-mail</th><th>Status</th><th>Admin</th><th>Ações</th></tr></thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td>{{ u.username }}</td>
+            <td>{{ u.nome_completo }}</td>
+            <td>{{ u.email }}</td>
+            <td>
+              {% if u.is_active %}
+                <span class="badge bg-success">Ativo</span>
+              {% else %}
+                <span class="badge bg-secondary">Inativo</span>
+              {% endif %}
+            </td>
+            <td>{% if u.is_admin %}<i class="bi bi-check-circle-fill text-primary"></i>{% endif %}</td>
+            <td>
+              <a href="{{ url_for('admin_users.detail', user_id=u.id) }}" class="btn btn-sm btn-outline-primary">Ver / Editar</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-muted">Nenhum usuário ainda.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

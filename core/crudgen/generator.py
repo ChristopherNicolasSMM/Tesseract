@@ -48,7 +48,6 @@ _FILES_TO_GENERATE = [
     ("routes_hooks.py.j2", "api/routes/{plural}_routes_hooks.py", True),
     ("manage.html.j2", "templates/{plural}/manage.html", False),
     ("detail.html.j2", "templates/{plural}/detail.html", False),
-    ("form_modal.html.j2", "templates/{plural}/_modals/form_modal.html", False),
 ]
 
 

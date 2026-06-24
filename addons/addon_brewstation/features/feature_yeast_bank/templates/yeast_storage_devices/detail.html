@@ -1,5 +1,47 @@
 {% extends "core/base.html" %}
 {% block content %}
-<h1>Dispositivo de Armazenamento #{{ item.id }}</h1>
-<a href="{{ url_for('yeast_storage_devices.manage') }}">Voltar</a>
+<div class="pagetitle">
+  <h1>Dispositivo de Armazenamento #{{ item.id }}</h1>
+  <a href="{{ url_for('yeast_storage_devices.manage') }}">&larr; Voltar para a lista</a>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <form method="post" action="{{ url_for('yeast_storage_devices.update', id=item.id) }}" class="row g-3">
+        {% set data = item.to_dict() %}
+        {% for field in fields %}
+        <div class="col-md-4">
+          <label class="form-label">{{ field.replace('_', ' ').title() }}</label>
+          <input type="text" name="{{ field }}" class="form-control" value="{{ data.get(field) if data.get(field) is not none else '' }}">
+        </div>
+        {% endfor %}
+        <div class="col-12">
+          <button class="btn btn-primary" type="submit">Salvar</button>
+        </div>
+      </form>
+
+      <hr>
+
+      <div class="d-flex gap-2">
+        {% if not data.get('is_deleted') %}
+        <form method="post" action="{{ url_for('yeast_storage_devices.trash', id=item.id) }}" onsubmit="return confirm('Mover para a lixeira?');">
+          <button type="submit" class="btn btn-warning">Mover para lixeira</button>
+        </form>
+        {% else %}
+        <form method="post" action="{{ url_for('yeast_storage_devices.restore', id=item.id) }}">
+          <button type="submit" class="btn btn-success">Restaurar</button>
+        </form>
+        <form method="post" action="{{ url_for('yeast_storage_devices.delete_permanent', id=item.id) }}" onsubmit="return confirm('Excluir PERMANENTEMENTE? Esta ação não pode ser desfeita.');">
+          <button type="submit" class="btn btn-danger">Excluir permanentemente</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
 {% endblock %}
