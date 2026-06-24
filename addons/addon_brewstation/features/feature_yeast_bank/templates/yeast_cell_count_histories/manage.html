@@ -11,24 +11,40 @@
 <section class="section">
   <div class="card">
     <div class="card-body">
-      <h5 class="card-title">Novo registro</h5>
-      <form method="post" action="{{ url_for('yeast_cell_count_histories.create') }}" class="row g-3">
-        {% for field in fields %}
+      <button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#novoRegistroForm">
+        <i class="bi bi-plus-lg"></i> Novo registro
+      </button>
+      <div class="collapse" id="novoRegistroForm">
+        <form method="post" action="{{ url_for('yeast_cell_count_histories.create') }}" class="row g-3 mb-3">
+          {% for field in fields %}
+          <div class="col-md-4">
+            <label class="form-label">{{ field.replace('_', ' ').title() }}</label>
+            <input type="text" name="{{ field }}" class="form-control">
+          </div>
+          {% endfor %}
+          <div class="col-12">
+            <button class="btn btn-primary" type="submit">Criar</button>
+          </div>
+        </form>
+      </div>
+
+      <form method="get" class="row g-2 mb-3">
         <div class="col-md-4">
-          <label class="form-label">{{ field.replace('_', ' ').title() }}</label>
-          <input type="text" name="{{ field }}" class="form-control">
+          <input type="text" name="q" class="form-control" placeholder="Buscar..." value="{{ search }}">
         </div>
-        {% endfor %}
-        <div class="col-12">
-          <button class="btn btn-primary" type="submit">Criar</button>
+        <div class="col-md-2">
+          <button class="btn btn-outline-primary w-100" type="submit"><i class="bi bi-search"></i> Filtrar</button>
+        </div>
+        {% if search %}
+        <div class="col-md-2">
+          <a href="{{ url_for('yeast_cell_count_histories.manage') }}" class="btn btn-outline-secondary w-100"><i class="bi bi-x-circle"></i> Limpar</a>
+        </div>
+        {% endif %}
+        <div class="col-md-2 ms-auto">
+          <span class="badge bg-secondary"><i class="bi bi-list-ul me-1"></i>{{ total }} registro(s)</span>
         </div>
       </form>
-    </div>
-  </div>
 
-  <div class="card mt-3">
-    <div class="card-body">
-      <h5 class="card-title">Lista</h5>
       <table class="table table-striped">
         <thead><tr><th>ID</th><th>Resumo</th><th>Ações</th></tr></thead>
         <tbody>
@@ -44,10 +60,22 @@
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="3" class="text-muted">Nenhum registro ainda.</td></tr>
+          <tr><td colspan="3" class="text-muted">Nenhum registro encontrado.</td></tr>
           {% endfor %}
         </tbody>
       </table>
+
+      {% if pages > 1 %}
+      <nav>
+        <ul class="pagination pagination-sm justify-content-center">
+          {% for p in range(1, pages + 1) %}
+          <li class="page-item {% if p == page %}active{% endif %}">
+            <a class="page-link" href="{{ url_for('yeast_cell_count_histories.manage', page=p, q=search) }}">{{ p }}</a>
+          </li>
+          {% endfor %}
+        </ul>
+      </nav>
+      {% endif %}
     </div>
   </div>
 </section>

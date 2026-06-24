@@ -13,10 +13,13 @@
   <link href="{{ url_for('static', filename='vendor/boxicons/css/boxicons.min.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='vendor/simple-datatables/style.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+  {% if current_user.is_authenticated and current_user.theme == 'dark' %}
+  <link href="{{ url_for('static', filename='css/style_dark.css') }}" rel="stylesheet" id="theme-dark-css">
+  {% endif %}
 
   {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="{% if current_user.is_authenticated and current_user.theme == 'dark' %}theme-dark{% endif %}">
   <!-- ======= Header ======= -->
   <header id="header" class="header fixed-top d-flex align-items-center">
     <div class="d-flex align-items-center justify-content-between">
@@ -33,6 +36,20 @@
             <span class="d-none d-md-block dropdown-toggle ps-2">{{ current_user.nome }}</span>
           </a>
           <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow profile">
+            <li>
+              <a class="dropdown-item d-flex align-items-center" href="{{ url_for('profile.view_profile') }}">
+                <i class="bi bi-person"></i>
+                <span>Meu Perfil</span>
+              </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <a class="dropdown-item d-flex align-items-center" href="#" id="themeToggleBtn">
+                <i class="bi bi-moon-stars"></i>
+                <span>{% if current_user.is_authenticated and current_user.theme == 'dark' %}Tema claro{% else %}Tema escuro{% endif %}</span>
+              </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
             <li>
               <a class="dropdown-item d-flex align-items-center" href="#" id="logoutBtn">
                 <i class="bi bi-box-arrow-right"></i>
@@ -86,6 +103,17 @@
       fetch('/api/auth/logout', { method: 'POST' }).then(function () {
         window.location.href = '/login';
       });
+    });
+
+    document.getElementById('themeToggleBtn').addEventListener('click', function (e) {
+      e.preventDefault();
+      var isDark = document.body.classList.contains('theme-dark');
+      var newTheme = isDark ? 'light' : 'dark';
+      fetch('/api/auth/update-theme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ theme: newTheme }),
+      }).then(function () { window.location.reload(); });
     });
   </script>
   {% block extra_js %}{% endblock %}

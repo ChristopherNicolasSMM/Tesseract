@@ -69,13 +69,21 @@ def create_app(env: str | None = None) -> Flask:
     from api.routes.core.auth import auth_api_bp
     from api.routes.core.admin.users import users_api_bp
     from api.routes.core.transactions import transactions_api_bp
+    from api.routes.core.theme import theme_api_bp
     from controller.core.pages import core_pages_bp
     from controller.core.admin_users import admin_users_bp
+    from controller.core.admin_roles import admin_roles_bp
+    from controller.core.admin_versioning import admin_versioning_bp
+    from controller.core.profile import profile_bp
     app.register_blueprint(auth_api_bp)
     app.register_blueprint(users_api_bp)
     app.register_blueprint(transactions_api_bp)
+    app.register_blueprint(theme_api_bp)
     app.register_blueprint(core_pages_bp)
     app.register_blueprint(admin_users_bp)
+    app.register_blueprint(admin_roles_bp)
+    app.register_blueprint(admin_versioning_bp)
+    app.register_blueprint(profile_bp)
 
     @app.context_processor
     def inject_transactions_menu():

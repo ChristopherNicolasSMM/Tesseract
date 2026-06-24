@@ -58,6 +58,12 @@ class User(UserMixin, db.Model):
     telefone = db.Column(db.String(50))
     foto_perfil = db.Column(db.String(255))  # caminho relativo em static/uploads
 
+    # Preferência de tema — "light" ou "dark", por usuário (igual ao
+    # PyTeca/BrewStation original, que usavam um boolean `modo_escuro`;
+    # aqui já como string para deixar espaço a um 3º modo futuro, ex.
+    # "auto" seguindo o SO, sem precisar de migration de novo).
+    theme = db.Column(db.String(10), default="light", nullable=False)
+
     roles = db.relationship(
         "Role", secondary="tesseract_user_roles", back_populates="users"
     )
@@ -137,6 +143,7 @@ class User(UserMixin, db.Model):
             "pais": self.pais,
             "telefone": self.telefone,
             "foto_perfil": self.foto_perfil,
+            "theme": self.theme,
         }
 
     def __repr__(self) -> str:

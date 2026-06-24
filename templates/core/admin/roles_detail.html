@@ -1,0 +1,101 @@
+{% extends "core/base.html" %}
+{% block title %}Role {{ role.name }} - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Role: {{ role.name }}</h1>
+  <a href="{{ url_for('admin_roles.manage') }}">&larr; Voltar para a lista</a>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  <div class="row">
+    <div class="col-lg-5">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Dados</h5>
+          <form method="post" action="{{ url_for('admin_roles.update', role_id=role.id) }}" class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Nome</label>
+              <input type="text" name="name" class="form-control" value="{{ role.name }}" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Descrição</label>
+              <input type="text" name="description" class="form-control" value="{{ role.description or '' }}">
+            </div>
+            <div class="col-12">
+              <button class="btn btn-primary" type="submit">Salvar</button>
+            </div>
+          </form>
+
+          <hr>
+
+          <form method="post" action="{{ url_for('admin_roles.delete', role_id=role.id) }}" onsubmit="return confirm('Excluir este Role? Só é possível se nenhum usuário o tiver atribuído.');">
+            <button type="submit" class="btn btn-outline-danger">Excluir Role</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-body">
+          <h5 class="card-title">Usuários com este Role</h5>
+          {% for u in role.users %}
+            <span class="badge bg-secondary me-1">{{ u.username }}</span>
+          {% else %}
+            <p class="text-muted small">Nenhum usuário ainda.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Permissões</h5>
+          <p class="small text-muted">
+            Permissões nunca são criadas por aqui — são sincronizadas
+            automaticamente a partir do código (cada entidade gerada
+            ganha 7 permissões padrão). Aqui você só associa as já
+            existentes a este Role.
+          </p>
+          <form method="post" action="{{ url_for('admin_roles.update_permissions', role_id=role.id) }}">
+            {% set role_perm_ids = role.permissions | map(attribute='id') | list %}
+            <div class="accordion" id="permAccordion">
+              {% for group_name, perms in permissions_grouped.items() %}
+              <div class="accordion-item">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#perm-{{ group_name }}">
+                    {{ group_name }}
+                    <span class="badge bg-info ms-2">
+                      {{ perms | selectattr('id', 'in', role_perm_ids) | list | length }}/{{ perms | length }}
+                    </span>
+                  </button>
+                </h2>
+                <div class="accordion-collapse collapse" id="perm-{{ group_name }}">
+                  <div class="accordion-body">
+                    {% for perm in perms %}
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="permission_ids" id="perm_{{ perm.id }}" value="{{ perm.id }}" {% if perm.id in role_perm_ids %}checked{% endif %}>
+                      <label class="form-check-label" for="perm_{{ perm.id }}">
+                        {{ perm.name }}
+                        {% if perm.description %}<span class="text-muted small"> — {{ perm.description }}</span>{% endif %}
+                      </label>
+                    </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+              {% else %}
+              <p class="text-muted">Nenhuma permissão sincronizada ainda — gere algum CRUD primeiro.</p>
+              {% endfor %}
+            </div>
+            <button class="btn btn-primary mt-3" type="submit">Salvar permissões</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

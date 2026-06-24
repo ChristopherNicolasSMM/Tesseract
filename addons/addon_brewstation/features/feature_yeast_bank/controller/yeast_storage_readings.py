@@ -35,10 +35,26 @@ _SUMMARY_FIELD = next(
 @login_required
 @permission_required("yeast_storage_readings.list")
 def manage():
-    items = _service.list()
+    from flask import request
+
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
+    search = (request.args.get("q") or "").strip()
+
+    query = YeastStorageReading.query.filter(YeastStorageReading.is_deleted.is_(False))
+    if search:
+        search_field = getattr(YeastStorageReading, _SUMMARY_FIELD, None)
+        if search_field is not None:
+            query = query.filter(search_field.ilike(f"%{search}%"))
+
+    total = query.count()
+    items = query.order_by(YeastStorageReading.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    pages = max(1, (total + per_page - 1) // per_page)
+
     return render_template(
         "yeast_storage_readings/manage.html",
         items=items, label="Leitura de Armazenamento", fields=_EDITABLE_FIELDS, summary_field=_SUMMARY_FIELD,
+        page=page, pages=pages, total=total, per_page=per_page, search=search,
     )
 
 

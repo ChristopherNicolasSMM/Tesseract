@@ -13,6 +13,10 @@
   <div class="card">
     <div class="card-body">
       <h5 class="card-title">Novo usuário</h5>
+      <button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#novoUsuarioForm">
+        <i class="bi bi-plus-lg"></i> Novo usuário
+      </button>
+      <div class="collapse" id="novoUsuarioForm">
       <form method="post" action="{{ url_for('admin_users.create') }}" class="row g-3">
         <div class="col-md-3">
           <label class="form-label">Usuário (login)</label>
@@ -52,6 +56,7 @@
           <button class="btn btn-primary" type="submit">Criar usuário</button>
         </div>
       </form>
+      </div>
     </div>
   </div>
 

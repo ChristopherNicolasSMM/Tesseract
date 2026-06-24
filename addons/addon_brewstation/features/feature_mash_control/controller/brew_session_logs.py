@@ -35,10 +35,26 @@ _SUMMARY_FIELD = next(
 @login_required
 @permission_required("brew_session_logs.list")
 def manage():
-    items = _service.list()
+    from flask import request
+
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
+    search = (request.args.get("q") or "").strip()
+
+    query = BrewSessionLog.query.filter(BrewSessionLog.is_deleted.is_(False))
+    if search:
+        search_field = getattr(BrewSessionLog, _SUMMARY_FIELD, None)
+        if search_field is not None:
+            query = query.filter(search_field.ilike(f"%{search}%"))
+
+    total = query.count()
+    items = query.order_by(BrewSessionLog.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    pages = max(1, (total + per_page - 1) // per_page)
+
     return render_template(
         "brew_session_logs/manage.html",
         items=items, label="Log da Sessão", fields=_EDITABLE_FIELDS, summary_field=_SUMMARY_FIELD,
+        page=page, pages=pages, total=total, per_page=per_page, search=search,
     )
 
 

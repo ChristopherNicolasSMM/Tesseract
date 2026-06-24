@@ -1,0 +1,42 @@
+{% extends "core/base.html" %}
+{% block title %}Versionamento - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Versionamento de Código</h1>
+  <p class="text-muted small">Histórico de arquivos gerados pelo CrudGen ou editados manualmente — cada escrita versionada vira uma entrada aqui.</p>
+</div>
+
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <form method="get" class="row g-2 mb-3">
+        <div class="col-md-4">
+          <input type="text" name="q" class="form-control" placeholder="Buscar por caminho de arquivo..." value="{{ search }}">
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-outline-primary w-100" type="submit"><i class="bi bi-search"></i> Filtrar</button>
+        </div>
+      </form>
+
+      <table class="table table-striped">
+        <thead><tr><th>Arquivo</th><th>Versões</th><th>Última origem</th><th>Modificado em</th><th>Ações</th></tr></thead>
+        <tbody>
+          {% for f in files %}
+          <tr>
+            <td><code>{{ f.file_path }}</code></td>
+            <td><span class="badge bg-info">{{ f.version_count }}</span></td>
+            <td><span class="badge bg-secondary">{{ f.last_origin }}</span></td>
+            <td>{{ f.last_modified[:19] if f.last_modified else '—' }}</td>
+            <td>
+              <a href="{{ url_for('admin_versioning.history', file_path=f.file_path) }}" class="btn btn-sm btn-outline-primary">Ver histórico</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-muted">Nenhum arquivo com histórico ainda.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

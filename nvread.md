@@ -1,9 +1,47 @@
-> **Versão:** 0.2.0  
-> **Autor:** Christopher N. S. M. Mauricio  
+<p align="center">
+  <img src="docs/imgs/logo.png" alt="Tesseract" width="100%">
+</p>
+
+<p align="center"><strong>Tesseract By Christopher N. S. M. Mauricio .'.</strong></p>
+
+
+# Tesseract
+
+O projeto que une tudo... Agora temos um Hub modular (Core + Addons + Features + Plugins) em Flask.
+A fusão arquitetural de três projetos anteriores: 
+- **PyTeca** (CrudGen, RBAC, versionamento)
+- **BrewStation** (motor de descoberta/registro de módulos) 
+- **DEVStationFlask** (transações, motor de regras, Designer drag-and-drop, OData com Lib S2MOdataPy)
+
+*Uso inicial: gestão de cervejaria caseira.*
+*Uso de longo prazo: base reaproveitável para outros sistemas.*
+
+
+#### Atualizações da versão vigente:
+
+> **Versão:** 0.0.1
+
+> **Status atual: Páginas HTML de Core entregues.** Login, home com
+> menu dinâmico (catálogo de Transações) e todas as 24 telas de CRUD
+> já geradas agora renderizam de verdade — corrigido um bug que
+> afetava toda tela HTML desde a Fase 4 (ChoiceLoader nunca estava
+> conectado). Reset de senha de admin via CLI. Próximo: Fase 7b
+> (motor de regras) ou Fase 7c (Designer visual).
+
+---
+
+
+
+
+
+
+
+
 
 
 
 ## Licença / Autor
+
 
 > **Autor:** Christopher Nicolas Santa Maria Mauricio
 > **Projeto:** Tesseract Modular Python Framework
@@ -29,3 +67,4 @@ Acumule **5 pontos** através de Pull Requests aprovados para ganhar 1 Licença 
 *Empresas são encorajadas a alocar desenvolvedores para o nosso backlog. Ao contribuir com código, a empresa não apenas melhora a ferramenta que utiliza, mas adquire licenças gratuitas para sua equipe.*
 
 Para todos os detalhes legais, restrições de distribuição e termos de uso, consulte o arquivo [`LICENSE`](LICENSE) na raiz deste repositório.
+

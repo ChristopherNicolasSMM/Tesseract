@@ -1,0 +1,55 @@
+{% extends "core/base.html" %}
+{% block title %}Papéis e Permissões - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Papéis (Roles)</h1>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#novoRoleForm">
+        <i class="bi bi-plus-lg"></i> Novo Role
+      </button>
+      <div class="collapse" id="novoRoleForm">
+        <form method="post" action="{{ url_for('admin_roles.create') }}" class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label">Nome</label>
+            <input type="text" name="name" class="form-control" placeholder="ex.: brewmaster" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Descrição</label>
+            <input type="text" name="description" class="form-control">
+          </div>
+          <div class="col-md-2 d-flex align-items-end">
+            <button class="btn btn-primary w-100" type="submit">Criar</button>
+          </div>
+        </form>
+      </div>
+
+      <table class="table table-striped">
+        <thead><tr><th>Nome</th><th>Descrição</th><th>Permissões</th><th>Usuários</th><th>Ações</th></tr></thead>
+        <tbody>
+          {% for role in roles %}
+          <tr>
+            <td>{{ role.name }}</td>
+            <td>{{ role.description or '—' }}</td>
+            <td><span class="badge bg-info">{{ role.permissions | length }}</span></td>
+            <td><span class="badge bg-secondary">{{ role.users | length }}</span></td>
+            <td>
+              <a href="{{ url_for('admin_roles.detail', role_id=role.id) }}" class="btn btn-sm btn-outline-primary">Ver / Editar</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-muted">Nenhum Role criado ainda.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -386,6 +386,83 @@ apontava literalmente pra URL da API JSON.
       editar → atribuir role → resetar senha → login com senha nova →
       desativar outro usuário → autodesativação bloqueada
 
+## Ajuste transversal — Tema, Perfil, Roles/Permissions, Versionamento, Smart-list-lite
+
+Rodada grande, disparada por um pedido consolidado: gestão de
+Roles/Permissions, versionamento (igual ao PyTeca), telas ainda
+faltantes (perfil + tema claro/escuro), formulário de criação
+recolhido por padrão, e filtro/paginação nas listas (smart-list
+simplificada, inspirada no componente `smart_list` do PyTeca).
+
+### Tema (claro/escuro) + Perfil
+
+- [x] `User.theme` (`"light"`/`"dark"`, default `"light"`) — adaptado
+      do `modo_escuro` (boolean) do PyTeca/BrewStation, como string pra
+      deixar espaço a um 3º modo futuro sem nova migration
+- [x] `POST /api/auth/update-theme` + toggle no menu do usuário (header)
+      e na própria tela de perfil
+- [x] `style_dark.css` (já presente nos assets) carregado
+      condicionalmente; classe `theme-dark` no `<body>`
+- [x] `/perfil/` — editar dados próprios, trocar a própria senha
+      (exige senha atual correta), ver Roles atribuídos
+
+### Roles / Permissions
+
+- [x] `/admin/roles/` — criar Role (único ponto onde Role nasce livre,
+      diferente de Permission), editar, excluir (bloqueado se algum
+      usuário ainda tiver o Role)
+- [x] `/admin/roles/<id>` — associação de Permission a Role, agrupadas
+      por módulo (prefixo antes do primeiro ponto do nome) num
+      accordion, já que passam de 100 com as 24 entidades existentes
+- [x] Reforça o princípio "código lidera, banco segue" (skill 00/03):
+      Permission nunca é criada pela UI, só lida e associada
+
+### Versionamento (confirmado com o PyTeca — faltava a tela, não o backend)
+
+- [x] **Achado**: o PyTeca tinha um `SnapshotService` completo (list_files,
+      get_history, get_content, diff unificado, restore) em
+      `services/core/admin/snapshot_service.py` — schema pronto desde
+      a Fase 3 daqui, mas **nenhuma API/tela o consumia nem lá nem
+      aqui**. Portado quase 1:1 para `core/snapshot_service.py`.
+- [x] `/admin/versioning/` — lista de arquivos com histórico, busca por
+      caminho
+- [x] `/admin/versioning/history` — histórico completo de um arquivo,
+      diff unificado entre duas versões selecionadas, restauração
+      (grava no disco + cria novo snapshot com `origin=RESTORE`,
+      nunca silenciosa)
+
+### Smart-list-lite (CrudGen)
+
+- [x] **"Novo registro" agora recolhido por padrão**, expande só ao
+      clicar no botão "+" — aplicado no `manage.html.j2` (afeta as 24
+      entidades já geradas, regeneradas com `--overwrite`) e na tela
+      de admin de usuários
+- [x] Filtro de busca (`?q=`) no campo de resumo + paginação
+      server-side (`?page=`) — versão simplificada do `smart_list` do
+      PyTeca (escopo: busca + paginação; **fora do escopo**: export
+      Excel/CSV/PDF, configuração de colunas com drag-and-drop, layout
+      salvo por usuário — registrado como decisão, não esquecimento)
+- [x] Contador de registros visível na lista
+
+### Testes e validação
+
+- [x] 17 testes novos
+      (`tests/test_theme_profile_roles_versioning.py`) + 75 das fases
+      anteriores = 92 passando
+- [x] Teste manual via HTTP cobrindo: alternância de tema persistindo
+      no `<body>`, edição de perfil, troca de senha com validação de
+      senha atual, criação de Role + associação de Permission +
+      bloqueio de exclusão com usuário atribuído, diff real
+      (`-linha`/`+linha`) e restauração gravando no disco de verdade
+
+### Decisões registradas — fora do escopo desta rodada
+
+- [ ] Export (Excel/CSV/PDF) das listas — peça do `smart_list` do
+      PyTeca explicitamente deixada de fora
+- [ ] Configuração de colunas (mostrar/ocultar, reordenar, salvar
+      layout por usuário) — mesma decisão
+- [ ] Filtros por tipo (select/boolean), só busca textual por ora
+
 ## Fase 7 — `addon_builder` (Designer)
 
 ### Fase 7a — Catálogo de Transações (concluída)
