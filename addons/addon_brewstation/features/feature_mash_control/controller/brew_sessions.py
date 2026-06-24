@@ -21,7 +21,7 @@ _service = BrewSessionService()
 @permission_required("brew_sessions.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/brew_sessions/manage.html", items=items, label="Sessão de Brassagem")
+    return render_template("brew_sessions/manage.html", items=items, label="Sessão de Brassagem")
 
 
 @brew_sessions_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("brew_sessions.manage"))
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/brew_sessions/detail.html", item=item, label="Sessão de Brassagem")
+    return render_template("brew_sessions/detail.html", item=item, label="Sessão de Brassagem")
 
 
 @brew_sessions_bp.route("/", methods=["POST"])

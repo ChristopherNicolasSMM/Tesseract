@@ -17,7 +17,7 @@ login_manager = LoginManager()
 
 def init_auth(app) -> None:
     login_manager.init_app(app)
-    login_manager.login_view = None  # API pura nesta fase — sem redirect HTML
+    login_manager.login_view = "core_pages.login_page"  # páginas HTML existem desde esta fase
 
     @login_manager.user_loader
     def load_user(user_id: str):
@@ -34,8 +34,11 @@ def init_auth(app) -> None:
 
     @login_manager.unauthorized_handler
     def unauthorized():
-        from flask import jsonify
-        return jsonify(success=False, error="Não autenticado."), 401
+        from flask import jsonify, request, redirect, url_for
+
+        if request.path.startswith("/api/"):
+            return jsonify(success=False, error="Não autenticado."), 401
+        return redirect(url_for("core_pages.login_page"))
 
     logger.debug("Flask-Login configurado (eager_load=%s)", app.config.get(
         "RBAC_SESSION_EAGER_LOAD", True

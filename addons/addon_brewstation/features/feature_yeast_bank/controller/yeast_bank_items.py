@@ -21,7 +21,7 @@ _service = YeastBankItemService()
 @permission_required("yeast_bank_items.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_yeast_bank/templates/yeast_bank_items/manage.html", items=items, label="Item do Banco")
+    return render_template("yeast_bank_items/manage.html", items=items, label="Item do Banco")
 
 
 @yeast_bank_items_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("yeast_bank_items.manage"))
-    return render_template("addons/addon_brewstation/features/feature_yeast_bank/templates/yeast_bank_items/detail.html", item=item, label="Item do Banco")
+    return render_template("yeast_bank_items/detail.html", item=item, label="Item do Banco")
 
 
 @yeast_bank_items_bp.route("/", methods=["POST"])

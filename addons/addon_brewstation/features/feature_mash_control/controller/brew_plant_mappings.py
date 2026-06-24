@@ -21,7 +21,7 @@ _service = BrewPlantMappingService()
 @permission_required("brew_plant_mappings.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/brew_plant_mappings/manage.html", items=items, label="Mapeamento de Equipamento")
+    return render_template("brew_plant_mappings/manage.html", items=items, label="Mapeamento de Equipamento")
 
 
 @brew_plant_mappings_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("brew_plant_mappings.manage"))
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/brew_plant_mappings/detail.html", item=item, label="Mapeamento de Equipamento")
+    return render_template("brew_plant_mappings/detail.html", item=item, label="Mapeamento de Equipamento")
 
 
 @brew_plant_mappings_bp.route("/", methods=["POST"])

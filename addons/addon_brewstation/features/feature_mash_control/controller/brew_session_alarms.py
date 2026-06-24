@@ -21,7 +21,7 @@ _service = BrewSessionAlarmService()
 @permission_required("brew_session_alarms.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/brew_session_alarms/manage.html", items=items, label="Alarme da Sessão")
+    return render_template("brew_session_alarms/manage.html", items=items, label="Alarme da Sessão")
 
 
 @brew_session_alarms_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("brew_session_alarms.manage"))
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/brew_session_alarms/detail.html", item=item, label="Alarme da Sessão")
+    return render_template("brew_session_alarms/detail.html", item=item, label="Alarme da Sessão")
 
 
 @brew_session_alarms_bp.route("/", methods=["POST"])

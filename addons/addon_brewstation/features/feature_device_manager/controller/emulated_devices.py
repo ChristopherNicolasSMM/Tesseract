@@ -21,7 +21,7 @@ _service = EmulatedDeviceService()
 @permission_required("emulated_devices.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_device_manager/templates/emulated_devices/manage.html", items=items, label="Dispositivo Emulado")
+    return render_template("emulated_devices/manage.html", items=items, label="Dispositivo Emulado")
 
 
 @emulated_devices_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("emulated_devices.manage"))
-    return render_template("addons/addon_brewstation/features/feature_device_manager/templates/emulated_devices/detail.html", item=item, label="Dispositivo Emulado")
+    return render_template("emulated_devices/detail.html", item=item, label="Dispositivo Emulado")
 
 
 @emulated_devices_bp.route("/", methods=["POST"])

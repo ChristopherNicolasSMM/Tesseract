@@ -44,6 +44,37 @@ def register_cli_commands(app) -> None:
         db.session.commit()
         click.echo(f"Usuário admin '{username}' criado com sucesso.")
 
+    @app.cli.command("reset-password")
+    @click.option("--username", required=True)
+    @click.option("--password", default="admin123", show_default=True)
+    @click.option("--reactivate", is_flag=True, default=False, help="Também marca is_active=True (caso o usuário tenha sido desativado).")
+    @with_appcontext
+    def reset_password(username, password, reactivate):
+        """
+        Reseta a senha de um usuário existente — caminho de recuperação
+        para o admin "se trancar para fora" (senha perdida, ou
+        autodesativação acidental — ver BACKLOG.md, Fase 2, nota sobre
+        UserMixin.is_authenticated). Não cria usuário novo: se não
+        existir, orienta a usar `init-admin`.
+        """
+        from core.db import db
+        from model.core.user import User
+
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            click.echo(f"Usuário '{username}' não encontrado. Use 'init-admin' para criar o primeiro usuário.")
+            return
+
+        user.set_password(password)
+        if reactivate:
+            user.is_active = True
+        db.session.commit()
+
+        msg = f"Senha de '{username}' redefinida."
+        if reactivate:
+            msg += " Conta reativada (is_active=True)."
+        click.echo(msg)
+
     @app.cli.command("generate")
     @click.option("--model", "model_path", required=True, help="Caminho do arquivo .py com o model anotado")
     @click.option("--class-name", default=None, help="Nome da classe, se o arquivo tiver mais de um model")

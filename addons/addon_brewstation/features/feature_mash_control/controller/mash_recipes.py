@@ -21,7 +21,7 @@ _service = MashRecipeService()
 @permission_required("mash_recipes.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/mash_recipes/manage.html", items=items, label="Receita de Brassagem")
+    return render_template("mash_recipes/manage.html", items=items, label="Receita de Brassagem")
 
 
 @mash_recipes_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("mash_recipes.manage"))
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/mash_recipes/detail.html", item=item, label="Receita de Brassagem")
+    return render_template("mash_recipes/detail.html", item=item, label="Receita de Brassagem")
 
 
 @mash_recipes_bp.route("/", methods=["POST"])

@@ -10,11 +10,12 @@ Uso inicial: gestão de cervejaria caseira. Uso de longo prazo: base
 reaproveitável para outros sistemas.
 
 
-> **Status atual: Fase 7a concluída — Catálogo de Transações.**
-> `tesseract_transaction` com seed de Core + sincronização de
-> transações contribuídas por Addon/Feature, filtrado por RBAC real
-> (sem tier separado). Próximo: Fase 7b (motor de regras) ou Fase 7c
-> (Designer visual).
+> **Status atual: Páginas HTML de Core entregues.** Login, home com
+> menu dinâmico (catálogo de Transações) e todas as 24 telas de CRUD
+> já geradas agora renderizam de verdade — corrigido um bug que
+> afetava toda tela HTML desde a Fase 4 (ChoiceLoader nunca estava
+> conectado). Reset de senha de admin via CLI. Próximo: Fase 7b
+> (motor de regras) ou Fase 7c (Designer visual).
 
 ## Navegação
 

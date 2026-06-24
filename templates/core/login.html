@@ -1,0 +1,70 @@
+{% extends "core/base_no_login.html" %}
+{% block title %}Login - Tesseract{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center align-items-center" style="min-height: 90vh;">
+    <div class="col-lg-4 col-md-6">
+      <div class="d-flex justify-content-center py-4">
+        <span class="h3">Tesseract</span>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="pt-2 pb-2">
+            <h5 class="card-title text-center pb-0 fs-4">Login</h5>
+            <p class="text-center small">Entre com seu usuário e senha</p>
+          </div>
+
+          <div id="loginError" class="alert alert-danger d-none" role="alert"></div>
+
+          <form class="row g-3" id="loginForm">
+            <div class="col-12">
+              <label for="username" class="form-label">Usuário</label>
+              <input type="text" name="username" class="form-control" id="username" required autofocus>
+            </div>
+            <div class="col-12">
+              <label for="password" class="form-label">Senha</label>
+              <input type="password" name="password" class="form-control" id="password" required>
+            </div>
+            <div class="col-12">
+              <button class="btn btn-primary w-100" type="submit">Entrar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', function (e) {
+  e.preventDefault();
+  const errorBox = document.getElementById('loginError');
+  errorBox.classList.add('d-none');
+
+  const data = {
+    username: document.getElementById('username').value,
+    password: document.getElementById('password').value,
+  };
+
+  fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+    .then(function (resp) { return resp.json().then(function (body) { return { ok: resp.ok, body: body }; }); })
+    .then(function (result) {
+      if (result.ok && result.body.success) {
+        window.location.href = "{{ url_for('core_pages.home') }}";
+      } else {
+        errorBox.textContent = result.body.error || 'Usuário ou senha inválidos.';
+        errorBox.classList.remove('d-none');
+      }
+    })
+    .catch(function () {
+      errorBox.textContent = 'Erro ao conectar com o servidor.';
+      errorBox.classList.remove('d-none');
+    });
+});
+</script>
+{% endblock %}

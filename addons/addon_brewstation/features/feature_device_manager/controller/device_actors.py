@@ -21,7 +21,7 @@ _service = DeviceActorService()
 @permission_required("device_actors.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_device_manager/templates/device_actors/manage.html", items=items, label="Ator de Dispositivo")
+    return render_template("device_actors/manage.html", items=items, label="Ator de Dispositivo")
 
 
 @device_actors_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("device_actors.manage"))
-    return render_template("addons/addon_brewstation/features/feature_device_manager/templates/device_actors/detail.html", item=item, label="Ator de Dispositivo")
+    return render_template("device_actors/detail.html", item=item, label="Ator de Dispositivo")
 
 
 @device_actors_bp.route("/", methods=["POST"])

@@ -21,7 +21,7 @@ _service = DashboardWidgetService()
 @permission_required("dashboard_widgets.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/dashboard_widgets/manage.html", items=items, label="Widget de Dashboard")
+    return render_template("dashboard_widgets/manage.html", items=items, label="Widget de Dashboard")
 
 
 @dashboard_widgets_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("dashboard_widgets.manage"))
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/dashboard_widgets/detail.html", item=item, label="Widget de Dashboard")
+    return render_template("dashboard_widgets/detail.html", item=item, label="Widget de Dashboard")
 
 
 @dashboard_widgets_bp.route("/", methods=["POST"])

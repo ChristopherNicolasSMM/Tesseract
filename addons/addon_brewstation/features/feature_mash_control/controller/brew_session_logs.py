@@ -21,7 +21,7 @@ _service = BrewSessionLogService()
 @permission_required("brew_session_logs.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/brew_session_logs/manage.html", items=items, label="Log da Sessão")
+    return render_template("brew_session_logs/manage.html", items=items, label="Log da Sessão")
 
 
 @brew_session_logs_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("brew_session_logs.manage"))
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/brew_session_logs/detail.html", item=item, label="Log da Sessão")
+    return render_template("brew_session_logs/detail.html", item=item, label="Log da Sessão")
 
 
 @brew_session_logs_bp.route("/", methods=["POST"])

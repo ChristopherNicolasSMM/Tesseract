@@ -21,7 +21,7 @@ _service = YeastStrainService()
 @permission_required("yeast_strains.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_yeast_bank/templates/yeast_strains/manage.html", items=items, label="Cepa de Levedura")
+    return render_template("yeast_strains/manage.html", items=items, label="Cepa de Levedura")
 
 
 @yeast_strains_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("yeast_strains.manage"))
-    return render_template("addons/addon_brewstation/features/feature_yeast_bank/templates/yeast_strains/detail.html", item=item, label="Cepa de Levedura")
+    return render_template("yeast_strains/detail.html", item=item, label="Cepa de Levedura")
 
 
 @yeast_strains_bp.route("/", methods=["POST"])

@@ -21,7 +21,7 @@ _service = DeviceMetadataService()
 @permission_required("device_metadatas.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_device_manager/templates/device_metadatas/manage.html", items=items, label="Dispositivo IoT")
+    return render_template("device_metadatas/manage.html", items=items, label="Dispositivo IoT")
 
 
 @device_metadatas_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("device_metadatas.manage"))
-    return render_template("addons/addon_brewstation/features/feature_device_manager/templates/device_metadatas/detail.html", item=item, label="Dispositivo IoT")
+    return render_template("device_metadatas/detail.html", item=item, label="Dispositivo IoT")
 
 
 @device_metadatas_bp.route("/", methods=["POST"])

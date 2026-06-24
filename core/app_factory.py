@@ -26,8 +26,13 @@ from core.seed_config import ensure_default_system_config
 
 
 def create_app(env: str | None = None) -> Flask:
-    app = Flask(__name__)
-
+    # app.root_path resolve para core/ (onde Flask(__name__) é
+    # instanciado), não para a raiz do projeto — mesmo problema já
+    # visto com instance_path (Fase 1). template_folder explícito
+    # evita o Jinja procurar em core/templates/ por engano.
+    project_root_guess = Path(__file__).parent.parent.resolve()
+    app = Flask(__name__, template_folder=str(project_root_guess / "templates"), static_folder=str(project_root_guess / "static") )
+#####    app = Flask(__name__, template_folder="templates", static_folder="static")
     config_cls = get_config(env)
     app.config.from_object(config_cls)
 
@@ -50,6 +55,7 @@ def create_app(env: str | None = None) -> Flask:
         from model.core import transaction  # noqa: F401
 
         app.module_manager.discover_and_register_addons(project_root / "addons")
+        app.module_manager.apply_template_loader()
 
         app.module_manager.create_all_pending_tables()
         app.module_manager.sync_all_permissions()
@@ -63,9 +69,26 @@ def create_app(env: str | None = None) -> Flask:
     from api.routes.core.auth import auth_api_bp
     from api.routes.core.admin.users import users_api_bp
     from api.routes.core.transactions import transactions_api_bp
+    from controller.core.pages import core_pages_bp
     app.register_blueprint(auth_api_bp)
     app.register_blueprint(users_api_bp)
     app.register_blueprint(transactions_api_bp)
+    app.register_blueprint(core_pages_bp)
+
+    @app.context_processor
+    def inject_transactions_menu():
+        """
+        Disponível em TODO template que estenda core/base.html — sem
+        isso, cada controller gerado pelo CrudGen precisaria passar
+        transactions_by_group manualmente em todo render_template().
+        Só roda para usuário autenticado (sidebar não existe na tela
+        de login, que estende base_no_login.html).
+        """
+        from flask_login import current_user
+        if not current_user.is_authenticated:
+            return {}
+        from controller.core.pages import _visible_transactions_by_group
+        return {"transactions_by_group": _visible_transactions_by_group()}
 
     @app.route("/health")
     def health():

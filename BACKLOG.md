@@ -307,6 +307,56 @@ Skill 02: FK entre **duas Features do mesmo Addon** é permitida (só
 FK entre Addons diferentes é proibida) — não estava explícito antes
 desta fase.
 
+## Ajuste transversal — Páginas HTML de Core + reset de senha
+
+Disparado por um "Not Found" real ao acessar a raiz do app implantado
+— confirmando que não existia nenhuma rota HTML de Core (só API até
+aqui).
+
+- [x] `templates/core/base_no_login.html` / `base.html` / `login.html`
+      / `home.html` — usando os assets do Nice Admin já em `static/`
+- [x] **Bug real corrigido, afetava TODA tela HTML já gerada pelo
+      CrudGen desde a Fase 4**: `render_template()` nos controllers
+      gerados usava o caminho completo
+      (`addons/.../templates/{plural}/manage.html`), mas
+      `{% extends "core/base.html" %}` só resolve se a raiz de busca
+      do Jinja for a mesma para os dois — e isso nunca foi verdade,
+      porque o `ChoiceLoader` (`core/template_loader.py`, construído
+      na Fase 1) nunca foi de fato conectado ao app. Corrigido:
+      - `core/crudgen/generator.py` agora usa caminho relativo curto
+        (`{plural}/manage.html`) em vez do caminho completo
+      - `ModuleManager` descobre automaticamente a pasta `templates/`
+        de cada Addon/Feature (via localização do arquivo `.py`,
+        sem precisar de metadado extra) e monta o `ChoiceLoader` de
+        verdade (`apply_template_loader()`)
+      - As 24 entidades já geradas foram regeneradas com
+        `--overwrite` para aplicar a correção (hooks preservados)
+- [x] `app.root_path` corrigido para Flask encontrar `templates/` na
+      raiz do projeto (`template_folder` explícito) — mesma classe de
+      bug já vista com `instance_path` (Fase 1) e `app.root_path` no
+      `generate` (Fase 4)
+- [x] Menu lateral (`sidebar`) e cards da home **dinâmicos**, vindos
+      do catálogo de Transações (Fase 7a) — não hardcoded
+- [x] `flask reset-password --username admin --password admin123
+      [--reactivate]` — caminho de recuperação para o admin "se
+      trancar para fora" (senha perdida, ou autodesativação
+      acidental — ver Fase 2). `--reactivate` também resolve o caso
+      de auto-desativação documentado em
+      `test_autodesativacao_invalida_a_propria_sessao`
+- [x] **Validado**: todas as "regras iniciais" (`init-admin`,
+      `ensure_default_system_config`, `sync_model_permissions`,
+      `sync_transaction`, `apply_table_prefix`) já são idempotentes —
+      checagem confirmada por código E por teste, não só por
+      inspeção. Nenhuma rodou em duplicidade nos testes realizados.
+- [x] `core/auth.py`: 401 JSON só para rotas `/api/*`; páginas HTML
+      sem login redirecionam para `/login` (antes redirecionava
+      sempre como API, mesmo para navegador)
+- [x] 66 testes passando (suite completa, incluindo Fase 7a)
+- [x] Teste manual via HTTP simulando navegador: `/login` renderiza,
+      `/` sem sessão redireciona, `/` com sessão mostra home com
+      sidebar, `/brewstation/yeast-strains/` (tela CRUD real) renderiza
+      sem erro de template
+
 ## Fase 7 — `addon_builder` (Designer)
 
 ### Fase 7a — Catálogo de Transações (concluída)

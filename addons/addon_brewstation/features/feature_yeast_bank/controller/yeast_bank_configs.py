@@ -21,7 +21,7 @@ _service = YeastBankConfigService()
 @permission_required("yeast_bank_configs.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_yeast_bank/templates/yeast_bank_configs/manage.html", items=items, label="Configuração do Banco de Levedura")
+    return render_template("yeast_bank_configs/manage.html", items=items, label="Configuração do Banco de Levedura")
 
 
 @yeast_bank_configs_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("yeast_bank_configs.manage"))
-    return render_template("addons/addon_brewstation/features/feature_yeast_bank/templates/yeast_bank_configs/detail.html", item=item, label="Configuração do Banco de Levedura")
+    return render_template("yeast_bank_configs/detail.html", item=item, label="Configuração do Banco de Levedura")
 
 
 @yeast_bank_configs_bp.route("/", methods=["POST"])

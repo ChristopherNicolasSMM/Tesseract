@@ -21,7 +21,7 @@ _service = AutomationRuleService()
 @permission_required("automation_rules.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/automation_rules/manage.html", items=items, label="Regra de Automação")
+    return render_template("automation_rules/manage.html", items=items, label="Regra de Automação")
 
 
 @automation_rules_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("automation_rules.manage"))
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/automation_rules/detail.html", item=item, label="Regra de Automação")
+    return render_template("automation_rules/detail.html", item=item, label="Regra de Automação")
 
 
 @automation_rules_bp.route("/", methods=["POST"])

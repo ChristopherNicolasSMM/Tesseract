@@ -18,6 +18,8 @@ Em dev (LOG_LEVEL=DEBUG), cada etapa de discovery/registro/criação é
 logada — rastreabilidade alta de propósito para facilitar debug.
 """
 import logging
+import sys
+from pathlib import Path
 
 from core.db import db
 from core.crudgen.table_prefix import apply_table_prefix
@@ -27,6 +29,21 @@ from annotations import get_model_metadata
 logger = logging.getLogger(__name__)
 
 
+def _template_dir_for(obj) -> str | None:
+    """
+    Pasta templates/ ao lado do arquivo .py que define a classe de
+    obj (Addon ou Feature) — descoberta automática, sem precisar de
+    metadado extra no manifesto. Usada para montar o ChoiceLoader do
+    Jinja (ver ModuleManager.build_jinja_loader()).
+    """
+    module_name = type(obj).__module__
+    mod = sys.modules.get(module_name)
+    if not mod or not getattr(mod, "__file__", None):
+        return None
+    templates_dir = Path(mod.__file__).parent / "templates"
+    return str(templates_dir) if templates_dir.is_dir() else None
+
+
 class ModuleManager:
     def __init__(self, app):
         self.app = app
@@ -34,6 +51,7 @@ class ModuleManager:
         self._pending_model_classes: list = []
         self._pending_permission_sync: list = []  # [(model_cls, plural), ...]
         self._pending_transactions: list = []  # [(tx_dict, source_module), ...]
+        self._template_dirs: list = []
 
     def register_module(self, module) -> None:
         """
@@ -75,6 +93,10 @@ class ModuleManager:
             module.name, len(core_models), [m.__name__ for m in core_models],
         )
 
+        addon_template_dir = _template_dir_for(module)
+        if addon_template_dir:
+            self._template_dirs.append(addon_template_dir)
+
         for tx in module.get_transactions():
             self._pending_transactions.append((tx, module.name))
 
@@ -91,6 +113,10 @@ class ModuleManager:
             )
             for tx in feature.get_transactions():
                 self._pending_transactions.append((tx, module.name))
+
+            feature_template_dir = _template_dir_for(feature)
+            if feature_template_dir:
+                self._template_dirs.append(feature_template_dir)
 
         # ── Passo 2: SÓ AGORA aplicar prefixo, com tudo já importado ────
         for model_cls, prefix in pending:
@@ -110,6 +136,27 @@ class ModuleManager:
             "core.module.activated",
             module_name=module.name,
             module_type=module.module_type,
+        )
+
+    def apply_template_loader(self) -> None:
+        """
+        Chamado uma vez, depois de TODA a descoberta de Addons —
+        monta o ChoiceLoader (core/template_loader.py, Fase 1) com a
+        pasta templates/ de cada Addon/Feature coletada durante o
+        registro. Sem isso, "{% extends 'core/base.html' %}" dentro
+        de um template gerado pelo CrudGen nunca resolve (raiz de
+        busca do Jinja só via app.template_folder, por padrão).
+        """
+        from core.template_loader import build_template_loader
+
+        if not self._template_dirs:
+            logger.debug("Nenhum template_dir de Addon/Feature para registrar.")
+            return
+
+        self.app.jinja_loader = build_template_loader(self.app, self._template_dirs)
+        logger.info(
+            "ChoiceLoader montado com %d pasta(s) de template de Addon/Feature.",
+            len(self._template_dirs),
         )
 
     def sync_all_permissions(self) -> None:

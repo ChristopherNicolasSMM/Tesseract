@@ -21,7 +21,7 @@ _service = DeviceFunctionService()
 @permission_required("device_functions.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_device_manager/templates/device_functions/manage.html", items=items, label="Função de Dispositivo")
+    return render_template("device_functions/manage.html", items=items, label="Função de Dispositivo")
 
 
 @device_functions_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("device_functions.manage"))
-    return render_template("addons/addon_brewstation/features/feature_device_manager/templates/device_functions/detail.html", item=item, label="Função de Dispositivo")
+    return render_template("device_functions/detail.html", item=item, label="Função de Dispositivo")
 
 
 @device_functions_bp.route("/", methods=["POST"])

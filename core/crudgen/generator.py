@@ -94,7 +94,12 @@ def generate(
 
     web_prefix = f"/{addon.replace('_', '-')}/{plural.replace('_', '-')}"
     api_prefix = f"/api{web_prefix}"
-    template_dir = f"{output_module_path_label}/templates/{plural}".replace("\\", "/")
+    # Caminho RELATIVO (não a partir da raiz do projeto) — resolvido pelo
+    # ChoiceLoader que o ModuleManager monta com o template_dir físico de
+    # cada Feature/Addon como busca adicional (core/module_manager.py).
+    # Usar o caminho completo aqui quebrava "extends core/base.html",
+    # que só resolve se a raiz de busca for a mesma para os dois.
+    template_dir = plural
 
     context = {
         "class_name": class_name,

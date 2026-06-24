@@ -21,7 +21,7 @@ _service = BrewPlantService()
 @permission_required("brew_plants.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/brew_plants/manage.html", items=items, label="Planta de Brassagem")
+    return render_template("brew_plants/manage.html", items=items, label="Planta de Brassagem")
 
 
 @brew_plants_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("brew_plants.manage"))
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/brew_plants/detail.html", item=item, label="Planta de Brassagem")
+    return render_template("brew_plants/detail.html", item=item, label="Planta de Brassagem")
 
 
 @brew_plants_bp.route("/", methods=["POST"])

@@ -21,7 +21,7 @@ _service = BrewPlantVesselService()
 @permission_required("brew_plant_vessels.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/brew_plant_vessels/manage.html", items=items, label="Vasilhame")
+    return render_template("brew_plant_vessels/manage.html", items=items, label="Vasilhame")
 
 
 @brew_plant_vessels_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("brew_plant_vessels.manage"))
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/brew_plant_vessels/detail.html", item=item, label="Vasilhame")
+    return render_template("brew_plant_vessels/detail.html", item=item, label="Vasilhame")
 
 
 @brew_plant_vessels_bp.route("/", methods=["POST"])

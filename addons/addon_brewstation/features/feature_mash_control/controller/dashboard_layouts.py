@@ -21,7 +21,7 @@ _service = DashboardLayoutService()
 @permission_required("dashboard_layouts.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/dashboard_layouts/manage.html", items=items, label="Layout de Dashboard")
+    return render_template("dashboard_layouts/manage.html", items=items, label="Layout de Dashboard")
 
 
 @dashboard_layouts_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("dashboard_layouts.manage"))
-    return render_template("addons/addon_brewstation/features/feature_mash_control/templates/dashboard_layouts/detail.html", item=item, label="Layout de Dashboard")
+    return render_template("dashboard_layouts/detail.html", item=item, label="Layout de Dashboard")
 
 
 @dashboard_layouts_bp.route("/", methods=["POST"])

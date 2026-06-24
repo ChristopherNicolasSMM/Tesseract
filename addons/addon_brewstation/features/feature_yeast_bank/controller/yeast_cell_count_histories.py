@@ -21,7 +21,7 @@ _service = YeastCellCountHistoryService()
 @permission_required("yeast_cell_count_histories.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_yeast_bank/templates/yeast_cell_count_histories/manage.html", items=items, label="Histórico de Contagem")
+    return render_template("yeast_cell_count_histories/manage.html", items=items, label="Histórico de Contagem")
 
 
 @yeast_cell_count_histories_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("yeast_cell_count_histories.manage"))
-    return render_template("addons/addon_brewstation/features/feature_yeast_bank/templates/yeast_cell_count_histories/detail.html", item=item, label="Histórico de Contagem")
+    return render_template("yeast_cell_count_histories/detail.html", item=item, label="Histórico de Contagem")
 
 
 @yeast_cell_count_histories_bp.route("/", methods=["POST"])

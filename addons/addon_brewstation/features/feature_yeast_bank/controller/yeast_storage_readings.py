@@ -21,7 +21,7 @@ _service = YeastStorageReadingService()
 @permission_required("yeast_storage_readings.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_yeast_bank/templates/yeast_storage_readings/manage.html", items=items, label="Leitura de Armazenamento")
+    return render_template("yeast_storage_readings/manage.html", items=items, label="Leitura de Armazenamento")
 
 
 @yeast_storage_readings_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("yeast_storage_readings.manage"))
-    return render_template("addons/addon_brewstation/features/feature_yeast_bank/templates/yeast_storage_readings/detail.html", item=item, label="Leitura de Armazenamento")
+    return render_template("yeast_storage_readings/detail.html", item=item, label="Leitura de Armazenamento")
 
 
 @yeast_storage_readings_bp.route("/", methods=["POST"])

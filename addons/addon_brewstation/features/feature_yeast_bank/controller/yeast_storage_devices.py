@@ -21,7 +21,7 @@ _service = YeastStorageDeviceService()
 @permission_required("yeast_storage_devices.list")
 def manage():
     items = _service.list()
-    return render_template("addons/addon_brewstation/features/feature_yeast_bank/templates/yeast_storage_devices/manage.html", items=items, label="Dispositivo de Armazenamento")
+    return render_template("yeast_storage_devices/manage.html", items=items, label="Dispositivo de Armazenamento")
 
 
 @yeast_storage_devices_bp.route("/<int:id>", methods=["GET"])
@@ -32,7 +32,7 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("yeast_storage_devices.manage"))
-    return render_template("addons/addon_brewstation/features/feature_yeast_bank/templates/yeast_storage_devices/detail.html", item=item, label="Dispositivo de Armazenamento")
+    return render_template("yeast_storage_devices/detail.html", item=item, label="Dispositivo de Armazenamento")
 
 
 @yeast_storage_devices_bp.route("/", methods=["POST"])
