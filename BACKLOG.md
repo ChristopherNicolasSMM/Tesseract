@@ -624,16 +624,53 @@ lacuna já registrada como pendência desde a Fase 1/6.
       usuário com `yeast_strains.list` vê `TX_YEAST_BANK` mas não
       `TX_DEVICE_MANAGER`
 
-### Fase 7b — Motor de regras (pendente)
+#### Fase 7b — Motor de regras (concluída)
 
-- [ ] Validação/visibilidade/cálculo (`rules/rule_types.py` do
-      DEVStationFlask) — ainda não iniciado
+- [x] `core/rules_catalog.py` — catálogo completo (17 regras, 3 grupos:
+      Validação/Visibilidade/Cálculo) adaptado de `rules/rule_types.py`
+      (DEVStationFlask)
+- [x] **Decisão de escopo**: só o grupo **Validação** ganhou motor real
+      nesta fase. Visibilidade e Cálculo referenciam IDs de componente
+      arbitrários (`comp_1`, `comp_2`...) que só fazem sentido dentro
+      de um canvas — ficam catalogados, prontos para o Designer (Fase
+      7c), mas sem nenhuma engine consumindo eles ainda. Cada regra
+      tem `connected: True/False` marcando isso explicitamente.
+- [x] `model/core/field_rule.py` (`tesseract_field_rule`) — anexa uma
+      regra do catálogo a um campo de qualquer entidade (`entity_key`
+      + `field_name`, nunca FK — mesmo princípio de
+      `tesseract_user_list_preference`)
+- [x] `static/js/rule_engine.js` — motor de validação client-side real
+      (required, minLength, maxLength, email, cpf, cnpj, onlyNumbers,
+      minValue, maxValue, validDate), incluindo CPF/CNPJ com dígito
+      verificador de verdade (não regex solta)
+- [x] `/admin/field-rules/` — tela de gestão (criar, ativar/desativar,
+      remover), com os 3 grupos do catálogo no select, indicando quais
+      têm efeito real
+- [x] Conectado ao CrudGen: `manage.html`/`detail.html` (criação e
+      edição) renderizam `data-rules` automaticamente nos campos com
+      regra ativa, motor JS incluído em toda tela gerada — aplicado
+      nas 24 entidades (regeneradas)
+- [x] 16 testes (`tests/test_phase7b_rules_engine.py`) + 117 das fases
+      anteriores = 133 passando
+- [x] Teste manual via HTTP confirmando o `data-rules` real renderizado
+      no campo (`[{"js_function": "minLength", "params": {...}}]`)
+      depois de anexar a regra pela tela
 
-### Fase 7c — Designer visual drag-and-drop (pendente)
+## Fase 7c — Designer visual drag-and-drop (não iniciada)
 
-- [ ] Maior peça, precisa de JS/canvas no frontend — ainda não iniciado
+- [ ] Canvas de montagem de tela (drag-and-drop de componentes)
+- [ ] Conectar regras de Visibilidade/Cálculo do catálogo (já
+      cadastradas desde a Fase 7b, só sem motor) a componentes reais
+      do canvas
+- [ ] Persistência do layout montado (provavelmente reaproveitando o
+      padrão de `DashboardLayout`/`DashboardWidget`, já existentes em
+      `feature_mash_control`, ou um model de Core mais genérico)
+- [ ] Maior peça das 3 fases (7b/7c/8) — precisa de JS de canvas
+      (drag, resize, snap) que não existe em nenhuma parte do projeto
+      ainda, diferente do motor de regras (Fase 7b), que reaproveitou
+      o padrão de formulário já existente
 
-## Fase 8 — OData / Screen Generator
+## Fase 8 — OData / Screen Generator (não iniciada)
 
 - [ ] `odata/connection_manager.py` portado (descoberta de `$metadata`)
 - [ ] `screen_generator.py` — telas data-bound a partir de metadados OData

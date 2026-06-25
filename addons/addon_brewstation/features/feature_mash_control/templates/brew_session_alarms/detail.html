@@ -12,12 +12,13 @@
 <section class="section">
   <div class="card">
     <div class="card-body">
-      <form method="post" action="{{ url_for('brew_session_alarms.update', id=item.id) }}" class="row g-3">
+      <form method="post" action="{{ url_for('brew_session_alarms.update', id=item.id) }}" class="row g-3" id="editForm">
         {% set data = item.to_dict() %}
         {% for field in fields %}
         <div class="col-md-4">
           <label class="form-label">{{ field.replace('_', ' ').title() }}</label>
-          <input type="text" name="{{ field }}" class="form-control" value="{{ data.get(field) if data.get(field) is not none else '' }}">
+          <input type="text" name="{{ field }}" class="form-control" value="{{ data.get(field) if data.get(field) is not none else '' }}"
+                 {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
         </div>
         {% endfor %}
         <div class="col-12">
@@ -44,4 +45,13 @@
     </div>
   </div>
 </section>
+
+<script src="{{ url_for('static', filename='js/rule_engine.js') }}"></script>
+<script>
+  document.getElementById('editForm').addEventListener('submit', function (e) {
+    if (!RuleEngine.validateForm(this)) {
+      e.preventDefault();
+    }
+  });
+</script>
 {% endblock %}

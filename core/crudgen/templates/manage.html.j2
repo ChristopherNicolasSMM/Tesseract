@@ -15,11 +15,12 @@
         <i class="bi bi-plus-lg"></i> Novo registro
       </button>
       <div class="collapse" id="novoRegistroForm">
-        <form method="post" action="{{ url_for('@@plural@@.create') }}" class="row g-3 mb-3">
+        <form method="post" action="{{ url_for('@@plural@@.create') }}" class="row g-3" id="createForm">
           {% for field in fields %}
           <div class="col-md-4">
             <label class="form-label">{{ field.replace('_', ' ').title() }}</label>
-            <input type="text" name="{{ field }}" class="form-control">
+            <input type="text" name="{{ field }}" class="form-control"
+                   {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
           </div>
           {% endfor %}
           <div class="col-12">
@@ -135,4 +136,13 @@
     </div>
   </div>
 </section>
+
+<script src="{{ url_for('static', filename='js/rule_engine.js') }}"></script>
+<script>
+  document.getElementById('createForm').addEventListener('submit', function (e) {
+    if (!RuleEngine.validateForm(this)) {
+      e.preventDefault();
+    }
+  });
+</script>
 {% endblock %}

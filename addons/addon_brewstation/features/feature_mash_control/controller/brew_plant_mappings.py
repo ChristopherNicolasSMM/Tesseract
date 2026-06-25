@@ -49,6 +49,34 @@ _CHOICES_FIELDS = [f["field"] for f in get_choices_fields(BrewPlantMapping) if f
 _LIST_KEY = "brew_plant_mappings"
 
 
+def _get_field_rules() -> dict:
+    """
+    Regras de validação ativas para esta entidade, por campo —
+    {"name": [{"js_function": "required", "params": {...}}, ...]}.
+    Motor real só pra grupo Validação (core/rules_catalog.py) — outros
+    grupos ficam ignorados pelo rule_engine.js (sem erro, sem efeito).
+    """
+    from model.core.field_rule import FieldRule
+    from core.rules_catalog import get_rule_def
+
+    rules_by_field: dict = {}
+    field_rules = (
+        FieldRule.query
+        .filter_by(entity_key=_LIST_KEY, is_active=True)
+        .order_by(FieldRule.field_name, FieldRule.order)
+        .all()
+    )
+    for fr in field_rules:
+        rule_def = get_rule_def(fr.rule_id)
+        if not rule_def:
+            continue
+        rules_by_field.setdefault(fr.field_name, []).append({
+            "js_function": rule_def["js_function"],
+            "params": fr.params_json or {},
+        })
+    return rules_by_field
+
+
 def _get_column_prefs() -> list[str]:
     """
     Colunas visíveis na lista, por usuário — default é só o campo de
@@ -118,6 +146,7 @@ def manage():
         visible_columns=_get_column_prefs(),
         boolean_fields=_BOOLEAN_FIELDS, choices_fields=_CHOICES_FIELDS,
         choices_options=_choices_options(), request_args=request.args,
+        field_rules=_get_field_rules(),
     )
 
 
@@ -202,6 +231,7 @@ def detail(id: int):
     return render_template(
         "brew_plant_mappings/detail.html",
         item=item, label="Mapeamento de Equipamento", fields=_EDITABLE_FIELDS,
+        field_rules=_get_field_rules(),
     )
 
 

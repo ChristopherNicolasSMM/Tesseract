@@ -54,4 +54,14 @@ CORE_TRANSACTIONS = [
         "permission_required": "admin",
         "is_standard": True,
     },
+    {
+        "code": "TX_ADMIN_FIELD_RULES",
+        "label": "Regras de Campo",
+        "group": "Admin",
+        "description": "Validação client-side anexada a campos de qualquer entidade.",
+        "icon": "bi-rulers",
+        "route": "/admin/field-rules",
+        "permission_required": "admin",
+        "is_standard": True,
+    },
 ]

@@ -133,7 +133,8 @@ TESSERACT_ENV=testing python -m pytest tests/ -v
 | 5 + 5b | `addon_brewstation`/`feature_yeast_bank` completo (8 tabelas) | ✅ |
 | 6 | Demais Features Brew (`mash_control`, `device_manager` — CRUD; `integ_bfather` fora) | ✅ |
 | 7a | Catálogo de Transações | ✅ |
-| 7b/7c | Motor de regras / Designer visual | ⏳ próxima |
+| 7b | Motor de regras (Validação conectada) | ✅ |
+| 7c | Designer visual drag-and-drop | ⏳ próxima |
 | 8 | OData / Screen Generator (DEVStationFlask) | |
 
 ## Assets estáticos (Nice Admin)

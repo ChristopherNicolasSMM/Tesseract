@@ -1,0 +1,85 @@
+{% extends "core/base.html" %}
+{% block title %}Regras de Campo - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Regras de Campo</h1>
+  <p class="text-muted small">
+    Anexa uma regra do catálogo a um campo de qualquer entidade. Só o
+    grupo <strong>Validação</strong> tem efeito real nesta fase — os
+    grupos Visibilidade e Cálculo ficam catalogados, prontos para o
+    Designer visual (Fase 7c).
+  </p>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#novaRegraForm">
+        <i class="bi bi-plus-lg"></i> Nova regra
+      </button>
+      <div class="collapse" id="novaRegraForm">
+        <form method="post" action="{{ url_for('admin_field_rules.create') }}" class="row g-3 mb-3">
+          <div class="col-md-3">
+            <label class="form-label">Entidade (plural)</label>
+            <input type="text" name="entity_key" class="form-control" placeholder="ex.: yeast_strains" required>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Campo</label>
+            <input type="text" name="field_name" class="form-control" placeholder="ex.: name" required>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Regra</label>
+            <select name="rule_id" class="form-select" required>
+              {% for group in catalog %}
+              <optgroup label="{{ group.group }}{% if not group.connected %} (catalogado, sem efeito ainda){% endif %}">
+                {% for rule in group.rules %}
+                <option value="{{ rule.id }}">{{ rule.label }}</option>
+                {% endfor %}
+              </optgroup>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Parâmetros (JSON)</label>
+            <input type="text" name="params_json" class="form-control" placeholder='{"min": 3}'>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-primary" type="submit">Anexar</button>
+          </div>
+        </form>
+      </div>
+
+      <table class="table table-striped">
+        <thead><tr><th>Entidade</th><th>Campo</th><th>Regra</th><th>Parâmetros</th><th>Status</th><th>Ações</th></tr></thead>
+        <tbody>
+          {% for rule in rules %}
+          <tr>
+            <td>{{ rule.entity_key }}</td>
+            <td>{{ rule.field_name }}</td>
+            <td>{{ rule.rule_id }}</td>
+            <td><code>{{ rule.params_json | tojson }}</code></td>
+            <td>
+              {% if rule.is_active %}<span class="badge bg-success">Ativa</span>{% else %}<span class="badge bg-secondary">Inativa</span>{% endif %}
+            </td>
+            <td>
+              <form method="post" action="{{ url_for('admin_field_rules.toggle', rule_id=rule.id) }}" class="d-inline">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">{{ 'Desativar' if rule.is_active else 'Ativar' }}</button>
+              </form>
+              <form method="post" action="{{ url_for('admin_field_rules.delete', rule_id=rule.id) }}" class="d-inline" onsubmit="return confirm('Remover esta regra?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Remover</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-muted">Nenhuma regra anexada ainda.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}
