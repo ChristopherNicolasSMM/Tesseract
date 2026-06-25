@@ -74,4 +74,14 @@ CORE_TRANSACTIONS = [
         "permission_required": "admin",
         "is_standard": True,
     },
+    {
+        "code": "TX_ADMIN_DESIGNER",
+        "label": "Designer Visual",
+        "group": "Admin",
+        "description": "Montagem de telas por drag-and-drop, sem precisar do CrudGen.",
+        "icon": "bi-easel2-fill",
+        "route": "/admin/designer",
+        "permission_required": "admin",
+        "is_standard": True,
+    },
 ]

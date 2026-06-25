@@ -656,29 +656,63 @@ lacuna já registrada como pendência desde a Fase 1/6.
       no campo (`[{"js_function": "minLength", "params": {...}}]`)
       depois de anexar a regra pela tela
 
-## Fase 7c — Designer visual drag-and-drop (não iniciada)
+## Fase 7c — Designer visual drag-and-drop (concluída)
 
-- [ ] Canvas de montagem de tela (drag-and-drop de componentes)
-- [ ] Conectar regras de Visibilidade/Cálculo do catálogo (já
-      cadastradas desde a Fase 7b, só sem motor) a componentes reais
-      do canvas
-- [ ] Persistência do layout montado (provavelmente reaproveitando o
-      padrão de `DashboardLayout`/`DashboardWidget`, já existentes em
-      `feature_mash_control`, ou um model de Core mais genérico)
-- [ ] Maior peça das 3 fases (7b/7c/8) — precisa de JS de canvas
-      (drag, resize, snap) que não existe em nenhuma parte do projeto
-      ainda, diferente do motor de regras (Fase 7b), que reaproveitou
-      o padrão de formulário já existente
+- [x] **Decisão de escopo**: 6 tipos de componente nesta fase
+      (`heading`, `label`, `textbox`, `button`, `image`, `divider`) —
+      sem `datagrid`/`pagination`/`groupbox` ainda, que dependem de
+      binding OData mais elaborado (a Fase 8 ficou read-only de
+      propósito). Revisitar quando houver caso de uso real.
+- [x] `model/core/designer_page.py` (`tesseract_designer_page`) +
+      `model/core/designer_component.py`
+      (`tesseract_designer_component`) — portados quase 1:1 de
+      `models/page.py`/`models/component.py` (DEVStationFlask), sem
+      `project_id` (Tesseract não tem conceito de "Projeto" de
+      Designer — uma página é uma tela navegável de Core, como
+      qualquer outra)
+- [x] `/admin/designer/` — lista de páginas, criar, excluir (cascata
+      remove componentes), publicar/despublicar
+- [x] `/admin/designer/<id>/edit` — **editor de canvas real**: arrastar
+      (mousedown/mousemove/mouseup), redimensionar (alça no canto),
+      paleta de componentes, painel de propriedades editável — tudo em
+      JS vanilla, sem framework de frontend, persistindo a cada
+      solta/edição via `fetch()`
+- [x] `/designer/<slug>` — tela de execução (runtime), só acessível se
+      `is_published=True`; respeita `permission_required` da página
+      (testado: usuário sem a permissão recebe 403)
+- [x] **A peça que fecha o ciclo da Fase 7b**: regras de Validação
+      anexadas a um `textbox` do Designer (`DesignerComponent.rules`)
+      aparecem renderizadas como `data-rules` na tela de execução,
+      consumidas pelo mesmo `rule_engine.js` da Fase 7b — sem o
+      Designer, esse motor não tinha nenhum componente real (com `id`
+      de verdade) pra apontar `source_id`/`target_id`
+- [x] 14 testes (`tests/test_phase7c_designer.py`) + 145 das fases
+      anteriores = 159 passando
+- [x] Teste manual via HTTP cobrindo o fluxo completo: criar página →
+      adicionar 3 componentes → mover/redimensionar (simulando o JS) →
+      editar propriedades → anexar regra de validação → tentar acessar
+      sem publicar (404) → publicar → acessar e confirmar HTML real
+      renderizado, com `data-rules` presente → excluir componente
+- [ ] **Fora de escopo, registrado para o futuro**: Visibilidade e
+      Cálculo (grupos do catálogo da Fase 7b) continuam catalogados
+      sem motor — agora TÊM um alvo real (`DesignerComponent.id`), mas
+      o `rule_engine.js` só implementa as funções de Validação; as
+      funções de Visibilidade/Cálculo (`visibleIf`, `calculate`, etc.)
+      ainda não existem no motor JS
 
 ## Fase 8 — OData / Screen Generator (escopo recortado — concluído)
 
-- [x] **Decisão de escopo**: `odata/screen_generator.py` (DEVStationFlask)
-      gera `Page`/`Component` — pressupõe o modelo de dados do Designer
-      (Fase 7c), que não existe ainda. Construir isso agora criaria
-      infraestrutura órfã (mesmo erro já corrigido com
-      `form_modal.html`). Escopo recortado pra: conexão + descoberta de
-      metadata + navegador de dados read-only. Geração de tela completa
-      fica para depois da Fase 7c.
+- [x] **Decisão de escopo (histórica — na época da Fase 8, o Designer
+      ainda não existia)**: `odata/screen_generator.py` (DEVStationFlask)
+      gera `Page`/`Component` — pressupunha o modelo de dados do Designer
+      (Fase 7c), que não existia ainda quando esta fase foi entregue.
+      Construir isso na ocasião teria criado infraestrutura órfã (mesmo
+      erro já corrigido com `form_modal.html`). Escopo recortado pra:
+      conexão + descoberta de metadata + navegador de dados read-only.
+      **Atualização**: o Designer (Fase 7c) já existe agora —
+      `screen_generator.py` pode ser revisitado como trabalho futuro,
+      gerando `DesignerPage`/`DesignerComponent` data-bound a partir de
+      metadata OData.
 - [x] `model/core/odata_connection.py` (`tesseract_odata_connection`) —
       adaptado de `models/odata_connection.py`, sem `project_id` (Tesseract
       não tem conceito de "Projeto" de Designer ainda)

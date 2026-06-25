@@ -56,6 +56,7 @@ def create_app(env: str | None = None) -> Flask:
         from model.core import user_list_preference  # noqa: F401
         from model.core import field_rule  # noqa: F401
         from model.core import odata_connection  # noqa: F401
+        from model.core import designer_page, designer_component  # noqa: F401
 
         app.module_manager.discover_and_register_addons(project_root / "addons")
         app.module_manager.apply_template_loader()
@@ -79,6 +80,7 @@ def create_app(env: str | None = None) -> Flask:
     from controller.core.admin_versioning import admin_versioning_bp
     from controller.core.admin_field_rules import admin_field_rules_bp
     from controller.core.admin_odata import admin_odata_bp
+    from controller.core.designer import designer_bp, designer_view_bp
     from controller.core.profile import profile_bp
     app.register_blueprint(auth_api_bp)
     app.register_blueprint(users_api_bp)
@@ -90,6 +92,8 @@ def create_app(env: str | None = None) -> Flask:
     app.register_blueprint(admin_versioning_bp)
     app.register_blueprint(admin_field_rules_bp)
     app.register_blueprint(admin_odata_bp)
+    app.register_blueprint(designer_bp)
+    app.register_blueprint(designer_view_bp)
     app.register_blueprint(profile_bp)
 
     @app.context_processor

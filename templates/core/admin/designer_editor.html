@@ -1,0 +1,281 @@
+{% extends "core/base.html" %}
+{% block title %}Editando: {{ page.name }} - Tesseract{% endblock %}
+{% block extra_css %}
+<style>
+  #designerCanvas {
+    position: relative;
+    background: {{ page.canvas_bg }};
+    width: {{ page.canvas_width }}px;
+    height: {{ page.canvas_height }}px;
+    border: 1px solid #ced4da;
+    overflow: auto;
+    background-image: linear-gradient(#e9ecef 1px, transparent 1px), linear-gradient(90deg, #e9ecef 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .dsg-component {
+    position: absolute;
+    box-sizing: border-box;
+    border: 1px dashed transparent;
+    cursor: move;
+    user-select: none;
+  }
+  .dsg-component:hover, .dsg-component.selected {
+    border-color: #4154f1;
+  }
+  .dsg-resize-handle {
+    position: absolute;
+    right: -6px;
+    bottom: -6px;
+    width: 12px;
+    height: 12px;
+    background: #4154f1;
+    cursor: nwse-resize;
+    border-radius: 2px;
+    display: none;
+  }
+  .dsg-component.selected .dsg-resize-handle {
+    display: block;
+  }
+  .dsg-palette-btn { width: 100%; margin-bottom: 6px; text-align: left; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="pagetitle d-flex justify-content-between align-items-center">
+  <div>
+    <h1>Editando: {{ page.name }}</h1>
+    <a href="{{ url_for('designer.manage') }}">&larr; Voltar para a lista</a>
+  </div>
+  <div>
+    <form method="post" action="{{ url_for('designer.publish', page_id=page.id) }}" class="d-inline">
+      <button type="submit" class="btn {% if page.is_published %}btn-outline-secondary{% else %}btn-success{% endif %}">
+        {% if page.is_published %}Despublicar{% else %}Publicar{% endif %}
+      </button>
+    </form>
+    {% if page.is_published %}
+    <a href="{{ url_for('designer_view.view', slug=page.slug) }}" target="_blank" class="btn btn-outline-primary">
+      <i class="bi bi-box-arrow-up-right"></i> Ver página
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<section class="section">
+  <div class="row">
+    <div class="col-md-2">
+      <div class="card">
+        <div class="card-body">
+          <h6 class="card-title">Componentes</h6>
+          {% for ctype in component_types %}
+          <button type="button" class="btn btn-outline-secondary btn-sm dsg-palette-btn" data-add-type="{{ ctype }}">
+            <i class="bi bi-plus"></i> {{ ctype.replace('_', ' ').title() }}
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-7">
+      <div id="designerCanvas"></div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card">
+        <div class="card-body">
+          <h6 class="card-title">Propriedades</h6>
+          <div id="propertiesPanel" class="text-muted small">Selecione um componente no canvas.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  const PAGE_ID = {{ page.id }};
+  const canvas = document.getElementById('designerCanvas');
+  const propertiesPanel = document.getElementById('propertiesPanel');
+  let selectedId = null;
+  let componentsData = {{ (page.components | map('tojson') | list) | tojson }};
+
+  function renderComponent(comp) {
+    let el = document.getElementById('comp-' + comp.id);
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'dsg-component';
+      el.id = 'comp-' + comp.id;
+      const handle = document.createElement('div');
+      handle.className = 'dsg-resize-handle';
+      el.appendChild(handle);
+      canvas.appendChild(el);
+      attachDragResize(el, comp.id);
+    }
+    el.style.left = comp.x + 'px';
+    el.style.top = comp.y + 'px';
+    el.style.width = comp.width + 'px';
+    el.style.height = comp.height + 'px';
+    el.style.zIndex = comp.z_index;
+    renderInnerContent(el, comp);
+  }
+
+  function renderInnerContent(el, comp) {
+    const p = comp.properties || {};
+    let inner = '';
+    if (comp.type === 'heading') {
+      inner = '<h2 style="margin:0;color:' + (p.text_color || '#012970') + ';font-size:' + (p.font_size || 26) + 'px;">' + escapeHtml(p.text || '') + '</h2>';
+    } else if (comp.type === 'label') {
+      inner = '<span>' + escapeHtml(p.text || '') + '</span>';
+    } else if (comp.type === 'textbox') {
+      inner = '<label class="form-label small mb-0">' + escapeHtml(p.label || '') + '</label><input class="form-control form-control-sm" placeholder="' + escapeHtml(p.placeholder || '') + '" disabled>';
+    } else if (comp.type === 'button') {
+      inner = '<button class="btn btn-' + (p.variant || 'primary') + ' btn-sm w-100" disabled>' + escapeHtml(p.text || 'Botão') + '</button>';
+    } else if (comp.type === 'image') {
+      inner = p.src ? '<img src="' + escapeHtml(p.src) + '" style="max-width:100%;max-height:100%;">' : '<div class="text-muted small text-center">Imagem (sem src)</div>';
+    } else if (comp.type === 'divider') {
+      inner = '<hr style="margin:0;border-color:' + (p.color || '#ced4da') + ';">';
+    }
+    const handle = el.querySelector('.dsg-resize-handle');
+    el.innerHTML = inner;
+    el.appendChild(handle);
+  }
+
+  function escapeHtml(s) {
+    return (s || '').toString().replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  function attachDragResize(el, compId) {
+    let dragging = false, resizing = false, startX, startY, startLeft, startTop, startW, startH;
+
+    el.addEventListener('mousedown', function (e) {
+      selectComponent(compId);
+      if (e.target.classList.contains('dsg-resize-handle')) {
+        resizing = true;
+      } else {
+        dragging = true;
+      }
+      startX = e.clientX; startY = e.clientY;
+      startLeft = parseInt(el.style.left, 10);
+      startTop = parseInt(el.style.top, 10);
+      startW = parseInt(el.style.width, 10);
+      startH = parseInt(el.style.height, 10);
+      e.stopPropagation();
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', function (e) {
+      if (!dragging && !resizing) return;
+      const dx = e.clientX - startX, dy = e.clientY - startY;
+      if (dragging) {
+        el.style.left = Math.max(0, startLeft + dx) + 'px';
+        el.style.top = Math.max(0, startTop + dy) + 'px';
+      } else if (resizing) {
+        el.style.width = Math.max(20, startW + dx) + 'px';
+        el.style.height = Math.max(20, startH + dy) + 'px';
+      }
+    });
+
+    document.addEventListener('mouseup', function () {
+      if (dragging || resizing) {
+        saveComponentGeometry(compId, el);
+      }
+      dragging = false; resizing = false;
+    });
+  }
+
+  function saveComponentGeometry(compId, el) {
+    fetch('/admin/designer/component/' + compId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        x: parseInt(el.style.left, 10),
+        y: parseInt(el.style.top, 10),
+        width: parseInt(el.style.width, 10),
+        height: parseInt(el.style.height, 10),
+      }),
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (data.success) {
+        const idx = componentsData.findIndex(function (c) { return c.id === compId; });
+        if (idx >= 0) componentsData[idx] = data.component;
+      }
+    });
+  }
+
+  function selectComponent(compId) {
+    selectedId = compId;
+    document.querySelectorAll('.dsg-component').forEach(function (e) { e.classList.remove('selected'); });
+    const el = document.getElementById('comp-' + compId);
+    if (el) el.classList.add('selected');
+    renderPropertiesPanel(compId);
+  }
+
+  function renderPropertiesPanel(compId) {
+    const comp = componentsData.find(function (c) { return c.id === compId; });
+    if (!comp) { propertiesPanel.innerHTML = 'Selecione um componente no canvas.'; return; }
+
+    const p = comp.properties || {};
+    let fieldsHtml = '';
+    Object.keys(p).forEach(function (key) {
+      fieldsHtml += '<div class="mb-2">' +
+        '<label class="form-label small mb-0">' + key + '</label>' +
+        '<input type="text" class="form-control form-control-sm prop-input" data-prop-key="' + key + '" value="' + escapeHtml(p[key]) + '">' +
+        '</div>';
+    });
+
+    propertiesPanel.innerHTML =
+      '<p class="small mb-2"><strong>' + comp.type + '</strong> — ' + comp.name + '</p>' +
+      fieldsHtml +
+      '<button class="btn btn-sm btn-primary w-100 mt-2" id="savePropsBtn">Salvar propriedades</button>' +
+      '<button class="btn btn-sm btn-outline-danger w-100 mt-2" id="deleteCompBtn">Excluir componente</button>';
+
+    document.getElementById('savePropsBtn').addEventListener('click', function () {
+      const newProps = {};
+      document.querySelectorAll('.prop-input').forEach(function (input) {
+        newProps[input.getAttribute('data-prop-key')] = input.value;
+      });
+      fetch('/admin/designer/component/' + compId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ properties: newProps }),
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data.success) {
+          const idx = componentsData.findIndex(function (c) { return c.id === compId; });
+          componentsData[idx] = data.component;
+          renderComponent(data.component);
+        }
+      });
+    });
+
+    document.getElementById('deleteCompBtn').addEventListener('click', function () {
+      if (!confirm('Excluir este componente?')) return;
+      fetch('/admin/designer/component/' + compId + '/delete', { method: 'POST' }).then(function () {
+        const el = document.getElementById('comp-' + compId);
+        if (el) el.remove();
+        componentsData = componentsData.filter(function (c) { return c.id !== compId; });
+        propertiesPanel.innerHTML = 'Selecione um componente no canvas.';
+      });
+    });
+  }
+
+  canvas.addEventListener('mousedown', function () { selectComponent(null); propertiesPanel.innerHTML = 'Selecione um componente no canvas.'; });
+
+  document.querySelectorAll('[data-add-type]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      fetch('/admin/designer/' + PAGE_ID + '/components', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: btn.getAttribute('data-add-type') }),
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data.success) {
+          componentsData.push(data.component);
+          renderComponent(data.component);
+          selectComponent(data.component.id);
+        }
+      });
+    });
+  });
+
+  componentsData.forEach(renderComponent);
+})();
+</script>
+{% endblock %}

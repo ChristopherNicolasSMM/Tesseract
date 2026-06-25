@@ -1,0 +1,63 @@
+{% extends "core/base.html" %}
+{% block title %}Designer - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Designer Visual</h1>
+  <p class="text-muted small">
+    Monte telas arrastando componentes — sem precisar do CrudGen.
+    Útil para dashboards e telas que não mapeiam 1:1 pra uma entidade.
+  </p>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#novaPaginaForm">
+        <i class="bi bi-plus-lg"></i> Nova página
+      </button>
+      <div class="collapse" id="novaPaginaForm">
+        <form method="post" action="{{ url_for('designer.create') }}" class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Nome da página</label>
+            <input type="text" name="name" class="form-control" placeholder="ex.: Painel de Brassagem" required>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-primary" type="submit">Criar e abrir editor</button>
+          </div>
+        </form>
+      </div>
+
+      <table class="table table-striped">
+        <thead><tr><th>Nome</th><th>URL</th><th>Status</th><th>Componentes</th><th>Ações</th></tr></thead>
+        <tbody>
+          {% for page in pages %}
+          <tr>
+            <td>{{ page.name }}</td>
+            <td><code>/designer/{{ page.slug }}</code></td>
+            <td>
+              {% if page.is_published %}<span class="badge bg-success">Publicada</span>{% else %}<span class="badge bg-secondary">Rascunho</span>{% endif %}
+            </td>
+            <td><span class="badge bg-info">{{ page.components | length }}</span></td>
+            <td>
+              <a href="{{ url_for('designer.edit', page_id=page.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+              {% if page.is_published %}
+              <a href="{{ url_for('designer_view.view', slug=page.slug) }}" class="btn btn-sm btn-outline-success">Abrir</a>
+              {% endif %}
+              <form method="post" action="{{ url_for('designer.delete', page_id=page.id) }}" class="d-inline" onsubmit="return confirm('Excluir esta página e todos os componentes?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Excluir</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-muted">Nenhuma página criada ainda.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

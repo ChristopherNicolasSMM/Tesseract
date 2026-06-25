@@ -1,0 +1,56 @@
+{% extends "core/base.html" %}
+{% block title %}{{ page.title }} - Tesseract{% endblock %}
+{% block extra_css %}
+<style>
+  #runtimeCanvas {
+    position: relative;
+    background: {{ page.canvas_bg }};
+    width: {{ page.canvas_width }}px;
+    height: {{ page.canvas_height }}px;
+    margin: 0 auto;
+  }
+  .dsg-runtime-component { position: absolute; box-sizing: border-box; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>{{ page.title }}</h1>
+</div>
+
+<section class="section">
+  <div id="runtimeCanvas">
+    {% for comp in page.components %}
+    {% set p = comp.properties or {} %}
+    <div class="dsg-runtime-component" style="left:{{ comp.x }}px; top:{{ comp.y }}px; width:{{ comp.width }}px; height:{{ comp.height }}px; z-index:{{ comp.z_index }};">
+      {% if comp.type == 'heading' %}
+        <h2 style="margin:0; color:{{ p.text_color or '#012970' }}; font-size:{{ p.font_size or 26 }}px;">{{ p.text or '' }}</h2>
+      {% elif comp.type == 'label' %}
+        <span>{{ p.text or '' }}</span>
+      {% elif comp.type == 'textbox' %}
+        <label class="form-label small mb-0">{{ p.label or '' }}</label>
+        <input type="text" class="form-control" name="{{ p.field_name or comp.name }}" placeholder="{{ p.placeholder or '' }}"
+               {% if comp.rules %}data-rules='{{ comp.rules | tojson }}'{% endif %}>
+      {% elif comp.type == 'button' %}
+        <button class="btn btn-{{ p.variant or 'primary' }} w-100">{{ p.text or 'Botão' }}</button>
+      {% elif comp.type == 'image' %}
+        {% if p.src %}<img src="{{ p.src }}" alt="{{ p.alt or '' }}" style="max-width:100%; max-height:100%;">{% endif %}
+      {% elif comp.type == 'divider' %}
+        <hr style="margin:0; border-color:{{ p.color or '#ced4da' }};">
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<script src="{{ url_for('static', filename='js/rule_engine.js') }}"></script>
+<script>
+  document.querySelectorAll('#runtimeCanvas button').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      const canvas = document.getElementById('runtimeCanvas');
+      if (!RuleEngine.validateForm(canvas)) {
+        e.preventDefault();
+      }
+    });
+  });
+</script>
+{% endblock %}

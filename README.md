@@ -21,15 +21,16 @@ A fusão arquitetural de três projetos anteriores:
 
 > **Versão:** 0.0.1
 
-> **Status atual: Validado de ponta a ponta — Core completo +
-> Migrations.** Login, navegação, CRUD com clique real (criar/editar/
-> lixeira/restaurar/excluir), Roles/Permissions, Versionamento
-> (histórico/diff/restauração), tema claro/escuro por usuário, perfil,
-> e filtro/paginação nas listas (smart-list-lite). `Flask-Migrate`
-> integrado — `db.create_all()` nunca altera tabela existente, então
-> qualquer coluna nova exige `python run.py db migrate && db upgrade`
-> a partir de agora. Próximo: Fase 7b (motor de regras) ou Fase 7c
-> (Designer visual).
+> **Status atual: Fases 7 (a/b/c) e 8 concluídas.** Motor de regras
+> (Validação conectada de verdade), Designer visual drag-and-drop
+> (canvas real, sem framework de frontend), e integração OData
+> (ConnectionManager + navegador de dados read-only). O Designer
+> fechou o ciclo da Fase 7b: regras de Validação anexadas a um
+> componente aparecem renderizadas e validadas na tela de execução.
+> Próximo: Visibilidade/Cálculo no motor de regras (catalogados desde
+> a Fase 7b, ainda sem função JS correspondente), ou
+> `screen_generator.py` (geração de página a partir de metadata OData,
+> agora possível com o Designer existindo).
 
 ---
 
@@ -134,7 +135,7 @@ TESSERACT_ENV=testing python -m pytest tests/ -v
 | 6 | Demais Features Brew (`mash_control`, `device_manager` — CRUD; `integ_bfather` fora) | ✅ |
 | 7a | Catálogo de Transações | ✅ |
 | 7b | Motor de regras (Validação conectada) | ✅ |
-| 7c | Designer visual drag-and-drop | ⏳ próxima |
+| 7c | Designer visual drag-and-drop | ✅ |
 | 8 | OData (ConnectionManager + navegador read-only; Screen Generator depende da Fase 7c) | ✅ |
 
 ## Assets estáticos (Nice Admin)
