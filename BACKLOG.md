@@ -670,11 +670,38 @@ lacuna já registrada como pendência desde a Fase 1/6.
       ainda, diferente do motor de regras (Fase 7b), que reaproveitou
       o padrão de formulário já existente
 
-## Fase 8 — OData / Screen Generator (não iniciada)
+## Fase 8 — OData / Screen Generator (escopo recortado — concluído)
 
-- [ ] `odata/connection_manager.py` portado (descoberta de `$metadata`)
-- [ ] `screen_generator.py` — telas data-bound a partir de metadados OData
-- [ ] Teste: conectar a uma fonte OData pública de teste
+- [x] **Decisão de escopo**: `odata/screen_generator.py` (DEVStationFlask)
+      gera `Page`/`Component` — pressupõe o modelo de dados do Designer
+      (Fase 7c), que não existe ainda. Construir isso agora criaria
+      infraestrutura órfã (mesmo erro já corrigido com
+      `form_modal.html`). Escopo recortado pra: conexão + descoberta de
+      metadata + navegador de dados read-only. Geração de tela completa
+      fica para depois da Fase 7c.
+- [x] `model/core/odata_connection.py` (`tesseract_odata_connection`) —
+      adaptado de `models/odata_connection.py`, sem `project_id` (Tesseract
+      não tem conceito de "Projeto" de Designer ainda)
+- [x] `core/odata/connection_manager.py` — `ODataConnectionManager`
+      portado quase 1:1 de `odata/connection_manager.py`. **Achado**:
+      não depende de nenhuma lib externa — `S2MOdataPy` mencionado no
+      código original é só um FORMATO de JSON reconhecido pelo parser,
+      não uma biblioteca a instalar. Só `urllib`/`json`/`xml` da stdlib.
+      Cadeia de descoberta de `$metadata` (JSON e XML/EDMX), cache de 5
+      minutos, `query()`/`patch()`.
+- [x] `/admin/odata/` — gestão de conexões (criar, testar, remover)
+- [x] `/admin/odata/<id>/entities` — entidades descobertas
+- [x] `/admin/odata/<id>/browse/<entity>` — navegador de dados
+      **read-only**, com busca textual (`$filter contains`) e paginação
+      (`$top`/`$skip`/`$count`), reaproveitando o visual do smart-list-lite
+- [x] **Testado de ponta a ponta com servidor OData real** (mock local via
+      `http.server` da stdlib, simulando descoberta de `$metadata.json`
+      e consulta de dados) — não só mockado em memória
+- [x] 12 testes (`tests/test_phase8_odata.py`) + 133 das fases
+      anteriores = 145 passando
+- [ ] **Fora de escopo, registrado para quando a Fase 7c existir**:
+      `screen_generator.py` (geração de página completa a partir de
+      metadata OData, com componentes data-bound)
 
 ---
 

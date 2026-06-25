@@ -1,0 +1,67 @@
+{% extends "core/base.html" %}
+{% block title %}{{ entity.label }} - {{ conn.name }} - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>{{ entity.label }}</h1>
+  <a href="{{ url_for('admin_odata.entities', conn_id=conn.id) }}">&larr; Voltar para entidades</a>
+  <span class="badge bg-secondary ms-2">somente leitura</span>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  {% if error %}
+  <div class="alert alert-danger">
+    <strong>Falha ao consultar dados:</strong>
+    <pre class="mb-0">{{ error }}</pre>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="card-body">
+      <form method="get" class="row g-2 mb-3">
+        <div class="col-md-4">
+          <input type="text" name="q" class="form-control" placeholder="Buscar (campos de texto)..." value="{{ search }}">
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-outline-primary w-100" type="submit"><i class="bi bi-search"></i> Filtrar</button>
+        </div>
+        <div class="col-md-2 ms-auto">
+          <span class="badge bg-secondary"><i class="bi bi-list-ul me-1"></i>{{ total }} registro(s)</span>
+        </div>
+      </form>
+
+      <div class="table-responsive">
+        <table class="table table-striped table-sm">
+          <thead>
+            <tr>{% for f in field_names %}<th>{{ f }}</th>{% endfor %}</tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            <tr>
+              {% for f in field_names %}<td>{{ row.get(f, '') if row.get(f) is not none else '' }}</td>{% endfor %}
+            </tr>
+            {% else %}
+            <tr><td colspan="{{ field_names | length }}" class="text-muted">Nenhum registro encontrado.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if pages > 1 %}
+      <nav>
+        <ul class="pagination pagination-sm justify-content-center">
+          {% for p in range(1, pages + 1) %}
+          <li class="page-item {% if p == page %}active{% endif %}">
+            <a class="page-link" href="{{ url_for('admin_odata.browse', conn_id=conn.id, entity_name=entity.name, page=p, q=search) }}">{{ p }}</a>
+          </li>
+          {% endfor %}
+        </ul>
+      </nav>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

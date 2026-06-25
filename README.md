@@ -135,7 +135,7 @@ TESSERACT_ENV=testing python -m pytest tests/ -v
 | 7a | Catálogo de Transações | ✅ |
 | 7b | Motor de regras (Validação conectada) | ✅ |
 | 7c | Designer visual drag-and-drop | ⏳ próxima |
-| 8 | OData / Screen Generator (DEVStationFlask) | |
+| 8 | OData (ConnectionManager + navegador read-only; Screen Generator depende da Fase 7c) | ✅ |
 
 ## Assets estáticos (Nice Admin)
 

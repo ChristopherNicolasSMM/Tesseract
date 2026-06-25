@@ -64,4 +64,14 @@ CORE_TRANSACTIONS = [
         "permission_required": "admin",
         "is_standard": True,
     },
+    {
+        "code": "TX_ADMIN_ODATA",
+        "label": "Conexões OData",
+        "group": "Admin",
+        "description": "Conectar a servidores OData externos e navegar dados (somente leitura).",
+        "icon": "bi-hdd-network",
+        "route": "/admin/odata",
+        "permission_required": "admin",
+        "is_standard": True,
+    },
 ]

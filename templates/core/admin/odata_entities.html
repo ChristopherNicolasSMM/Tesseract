@@ -1,0 +1,49 @@
+{% extends "core/base.html" %}
+{% block title %}Entidades - {{ conn.name }} - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Entidades: {{ conn.name }}</h1>
+  <a href="{{ url_for('admin_odata.manage') }}">&larr; Voltar</a>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  {% if error %}
+  <div class="alert alert-danger">
+    <strong>Falha ao descobrir metadata:</strong>
+    <pre class="mb-0">{{ error }}</pre>
+  </div>
+  {% endif %}
+
+  <div class="row">
+    {% for entity in entities %}
+    <div class="col-md-4 mb-3">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">{{ entity.label }}</h5>
+          <p class="small text-muted">{{ entity.fields | length }} campo(s)</p>
+          <ul class="list-unstyled small">
+            {% for field in entity.fields[:5] %}
+            <li><i class="bi bi-dot"></i> {{ field.name }} <span class="text-muted">({{ field.type }})</span></li>
+            {% endfor %}
+            {% if entity.fields | length > 5 %}
+            <li class="text-muted">... e mais {{ entity.fields | length - 5 }}</li>
+            {% endif %}
+          </ul>
+          <a href="{{ url_for('admin_odata.browse', conn_id=conn.id, entity_name=entity.name) }}" class="btn btn-sm btn-primary">
+            <i class="bi bi-table"></i> Navegar dados
+          </a>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    {% if not error %}
+    <p class="text-muted">Nenhuma entidade encontrada.</p>
+    {% endif %}
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
