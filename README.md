@@ -53,6 +53,7 @@ A fusão arquitetural de três projetos anteriores:
 - [04 — Modelo de Dados](docs/technical/04-modelo-de-dados.md)
 - [05 — Casos de Uso](docs/technical/05-casos-de-uso.md)
 - [06 — Manutenção e Expansão](docs/technical/06-manutencao-e-expansao.md)
+- [07 — Catálogo de Transações](docs/technical/07-catalogo-de-transacoes.md) *(gerado por `python run.py transactions-doc`)*
 
 ### Manual do usuário final (sistema)
 

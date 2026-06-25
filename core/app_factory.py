@@ -81,6 +81,7 @@ def create_app(env: str | None = None) -> Flask:
     from controller.core.admin_field_rules import admin_field_rules_bp
     from controller.core.admin_odata import admin_odata_bp
     from controller.core.designer import designer_bp, designer_view_bp
+    from controller.core.admin_transactions import admin_transactions_bp
     from controller.core.profile import profile_bp
     app.register_blueprint(auth_api_bp)
     app.register_blueprint(users_api_bp)
@@ -94,6 +95,7 @@ def create_app(env: str | None = None) -> Flask:
     app.register_blueprint(admin_odata_bp)
     app.register_blueprint(designer_bp)
     app.register_blueprint(designer_view_bp)
+    app.register_blueprint(admin_transactions_bp)
     app.register_blueprint(profile_bp)
 
     @app.context_processor

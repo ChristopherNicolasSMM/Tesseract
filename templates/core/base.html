@@ -1,8 +1,15 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+{% set _theme = 'dark' if (current_user.is_authenticated and current_user.theme == 'dark') else 'light' %}
+<html lang="pt-BR" data-theme="{{ _theme }}">
 <head>
   <meta charset="utf-8">
   <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <!-- Trava o color-scheme explicitamente — sem isso, o navegador
+       pode aplicar dark mode "automático" por fora do nosso controle
+       (forced dark do Chrome/Android) em páginas sem essa declaração,
+       criando o efeito de card branca flutuando num fundo escuro que
+       não é o nosso style_dark.css nem foi pedido pelo usuário. -->
+  <meta name="color-scheme" content="{{ _theme }}">
   <title>{% block title %}Tesseract{% endblock %}</title>
 
   <link href="https://fonts.gstatic.com" rel="preconnect">
@@ -13,16 +20,17 @@
   <link href="{{ url_for('static', filename='vendor/boxicons/css/boxicons.min.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='vendor/simple-datatables/style.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
-  {% if current_user.is_authenticated and current_user.theme == 'dark' %}
+  {% if _theme == 'dark' %}
   <link href="{{ url_for('static', filename='css/style_dark.css') }}" rel="stylesheet" id="theme-dark-css">
   {% endif %}
 
   {% block extra_css %}{% endblock %}
 </head>
-<body class="{% if current_user.is_authenticated and current_user.theme == 'dark' %}theme-dark{% endif %}">
+<body class="theme-{{ _theme }}" data-theme="{{ _theme }}">
   <!-- ======= Header ======= -->
   <header id="header" class="header fixed-top d-flex align-items-center">
     <div class="d-flex align-items-center justify-content-between">
+
       <a href="{{ url_for('core_pages.home') }}" class="logo d-flex align-items-center">
         <span class="d-none d-lg-block">Tesseract</span>
       </a>
@@ -62,7 +70,7 @@
     </nav>
   </header><!-- End Header -->
 
-  <!-- ======= Sidebar — populado a partir de /api/core/transactions ======= -->
+  <!-- ======= Sidebar — populado a partir do catálogo de Transações, agrupado em submenus colapsáveis ======= -->
   <aside id="sidebar" class="sidebar">
     <ul class="sidebar-nav" id="sidebar-nav">
       <li class="nav-item">
@@ -72,15 +80,23 @@
         </a>
       </li>
       {% for group_name, items in transactions_by_group.items() %}
-        <li class="nav-heading">{{ group_name }}</li>
-        {% for tx in items %}
-        <li class="nav-item">
-          <a class="nav-link collapsed" href="{{ tx.route }}">
-            <i class="{{ tx.icon or 'bi-app' }}"></i>
-            <span>{{ tx.label }}</span>
-          </a>
-        </li>
-        {% endfor %}
+      <li class="nav-item">
+        <a class="nav-link" data-bs-target="#group-nav-{{ loop.index }}" data-bs-toggle="collapse" href="#">
+          <i class="bi bi-folder2-open"></i>
+          <span>{{ group_name }}</span>
+          <i class="bi bi-chevron-down ms-auto"></i>
+        </a>
+        <ul id="group-nav-{{ loop.index }}" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
+          {% for tx in items %}
+          <li>
+            <a href="{{ tx.route }}">
+              <i class="{{ tx.icon or 'bi-app' }}"></i>
+              <span>{{ tx.label }}</span>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </li>
       {% endfor %}
     </ul>
   </aside><!-- End Sidebar -->
@@ -96,6 +112,7 @@
   <script src="{{ url_for('static', filename='vendor/apexcharts/apexcharts.min.js') }}"></script>
   <script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
   <script src="{{ url_for('static', filename='vendor/simple-datatables/simple-datatables.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/web.js') }}"></script>
 
   <script>
     document.getElementById('logoutBtn').addEventListener('click', function (e) {

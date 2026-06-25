@@ -23,6 +23,16 @@ body.dark, body[data-theme="dark"] {
   color: var(--dark-text);
 }
 
+html[data-theme="dark"] .text-muted,
+body.dark .text-muted, body[data-theme="dark"] .text-muted {
+  color: var(--dark-muted) !important;
+}
+
+html[data-theme="dark"] small,
+body.dark small, body[data-theme="dark"] small {
+  color: var(--dark-muted);
+}
+
 /* Generic readability fixes */
 body.dark a, body[data-theme="dark"] a { color: var(--dark-link); }
 body.dark a:hover, body[data-theme="dark"] a:hover { color: #93c5fd; }

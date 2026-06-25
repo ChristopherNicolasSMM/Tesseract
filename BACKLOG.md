@@ -592,9 +592,65 @@ lacuna já registrada como pendência desde a Fase 1/6.
    prática) e adicionando `Flask-Migrate`/`alembic`/`Mako`, que
    faltavam.
 
-## Fase 7 — `addon_builder` (Designer)
+## Ajuste transversal — Feedback de UI/UX real (prints), 3 bugs e 3 entregas
 
-### Fase 7a — Catálogo de Transações (concluída)
+Disparado por prints reais do Christopher comparando tema claro/escuro
+e apontando navegação confusa.
+
+### Bugs reais encontrados
+
+1. **Toggle do sidebar nunca funcionava**: `static/js/web.js` (bundle
+   do Nice Admin) já tinha o handler do `.toggle-sidebar-btn`
+   (`body.classList.toggle('toggle-sidebar')`) e o CSS já tinha as
+   regras — mas `base.html` **nunca incluía esse arquivo**. Corrigido.
+2. **`web.js` quebrava a si mesmo em qualquer página**: `tinymce.init()`
+   era chamado sem nenhuma guarda condicional — como o TinyMCE nunca é
+   carregado nas nossas páginas, isso lançava `ReferenceError` e
+   interrompia o resto do script, **inclusive a inicialização de
+   DataTables**, que vem depois no mesmo arquivo. Corrigido com guarda
+   `typeof tinymce !== 'undefined'` (mesmo padrão já usado pros blocos
+   de Quill no mesmo arquivo).
+3. **Tema escuro nunca aplicava nenhuma regra real**: `style_dark.css`
+   usa majoritariamente o seletor `html[data-theme="dark"]` (129
+   ocorrências) — `base.html` aplicava a classe `theme-dark` no
+   `<body>`, que não bate com **nenhuma** regra do arquivo. O efeito
+   visual escuro que aparecia nos prints era na verdade o **dark mode
+   forçado do próprio navegador** (Chrome/Android), não o nosso CSS —
+   por isso ficava inconsistente (cards brancas, texto cinza
+   ilegível). Corrigido: `data-theme` no `<html>` (convenção
+   dominante do arquivo real) + `<meta name="color-scheme">` travando
+   o navegador a respeitar nossa escolha em vez de "ajudar" por fora.
+   `.text-muted` também não tinha nenhuma cobertura no CSS escuro —
+   adicionada.
+
+### Entregas
+
+- [x] **Submenus colapsáveis de verdade**: sidebar usava só
+  `<li class="nav-heading">` (texto solto, sem interação) — trocado
+  pelo padrão nativo `.nav-content`/`data-bs-toggle="collapse"` do
+  próprio Nice Admin (já estilizado, nunca usado). Cada grupo
+  (Admin/BrewStation/...) agora é um submenu de verdade.
+- [x] **`/admin/transactions/`** — "área pra digitar as transações":
+  criar transação manual (não vem de nenhum código), editar,
+  ativar/desativar. **Decisão registrada**: transação vinda do código
+  (`is_standard`/`source_module` de Addon) só permite ativar/desativar
+  aqui — `sync_transaction()` sobrescreve label/rota/ícone a cada
+  boot, então permitir edição completa daria a falsa impressão de
+  persistir.
+- [x] **`docs/technical/07-catalogo-de-transacoes.md`** — gerado por
+  `python run.py transactions-doc`, a partir do banco real (única
+  fonte que inclui também as transações manuais, não só o hardcoded
+  no código). 13 transações reais documentadas nesta entrega.
+- [x] 16 testes (`tests/test_ui_navigation_fixes.py`) + 159 das fases
+      anteriores = 175 passando
+- [ ] **Não resolvido — preciso de mais detalhe**: alinhamento do
+      botão "+ Nova conexão" marcado no print (Conexões OData). Não
+      consegui isolar uma causa CSS específica a partir da descrição;
+      pode ter sido resolvido incidentalmente pela correção do tema
+      escuro (se a "caixa" era um artefato do dark mode forçado do
+      navegador) — favor confirmar com um novo print se persistir.
+
+## Fase 7a — Catálogo de Transações (concluída)
 
 - [x] `model/core/transaction.py` (`tesseract_transaction`) — adaptado
       de `transactions/catalog.py` + `models/transaction.py`
@@ -624,7 +680,7 @@ lacuna já registrada como pendência desde a Fase 1/6.
       usuário com `yeast_strains.list` vê `TX_YEAST_BANK` mas não
       `TX_DEVICE_MANAGER`
 
-#### Fase 7b — Motor de regras (concluída)
+## Fase 7b — Motor de regras (concluída)
 
 - [x] `core/rules_catalog.py` — catálogo completo (17 regras, 3 grupos:
       Validação/Visibilidade/Cálculo) adaptado de `rules/rule_types.py`

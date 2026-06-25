@@ -75,6 +75,60 @@ def register_cli_commands(app) -> None:
             msg += " Conta reativada (is_active=True)."
         click.echo(msg)
 
+    @app.cli.command("transactions-doc")
+    @with_appcontext
+    def transactions_doc():
+        """
+        Gera docs/technical/07-catalogo-de-transacoes.md a partir do
+        banco real (Transaction) — única fonte que inclui também as
+        transações manuais criadas pela tela, não só o que está
+        hardcoded no código (core/transactions_catalog.py +
+        get_transactions() de cada Addon/Feature).
+        """
+        from collections import OrderedDict
+        from pathlib import Path
+        from model.core.transaction import Transaction
+
+        transactions = Transaction.query.order_by(Transaction.group, Transaction.label).all()
+
+        grouped = OrderedDict()
+        for tx in transactions:
+            grouped.setdefault(tx.group, []).append(tx)
+
+        lines = [
+            "# 07 — Catálogo de Transações",
+            "",
+            "> Gerado automaticamente por `python run.py transactions-doc` "
+            "a partir do banco real — não editar manualmente, as edições "
+            "se perdem na próxima geração. Para mudar uma transação vinda "
+            "do código, edite o `get_transactions()`/`transactions_catalog.py` "
+            "correspondente. Para uma transação manual, use a tela "
+            "`/admin/transactions/`.",
+            "",
+            f"Total: {len(transactions)} transação(ões), "
+            f"{sum(1 for t in transactions if t.is_active)} ativa(s).",
+            "",
+        ]
+
+        for group_name, items in grouped.items():
+            lines.append(f"## {group_name}")
+            lines.append("")
+            lines.append("| Código | Label | Rota | Permissão | Origem | Status |")
+            lines.append("|---|---|---|---|---|---|")
+            for tx in items:
+                origin = "Manual" if tx.source_module == "manual" else (tx.source_module or "Core")
+                status = "Ativa" if tx.is_active else "Inativa"
+                perm = tx.permission_required or "—"
+                lines.append(
+                    f"| `{tx.code}` | {tx.label} | `{tx.route}` | `{perm}` | {origin} | {status} |"
+                )
+            lines.append("")
+
+        output_path = Path("docs/technical/07-catalogo-de-transacoes.md")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("\n".join(lines), encoding="utf-8")
+        click.echo(f"Gerado: {output_path} ({len(transactions)} transações)")
+
     @app.cli.command("generate")
     @click.option("--model", "model_path", required=True, help="Caminho do arquivo .py com o model anotado")
     @click.option("--class-name", default=None, help="Nome da classe, se o arquivo tiver mais de um model")

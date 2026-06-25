@@ -84,4 +84,14 @@ CORE_TRANSACTIONS = [
         "permission_required": "admin",
         "is_standard": True,
     },
+    {
+        "code": "TX_ADMIN_TRANSACTIONS",
+        "label": "Catálogo de Transações",
+        "group": "Admin",
+        "description": "Itens do menu — ativar/desativar e criar transações manuais.",
+        "icon": "bi-signpost-split-fill",
+        "route": "/admin/transactions",
+        "permission_required": "admin",
+        "is_standard": True,
+    },
 ]

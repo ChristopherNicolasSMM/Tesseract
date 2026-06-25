@@ -1,0 +1,111 @@
+{% extends "core/base.html" %}
+{% block title %}Transações - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Catálogo de Transações</h1>
+  <p class="text-muted small">
+    Itens do menu de navegação. Transações vindas do código (Core ou
+    Addon/Feature) só permitem ativar/desativar aqui — label/rota são
+    sobrescritos pelo código a cada boot. Transações <strong>manuais</strong>
+    são totalmente editáveis e excluíveis.
+  </p>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#novaTransacaoForm">
+        <i class="bi bi-plus-lg"></i> Nova transação manual
+      </button>
+      <div class="collapse" id="novaTransacaoForm">
+        <form method="post" action="{{ url_for('admin_transactions.create') }}" class="row g-3 mb-3">
+          <div class="col-md-2">
+            <label class="form-label">Código</label>
+            <input type="text" name="code" class="form-control" placeholder="TX_MEU_LINK" required>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Label</label>
+            <input type="text" name="label" class="form-control" required>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Grupo</label>
+            <input type="text" name="group" class="form-control" placeholder="Geral">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Rota</label>
+            <input type="text" name="route" class="form-control" placeholder="/designer/meu-painel" required>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Ícone (bi-*)</label>
+            <input type="text" name="icon" class="form-control" placeholder="bi-link">
+          </div>
+          <div class="col-md-1">
+            <label class="form-label">&nbsp;</label>
+            <button class="btn btn-primary w-100" type="submit">Criar</button>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Permissão exigida (opcional)</label>
+            <input type="text" name="permission_required" class="form-control" placeholder="ex.: admin">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Descrição (opcional)</label>
+            <input type="text" name="description" class="form-control">
+          </div>
+        </form>
+      </div>
+
+      <table class="table table-striped">
+        <thead><tr><th>Grupo</th><th>Label</th><th>Rota</th><th>Origem</th><th>Status</th><th>Ações</th></tr></thead>
+        <tbody>
+          {% for tx in transactions %}
+          {% set from_code = is_code_sourced(tx) %}
+          <tr>
+            <td>{{ tx.group }}</td>
+            <td><i class="{{ tx.icon or 'bi-app' }}"></i> {{ tx.label }}</td>
+            <td><code>{{ tx.route }}</code></td>
+            <td>
+              {% if from_code %}<span class="badge bg-secondary">Código ({{ tx.source_module or 'core' }})</span>
+              {% else %}<span class="badge bg-info">Manual</span>{% endif %}
+            </td>
+            <td>
+              {% if tx.is_active %}<span class="badge bg-success">Ativa</span>{% else %}<span class="badge bg-secondary">Inativa</span>{% endif %}
+            </td>
+            <td>
+              <form method="post" action="{{ url_for('admin_transactions.toggle', tx_id=tx.id) }}" class="d-inline">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">{{ 'Desativar' if tx.is_active else 'Ativar' }}</button>
+              </form>
+              {% if not from_code %}
+              <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#edit-{{ tx.id }}">Editar</button>
+              <form method="post" action="{{ url_for('admin_transactions.delete', tx_id=tx.id) }}" class="d-inline" onsubmit="return confirm('Remover esta transação?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Remover</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% if not from_code %}
+          <tr class="collapse" id="edit-{{ tx.id }}">
+            <td colspan="6">
+              <form method="post" action="{{ url_for('admin_transactions.update', tx_id=tx.id) }}" class="row g-2">
+                <div class="col-md-2"><input type="text" name="label" class="form-control form-control-sm" value="{{ tx.label }}" placeholder="Label" required></div>
+                <div class="col-md-2"><input type="text" name="group" class="form-control form-control-sm" value="{{ tx.group }}" placeholder="Grupo"></div>
+                <div class="col-md-3"><input type="text" name="route" class="form-control form-control-sm" value="{{ tx.route }}" placeholder="Rota" required></div>
+                <div class="col-md-2"><input type="text" name="icon" class="form-control form-control-sm" value="{{ tx.icon or '' }}" placeholder="Ícone"></div>
+                <div class="col-md-2"><input type="text" name="permission_required" class="form-control form-control-sm" value="{{ tx.permission_required or '' }}" placeholder="Permissão"></div>
+                <div class="col-md-1"><button class="btn btn-sm btn-primary w-100" type="submit">Salvar</button></div>
+              </form>
+            </td>
+          </tr>
+          {% endif %}
+          {% else %}
+          <tr><td colspan="6" class="text-muted">Nenhuma transação cadastrada.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}
