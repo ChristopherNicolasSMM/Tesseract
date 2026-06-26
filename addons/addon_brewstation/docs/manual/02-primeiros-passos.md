@@ -1,5 +1,8 @@
 # 02 — Primeiros Passos (BrewStation)
 
-O Addon BrewStation ainda não tem tela própria — toda a interação
-hoje é através da Feature **Banco de Levedura** (ver
-`features/feature_yeast_bank/docs/manual/`).
+1. Cadastre suas Funções e Dispositivos em "Dispositivos IoT" (mesmo
+   que ainda não tenha o equipamento físico — use "Dispositivo
+   Emulado" pra testar).
+2. Cadastre suas cepas em "Banco de Levedura".
+3. Cadastre uma Receita e sua Planta de Brassagem.
+4. Crie uma Sessão de Brassagem vinculando os dois.

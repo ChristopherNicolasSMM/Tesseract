@@ -15,9 +15,11 @@ para um administrador redefinir em "Gestão de Usuários" → seu usuário
 
 Depois de logado, você cai na **Início** — um painel com cards das
 áreas que você tem acesso (Banco de Levedura, Dispositivos, Receitas,
-Sessões de Brassagem, e — se você for administrador — Usuários, Papéis
-e Versionamento). O menu lateral mostra a mesma lista, organizada por
-grupo.
+Sessões de Brassagem, e — se você for administrador — Usuários, Papéis,
+Regras de Campo, Versionamento, Catálogo de Transações, Conexões
+OData e Designer Visual). O menu lateral mostra a mesma lista,
+organizada em grupos que você pode recolher/expandir clicando no
+nome do grupo.
 
 ## 4. Seu perfil
 

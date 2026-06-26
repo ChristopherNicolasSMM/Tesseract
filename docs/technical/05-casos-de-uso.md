@@ -14,8 +14,7 @@
 - **Fluxo principal (CLI)**: `python run.py reset-password --username X --password Y [--reactivate]`
 - **Fluxo principal (tela)**: `/admin/users/<id>` → "Redefinir senha"
 - **Fluxo alternativo**: autodesativação — bloqueada explicitamente na
-  tela (`/admin/users/<id>/deactivate` do próprio usuário logado),
-  mas possível via API (efeito: sessão desautentica, ver `BACKLOG.md`)
+  tela, mas possível via API (efeito: sessão desautentica)
 - **Permissão**: `admin`
 
 ## UC03 — Desenvolvedor gera CRUD a partir de um model anotado
@@ -38,8 +37,9 @@
 
 - **Ator**: Usuário autenticado com a Permission correspondente
 - **Fluxo principal**: tela de listagem → "+" expande formulário →
-  criar → editar no detalhe → lixeira → restaurar → excluir
-  permanente (só se já estiver na lixeira)
+  criar (validado client-side se houver `FieldRule`) → editar no
+  detalhe → lixeira → restaurar → excluir permanente (só se já estiver
+  na lixeira)
 - **Fluxo alternativo — sem permissão**: 403
 - **Fluxo alternativo — não autenticado**: redireciona pra `/login`
 - **Permissão**: `<plural>.<ação>`
@@ -66,3 +66,45 @@
 - **Fluxo principal**: menu do usuário ou `/perfil/` → alternar tema →
   `POST /api/auth/update-theme` → persiste por usuário
 - **Permissão**: nenhuma (próprio usuário)
+
+## UC09 — Administrador anexa uma regra de validação a um campo
+
+- **Ator**: Administrador
+- **Fluxo principal**: `/admin/field-rules/` → escolhe entidade
+  (`entity_key`), campo, regra do catálogo (grupo Validação) e
+  parâmetros JSON → salva
+- **Resultado**: o campo correspondente, em qualquer tela gerada pelo
+  CrudGen *ou* num `textbox` do Designer, passa a validar no client
+  antes do envio
+- **Permissão**: `admin`
+
+## UC10 — Administrador monta uma página visual no Designer
+
+- **Ator**: Administrador
+- **Fluxo principal**: `/admin/designer/` → criar página → editor
+  (arrastar componente da paleta, posicionar, redimensionar, editar
+  propriedades) → publicar → acessar em `/designer/<slug>`
+- **Fluxo alternativo**: tentar acessar página não publicada → 404;
+  acessar com `permission_required` definido sem ter a permissão → 403
+- **Permissão**: `admin` para editar; a definida em
+  `permission_required` (ou nenhuma) para visitar a página publicada
+
+## UC11 — Administrador conecta a um servidor OData externo
+
+- **Ator**: Administrador
+- **Fluxo principal**: `/admin/odata/` → criar conexão (nome, URL,
+  autenticação opcional) → testar (descobre `$metadata`) → ver
+  entidades → navegar dados (read-only, com busca e paginação)
+- **Fluxo alternativo**: URL inválida ou servidor fora do ar → mensagem
+  de erro com a lista de URLs de metadata tentadas
+- **Permissão**: `admin`
+
+## UC12 — Administrador cria uma transação manual no menu
+
+- **Ator**: Administrador
+- **Fluxo principal**: `/admin/transactions/` → "Nova transação
+  manual" → código, label, rota, grupo, ícone, permissão opcional
+- **Fluxo alternativo**: tentar editar campos de uma transação vinda
+  do código → bloqueado (a edição se perderia no próximo boot); só
+  `is_active` é editável nesse caso
+- **Permissão**: `admin`

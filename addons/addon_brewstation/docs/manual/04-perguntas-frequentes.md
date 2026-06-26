@@ -1,5 +1,8 @@
 # 04 — Perguntas Frequentes (BrewStation)
 
-**P: Onde estão as receitas e o estoque?**
-R: Ainda não implementados nesta versão — só o Banco de Levedura está
-disponível até agora.
+**P: Por que minha sessão de brassagem não avança sozinha?**
+R: Ainda não há automação de processo — o avanço de etapas é manual
+nesta versão.
+
+Demais perguntas, ver o FAQ de cada área (Banco de Levedura,
+Dispositivos, Controle de Mostura).

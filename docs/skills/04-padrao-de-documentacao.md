@@ -97,6 +97,15 @@ A seção mais prática para uso futuro (por você ou por uma IA):
 - Pontos de extensão conhecidos (onde o módulo expõe eventos via `EventBus`
   para outros módulos reagirem, sem acoplamento direto).
 
+### Exceção de escopo: `07-catalogo-de-transacoes.md` (só nível Sistema)
+
+`docs/technical/07-catalogo-de-transacoes.md` existe **só na escala
+Sistema**, não em Addon/Feature/Plugin — não faz sentido por módulo,
+já que o catálogo de Transações é global. É **gerado
+automaticamente** (`python run.py transactions-doc`), não escrito à
+mão como os demais — qualquer edição manual se perde na próxima
+geração.
+
 ---
 
 ## Trilho 2 — Manual (usuário final)
