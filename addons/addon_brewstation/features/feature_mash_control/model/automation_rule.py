@@ -6,6 +6,14 @@ Esta tabela é só a DEFINIÇÃO da regra (dados de configuração) — o
 motor que avalia continuamente o sensor e dispara a ação
 (services/automation_engine.py no BrewStation original) fica fora do
 escopo desta fase (decisão registrada no BACKLOG.md).
+
+Referência a DeviceFunction (addon_device_manager, Addon separado
+após a promoção — ver docs/skills/05-proposta-addon-device-manager-e-mqtt.md):
+NUNCA FK direta entre Addons (skill 02). Resolvida via referência
+fraca por `name` (chave de negócio única e estável de DeviceFunction)
++ chamada de service público
+(services.device_function_lookup.get_function_by_name), nunca por
+FK/ORM/relationship cross-Addon.
 """
 from datetime import datetime, timezone
 
@@ -26,23 +34,17 @@ class AutomationRule(db.Model):
     description = db.Column(db.String(1000), nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
 
-    # Condição — sensor (FK cross-Feature pra device_manager, mesmo Addon)
-    sensor_function_id = db.Column(db.Integer, db.ForeignKey("function.id"), nullable=False)
-    sensor_function = db.relationship(
-        "DeviceFunction", foreign_keys=[sensor_function_id],
-        backref=db.backref("rules_as_sensor", lazy=True),
-    )
+    # Condição — sensor. Referência fraca (skill 02: nunca FK direta
+    # entre Addons) — resolver via
+    # addon_device_manager.services.device_function_lookup.get_function_by_name().
+    sensor_function_name = db.Column(db.String(100), nullable=False)
     sensor_metric = db.Column(db.String(50), default="temperature", nullable=True)
     condition_operator = db.Column(db.String(5), nullable=False)  # <=, >=, ==, !=, <, >
     condition_value = db.Column(db.Float, nullable=False)
     condition_unit = db.Column(db.String(20), default="°C", nullable=True)
 
-    # Ação — ator
-    actor_function_id = db.Column(db.Integer, db.ForeignKey("function.id"), nullable=False)
-    actor_function = db.relationship(
-        "DeviceFunction", foreign_keys=[actor_function_id],
-        backref=db.backref("rules_as_actor", lazy=True),
-    )
+    # Ação — ator. Mesma regra de referência fraca acima.
+    actor_function_name = db.Column(db.String(100), nullable=False)
     actor_action = db.Column(db.String(20), nullable=False)  # ON, OFF, TOGGLE, SET_VALUE
     actor_value = db.Column(db.Float, nullable=True)
 
@@ -70,12 +72,12 @@ class AutomationRule(db.Model):
             "name": self.name,
             "description": self.description,
             "is_active": self.is_active,
-            "sensor_function_id": self.sensor_function_id,
+            "sensor_function_name": self.sensor_function_name,
             "sensor_metric": self.sensor_metric,
             "condition_operator": self.condition_operator,
             "condition_value": self.condition_value,
             "condition_unit": self.condition_unit,
-            "actor_function_id": self.actor_function_id,
+            "actor_function_name": self.actor_function_name,
             "actor_action": self.actor_action,
             "actor_value": self.actor_value,
             "cooldown_seconds": self.cooldown_seconds,

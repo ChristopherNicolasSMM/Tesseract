@@ -793,6 +793,60 @@ e apontando navegação confusa.
       `screen_generator.py` (geração de página completa a partir de
       metadata OData, com componentes data-bound)
 
+## Fase 9 — Promoção de `feature_device_manager` a Addon + base para MQTT (em andamento)
+
+- [x] **Documento de arquitetura**: `docs/skills/05-proposta-addon-device-manager-e-mqtt.md`
+      — decisões fechadas (sigla `dvm`, API mínima `get_value`/`set_value`/
+      `on_change`, MQTT dentro do próprio Addon — Opção A, tabelas
+      `Device`/`Sensor`/`Actuator` novas, MQTT-only na v1, logging em 3
+      camadas, fail-safe via LWT), modelagem detalhada e fluxos Mermaid.
+- [x] **Bloqueador real encontrado e resolvido**: `feature_mash_control`
+      tinha 4 FKs diretas para `DeviceFunction` (`automation_rule.py` x2,
+      `dashboard_widget.py`, `brew_plant_mapping.py`) — legítimas como FK
+      cross-Feature mesmo Addon (skill 02), mas viram FK cross-Addon
+      proibida ao promover. Removidas e substituídas por referência
+      fraca (`*_function_name`, chave de negócio única de
+      `DeviceFunction`) + service público novo
+      `addons/addon_device_manager/root/services/device_function_lookup.py`
+      (não gerado pelo CrudGen, ponto de extensão estável).
+- [x] Promoção estrutural completa: `addons/addon_brewstation/features/feature_device_manager/`
+      → `addons/addon_device_manager/` (estrutura `root/`, skill 01),
+      `addon.json` próprio (`table_prefix: "dvm"`), classe
+      `AddonDeviceManager`. `feature_mash_control/feature.json` agora
+      declara `"requires": ["device_manager"]`.
+- [x] Rotas renomeadas: `/brewstation/device-*` e `/api/brewstation/device-*`
+      → `/device-manager/device-*` e `/api/device-manager/device-*`
+      (decisão explícita — skill 00, rota segue o módulo dono).
+- [x] **Bug real de Core encontrado e corrigido** (não previsto, bloqueava
+      qualquer Addon top-level com `root/templates/` próprio):
+      `ModuleManager._template_dir_for()` não checava o layout
+      `root/templates/` (só `templates/` direto, padrão de Feature); e
+      `discover_and_register_addons()` nunca registrava o módulo
+      dinamicamente importado em `sys.modules`, então `mod.__file__`
+      nunca resolvia para a instância do Addon. As duas causas
+      corrigidas em `core/module_manager.py`.
+- [x] Migration Alembic (`migrations/versions/4a8524f00549_*.py`): rename
+      das 4 tabelas (`tesseract_brewstation_dvm_*` → `tesseract_dvm_*`)
+      + backfill das 3 colunas de referência fraca + `downgrade()`
+      simétrico.
+- [x] Suíte de testes atualizada e validada: 175/175 passando
+      (`test_phase6a_device_manager.py`, `test_phase6b_mash_control.py`,
+      `test_smart_list_completo.py` ajustados para o novo esquema/rotas).
+- [ ] **Pendente — Fase A do plano de execução (skill, não código)**:
+      adendo à skill 01 (pasta `logs/` por Addon) e à skill 03 (seção
+      `logging` no schema de `addon.json`) — registrado no documento de
+      arquitetura, ainda não formalizado nas skills 00–04 propriamente.
+- [ ] **Pendente — Fase D do plano**: `device_service.py` (API pública),
+      `mqtt_client_service.py` (cliente MQTT + registro de LWT por
+      atuador `is_risk=true`), tabelas `Device`/`Sensor`/`Actuator` novas
+      (a granularidade atual — `DeviceMetadata`/`DeviceActor` — ainda não
+      foi revisada à luz do schema de `mqtt_config`/`hardware_mapping`/
+      `failsafe_value` do documento de arquitetura).
+- [ ] **Pendente — Fase F/G**: validação ponta a ponta com bridge MQTT
+      real, docs técnicos/manual do novo Addon (skill 04), formalização
+      da skill 05 (EventBus vs. MQTT).
+
+
 ---
 
 ## Pendências em aberto (não bloqueiam Fase 0, mas precisam de decisão)

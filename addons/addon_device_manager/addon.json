@@ -1,0 +1,16 @@
+{
+  "name": "device_manager",
+  "label": "Device Manager",
+  "version": "1.0.0",
+  "description": "Gestão de dispositivos IoT (sensores/atuadores), funções e emulação. Promovido de Feature (addon_brewstation) a Addon independente — ver docs/skills/05-proposta-addon-device-manager-e-mqtt.md.",
+  "author": "S2M Tech",
+  "type": "addon",
+  "table_prefix": "dvm",
+  "tesseract_min_version": "1.0.0",
+  "requires": [],
+  "provides": ["device_data", "device_actor_data", "device_function_data"],
+  "features": [],
+  "env_keys": [],
+  "default_locale": "pt_BR",
+  "available_locales": ["pt_BR"]
+}

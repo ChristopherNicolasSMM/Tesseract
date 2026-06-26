@@ -39,10 +39,10 @@ def _login_admin(app, client):
 
 def test_4_tabelas_de_device_manager_existem_com_prefixo_correto(app):
     esperado = {
-        "tesseract_brewstation_dvm_function",
-        "tesseract_brewstation_dvm_device",
-        "tesseract_brewstation_dvm_actor",
-        "tesseract_brewstation_dvm_emulated_device",
+        "tesseract_dvm_function",
+        "tesseract_dvm_device",
+        "tesseract_dvm_actor",
+        "tesseract_dvm_emulated_device",
     }
     with app.app_context():
         assert esperado.issubset(set(db.metadata.tables.keys()))
@@ -51,7 +51,7 @@ def test_4_tabelas_de_device_manager_existem_com_prefixo_correto(app):
 def test_device_metadata_tem_id_integer_e_external_id_uuid(app, client):
     _login_admin(app, client)
 
-    r = client.post("/api/brewstation/device-metadatas/", json={"name": "Freezer Teste"})
+    r = client.post("/api/device-manager/device-metadatas/", json={"name": "Freezer Teste"})
     assert r.status_code == 201
     item = r.get_json()["item"]
 
@@ -63,8 +63,8 @@ def test_device_metadata_tem_id_integer_e_external_id_uuid(app, client):
 def test_dois_devices_tem_external_ids_diferentes(app, client):
     _login_admin(app, client)
 
-    r1 = client.post("/api/brewstation/device-metadatas/", json={"name": "Device 1"})
-    r2 = client.post("/api/brewstation/device-metadatas/", json={"name": "Device 2"})
+    r1 = client.post("/api/device-manager/device-metadatas/", json={"name": "Device 1"})
+    r2 = client.post("/api/device-manager/device-metadatas/", json={"name": "Device 2"})
 
     assert r1.get_json()["item"]["external_id"] != r2.get_json()["item"]["external_id"]
 
@@ -79,9 +79,9 @@ def test_relationship_funciona_entre_actor_device_e_function(app, client):
     _login_admin(app, client)
 
     with app.app_context():
-        from addons.addon_brewstation.features.feature_device_manager.model.device_function import DeviceFunction
-        from addons.addon_brewstation.features.feature_device_manager.model.device_metadata import DeviceMetadata
-        from addons.addon_brewstation.features.feature_device_manager.model.device_actor import DeviceActor
+        from addons.addon_device_manager.root.model.device_function import DeviceFunction
+        from addons.addon_device_manager.root.model.device_metadata import DeviceMetadata
+        from addons.addon_device_manager.root.model.device_actor import DeviceActor
 
         function = DeviceFunction(name="temp", display_name="Temperatura", category="sensor")
         device = DeviceMetadata(name="Freezer X")
@@ -110,8 +110,8 @@ def test_emulated_device_functions_config_nao_compartilha_dict_mutavel(app):
     default=lambda: {}.
     """
     with app.app_context():
-        from addons.addon_brewstation.features.feature_device_manager.model.device_metadata import DeviceMetadata
-        from addons.addon_brewstation.features.feature_device_manager.model.emulated_device import EmulatedDevice
+        from addons.addon_device_manager.root.model.device_metadata import DeviceMetadata
+        from addons.addon_device_manager.root.model.emulated_device import EmulatedDevice
 
         device = DeviceMetadata(name="Device Y")
         db.session.add(device)
@@ -132,11 +132,11 @@ def test_emulated_device_functions_config_nao_compartilha_dict_mutavel(app):
 def test_soft_delete_em_device_metadata(app, client):
     _login_admin(app, client)
 
-    r = client.post("/api/brewstation/device-metadatas/", json={"name": "Device Trash"})
+    r = client.post("/api/device-manager/device-metadatas/", json={"name": "Device Trash"})
     device_id = r.get_json()["item"]["id"]
 
-    r = client.post(f"/api/brewstation/device-metadatas/{device_id}/trash")
+    r = client.post(f"/api/device-manager/device-metadatas/{device_id}/trash")
     assert r.status_code == 200
 
-    r = client.get("/api/brewstation/device-metadatas/")
+    r = client.get("/api/device-manager/device-metadatas/")
     assert all(i["id"] != device_id for i in r.get_json()["items"])

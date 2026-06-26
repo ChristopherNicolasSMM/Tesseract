@@ -8,10 +8,10 @@ from flask import Blueprint, jsonify, request
 from flask_login import login_required
 
 from core.permissions import permission_required
-from addons.addon_brewstation.features.feature_device_manager.services.device_metadata_service import DeviceMetadataService
+from addons.addon_device_manager.root.services.device_metadata_service import DeviceMetadataService
 
 device_metadatas_api_bp = Blueprint(
-    "device_metadatas_api", __name__, url_prefix="/api/brewstation/device-metadatas"
+    "device_metadatas_api", __name__, url_prefix="/api/device-manager/device-metadatas"
 )
 _service = DeviceMetadataService()
 

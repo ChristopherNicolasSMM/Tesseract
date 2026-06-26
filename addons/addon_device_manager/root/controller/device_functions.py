@@ -1,8 +1,8 @@
 """
-addons/addon_brewstation/features/feature_device_manager/controller/device_actors.py
+addons/addon_brewstation/features/feature_device_manager/controller/device_functions.py
 
 Rotas web (HTML) — gerado pelo CrudGen. NÃO editar diretamente.
-Customizações via device_actors_hooks.py (nunca sobrescrito).
+Customizações via device_functions_hooks.py (nunca sobrescrito).
 """
 import csv
 import io
@@ -13,18 +13,18 @@ from flask_login import login_required, current_user
 from core.db import db
 from core.permissions import permission_required
 from annotations import get_choices_fields
-from addons.addon_brewstation.features.feature_device_manager.services.device_actor_service import DeviceActorService
-from addons.addon_brewstation.features.feature_device_manager.model.device_actor import DeviceActor
+from addons.addon_device_manager.root.services.device_function_service import DeviceFunctionService
+from addons.addon_device_manager.root.model.device_function import DeviceFunction
 
-device_actors_bp = Blueprint(
-    "device_actors", __name__, url_prefix="/brewstation/device-actors"
+device_functions_bp = Blueprint(
+    "device_functions", __name__, url_prefix="/device-manager/device-functions"
 )
-_service = DeviceActorService()
+_service = DeviceFunctionService()
 
 # Campos editáveis via formulário — calculado por introspecção das
 # colunas do model (genérico, não precisa saber o schema de antemão).
 _READONLY_FIELDS = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"}
-_EDITABLE_FIELDS = [c.name for c in DeviceActor.__table__.columns if c.name not in _READONLY_FIELDS]
+_EDITABLE_FIELDS = [c.name for c in DeviceFunction.__table__.columns if c.name not in _READONLY_FIELDS]
 
 # Campo usado como "resumo" na coluna da lista — prefere um nome
 # reconhecível em vez de simplesmente "a primeira coluna declarada"
@@ -37,16 +37,16 @@ _SUMMARY_FIELD = next(
 
 # Campos booleanos — viram filtro <select> Todos/Sim/Não (smart-list-lite).
 _BOOLEAN_FIELDS = [
-    c.name for c in DeviceActor.__table__.columns
+    c.name for c in DeviceFunction.__table__.columns
     if c.name in _EDITABLE_FIELDS and c.type.python_type is bool
 ]
 
 # Campos com @choices no model — viram filtro <select> com valores
 # distintos do banco (skill 00/04, anotação já existia desde a Fase 4
 # mas nunca tinha sido conectada a nenhum filtro de verdade).
-_CHOICES_FIELDS = [f["field"] for f in get_choices_fields(DeviceActor) if f["field"] in _EDITABLE_FIELDS]
+_CHOICES_FIELDS = [f["field"] for f in get_choices_fields(DeviceFunction) if f["field"] in _EDITABLE_FIELDS]
 
-_LIST_KEY = "device_actors"
+_LIST_KEY = "device_functions"
 
 
 def _get_field_rules() -> dict:
@@ -98,19 +98,19 @@ def _apply_filters(query):
     """
     search = (request.args.get("q") or "").strip()
     if search:
-        search_field = getattr(DeviceActor, _SUMMARY_FIELD, None)
+        search_field = getattr(DeviceFunction, _SUMMARY_FIELD, None)
         if search_field is not None:
             query = query.filter(search_field.ilike(f"%{search}%"))
 
     for field in _BOOLEAN_FIELDS:
         value = request.args.get(f"filter_{field}")
         if value in ("true", "false"):
-            query = query.filter(getattr(DeviceActor, field).is_(value == "true"))
+            query = query.filter(getattr(DeviceFunction, field).is_(value == "true"))
 
     for field in _CHOICES_FIELDS:
         value = request.args.get(f"filter_{field}")
         if value:
-            query = query.filter(getattr(DeviceActor, field) == value)
+            query = query.filter(getattr(DeviceFunction, field) == value)
 
     return query
 
@@ -119,29 +119,29 @@ def _choices_options() -> dict:
     """Valores distintos do banco para cada campo com @choices."""
     options = {}
     for field in _CHOICES_FIELDS:
-        column = getattr(DeviceActor, field)
+        column = getattr(DeviceFunction, field)
         rows = db.session.query(column).filter(column.isnot(None)).distinct().order_by(column).all()
         options[field] = [r[0] for r in rows]
     return options
 
 
-@device_actors_bp.route("/", methods=["GET"])
+@device_functions_bp.route("/", methods=["GET"])
 @login_required
-@permission_required("device_actors.list")
+@permission_required("device_functions.list")
 def manage():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
     search = (request.args.get("q") or "").strip()
 
-    query = _apply_filters(DeviceActor.query.filter(DeviceActor.is_deleted.is_(False)))
+    query = _apply_filters(DeviceFunction.query.filter(DeviceFunction.is_deleted.is_(False)))
 
     total = query.count()
-    items = query.order_by(DeviceActor.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    items = query.order_by(DeviceFunction.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
     pages = max(1, (total + per_page - 1) // per_page)
 
     return render_template(
-        "device_actors/manage.html",
-        items=items, label="Ator de Dispositivo", fields=_EDITABLE_FIELDS, summary_field=_SUMMARY_FIELD,
+        "device_functions/manage.html",
+        items=items, label="Função de Dispositivo", fields=_EDITABLE_FIELDS, summary_field=_SUMMARY_FIELD,
         page=page, pages=pages, total=total, per_page=per_page, search=search,
         visible_columns=_get_column_prefs(),
         boolean_fields=_BOOLEAN_FIELDS, choices_fields=_CHOICES_FIELDS,
@@ -150,9 +150,9 @@ def manage():
     )
 
 
-@device_actors_bp.route("/column-prefs", methods=["POST"])
+@device_functions_bp.route("/column-prefs", methods=["POST"])
 @login_required
-@permission_required("device_actors.list")
+@permission_required("device_functions.list")
 def save_column_prefs():
     from model.core.user_list_preference import UserListPreference
 
@@ -168,15 +168,15 @@ def save_column_prefs():
     db.session.commit()
 
     flash("Colunas atualizadas.", "success")
-    return redirect(url_for("device_actors.manage"))
+    return redirect(url_for("device_functions.manage"))
 
 
-@device_actors_bp.route("/export.csv", methods=["GET"])
+@device_functions_bp.route("/export.csv", methods=["GET"])
 @login_required
-@permission_required("device_actors.list")
+@permission_required("device_functions.list")
 def export_csv():
-    query = _apply_filters(DeviceActor.query.filter(DeviceActor.is_deleted.is_(False)))
-    items = query.order_by(DeviceActor.id.desc()).all()
+    query = _apply_filters(DeviceFunction.query.filter(DeviceFunction.is_deleted.is_(False)))
+    items = query.order_by(DeviceFunction.id.desc()).all()
 
     buffer = io.StringIO()
     writer = csv.writer(buffer)
@@ -192,18 +192,18 @@ def export_csv():
     )
 
 
-@device_actors_bp.route("/export.xlsx", methods=["GET"])
+@device_functions_bp.route("/export.xlsx", methods=["GET"])
 @login_required
-@permission_required("device_actors.list")
+@permission_required("device_functions.list")
 def export_xlsx():
     from openpyxl import Workbook
 
-    query = _apply_filters(DeviceActor.query.filter(DeviceActor.is_deleted.is_(False)))
-    items = query.order_by(DeviceActor.id.desc()).all()
+    query = _apply_filters(DeviceFunction.query.filter(DeviceFunction.is_deleted.is_(False)))
+    items = query.order_by(DeviceFunction.id.desc()).all()
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Ator de Dispositivo"[:31]  # limite do Excel pro nome da aba
+    ws.title = "Função de Dispositivo"[:31]  # limite do Excel pro nome da aba
     ws.append(["id"] + _EDITABLE_FIELDS)
     for item in items:
         data = item.to_dict()
@@ -220,70 +220,70 @@ def export_xlsx():
     )
 
 
-@device_actors_bp.route("/<int:id>", methods=["GET"])
+@device_functions_bp.route("/<int:id>", methods=["GET"])
 @login_required
-@permission_required("device_actors.detail")
+@permission_required("device_functions.detail")
 def detail(id: int):
     item = _service.get_by_id(id)
     if not item:
         flash("Registro não encontrado.", "error")
-        return redirect(url_for("device_actors.manage"))
+        return redirect(url_for("device_functions.manage"))
     return render_template(
-        "device_actors/detail.html",
-        item=item, label="Ator de Dispositivo", fields=_EDITABLE_FIELDS,
+        "device_functions/detail.html",
+        item=item, label="Função de Dispositivo", fields=_EDITABLE_FIELDS,
         field_rules=_get_field_rules(),
     )
 
 
-@device_actors_bp.route("/", methods=["POST"])
+@device_functions_bp.route("/", methods=["POST"])
 @login_required
-@permission_required("device_actors.create")
+@permission_required("device_functions.create")
 def create():
     result = _service.create(request.form.to_dict())
     if not result.success:
         flash(result.error, "error")
     else:
         flash("Criado com sucesso.", "success")
-    return redirect(url_for("device_actors.manage"))
+    return redirect(url_for("device_functions.manage"))
 
 
-@device_actors_bp.route("/<int:id>", methods=["POST"])
+@device_functions_bp.route("/<int:id>", methods=["POST"])
 @login_required
-@permission_required("device_actors.update")
+@permission_required("device_functions.update")
 def update(id: int):
     result = _service.update(id, request.form.to_dict())
     if not result.success:
         flash(result.error, "error")
     else:
         flash("Salvo com sucesso.", "success")
-    return redirect(url_for("device_actors.detail", id=id))
+    return redirect(url_for("device_functions.detail", id=id))
 
 
-@device_actors_bp.route("/<int:id>/trash", methods=["POST"])
+@device_functions_bp.route("/<int:id>/trash", methods=["POST"])
 @login_required
-@permission_required("device_actors.trash")
+@permission_required("device_functions.trash")
 def trash(id: int):
     result = _service.trash(id)
     if not result.success:
         flash(result.error, "error")
-    return redirect(url_for("device_actors.manage"))
+    return redirect(url_for("device_functions.manage"))
 
 
-@device_actors_bp.route("/<int:id>/restore", methods=["POST"])
+@device_functions_bp.route("/<int:id>/restore", methods=["POST"])
 @login_required
-@permission_required("device_actors.restore")
+@permission_required("device_functions.restore")
 def restore(id: int):
     result = _service.restore(id)
     if not result.success:
         flash(result.error, "error")
-    return redirect(url_for("device_actors.manage"))
+    return redirect(url_for("device_functions.manage"))
 
 
-@device_actors_bp.route("/<int:id>/delete-permanent", methods=["POST"])
+@device_functions_bp.route("/<int:id>/delete-permanent", methods=["POST"])
 @login_required
-@permission_required("device_actors.delete_permanent")
+@permission_required("device_functions.delete_permanent")
 def delete_permanent(id: int):
     result = _service.delete_permanent(id)
     if not result.success:
         flash(result.error, "error")
-    return redirect(url_for("device_actors.manage"))
+    return redirect(url_for("device_functions.manage"))

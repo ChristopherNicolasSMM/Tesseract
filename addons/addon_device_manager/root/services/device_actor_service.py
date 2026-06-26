@@ -1,8 +1,8 @@
 """
-addons/addon_brewstation/features/feature_device_manager/services/emulated_device_service.py
+addons/addon_brewstation/features/feature_device_manager/services/device_actor_service.py
 
 Gerado pelo CrudGen — NÃO editar diretamente. Customizações via hooks
-(emulated_device_service_hooks.py, nunca sobrescrito).
+(device_actor_service_hooks.py, nunca sobrescrito).
 """
 from __future__ import annotations
 
@@ -13,14 +13,14 @@ from datetime import datetime, timezone
 from typing import Any
 
 from core.db import db
-from addons.addon_brewstation.features.feature_device_manager.model.emulated_device import EmulatedDevice
+from addons.addon_device_manager.root.model.device_actor import DeviceActor
 
 logger = logging.getLogger(__name__)
 
 _READONLY = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"}
 
 try:
-    from addons.addon_brewstation.features.feature_device_manager.services import emulated_device_service_hooks as _hooks
+    from addons.addon_device_manager.root.services import device_actor_service_hooks as _hooks
 except ImportError:
     _hooks = None
 
@@ -51,27 +51,27 @@ class ServiceResult:
     code: int = 200
 
 
-class EmulatedDeviceService:
-    """Camada de negócio para Dispositivo Emulado."""
+class DeviceActorService:
+    """Camada de negócio para Ator de Dispositivo."""
 
     def list(self, *, include_deleted: bool = False):
-        query = EmulatedDevice.query
+        query = DeviceActor.query
         if not include_deleted:
-            query = query.filter(EmulatedDevice.is_deleted.is_(False))
-        return query.order_by(EmulatedDevice.id.asc()).all()
+            query = query.filter(DeviceActor.is_deleted.is_(False))
+        return query.order_by(DeviceActor.id.asc()).all()
 
-    def get_by_id(self, id: int) -> "EmulatedDevice | None":
-        return db.session.get(EmulatedDevice, id)
+    def get_by_id(self, id: int) -> "DeviceActor | None":
+        return db.session.get(DeviceActor, id)
 
     def create(self, data: dict) -> ServiceResult:
-        obj = EmulatedDevice()
+        obj = DeviceActor()
         self._apply_fields(obj, data)
         db.session.add(obj)
         try:
             db.session.commit()
         except Exception as e:
             db.session.rollback()
-            logger.warning("Erro ao criar EmulatedDevice: %s", e)
+            logger.warning("Erro ao criar DeviceActor: %s", e)
             return ServiceResult(success=False, error=_friendly_db_error(e), code=422)
         return ServiceResult(success=True, data=obj, code=201)
 
@@ -86,7 +86,7 @@ class EmulatedDeviceService:
             db.session.commit()
         except Exception as e:
             db.session.rollback()
-            logger.warning("Erro ao atualizar EmulatedDevice id=%s: %s", id, e)
+            logger.warning("Erro ao atualizar DeviceActor id=%s: %s", id, e)
             return ServiceResult(success=False, error=_friendly_db_error(e), code=422)
         return ServiceResult(success=True, data=obj)
 

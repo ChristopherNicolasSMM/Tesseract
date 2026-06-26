@@ -1,0 +1,442 @@
+# 05 — Proposta: Promoção de `feature_device_manager` a Addon + Integração MQTT
+
+> **Status: PROPOSTA EM DISCUSSÃO — não é skill ratificada.**
+> Segue o formato das skills 00–04 (regra, schema, exemplo — sem código de
+> implementação), mas ainda não tem o mesmo peso normativo.
+>
+> Convenção de status usada neste documento (em vez de ícone de cadeado,
+> para evitar repetição visual confusa):
+> - **[DECIDIDO]** — fechado, pronto para ser executado quando autorizado.
+> - **[ABERTO]** — ainda precisa de decisão antes de seguir.
+> - **[PENDENTE-SKILL]** — decidido aqui, mas exige ajuste em skill já
+>   existente (01–04) antes de poder ser executado sem conflito.
+
+---
+
+## 0. Decisão raiz
+
+**[DECIDIDO]** `feature_device_manager` será promovido de Feature para
+**Addon independente** (`addon_device_manager`). Quem hoje depende dele
+implicitamente (por estar dentro do Addon pai) passa a depender
+explicitamente via manifesto.
+
+**[ABERTO]** Quando executar a promoção (antes ou depois de fechar todo o
+desenho MQTT/EventBus) — ainda não decidido. Este documento assume que o
+desenho é fechado primeiro, execução depois.
+
+---
+
+## 1. Identidade do módulo (mecânica, aplicação direta das skills 00–04)
+
+| Aspecto | Hoje (Feature) | Proposto (Addon) | Skill que rege |
+|---|---|---|---|
+| Pasta | `addons/addon_[pai]/features/feature_device_manager/` | `addons/addon_device_manager/` | 01 |
+| Manifesto | `feature.json` | `addon.json` | 03 |
+| Classe | `FeatureDeviceManager` | `AddonDeviceManager` | 01 |
+| Campo de prefixo | `table_prefix_suffix: "dvm"` | `table_prefix: "dvm"` | 02 |
+| Prefixo de tabela final | `tesseract_[pai]_dvm_[tabela]` | `tesseract_dvm_[tabela]` | 02 |
+| Dependência de outros módulos | Implícita (acoplado ao pai) | Explícita: `"requires": ["device_manager"]` no manifesto de quem depender | 03 |
+| Ciclo de ativação | Liga/desliga com o Addon pai | Independente — `ModuleManager` bloqueia ativação de dependentes se estiver inativo | 03 |
+| `docs/` | Compartilhado com o Addon pai | Própria árvore `docs/technical/` + `docs/manual/` | 04 |
+| `i18n/` | Compartilhado com o Addon pai | Própria pasta `i18n/pt_BR.json` obrigatória | 00 |
+
+---
+
+## 2. Decisões de arquitetura (todas fechadas em 2026-06-25)
+
+### 2.1 [DECIDIDO] Sigla / `table_prefix`
+
+Manter `dvm`. `table_prefix: "dvm"` no `addon.json`. Tabelas:
+`tesseract_dvm_device`, `tesseract_dvm_sensor`, `tesseract_dvm_actuator`
+(+ as que surgirem na modelagem, seção 4).
+
+### 2.2 [DECIDIDO] API pública / dependentes
+
+API mínima — `get_value` / `set_value` / `on_change`. Sem primitivas
+extras (sequência, pulso, leitura em lote) por enquanto. Cresce só
+quando um segundo dependente real (fermentação, CIP, dosagem) exigir
+algo que o mínimo não cobre.
+
+### 2.3 [DECIDIDO] Onde mora o cliente MQTT
+
+**Opção A** — MQTT vive dentro do próprio `addon_device_manager`, não em
+Plugin separado. Motivo: MQTT aqui é usado especificamente para
+dispositivos IoT geridos por este Addon, não é transporte genérico do
+Core.
+
+```
+addon_device_manager/root/services/
+├── mqtt_client_service.py   ← paho-mqtt
+└── device_service.py        ← API pública (get_value/set_value/on_change)
+```
+
+### 2.4 [DECIDIDO] Granularidade de tabela
+
+Tabelas novas e separadas para `Device`, `Sensor`, `Actuator` (detalhe
+completo na seção 4 — modelagem). Não reaproveitar as 4 entidades da
+Fase 6 sem revisão.
+
+### 2.5 [DECIDIDO] Escopo de protocolo
+
+MQTT é o único protocolo da v1. Multi-protocolo (Modbus/Serial/etc.) só
+é avaliado depois do MQTT validado em produção — e mesmo assim como
+**novas Features dentro do próprio `addon_device_manager`**
+(ex.: `feature_modbus_bridge`), não como redesenho do core do Addon.
+
+### 2.6 [DECIDIDO] Persistência / Logging — modelo de 3 camadas
+
+| Tipo de dado | Onde fica | Formato |
+|---|---|---|
+| Estado atual / cache de valor | Banco (`tesseract_dvm_*`) | Tabela SQL, via `device_service` |
+| Log de integração (valores recebidos, comandos enviados, eventos MQTT rotineiros) | Arquivo `.log` na pasta do próprio Addon | Arquivo local, não vai para banco nem log global |
+| Erro maior (broker inacessível, payload inválido, falha de fail-safe) | Log global do Tesseract | Sistema de log central do Core |
+
+Detalhamento de **onde** e **como configurar** essa pasta de log: ver
+seção 3 (manifesto).
+
+### 2.7 [DECIDIDO] Segurança MQTT e Fail-safe
+
+**Autenticação:** nenhuma por agora — decidir depois. `MQTT_USERNAME`/
+`MQTT_PASSWORD` continuam declarados como `env_keys` opcionais no
+manifesto, só não são exigidos para o sistema funcionar.
+
+**Fail-safe (LWT): necessário desde já.** Atuadores de risco (resistência,
+bomba) precisam de um valor seguro publicado automaticamente pelo broker
+se o Tesseract cair — ver schema do `Actuator` na seção 4 e fluxo na
+seção 5.
+
+---
+
+## 3. Manifesto — `addon.json` proposto (com log configurável)
+
+Pasta de log **separada apenas para este Addon**, mas com caminho
+configurável — não hardcoded. Proposta de schema, estendendo o padrão já
+definido na skill 03:
+
+```json
+{
+  "name": "device_manager",
+  "label": "Gestão de Dispositivos",
+  "version": "1.0.0",
+  "description": "Catálogo e comunicação MQTT com sensores e atuadores físicos",
+  "author": "S2M Tech",
+  "type": "addon",
+  "table_prefix": "dvm",
+  "tesseract_min_version": "1.0.0",
+  "requires": [],
+  "provides": ["device_data"],
+  "features": [],
+  "env_keys": [
+    "MQTT_BROKER_HOST",
+    "MQTT_BROKER_PORT",
+    "MQTT_USERNAME",
+    "MQTT_PASSWORD",
+    "MQTT_CLIENT_ID",
+    "MQTT_TOPIC_PREFIX"
+  ],
+  "default_locale": "pt_BR",
+  "available_locales": ["pt_BR"],
+  "logging": {
+    "integration_log_enabled": true,
+    "integration_log_path": "logs/integration.log",
+    "integration_log_max_bytes": 5242880,
+    "integration_log_backup_count": 5
+  }
+}
+```
+
+| Campo novo | Regra |
+|---|---|
+| `logging.integration_log_enabled` | `bool`, default `true`. Se `false`, módulo não grava log de integração local (só log global de erro continua valendo). |
+| `logging.integration_log_path` | Caminho **relativo à pasta do próprio Addon** (nunca absoluto, nunca fora de `addons/addon_device_manager/`). Default sugerido: `logs/integration.log`. |
+| `logging.integration_log_max_bytes` / `backup_count` | Parâmetros de rotação (`RotatingFileHandler`), evita o `.log` crescer sem limite. |
+
+**[PENDENTE-SKILL]** — Isso introduz dois pontos que as skills 01 e 03
+ainda não previam e precisam de uma adenda formal antes da execução:
+- Skill 01: adicionar `logs/` à estrutura padrão de pastas de um Addon
+  (hoje a árvore documentada não tem essa pasta).
+- Skill 03: adicionar a seção `logging` ao schema de `addon.json` como
+  campo **opcional e específico de Addon** (Plugin pode querer o mesmo
+  padrão depois, mas isso fica fora do escopo deste documento).
+
+Por ser configurável (e não fixo em código), qualquer Addon futuro que
+precise do mesmo padrão de log local replica a mesma seção `logging` no
+seu próprio `addon.json` — não é uma exceção exclusiva do
+`device_manager`, é um padrão novo opcional, só que o `device_manager` é
+o primeiro a usá-lo.
+
+---
+
+## 4. Modelagem de tabelas (detalhada)
+
+Três tabelas no núcleo do Addon (`root/model/`), sem Feature — ele não
+tem Feature nenhuma nesta fase.
+
+### 4.1 `tesseract_dvm_device` — catálogo base (identidade física do nó)
+
+Representa só a **identidade do nó físico** (a placa/gateway) — nunca o
+tipo de IO. Um `Device` pode ter N `Sensor` e M `Actuator` simultaneamente
+(ex.: um ESP32 com sensor de temperatura e relé de bomba no mesmo nó), por
+isso não existe campo "tipo" aqui — quem responde "sensor ou atuador" é a
+porta (4.2/4.3), não o device.
+
+| Coluna | Tipo | Obrigatória | Observação |
+|---|---|---|---|
+| `id` | Integer, PK | Sim | Padrão Core (skill 02) |
+| `external_id` | UUID | Sim | Padrão Fase 6 (Integer PK + UUID estável), mantido |
+| `name` | String | Sim | Nome de exibição (PT-BR, digitado pelo usuário, não é `translation_key`) |
+| `platform` | String (`raspberrypi` / `esp32` / `generic`) | Sim | Plataforma de hardware, livre para crescer |
+| `connection_status` | String (`online` / `offline` / `unknown`) | Sim | Derivado do `last_seen_at` mais recente entre todas as portas do device, ou de heartbeat próprio (a definir na modelagem fina) |
+| `is_active` | Boolean | Sim | Default `true` — permite desativar sem apagar |
+| `created_at` / `updated_at` | DateTime | Sim | Padrão skill 02 |
+| `is_deleted` / `deleted_at` | Boolean / DateTime | Sim | Soft-delete padrão CrudGen |
+
+### 4.2 `tesseract_dvm_sensor` — especialização de leitura
+
+| Coluna | Tipo | Obrigatória | Observação |
+|---|---|---|---|
+| `id` | Integer, PK | Sim | |
+| `device_id` | Integer, FK → `tesseract_dvm_device.id` | Sim | FK permitida (mesmo Addon, mesma regra da skill 02) |
+| `subtype` | String (`digital` / `analog` / `temperature` / ...) | Sim | |
+| `state_topic` | String | Sim | Tópico MQTT de leitura (`brewery/sensors/<id>/state`) |
+| `unit` | String | Não | Ex.: `°C`, `%`, `bar` |
+| `min_value` / `max_value` | Float | Não | Faixa de validação — fora da faixa, vira log de erro global (2.6) |
+| `last_value` | Float/String | Não | Cache do último valor recebido |
+| `last_seen_at` | DateTime | Não | Última telemetria recebida — base para detectar dispositivo offline |
+
+### 4.3 `tesseract_dvm_actuator` — especialização de comando
+
+| Coluna | Tipo | Obrigatória | Observação |
+|---|---|---|---|
+| `id` | Integer, PK | Sim | |
+| `device_id` | Integer, FK → `tesseract_dvm_device.id` | Sim | |
+| `subtype` | String (`digital` / `pwm`) | Sim | |
+| `command_topic` | String | Sim | Tópico MQTT de comando (`brewery/actuators/<id>/set`) |
+| `state_topic` | String | Não | Tópico de confirmação de estado, se o hardware publicar |
+| `min_value` / `max_value` | Float | Não | Faixa válida (ex.: PWM 0–100) |
+| `current_value` | Float/Bool | Não | Cache do último comando enviado |
+| `failsafe_value` | Float/Bool | **Sim** | Valor publicado via LWT se o Tesseract cair (decisão 2.7) — sempre obrigatório, default seguro (`0`/`false`) se o usuário não definir explicitamente |
+| `is_risk` | Boolean | Sim | Marca se este atuador exige LWT ativo (default `true` — mais seguro por padrão; usuário pode desmarcar para atuadores de baixo risco) |
+
+**Nota de FK:** todas as FKs acima são internas ao próprio Addon
+(`Sensor`/`Actuator` → `Device`), permitidas pela skill 02. Nenhuma FK
+sai para outro Addon — quem depender (`mash_control`) usa o `device_service`
+(EventBus/chamada de service), nunca FK direta.
+
+---
+
+## 5. Fluxos (preparação para `docs/technical/03-fluxos.md` quando o Addon nascer)
+
+### 5.1 Fluxo de leitura de sensor (caminho feliz)
+
+```mermaid
+sequenceDiagram
+    participant HW as Hardware (Pi/ESP32)
+    participant Broker as Broker MQTT
+    participant MQTT as mqtt_client_service
+    participant Svc as device_service
+    participant DB as tesseract_dvm_sensor
+
+    HW->>Broker: publish state_topic (valor)
+    Broker->>MQTT: mensagem roteada (assinatura ativa)
+    MQTT->>Svc: on_message(sensor_id, valor)
+    Svc->>DB: update last_value, last_seen_at
+    Svc->>Svc: valida min_value/max_value
+    alt fora da faixa
+        Svc->>Svc: grava log de erro global (2.6)
+    else dentro da faixa
+        Svc->>Svc: grava log de integração local (.log)
+    end
+```
+
+### 5.2 Fluxo de comando de atuador (caminho feliz)
+
+```mermaid
+sequenceDiagram
+    participant Cliente as Addon dependente (ex: mash_control)
+    participant Svc as device_service
+    participant MQTT as mqtt_client_service
+    participant Broker as Broker MQTT
+    participant HW as Hardware (Pi/ESP32)
+
+    Cliente->>Svc: set_value(actuator_id, valor)
+    Svc->>Svc: valida min_value/max_value
+    Svc->>MQTT: publish(command_topic, valor)
+    MQTT->>Broker: publish
+    Broker->>HW: mensagem roteada
+    Svc->>Svc: atualiza current_value (cache)
+    Svc->>Svc: grava log de integração local (.log)
+```
+
+### 5.3 Fluxo de fail-safe (LWT) — conexão do Tesseract cai
+
+```mermaid
+sequenceDiagram
+    participant Tess as addon_device_manager
+    participant Broker as Broker MQTT
+    participant HW as Hardware (Pi/ESP32)
+
+    Tess->>Broker: connect() + registra LWT por atuador is_risk=true
+    Note over Tess,Broker: LWT = (command_topic, failsafe_value) para cada atuador de risco
+    Tess--xBroker: conexão cai (crash/rede)
+    Broker->>Broker: detecta keepalive expirado
+    Broker->>HW: publica failsafe_value automaticamente em cada command_topic registrado
+    HW->>HW: aplica valor seguro (ex.: resistência desliga)
+    Note over Broker: Tesseract não precisa estar vivo para este passo
+```
+
+Esse terceiro fluxo é o motivo pelo qual `failsafe_value`/`is_risk`
+precisam estar na tabela (4.3) e não só em configuração externa — o
+`mqtt_client_service` lê esses valores do banco **no momento da conexão**
+para montar os LWTs antes de qualquer falha acontecer.
+
+---
+
+## 6. Convenção MQTT vs. EventBus (rascunho da futura skill 05)
+
+| Canal | Escopo | Convenção de nome |
+|---|---|---|
+| **EventBus** (interno, Addon ↔ Addon) | Já coberto pela skill 00 | `[modulo].[entidade].[acao]`, ex. `device_manager.sensor.value_changed` |
+| **MQTT** (externo, Tesseract ↔ hardware) | Ainda não coberto por skill nenhuma | Proposto: `[topic_prefix]/[tipo]/[device_id]/[state\|set]`, ex. `brewery/sensors/mash_tun_temp/state` — fora do `snake_case` interno porque é payload de protocolo externo |
+
+**[ABERTO]** Formalizar isso como skill 05 só quando todo o desenho do
+Addon estiver validado em uso real — por ora fica registrado aqui como
+rascunho de referência.
+
+---
+
+## 7. Como ficaria — árvore consolidada
+
+```
+addons/
+└── addon_device_manager/
+    ├── addon.json                       ← table_prefix: "dvm", seção logging (seção 3)
+    ├── addon.py                         ← class AddonDeviceManager(AddonBase)
+    ├── root/
+    │   ├── model/
+    │   │   ├── device.py                ← tesseract_dvm_device
+    │   │   ├── sensor.py                 ← tesseract_dvm_sensor
+    │   │   └── actuator.py               ← tesseract_dvm_actuator (com failsafe_value/is_risk)
+    │   ├── services/
+    │   │   ├── device_service.py         ← API pública get_value/set_value/on_change
+    │   │   └── mqtt_client_service.py    ← paho-mqtt + registro de LWT
+    │   ├── controller/
+    │   └── templates/addon_device_manager/
+    ├── logs/
+    │   └── integration.log               ← caminho configurável via addon.json (seção 3)
+    ├── i18n/pt_BR.json
+    ├── static/
+    └── docs/
+        ├── technical/
+        └── manual/
+
+addons/addon_[pai_brewstation]/features/feature_mash_control/
+└── (manifesto) requires: ["device_manager"]   ← dependência explícita
+```
+
+---
+
+## 8. Plano de execução (ordem proposta)
+
+Sem gerar código ainda — isto é a sequência de fases para quando você
+autorizar. Cada fase só começa com a anterior fechada, porque há
+dependência real de schema/manifesto entre elas (não é só organização).
+
+### Fase A — Adendas de skill (pré-requisito formal)
+1. Adendo skill 01: incluir `logs/` na estrutura padrão de Addon (campo
+   opcional).
+2. Adendo skill 03: incluir seção `logging` no schema de `addon.json`.
+3. Sem isso, gerar a estrutura do Addon já nasce violando a própria regra
+   de ouro do projeto ("se não segue o padrão das skills, a geração é
+   rejeitada").
+
+### Fase B — Modelagem fina (fechar antes de qualquer migration)
+4. Revisar nomes de coluna e tipos da seção 4 com você (ex.: `subtype`
+   como enum fechado vs. string livre, se `connection_status` é coluna
+   ou propriedade calculada).
+5. Fechar schema final de `Device` / `Sensor` / `Actuator`.
+6. Decidir nome de arquivo/local exato do registro de LWT (dentro de
+   `mqtt_client_service.py`, lendo `is_risk`/`failsafe_value` do banco na
+   conexão — já desenhado na seção 5.3, só falta confirmar como "ler
+   antes de conectar" se encaixa no ciclo de vida do `ModuleManager`).
+
+### Fase C — Promoção estrutural do módulo
+7. Pull do repo atual, validar estado da suíte de testes (rotina já
+   estabelecida: pull → validar → implementar).
+8. Criar `addons/addon_device_manager/` com a estrutura da seção 7
+   (pastas, `addon.json`, `addon.py`).
+9. Migration Alembic: mover dados de
+   `tesseract_[addon_pai]_dvm_*` → `tesseract_dvm_*` (rename, não
+   drop-and-recreate — ainda a confirmar se há dado real a preservar
+   nessa Feature hoje).
+10. Atualizar `feature_mash_control` (e qualquer outro dependente já
+    existente) para declarar `"requires": ["device_manager"]` no
+    manifesto.
+
+### Fase D — Implementação do núcleo do Addon
+11. Models (`device.py`, `sensor.py`, `actuator.py`) via CrudGen, a
+    partir do schema fechado na Fase B.
+12. `device_service.py` — API `get_value`/`set_value`/`on_change`.
+13. `mqtt_client_service.py` — conexão, publish/subscribe, registro de
+    LWT por atuador `is_risk=true` na conexão.
+14. Log de integração local (`logs/integration.log`, rotativo) + ponte
+    para log global em caso de erro maior (seção 2.6).
+
+### Fase E — Integração com o primeiro dependente
+15. Refatorar `feature_mash_control` para chamar `device_service` em vez
+    de qualquer acesso a hardware direto (se houver algo assim hoje).
+16. Testes: mock do `device_service` para testar lógica de PID sem
+    hardware real (benefício citado no rascunho original).
+
+### Fase F — Validação ponta a ponta
+17. Configurar `mqtt-io` (ou similar) num Pi/ESP32 real ou simulado para
+    validar os três fluxos da seção 5 (leitura, comando, fail-safe/LWT)
+    de fato.
+18. Testar especificamente o cenário de fail-safe: derrubar a conexão do
+    Tesseract de propósito e confirmar que o broker publica
+    `failsafe_value` sem depender do Tesseract estar vivo.
+
+### Fase G — Documentação e fechamento
+19. Gerar `docs/technical/` e `docs/manual/` do novo Addon (skill 04),
+    reaproveitando os diagramas Mermaid já rascunhados na seção 5 deste
+    documento.
+20. Formalizar a seção 6 (MQTT vs. EventBus) como skill 05 oficial —
+    só agora, com uso real validado.
+21. Atualizar backlog/README do projeto e empacotar (zip via
+    `present_files`), seguindo o ritmo de sessão já estabelecido.
+
+---
+
+### Observação sobre ordem alternativa
+
+Dá para inverter Fase C e Fase D (promover a estrutura vazia primeiro,
+implementar depois) sem problema — são independentes entre si. O que
+**não pode** inverter é Fase A vir antes de qualquer geração de
+estrutura (senão a estrutura nasce fora do padrão) e Fase B vir antes da
+Fase D (migration/model só depois do schema fechado, senão refaz
+migration).
+
+
+---
+
+## 9. Status e próximos passos
+
+Todas as decisões de arquitetura (seção 2) estão fechadas. Falta, antes
+de autorizar geração de manifesto/model real:
+
+1. **[PENDENTE-SKILL]** Adendo à skill 01: incluir `logs/` na estrutura
+   padrão de Addon (campo opcional, só presente se `logging.*` estiver
+   no manifesto).
+2. **[PENDENTE-SKILL]** Adendo à skill 03: incluir a seção `logging` no
+   schema de `addon.json` (seção 3 deste documento já propõe o formato).
+3. Revisar a modelagem da seção 4 com você (nomes de coluna, se
+   `subtype` deveria ser enum fechado, etc.) antes de fixar como schema
+   final. **Correção já incorporada (2026-06-25):** removido `device_type`
+   de `Device` — um device pode ter sensores e atuadores simultaneamente
+   (múltiplas portas), então o "tipo" é responsabilidade de `Sensor`/
+   `Actuator` (campo `subtype`), nunca do `Device`. Adicionado
+   `connection_status` no lugar.
+4. Formalizar a seção 6 como skill 05 quando o desenho estiver validado
+   em uso real (decisão ainda aberta sobre o "quando").
+5. Confirmar quando executar a promoção em si (antes ou depois da skill
+   05 — ver seção 0).

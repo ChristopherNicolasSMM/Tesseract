@@ -31,16 +31,32 @@ logger = logging.getLogger(__name__)
 
 def _template_dir_for(obj) -> str | None:
     """
-    Pasta templates/ ao lado do arquivo .py que define a classe de
-    obj (Addon ou Feature) — descoberta automática, sem precisar de
-    metadado extra no manifesto. Usada para montar o ChoiceLoader do
-    Jinja (ver ModuleManager.build_jinja_loader()).
+    Pasta de templates de um Addon/Feature — descoberta automática,
+    sem precisar de metadado extra no manifesto.
+
+    Dois layouts possíveis (skill 01):
+    - Feature: templates/ direto, ao lado do arquivo .py
+      (features/feature_[nome]/templates/).
+    - Addon: templates/ dentro de root/, ao lado de model/controller/
+      services/ (addons/addon_[nome]/root/templates/) — o arquivo
+      addon.py fica um nível ABAIXO de root/, então sem checar
+      "root/templates" aqui, todo Addon com essa estrutura padrão
+      (ex.: addon_device_manager, Fase 6, promoção) nunca teria seus
+      templates encontrados pelo Jinja (bug real, corrigido nesta
+      fase — não existia caso de teste antes porque addon_brewstation
+      nunca populou root/ com conteúdo próprio).
     """
     module_name = type(obj).__module__
     mod = sys.modules.get(module_name)
     if not mod or not getattr(mod, "__file__", None):
         return None
-    templates_dir = Path(mod.__file__).parent / "templates"
+    module_dir = Path(mod.__file__).parent
+
+    root_templates_dir = module_dir / "root" / "templates"
+    if root_templates_dir.is_dir():
+        return str(root_templates_dir)
+
+    templates_dir = module_dir / "templates"
     return str(templates_dir) if templates_dir.is_dir() else None
 
 
@@ -228,6 +244,15 @@ class ModuleManager:
             module_name = f"_tesseract_dynamic_{addon_dir.name}"
             spec = importlib.util.spec_from_file_location(module_name, addon_py_path)
             py_module = importlib.util.module_from_spec(spec)
+            # Registrar em sys.modules ANTES de exec_module — sem isso,
+            # _template_dir_for() nunca resolve mod.__file__ para a
+            # instância de Addon (sys.modules.get(module_name) retorna
+            # None), e qualquer Addon top-level com root/templates/
+            # próprio (ex.: addon_device_manager, Fase 6 promoção)
+            # nunca tem seus templates encontrados pelo Jinja. Bug
+            # latente desde sempre — nunca disparou porque nenhum
+            # Addon tinha conteúdo próprio em root/ até esta fase.
+            sys.modules[module_name] = py_module
             spec.loader.exec_module(py_module)
 
             class_name = getattr(py_module, "__module__", None)

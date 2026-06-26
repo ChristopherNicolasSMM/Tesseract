@@ -8,10 +8,10 @@ from flask import Blueprint, jsonify, request
 from flask_login import login_required
 
 from core.permissions import permission_required
-from addons.addon_brewstation.features.feature_device_manager.services.emulated_device_service import EmulatedDeviceService
+from addons.addon_device_manager.root.services.emulated_device_service import EmulatedDeviceService
 
 emulated_devices_api_bp = Blueprint(
-    "emulated_devices_api", __name__, url_prefix="/api/brewstation/emulated-devices"
+    "emulated_devices_api", __name__, url_prefix="/api/device-manager/emulated-devices"
 )
 _service = EmulatedDeviceService()
 

@@ -3,9 +3,11 @@ tests/test_phase6b_mash_control.py
 
 Cobre feature_mash_control (escopo CRUD, sem motor de controle em
 tempo real — decisão registrada no BACKLOG.md): 12 tabelas com
-prefixo correto, FK cross-Feature confirmada (mash_control ->
-device_manager, mesmo Addon — skill 02), cadeia de FK interna
-(plant -> vessel -> mapping, recipe -> session -> step).
+prefixo correto, referência fraca (sem FK) mash_control ->
+device_manager (skill 02 — atualizado para a promoção de
+feature_device_manager a Addon independente, ver
+docs/skills/05-proposta-addon-device-manager-e-mqtt.md), cadeia de FK
+interna (plant -> vessel -> mapping, recipe -> session -> step).
 """
 import pytest
 
@@ -57,19 +59,20 @@ def test_12_tabelas_de_mash_control_existem_com_prefixo_correto(app):
         assert esperado.issubset(set(db.metadata.tables.keys()))
 
 
-def test_fk_cross_feature_mash_control_para_device_manager(app, client):
+def test_referencia_fraca_mash_control_para_device_manager(app, client):
     """
-    BrewPlantMapping.device_function_id referencia DeviceFunction
-    (Feature diferente, mesmo Addon) — skill 02, clarificação
-    adicionada na Fase 6: permitido.
+    BrewPlantMapping.device_function_name referencia DeviceFunction por
+    nome (referência fraca) — NUNCA FK direta entre Addons (skill 02).
+    Atualizado para a promoção de feature_device_manager a Addon
+    independente (docs/skills/05-proposta-addon-device-manager-e-mqtt.md).
     """
     _login_admin(app, client)
 
     r = client.post(
-        "/api/brewstation/device-functions/",
+        "/api/device-manager/device-functions/",
         json={"name": "temp_fk_test", "display_name": "Temp", "category": "sensor"},
     )
-    function_id = r.get_json()["item"]["id"]
+    function_name = r.get_json()["item"]["name"]
 
     r = client.post("/api/brewstation/brew-plants/", json={"name": "Planta FK"})
     plant_id = r.get_json()["item"]["id"]
@@ -82,10 +85,10 @@ def test_fk_cross_feature_mash_control_para_device_manager(app, client):
 
     r = client.post(
         "/api/brewstation/brew-plant-mappings/",
-        json={"vessel_id": vessel_id, "role_key": "sensor_temp", "device_function_id": function_id},
+        json={"vessel_id": vessel_id, "role_key": "sensor_temp", "device_function_name": function_name},
     )
     assert r.status_code == 201
-    assert r.get_json()["item"]["device_function_id"] == function_id
+    assert r.get_json()["item"]["device_function_name"] == function_name
 
 
 def test_cadeia_recipe_session_step_via_http(app, client):
@@ -124,52 +127,53 @@ def test_cadeia_recipe_session_step_via_http(app, client):
     assert r.status_code == 201
 
 
-def test_dashboard_layout_e_widget_com_fk_cross_feature_opcional(app, client):
+def test_dashboard_layout_e_widget_com_referencia_fraca_opcional(app, client):
     _login_admin(app, client)
 
     r = client.post("/api/brewstation/dashboard-layouts/", json={"name": "Layout 1"})
     layout_id = r.get_json()["item"]["id"]
 
-    # widget sem device_function_id (opcional/nullable)
+    # widget sem device_function_name (opcional/nullable)
     r = client.post(
         "/api/brewstation/dashboard-widgets/",
         json={"layout_id": layout_id, "widget_type": "gauge"},
     )
     assert r.status_code == 201
-    assert r.get_json()["item"]["device_function_id"] is None
+    assert r.get_json()["item"]["device_function_name"] is None
 
 
 def test_automation_rule_referencia_duas_functions_diferentes(app, client):
     """
-    AutomationRule tem DUAS FKs pra DeviceFunction (sensor e ator) —
-    confirma que múltiplas FKs pro mesmo alvo cross-Feature funcionam.
+    AutomationRule tem DUAS referências fracas pra DeviceFunction
+    (sensor e ator), por `name` — confirma que múltiplas referências
+    pro mesmo módulo externo funcionam sem FK (skill 02).
     """
     _login_admin(app, client)
 
     r1 = client.post(
-        "/api/brewstation/device-functions/",
+        "/api/device-manager/device-functions/",
         json={"name": "sensor_temp_rule", "display_name": "Sensor", "category": "sensor"},
     )
-    sensor_id = r1.get_json()["item"]["id"]
+    sensor_name = r1.get_json()["item"]["name"]
 
     r2 = client.post(
-        "/api/brewstation/device-functions/",
+        "/api/device-manager/device-functions/",
         json={"name": "actor_heat_rule", "display_name": "Aquecedor", "category": "actuator"},
     )
-    actor_id = r2.get_json()["item"]["id"]
+    actor_name = r2.get_json()["item"]["name"]
 
     r = client.post(
         "/api/brewstation/automation-rules/",
         json={
-            "name": "Regra Teste", "sensor_function_id": sensor_id,
+            "name": "Regra Teste", "sensor_function_name": sensor_name,
             "condition_operator": "<=", "condition_value": 65.0,
-            "actor_function_id": actor_id, "actor_action": "ON",
+            "actor_function_name": actor_name, "actor_action": "ON",
         },
     )
     assert r.status_code == 201
     item = r.get_json()["item"]
-    assert item["sensor_function_id"] == sensor_id
-    assert item["actor_function_id"] == actor_id
+    assert item["sensor_function_name"] == sensor_name
+    assert item["actor_function_name"] == actor_name
 
 
 def test_permissoes_existem_para_as_12_entidades(app):

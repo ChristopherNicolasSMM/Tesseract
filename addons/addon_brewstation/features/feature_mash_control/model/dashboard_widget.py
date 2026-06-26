@@ -2,7 +2,9 @@
 addons/addon_brewstation/features/feature_mash_control/model/dashboard_widget.py
 
 Widget posicionado em um DashboardLayout, opcionalmente ligado a uma
-Function do device_manager (FK cross-Feature, mesmo Addon — permitido).
+Function do addon_device_manager. NUNCA FK direta entre Addons
+(skill 02) — referência fraca por `name` + chamada de service
+(services.device_function_lookup.get_function_by_name).
 """
 from datetime import datetime, timezone
 
@@ -34,9 +36,9 @@ class DashboardWidget(db.Model):
     rotation = db.Column(db.Float, default=0.0, nullable=True)
     z_index = db.Column(db.Integer, default=1, nullable=True)
 
-    # FK cross-Feature (mash_control -> device_manager), mesmo Addon — permitido.
-    device_function_id = db.Column(db.Integer, db.ForeignKey("function.id"), nullable=True)
-    device_function = db.relationship("DeviceFunction", backref=db.backref("dashboard_widgets", lazy=True))
+    # Referência fraca (skill 02: nunca FK direta entre Addons) — resolver via
+    # addon_device_manager.services.device_function_lookup.get_function_by_name().
+    device_function_name = db.Column(db.String(100), nullable=True)
 
     config_json = db.Column(db.JSON, default=lambda: {})
     is_visible = db.Column(db.Boolean, default=True, nullable=False)
@@ -65,7 +67,7 @@ class DashboardWidget(db.Model):
             "height": self.height,
             "rotation": self.rotation,
             "z_index": self.z_index,
-            "device_function_id": self.device_function_id,
+            "device_function_name": self.device_function_name,
             "config_json": self.config_json or {},
             "is_visible": self.is_visible,
             "is_deleted": self.is_deleted,

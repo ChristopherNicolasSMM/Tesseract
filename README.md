@@ -138,6 +138,7 @@ TESSERACT_ENV=testing python -m pytest tests/ -v
 | 7b | Motor de regras (Validação conectada) | ✅ |
 | 7c | Designer visual drag-and-drop | ✅ |
 | 8 | OData (ConnectionManager + navegador read-only; Screen Generator depende da Fase 7c) | ✅ |
+| 9 | Promoção `feature_device_manager` → `addon_device_manager` + base p/ MQTT | 🔶 em andamento |
 
 ## Assets estáticos (Nice Admin)
 

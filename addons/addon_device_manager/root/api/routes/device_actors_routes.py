@@ -1,19 +1,19 @@
 """
-addons/addon_brewstation/features/feature_device_manager/api/routes/device_functions_routes.py
+addons/addon_brewstation/features/feature_device_manager/api/routes/device_actors_routes.py
 
 API JSON — gerado pelo CrudGen. NÃO editar diretamente.
-Customizações via device_functions_routes_hooks.py (nunca sobrescrito).
+Customizações via device_actors_routes_hooks.py (nunca sobrescrito).
 """
 from flask import Blueprint, jsonify, request
 from flask_login import login_required
 
 from core.permissions import permission_required
-from addons.addon_brewstation.features.feature_device_manager.services.device_function_service import DeviceFunctionService
+from addons.addon_device_manager.root.services.device_actor_service import DeviceActorService
 
-device_functions_api_bp = Blueprint(
-    "device_functions_api", __name__, url_prefix="/api/brewstation/device-functions"
+device_actors_api_bp = Blueprint(
+    "device_actors_api", __name__, url_prefix="/api/device-manager/device-actors"
 )
-_service = DeviceFunctionService()
+_service = DeviceActorService()
 
 
 def _ok(data=None, code=200):
@@ -24,17 +24,17 @@ def _err(message, code=400):
     return jsonify({"success": False, "error": message}), code
 
 
-@device_functions_api_bp.route("/", methods=["GET"])
+@device_actors_api_bp.route("/", methods=["GET"])
 @login_required
-@permission_required("device_functions.list")
+@permission_required("device_actors.list")
 def list_items():
     items = _service.list()
     return _ok({"items": [i.to_dict() if hasattr(i, "to_dict") else {"id": i.id} for i in items]})
 
 
-@device_functions_api_bp.route("/<int:id>", methods=["GET"])
+@device_actors_api_bp.route("/<int:id>", methods=["GET"])
 @login_required
-@permission_required("device_functions.detail")
+@permission_required("device_actors.detail")
 def get_item(id: int):
     item = _service.get_by_id(id)
     if not item:
@@ -42,9 +42,9 @@ def get_item(id: int):
     return _ok({"item": item.to_dict() if hasattr(item, "to_dict") else {"id": item.id}})
 
 
-@device_functions_api_bp.route("/", methods=["POST"])
+@device_actors_api_bp.route("/", methods=["POST"])
 @login_required
-@permission_required("device_functions.create")
+@permission_required("device_actors.create")
 def create_item():
     data = request.get_json(silent=True) or {}
     result = _service.create(data)
@@ -53,9 +53,9 @@ def create_item():
     return _ok({"item": result.data.to_dict() if hasattr(result.data, "to_dict") else {"id": result.data.id}}, result.code)
 
 
-@device_functions_api_bp.route("/<int:id>", methods=["PUT"])
+@device_actors_api_bp.route("/<int:id>", methods=["PUT"])
 @login_required
-@permission_required("device_functions.update")
+@permission_required("device_actors.update")
 def update_item(id: int):
     data = request.get_json(silent=True) or {}
     result = _service.update(id, data)
@@ -64,9 +64,9 @@ def update_item(id: int):
     return _ok({"item": result.data.to_dict() if hasattr(result.data, "to_dict") else {"id": result.data.id}})
 
 
-@device_functions_api_bp.route("/<int:id>/trash", methods=["POST"])
+@device_actors_api_bp.route("/<int:id>/trash", methods=["POST"])
 @login_required
-@permission_required("device_functions.trash")
+@permission_required("device_actors.trash")
 def trash_item(id: int):
     result = _service.trash(id)
     if not result.success:
@@ -74,9 +74,9 @@ def trash_item(id: int):
     return _ok()
 
 
-@device_functions_api_bp.route("/<int:id>/restore", methods=["POST"])
+@device_actors_api_bp.route("/<int:id>/restore", methods=["POST"])
 @login_required
-@permission_required("device_functions.restore")
+@permission_required("device_actors.restore")
 def restore_item(id: int):
     result = _service.restore(id)
     if not result.success:
@@ -84,9 +84,9 @@ def restore_item(id: int):
     return _ok()
 
 
-@device_functions_api_bp.route("/<int:id>", methods=["DELETE"])
+@device_actors_api_bp.route("/<int:id>", methods=["DELETE"])
 @login_required
-@permission_required("device_functions.delete_permanent")
+@permission_required("device_actors.delete_permanent")
 def delete_permanent_item(id: int):
     result = _service.delete_permanent(id)
     if not result.success:
