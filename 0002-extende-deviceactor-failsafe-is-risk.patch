@@ -1,0 +1,375 @@
+From 7ce3dfc85a0d01240fca5cebfeef57b5ca393c47 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Claude=20=28sess=C3=A3o=20Tesseract=29?=
+ <claude@anthropic.local>
+Date: Fri, 26 Jun 2026 19:04:26 +0000
+Subject: [PATCH] Fase 9 (Fase B revisada): estende DeviceActor com
+ failsafe_value/is_risk
+
+- DeviceActor ganha failsafe_value (String(50), nullable) e is_risk
+  (Boolean, default false) - mqtt_config/hardware_mapping continuam em
+  config_json, sem coluna nova.
+- Decisao: nao criar tabelas Device/Sensor/Actuator novas - schema real
+  (DeviceMetadata/DeviceActor/DeviceFunction, Fase 6) ja resolve melhor
+  o problema (actor_type por porta) do que o desenho original do
+  documento de arquitetura.
+- Migration 7b3e9c1a2d4f.
+- docs/skills/05-proposta-addon-device-manager-e-mqtt.md secao 4
+  reescrita, desenho original preservado como historico.
+- Teste novo cobrindo os 2 campos. 176/176 passando.
+---
+ BACKLOG.md                                    |  30 +++--
+ .../root/model/device_actor.py                |  15 +++
+ ...05-proposta-addon-device-manager-e-mqtt.md | 122 +++++++++++++-----
+ ...d4f_adiciona_failsafe_value_is_risk_em_.py |  32 +++++
+ tests/test_phase6a_device_manager.py          |  46 +++++++
+ 5 files changed, 208 insertions(+), 37 deletions(-)
+ create mode 100644 migrations/versions/7b3e9c1a2d4f_adiciona_failsafe_value_is_risk_em_.py
+
+diff --git a/BACKLOG.md b/BACKLOG.md
+index 4adec74..c534616 100644
+--- a/BACKLOG.md
++++ b/BACKLOG.md
+@@ -832,19 +832,33 @@ e apontando navegação confusa.
+ - [x] Suíte de testes atualizada e validada: 175/175 passando
+       (`test_phase6a_device_manager.py`, `test_phase6b_mash_control.py`,
+       `test_smart_list_completo.py` ajustados para o novo esquema/rotas).
++- [x] **Fase B do plano (modelagem fina) — revisada e concluída**:
++      decisão final foi **estender `DeviceActor`** (2 colunas novas:
++      `failsafe_value` String(50) nullable, `is_risk` Boolean default
++      `false`) em vez de criar tabelas `Device`/`Sensor`/`Actuator`
++      novas — `DeviceMetadata`/`DeviceActor`/`DeviceFunction` (Fase 6)
++      já cobriam o problema de forma mais madura que o desenho inicial
++      do documento de arquitetura (`actor_type` por porta já resolve
++      "device com múltiplas portas mistas"). `mqtt_config`/
++      `hardware_mapping` ficam dentro do `config_json` que `DeviceActor`
++      já tinha — sem coluna nova. Migration `7b3e9c1a2d4f`. Documento de
++      arquitetura (`docs/skills/05-*.md`, seção 4) reescrito refletindo
++      a decisão; desenho original preservado como histórico em
++      `<details>`. 176/176 testes passando (1 teste novo cobrindo os
++      campos).
+ - [ ] **Pendente — Fase A do plano de execução (skill, não código)**:
+       adendo à skill 01 (pasta `logs/` por Addon) e à skill 03 (seção
+       `logging` no schema de `addon.json`) — registrado no documento de
+       arquitetura, ainda não formalizado nas skills 00–04 propriamente.
+-- [ ] **Pendente — Fase D do plano**: `device_service.py` (API pública),
+-      `mqtt_client_service.py` (cliente MQTT + registro de LWT por
+-      atuador `is_risk=true`), tabelas `Device`/`Sensor`/`Actuator` novas
+-      (a granularidade atual — `DeviceMetadata`/`DeviceActor` — ainda não
+-      foi revisada à luz do schema de `mqtt_config`/`hardware_mapping`/
+-      `failsafe_value` do documento de arquitetura).
++- [ ] **Pendente — Fase D do plano**: `device_service.py` (API pública
++      `get_value`/`set_value`/`on_change`) e `mqtt_client_service.py`
++      (cliente MQTT + registro de LWT lendo `is_risk`/`failsafe_value`
++      de `DeviceActor` na conexão) — schema-alvo já fechado (item acima),
++      falta só a implementação dos services.
+ - [ ] **Pendente — Fase F/G**: validação ponta a ponta com bridge MQTT
+-      real, docs técnicos/manual do novo Addon (skill 04), formalização
+-      da skill 05 (EventBus vs. MQTT).
++      real (spec separada: `tesseract-device-bridge`, repositório
++      próprio), docs técnicos/manual do novo Addon (skill 04),
++      formalização da skill 05 (EventBus vs. MQTT).
+ 
+ 
+ ---
+diff --git a/addons/addon_device_manager/root/model/device_actor.py b/addons/addon_device_manager/root/model/device_actor.py
+index ac5bec6..83125fe 100644
+--- a/addons/addon_device_manager/root/model/device_actor.py
++++ b/addons/addon_device_manager/root/model/device_actor.py
+@@ -50,6 +50,19 @@ class DeviceActor(db.Model):
+     plugin_name = db.Column(db.String(100), nullable=True, index=True)
+     plugin_entity_id = db.Column(db.String(100), nullable=True, index=True)
+ 
++    # MQTT fail-safe (LWT) — só relevante para actor_type="actuator".
++    # Guardado como coluna real (não dentro de config_json) porque o
++    # mqtt_client_service precisa consultar em massa "todos os atores
++    # de risco" na hora de montar os LWTs na conexão ao broker — um
++    # WHERE is_risk = true direto no banco, sem desserializar JSON de
++    # cada linha. Valor serializado como string (aplicado conforme
++    # DeviceFunction.data_type na hora de publicar: "0"/"1" para bool,
++    # "0.0" para float). mqtt_config/hardware_mapping (tópicos, qos,
++    # retain, pin, pwm_frequency) continuam em config_json — não
++    # precisam de filtro em massa, então não justificam coluna própria.
++    failsafe_value = db.Column(db.String(50), nullable=True)
++    is_risk = db.Column(db.Boolean, default=False, nullable=False)
++
+     is_active = db.Column(db.Boolean, default=True, nullable=False)
+     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
+     deleted_at = db.Column(db.DateTime, nullable=True)
+@@ -88,6 +101,8 @@ class DeviceActor(db.Model):
+             "config": self.get_config(),
+             "plugin_name": self.plugin_name,
+             "plugin_entity_id": self.plugin_entity_id,
++            "failsafe_value": self.failsafe_value,
++            "is_risk": self.is_risk,
+             "is_active": self.is_active,
+             "is_deleted": self.is_deleted,
+             "created_at": self.created_at.isoformat() if self.created_at else None,
+diff --git a/docs/skills/05-proposta-addon-device-manager-e-mqtt.md b/docs/skills/05-proposta-addon-device-manager-e-mqtt.md
+index 20bacdc..bec3168 100644
+--- a/docs/skills/05-proposta-addon-device-manager-e-mqtt.md
++++ b/docs/skills/05-proposta-addon-device-manager-e-mqtt.md
+@@ -167,12 +167,76 @@ o primeiro a usá-lo.
+ 
+ ---
+ 
+-## 4. Modelagem de tabelas (detalhada)
++## 4. Modelagem — extensão do schema real (revisado em 2026-06-26)
+ 
+-Três tabelas no núcleo do Addon (`root/model/`), sem Feature — ele não
+-tem Feature nenhuma nesta fase.
++> **Revisão importante:** o desenho original abaixo (4.1–4.3, mantido
++> como histórico) assumia tabelas `Device`/`Sensor`/`Actuator` novas.
++> Ao revisar o código real (Fase 6, já implementado e testado — 175
++> testes passando antes desta revisão), constatamos que
++> `DeviceMetadata`/`DeviceActor`/`DeviceFunction` já cobrem exatamente o
++> mesmo problema, de forma mais madura (inclusive já resolvendo a
++> questão de "um device com múltiplas portas mistas" via
++> `DeviceActor.actor_type` por porta). **Decisão: estender, não
++> recriar.**
+ 
+-### 4.1 `tesseract_dvm_device` — catálogo base (identidade física do nó)
++### 4.1 (revisado) O que já existe e é reaproveitado sem alteração
++
++| Tabela real | Papel | Equivalência ao desenho original |
++|---|---|---|
++| `tesseract_dvm_device` (`DeviceMetadata`) | Identidade do nó físico (`name`, `device_type`, `protocol`, `port_config` JSON) | Equivalente a 4.1 (`Device`) |
++| `tesseract_dvm_actor` (`DeviceActor`) | Uma porta do device + função atribuída (`port_name`, `actor_type`: sensor/actuator/rule_trigger, `config_json`) | Equivalente a 4.2+4.3 combinados (`Sensor`/`Actuator`) — `actor_type` já resolve "tipo por porta" |
++| `tesseract_dvm_function` (`DeviceFunction`) | Catálogo de funções reutilizáveis (`min_value`, `max_value`, `unit`, `data_type`) | Não existia no desenho original — é uma melhoria: evita repetir min/max/unidade em cada porta |
++
++### 4.2 (revisado) O que foi adicionado a `DeviceActor` (única migration desta fase)
++
++| Coluna nova | Tipo | Obrigatória | Observação |
++|---|---|---|---|
++| `failsafe_value` | String(50), nullable | Não | Valor publicado via LWT se o Tesseract cair (decisão 2.7). Coluna real (não dentro de `config_json`) porque o `mqtt_client_service` precisa filtrar em massa (`WHERE is_risk = true`) na conexão, sem desserializar JSON linha a linha. Serializado como string, interpretado conforme `DeviceFunction.data_type` na hora de publicar. |
++| `is_risk` | Boolean, default `false` | Sim | Marca se este ator (só relevante para `actor_type="actuator"`) exige LWT ativo. Default `false` (em vez do `true` do desenho original) — mais consistente com o padrão do projeto de não assumir risco sem o usuário declarar explicitamente; rever se a operação real mostrar que `true` por padrão é mais seguro na prática. |
++
++`mqtt_config` (tópicos, qos, retain) e `hardware_mapping` (pin,
++pwm_frequency, platform) **não** ganham coluna própria — vivem dentro
++do `config_json` que `DeviceActor` já tem, via `get_config()`/
++`set_config()` já existentes. Não há FK nova nem tabela nova.
++
++### 4.3 (revisado) Onde mora o tópico MQTT, então
++
++`DeviceActor.config_json` passa a aceitar (convenção, não enforced por
++schema):
++```json
++{
++  "mqtt_config": {
++    "state_topic": "sensors/mash_tun_temp/state",
++    "command_topic": "actuators/mash_heater/set",
++    "qos": 1,
++    "retain": false
++  },
++  "hardware_mapping": {
++    "pin": 18,
++    "pwm_frequency": 1000
++  }
++}
++```
++`DeviceActor.external_id` (já existente) é o identificador usado nos
++tópicos quando não houver `mqtt_config` explícito — fallback razoável,
++já é UUID estável.
++
++### 4.4 Nota de FK (mantida do desenho original, sem mudança)
++
++`DeviceActor.device_id` → `DeviceMetadata.id` e `DeviceActor.function_id`
++→ `DeviceFunction.id` são FKs internas ao próprio Addon, permitidas pela
++skill 02. Nenhuma FK sai para outro Addon — quem depender
++(`mash_control`) usa referência fraca por `name` + service público
++(`device_function_lookup.py`, já implementado na Fase 9), nunca FK
++direta — ver seção 9 (status) para o detalhe dessa correção, que já foi
++executada antes desta revisão de schema.
++
++---
++
++<details>
++<summary>Desenho original (4.1–4.3 da primeira versão) — mantido só como histórico, substituído pela seção acima</summary>
++
++### 4.1 `tesseract_dvm_device` — catálogo base (identidade física do nó) [SUBSTITUÍDO]
+ 
+ Representa só a **identidade do nó físico** (a placa/gateway) — nunca o
+ tipo de IO. Um `Device` pode ter N `Sensor` e M `Actuator` simultaneamente
+@@ -191,7 +255,7 @@ porta (4.2/4.3), não o device.
+ | `created_at` / `updated_at` | DateTime | Sim | Padrão skill 02 |
+ | `is_deleted` / `deleted_at` | Boolean / DateTime | Sim | Soft-delete padrão CrudGen |
+ 
+-### 4.2 `tesseract_dvm_sensor` — especialização de leitura
++### 4.2 `tesseract_dvm_sensor` — especialização de leitura [SUBSTITUÍDO]
+ 
+ | Coluna | Tipo | Obrigatória | Observação |
+ |---|---|---|---|
+@@ -204,7 +268,7 @@ porta (4.2/4.3), não o device.
+ | `last_value` | Float/String | Não | Cache do último valor recebido |
+ | `last_seen_at` | DateTime | Não | Última telemetria recebida — base para detectar dispositivo offline |
+ 
+-### 4.3 `tesseract_dvm_actuator` — especialização de comando
++### 4.3 `tesseract_dvm_actuator` — especialização de comando [SUBSTITUÍDO]
+ 
+ | Coluna | Tipo | Obrigatória | Observação |
+ |---|---|---|---|
+@@ -215,13 +279,10 @@ porta (4.2/4.3), não o device.
+ | `state_topic` | String | Não | Tópico de confirmação de estado, se o hardware publicar |
+ | `min_value` / `max_value` | Float | Não | Faixa válida (ex.: PWM 0–100) |
+ | `current_value` | Float/Bool | Não | Cache do último comando enviado |
+-| `failsafe_value` | Float/Bool | **Sim** | Valor publicado via LWT se o Tesseract cair (decisão 2.7) — sempre obrigatório, default seguro (`0`/`false`) se o usuário não definir explicitamente |
+-| `is_risk` | Boolean | Sim | Marca se este atuador exige LWT ativo (default `true` — mais seguro por padrão; usuário pode desmarcar para atuadores de baixo risco) |
++| `failsafe_value` | Float/Bool | **Sim** | Valor publicado via LWT se o Tesseract cair (decisão 2.7) |
++| `is_risk` | Boolean | Sim | Marca se este atuador exige LWT ativo |
+ 
+-**Nota de FK:** todas as FKs acima são internas ao próprio Addon
+-(`Sensor`/`Actuator` → `Device`), permitidas pela skill 02. Nenhuma FK
+-sai para outro Addon — quem depender (`mash_control`) usa o `device_service`
+-(EventBus/chamada de service), nunca FK direta.
++</details>
+ 
+ ---
+ 
+@@ -305,33 +366,36 @@ rascunho de referência.
+ 
+ ---
+ 
+-## 7. Como ficaria — árvore consolidada
++## 7. Árvore consolidada (estado real após Fase 9 + extensão da seção 4)
+ 
+ ```
+ addons/
+-└── addon_device_manager/
+-    ├── addon.json                       ← table_prefix: "dvm", seção logging (seção 3)
+-    ├── addon.py                         ← class AddonDeviceManager(AddonBase)
++└── addon_device_manager/                  ← promovido na Fase 9 (já executado)
++    ├── addon.json                         ← table_prefix: "dvm" (seção logging ainda pendente, seção 3)
++    ├── addon.py                           ← class AddonDeviceManager(AddonBase)
+     ├── root/
+     │   ├── model/
+-    │   │   ├── device.py                ← tesseract_dvm_device
+-    │   │   ├── sensor.py                 ← tesseract_dvm_sensor
+-    │   │   └── actuator.py               ← tesseract_dvm_actuator (com failsafe_value/is_risk)
++    │   │   ├── device_metadata.py         ← tesseract_dvm_device (identidade do nó)
++    │   │   ├── device_actor.py            ← tesseract_dvm_actor (porta+função; +failsafe_value/is_risk, seção 4.2)
++    │   │   ├── device_function.py         ← tesseract_dvm_function (catálogo reutilizável)
++    │   │   └── emulated_device.py         ← tesseract_dvm_emulated_device
+     │   ├── services/
+-    │   │   ├── device_service.py         ← API pública get_value/set_value/on_change
+-    │   │   └── mqtt_client_service.py    ← paho-mqtt + registro de LWT
++    │   │   ├── device_function_lookup.py  ← já implementado (Fase 9) — resolução cross-Addon por name
++    │   │   ├── device_service.py          ← PENDENTE — API pública get_value/set_value/on_change
++    │   │   └── mqtt_client_service.py     ← PENDENTE — paho-mqtt + registro de LWT (lê is_risk/failsafe_value)
+     │   ├── controller/
+-    │   └── templates/addon_device_manager/
+-    ├── logs/
+-    │   └── integration.log               ← caminho configurável via addon.json (seção 3)
+-    ├── i18n/pt_BR.json
++    │   ├── api/routes/
++    │   └── templates/
++    ├── logs/                              ← PENDENTE (skill 01 ainda não tem adendo formal)
++    │   └── integration.log
++    ├── i18n/pt_BR.json                    ← PENDENTE (ainda não criado)
+     ├── static/
+     └── docs/
+-        ├── technical/
+-        └── manual/
++        ├── technical/                     ← PENDENTE (skill 04)
++        └── manual/                        ← PENDENTE (skill 04)
+ 
+-addons/addon_[pai_brewstation]/features/feature_mash_control/
+-└── (manifesto) requires: ["device_manager"]   ← dependência explícita
++addons/addon_brewstation/features/feature_mash_control/
++└── feature.json: "requires": ["device_manager"]   ← já implementado (Fase 9)
+ ```
+ 
+ ---
+diff --git a/migrations/versions/7b3e9c1a2d4f_adiciona_failsafe_value_is_risk_em_.py b/migrations/versions/7b3e9c1a2d4f_adiciona_failsafe_value_is_risk_em_.py
+new file mode 100644
+index 0000000..d752bd6
+--- /dev/null
++++ b/migrations/versions/7b3e9c1a2d4f_adiciona_failsafe_value_is_risk_em_.py
+@@ -0,0 +1,32 @@
++"""adiciona failsafe_value/is_risk em tesseract_dvm_actor (extensao do
++DeviceActor existente, sem criar tabela nova - decisao registrada em
++docs/skills/05-proposta-addon-device-manager-e-mqtt.md, secao 4)
++
++Revision ID: 7b3e9c1a2d4f
++Revises: 4a8524f00549
++Create Date: 2026-06-26 00:00:00.000000
++
++"""
++from alembic import op
++import sqlalchemy as sa
++
++
++# revision identifiers, used by Alembic.
++revision = '7b3e9c1a2d4f'
++down_revision = '4a8524f00549'
++branch_labels = None
++depends_on = None
++
++
++def upgrade():
++    with op.batch_alter_table("tesseract_dvm_actor") as batch_op:
++        batch_op.add_column(sa.Column("failsafe_value", sa.String(50), nullable=True))
++        batch_op.add_column(
++            sa.Column("is_risk", sa.Boolean(), nullable=False, server_default=sa.false())
++        )
++
++
++def downgrade():
++    with op.batch_alter_table("tesseract_dvm_actor") as batch_op:
++        batch_op.drop_column("is_risk")
++        batch_op.drop_column("failsafe_value")
+diff --git a/tests/test_phase6a_device_manager.py b/tests/test_phase6a_device_manager.py
+index e268f24..1488594 100644
+--- a/tests/test_phase6a_device_manager.py
++++ b/tests/test_phase6a_device_manager.py
+@@ -140,3 +140,49 @@ def test_soft_delete_em_device_metadata(app, client):
+ 
+     r = client.get("/api/device-manager/device-metadatas/")
+     assert all(i["id"] != device_id for i in r.get_json()["items"])
++
++
++def test_device_actor_failsafe_value_e_is_risk(app, client):
++    """
++    Extensão da Fase 9 (docs/skills/05-proposta-...md, seção 4.2):
++    DeviceActor ganhou failsafe_value/is_risk em vez de tabelas
++    Sensor/Actuator novas — atende ao fail-safe MQTT (decisão 2.7)
++    reaproveitando o schema já existente.
++    """
++    _login_admin(app, client)
++
++    r = client.post(
++        "/api/device-manager/device-functions/",
++        json={"name": "heat_failsafe_test", "display_name": "Aquecedor", "category": "actuator"},
++    )
++    function_id = r.get_json()["item"]["id"]
++
++    r = client.post("/api/device-manager/device-metadatas/", json={"name": "Device Failsafe"})
++    device_id = r.get_json()["item"]["id"]
++
++    # default: is_risk=False, failsafe_value não informado
++    r = client.post(
++        "/api/device-manager/device-actors/",
++        json={
++            "device_id": device_id, "port_name": "GPIO18", "function_id": function_id,
++            "actor_type": "actuator", "name": "Aquecedor Mostura",
++        },
++    )
++    assert r.status_code == 201
++    item = r.get_json()["item"]
++    assert item["is_risk"] is False
++    assert item["failsafe_value"] is None
++
++    # atuador de risco, com valor seguro explícito
++    r = client.post(
++        "/api/device-manager/device-actors/",
++        json={
++            "device_id": device_id, "port_name": "GPIO19", "function_id": function_id,
++            "actor_type": "actuator", "name": "Bomba Mostura",
++            "is_risk": True, "failsafe_value": "0",
++        },
++    )
++    assert r.status_code == 201
++    item = r.get_json()["item"]
++    assert item["is_risk"] is True
++    assert item["failsafe_value"] == "0"
+-- 
+2.43.0
+
