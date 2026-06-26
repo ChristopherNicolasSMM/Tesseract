@@ -34,11 +34,13 @@ tesseract/
 addons/addon_[nome]/
 ├── addon.json                  # manifesto — ver skill 03
 ├── addon.py                    # classe AddonX(AddonBase)
-├── core/                       # parte "núcleo" do addon, sem feature específica
+├── root/                       # parte "núcleo" do addon, sem feature específica
 │   ├── model/
 │   ├── controller/
 │   ├── services/
 │   └── templates/addon_[nome]/
+├── logs/                       # opcional — só presente se addon.json declarar "logging" (skill 03)
+│   └── [arquivo definido em logging.integration_log_path]
 ├── features/
 │   └── feature_[nome_feature]/
 │       ├── feature.json
@@ -54,6 +56,22 @@ addons/addon_[nome]/
 ├── static/
 └── docs/
 ```
+
+> **Correção registrada em 2026-06-26**: esta seção dizia `core/` em
+> vez de `root/` desde o primeiro commit do projeto — divergência da
+> intenção real (confirmada em conversa, e já em uso desde a Fase 9 —
+> `addons/addon_device_manager/root/...`). Corrigido aqui; `core/` sem
+> prefixo continua reservado exclusivamente ao Core do Tesseract
+> (`tesseract/core/`, ver seção seguinte) — nunca à subpasta interna de
+> um Addon.
+>
+> **Pasta `logs/` (adenda — docs/skills/05-proposta-addon-device-manager-e-mqtt.md,
+> Fase A)**: opcional, só existe se o `addon.json` do módulo declarar a
+> seção `logging` (skill 03). Quando presente, é o destino do log de
+> integração local daquele Addon — nunca do log global do Core (esse
+> continua centralizado, fora de qualquer pasta de Addon). O caminho
+> exato do arquivo dentro de `logs/` é definido por
+> `logging.integration_log_path` no manifesto, não fixo nesta skill.
 
 ## Estrutura obrigatória de um Plugin
 

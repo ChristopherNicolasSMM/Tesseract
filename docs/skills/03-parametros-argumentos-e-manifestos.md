@@ -31,7 +31,13 @@ geração (CrudGen), e configuração em runtime (`system_config`).
   ],
   "env_keys": ["BREWFATHER_USER_ID", "BREWFATHER_API_KEY"],
   "default_locale": "pt_BR",
-  "available_locales": ["pt_BR"]
+  "available_locales": ["pt_BR"],
+  "logging": {
+    "integration_log_enabled": true,
+    "integration_log_path": "logs/integration.log",
+    "integration_log_max_bytes": 5242880,
+    "integration_log_backup_count": 5
+  }
 }
 ```
 
@@ -49,6 +55,27 @@ geração (CrudGen), e configuração em runtime (`system_config`).
 | `env_keys` | Não | Variáveis de ambiente que o Addon espera existir no `.env` |
 | `default_locale` | Sim | Sempre `"pt_BR"` por enquanto — ver skill 00, seção de i18n |
 | `available_locales` | Não | Lista de locales com arquivo em `i18n/` presente; se omitido, assume-se `["pt_BR"]` |
+| `logging` | Não | Objeto opcional — ver detalhe abaixo. Ausente = Addon não tem `logs/` própria (skill 01); usa só o log global do Core. |
+
+### Campo `logging` (adenda — Fase 9, `addon_device_manager`)
+
+Habilita um arquivo de log **local ao Addon** (pasta `logs/`, skill 01),
+separado do log global do Core — pensado para volume alto de eventos de
+rotina (ex.: integração MQTT) que poluiria o log central sem agregar
+valor de diagnóstico ali.
+
+| Subcampo | Tipo | Default | Regra |
+|---|---|---|---|
+| `integration_log_enabled` | bool | `true` | Se `false`, o Addon não grava nada em `logs/` mesmo com a seção presente — só o log global de erro continua valendo. |
+| `integration_log_path` | string | — (obrigatório se `logging` presente) | Caminho **relativo à raiz do próprio Addon** — nunca absoluto, nunca escapando de `addons/addon_[nome]/`. Convenção: `logs/[nome].log`. |
+| `integration_log_max_bytes` | int | `5242880` (5 MiB) | Tamanho de rotação (`RotatingFileHandler`) — evita o arquivo crescer sem limite. |
+| `integration_log_backup_count` | int | `5` | Quantos arquivos rotacionados manter. |
+
+**Regra de ouro deste campo**: erro que importa para operação (broker
+inacessível, payload inválido, falha de fail-safe) **nunca** fica só no
+log local — sempre sobe também para o log global do Core. O log local
+é só para eventos de rotina de alto volume; nunca é o único lugar onde
+um problema sério aparece.
 
 ## 2. Manifesto de Feature — `feature.json`
 
@@ -157,5 +184,7 @@ banco, `SECRET_KEY`).
 - [ ] `i18n/pt_BR.json` presente na pasta do módulo (Addon, Feature e Plugin)
 - [ ] `docs/technical/` e `docs/manual/` presentes, com pelo menos
       `01-*.md` preenchido em cada um (ver skill 04)
+- [ ] Se `logging` presente: `integration_log_path` é relativo (nunca
+      absoluto) e a pasta `logs/` existe na raiz do Addon (skill 01)
 - [ ] Nenhuma chave de `env_keys` colide com uma já declarada por outro
       módulo (exceto se for intencionalmente compartilhada, ex.: SMTP)

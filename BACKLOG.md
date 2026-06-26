@@ -878,11 +878,15 @@ escritos à mão de propósito, skill 02), então ficaram de fora.
       a decisão; desenho original preservado como histórico em
       `<details>`. 176/176 testes passando (1 teste novo cobrindo os
       campos).
-- [ ] **Pendente — Fase A do plano de execução (skill, não código)**:
-      adendo à skill 01 (pasta `logs/` por Addon) e à skill 03 (seção
-      `logging` no schema de `addon.json`) — registrado no documento de
-      arquitetura, ainda não formalizado nas skills 00–04 propriamente.
-      Bloqueia o item de log de integração local da Fase D (abaixo).
+- [x] **Fase A do plano de execução — concluída.** Adendo à skill 01:
+      seção `logs/` adicionada à estrutura padrão de Addon. Adendo à
+      skill 03: seção `logging` (e subcampos) adicionada ao schema de
+      `addon.json`, mais item no checklist de validação. **Divergência
+      real encontrada e corrigida**: `docs/skills/01-*.md` dizia `core/`
+      em vez de `root/` para a subpasta interna de um Addon — desde o
+      primeiro commit do projeto, não uma regressão desta sessão.
+      Confirmado com Christopher que `root/` é o correto (já em uso
+      desde a Fase 9); skill corrigida.
 - [x] **Fase D do plano (parcial) — `device_service.py` +
       `mqtt_client_service.py` implementados.**
       `device_service.py`: API pública `get_value`/`set_value`/

@@ -170,13 +170,16 @@ caminho configurável — não hardcoded:
 | `logging.integration_log_path` | Caminho **relativo à pasta do próprio Addon** (nunca absoluto, nunca fora de `addons/addon_device_manager/`). Default sugerido: `logs/integration.log`. |
 | `logging.integration_log_max_bytes` / `backup_count` | Parâmetros de rotação (`RotatingFileHandler`), evita o `.log` crescer sem limite. |
 
-**[PENDENTE-SKILL]** — Isso introduz dois pontos que as skills 01 e 03
-ainda não previam e precisam de uma adenda formal antes da execução:
-- Skill 01: adicionar `logs/` à estrutura padrão de pastas de um Addon
-  (hoje a árvore documentada não tem essa pasta).
-- Skill 03: adicionar a seção `logging` ao schema de `addon.json` como
-  campo **opcional e específico de Addon** (Plugin pode querer o mesmo
-  padrão depois, mas isso fica fora do escopo deste documento).
+**[EXECUTADO — Fase A, 2026-06-26]** As duas adendas foram formalizadas:
+- Skill 01: `logs/` adicionada à estrutura padrão de Addon (e
+  divergência real `core/`→`root/` corrigida no mesmo commit — ver
+  `BACKLOG.md`, Fase 9).
+- Skill 03: seção `logging` adicionada ao schema de `addon.json`, com
+  subcampos detalhados e item no checklist de validação.
+
+O `addon.json` real do `device_manager` **ainda não tem** a seção
+`logging` aplicada (isso é o restante da Fase D, não da Fase A — a
+skill já permite, falta usar).
 
 Por ser configurável (e não fixo em código), qualquer Addon futuro que
 precise do mesmo padrão de log local replica a mesma seção `logging` no
