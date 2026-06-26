@@ -9,3 +9,4 @@ instance/
 .vscode/
 .idea/
 docs/skills/.DS_Store
+*.patch
