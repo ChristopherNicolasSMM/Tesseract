@@ -832,19 +832,33 @@ e apontando navegação confusa.
 - [x] Suíte de testes atualizada e validada: 175/175 passando
       (`test_phase6a_device_manager.py`, `test_phase6b_mash_control.py`,
       `test_smart_list_completo.py` ajustados para o novo esquema/rotas).
+- [x] **Fase B do plano (modelagem fina) — revisada e concluída**:
+      decisão final foi **estender `DeviceActor`** (2 colunas novas:
+      `failsafe_value` String(50) nullable, `is_risk` Boolean default
+      `false`) em vez de criar tabelas `Device`/`Sensor`/`Actuator`
+      novas — `DeviceMetadata`/`DeviceActor`/`DeviceFunction` (Fase 6)
+      já cobriam o problema de forma mais madura que o desenho inicial
+      do documento de arquitetura (`actor_type` por porta já resolve
+      "device com múltiplas portas mistas"). `mqtt_config`/
+      `hardware_mapping` ficam dentro do `config_json` que `DeviceActor`
+      já tinha — sem coluna nova. Migration `7b3e9c1a2d4f`. Documento de
+      arquitetura (`docs/skills/05-*.md`, seção 4) reescrito refletindo
+      a decisão; desenho original preservado como histórico em
+      `<details>`. 176/176 testes passando (1 teste novo cobrindo os
+      campos).
 - [ ] **Pendente — Fase A do plano de execução (skill, não código)**:
       adendo à skill 01 (pasta `logs/` por Addon) e à skill 03 (seção
       `logging` no schema de `addon.json`) — registrado no documento de
       arquitetura, ainda não formalizado nas skills 00–04 propriamente.
-- [ ] **Pendente — Fase D do plano**: `device_service.py` (API pública),
-      `mqtt_client_service.py` (cliente MQTT + registro de LWT por
-      atuador `is_risk=true`), tabelas `Device`/`Sensor`/`Actuator` novas
-      (a granularidade atual — `DeviceMetadata`/`DeviceActor` — ainda não
-      foi revisada à luz do schema de `mqtt_config`/`hardware_mapping`/
-      `failsafe_value` do documento de arquitetura).
+- [ ] **Pendente — Fase D do plano**: `device_service.py` (API pública
+      `get_value`/`set_value`/`on_change`) e `mqtt_client_service.py`
+      (cliente MQTT + registro de LWT lendo `is_risk`/`failsafe_value`
+      de `DeviceActor` na conexão) — schema-alvo já fechado (item acima),
+      falta só a implementação dos services.
 - [ ] **Pendente — Fase F/G**: validação ponta a ponta com bridge MQTT
-      real, docs técnicos/manual do novo Addon (skill 04), formalização
-      da skill 05 (EventBus vs. MQTT).
+      real (spec separada: `tesseract-device-bridge`, repositório
+      próprio), docs técnicos/manual do novo Addon (skill 04),
+      formalização da skill 05 (EventBus vs. MQTT).
 
 
 ---

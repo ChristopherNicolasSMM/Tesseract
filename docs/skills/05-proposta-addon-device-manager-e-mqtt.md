@@ -167,12 +167,76 @@ o primeiro a usá-lo.
 
 ---
 
-## 4. Modelagem de tabelas (detalhada)
+## 4. Modelagem — extensão do schema real (revisado em 2026-06-26)
 
-Três tabelas no núcleo do Addon (`root/model/`), sem Feature — ele não
-tem Feature nenhuma nesta fase.
+> **Revisão importante:** o desenho original abaixo (4.1–4.3, mantido
+> como histórico) assumia tabelas `Device`/`Sensor`/`Actuator` novas.
+> Ao revisar o código real (Fase 6, já implementado e testado — 175
+> testes passando antes desta revisão), constatamos que
+> `DeviceMetadata`/`DeviceActor`/`DeviceFunction` já cobrem exatamente o
+> mesmo problema, de forma mais madura (inclusive já resolvendo a
+> questão de "um device com múltiplas portas mistas" via
+> `DeviceActor.actor_type` por porta). **Decisão: estender, não
+> recriar.**
 
-### 4.1 `tesseract_dvm_device` — catálogo base (identidade física do nó)
+### 4.1 (revisado) O que já existe e é reaproveitado sem alteração
+
+| Tabela real | Papel | Equivalência ao desenho original |
+|---|---|---|
+| `tesseract_dvm_device` (`DeviceMetadata`) | Identidade do nó físico (`name`, `device_type`, `protocol`, `port_config` JSON) | Equivalente a 4.1 (`Device`) |
+| `tesseract_dvm_actor` (`DeviceActor`) | Uma porta do device + função atribuída (`port_name`, `actor_type`: sensor/actuator/rule_trigger, `config_json`) | Equivalente a 4.2+4.3 combinados (`Sensor`/`Actuator`) — `actor_type` já resolve "tipo por porta" |
+| `tesseract_dvm_function` (`DeviceFunction`) | Catálogo de funções reutilizáveis (`min_value`, `max_value`, `unit`, `data_type`) | Não existia no desenho original — é uma melhoria: evita repetir min/max/unidade em cada porta |
+
+### 4.2 (revisado) O que foi adicionado a `DeviceActor` (única migration desta fase)
+
+| Coluna nova | Tipo | Obrigatória | Observação |
+|---|---|---|---|
+| `failsafe_value` | String(50), nullable | Não | Valor publicado via LWT se o Tesseract cair (decisão 2.7). Coluna real (não dentro de `config_json`) porque o `mqtt_client_service` precisa filtrar em massa (`WHERE is_risk = true`) na conexão, sem desserializar JSON linha a linha. Serializado como string, interpretado conforme `DeviceFunction.data_type` na hora de publicar. |
+| `is_risk` | Boolean, default `false` | Sim | Marca se este ator (só relevante para `actor_type="actuator"`) exige LWT ativo. Default `false` (em vez do `true` do desenho original) — mais consistente com o padrão do projeto de não assumir risco sem o usuário declarar explicitamente; rever se a operação real mostrar que `true` por padrão é mais seguro na prática. |
+
+`mqtt_config` (tópicos, qos, retain) e `hardware_mapping` (pin,
+pwm_frequency, platform) **não** ganham coluna própria — vivem dentro
+do `config_json` que `DeviceActor` já tem, via `get_config()`/
+`set_config()` já existentes. Não há FK nova nem tabela nova.
+
+### 4.3 (revisado) Onde mora o tópico MQTT, então
+
+`DeviceActor.config_json` passa a aceitar (convenção, não enforced por
+schema):
+```json
+{
+  "mqtt_config": {
+    "state_topic": "sensors/mash_tun_temp/state",
+    "command_topic": "actuators/mash_heater/set",
+    "qos": 1,
+    "retain": false
+  },
+  "hardware_mapping": {
+    "pin": 18,
+    "pwm_frequency": 1000
+  }
+}
+```
+`DeviceActor.external_id` (já existente) é o identificador usado nos
+tópicos quando não houver `mqtt_config` explícito — fallback razoável,
+já é UUID estável.
+
+### 4.4 Nota de FK (mantida do desenho original, sem mudança)
+
+`DeviceActor.device_id` → `DeviceMetadata.id` e `DeviceActor.function_id`
+→ `DeviceFunction.id` são FKs internas ao próprio Addon, permitidas pela
+skill 02. Nenhuma FK sai para outro Addon — quem depender
+(`mash_control`) usa referência fraca por `name` + service público
+(`device_function_lookup.py`, já implementado na Fase 9), nunca FK
+direta — ver seção 9 (status) para o detalhe dessa correção, que já foi
+executada antes desta revisão de schema.
+
+---
+
+<details>
+<summary>Desenho original (4.1–4.3 da primeira versão) — mantido só como histórico, substituído pela seção acima</summary>
+
+### 4.1 `tesseract_dvm_device` — catálogo base (identidade física do nó) [SUBSTITUÍDO]
 
 Representa só a **identidade do nó físico** (a placa/gateway) — nunca o
 tipo de IO. Um `Device` pode ter N `Sensor` e M `Actuator` simultaneamente
@@ -191,7 +255,7 @@ porta (4.2/4.3), não o device.
 | `created_at` / `updated_at` | DateTime | Sim | Padrão skill 02 |
 | `is_deleted` / `deleted_at` | Boolean / DateTime | Sim | Soft-delete padrão CrudGen |
 
-### 4.2 `tesseract_dvm_sensor` — especialização de leitura
+### 4.2 `tesseract_dvm_sensor` — especialização de leitura [SUBSTITUÍDO]
 
 | Coluna | Tipo | Obrigatória | Observação |
 |---|---|---|---|
@@ -204,7 +268,7 @@ porta (4.2/4.3), não o device.
 | `last_value` | Float/String | Não | Cache do último valor recebido |
 | `last_seen_at` | DateTime | Não | Última telemetria recebida — base para detectar dispositivo offline |
 
-### 4.3 `tesseract_dvm_actuator` — especialização de comando
+### 4.3 `tesseract_dvm_actuator` — especialização de comando [SUBSTITUÍDO]
 
 | Coluna | Tipo | Obrigatória | Observação |
 |---|---|---|---|
@@ -215,13 +279,10 @@ porta (4.2/4.3), não o device.
 | `state_topic` | String | Não | Tópico de confirmação de estado, se o hardware publicar |
 | `min_value` / `max_value` | Float | Não | Faixa válida (ex.: PWM 0–100) |
 | `current_value` | Float/Bool | Não | Cache do último comando enviado |
-| `failsafe_value` | Float/Bool | **Sim** | Valor publicado via LWT se o Tesseract cair (decisão 2.7) — sempre obrigatório, default seguro (`0`/`false`) se o usuário não definir explicitamente |
-| `is_risk` | Boolean | Sim | Marca se este atuador exige LWT ativo (default `true` — mais seguro por padrão; usuário pode desmarcar para atuadores de baixo risco) |
+| `failsafe_value` | Float/Bool | **Sim** | Valor publicado via LWT se o Tesseract cair (decisão 2.7) |
+| `is_risk` | Boolean | Sim | Marca se este atuador exige LWT ativo |
 
-**Nota de FK:** todas as FKs acima são internas ao próprio Addon
-(`Sensor`/`Actuator` → `Device`), permitidas pela skill 02. Nenhuma FK
-sai para outro Addon — quem depender (`mash_control`) usa o `device_service`
-(EventBus/chamada de service), nunca FK direta.
+</details>
 
 ---
 
@@ -305,33 +366,36 @@ rascunho de referência.
 
 ---
 
-## 7. Como ficaria — árvore consolidada
+## 7. Árvore consolidada (estado real após Fase 9 + extensão da seção 4)
 
 ```
 addons/
-└── addon_device_manager/
-    ├── addon.json                       ← table_prefix: "dvm", seção logging (seção 3)
-    ├── addon.py                         ← class AddonDeviceManager(AddonBase)
+└── addon_device_manager/                  ← promovido na Fase 9 (já executado)
+    ├── addon.json                         ← table_prefix: "dvm" (seção logging ainda pendente, seção 3)
+    ├── addon.py                           ← class AddonDeviceManager(AddonBase)
     ├── root/
     │   ├── model/
-    │   │   ├── device.py                ← tesseract_dvm_device
-    │   │   ├── sensor.py                 ← tesseract_dvm_sensor
-    │   │   └── actuator.py               ← tesseract_dvm_actuator (com failsafe_value/is_risk)
+    │   │   ├── device_metadata.py         ← tesseract_dvm_device (identidade do nó)
+    │   │   ├── device_actor.py            ← tesseract_dvm_actor (porta+função; +failsafe_value/is_risk, seção 4.2)
+    │   │   ├── device_function.py         ← tesseract_dvm_function (catálogo reutilizável)
+    │   │   └── emulated_device.py         ← tesseract_dvm_emulated_device
     │   ├── services/
-    │   │   ├── device_service.py         ← API pública get_value/set_value/on_change
-    │   │   └── mqtt_client_service.py    ← paho-mqtt + registro de LWT
+    │   │   ├── device_function_lookup.py  ← já implementado (Fase 9) — resolução cross-Addon por name
+    │   │   ├── device_service.py          ← PENDENTE — API pública get_value/set_value/on_change
+    │   │   └── mqtt_client_service.py     ← PENDENTE — paho-mqtt + registro de LWT (lê is_risk/failsafe_value)
     │   ├── controller/
-    │   └── templates/addon_device_manager/
-    ├── logs/
-    │   └── integration.log               ← caminho configurável via addon.json (seção 3)
-    ├── i18n/pt_BR.json
+    │   ├── api/routes/
+    │   └── templates/
+    ├── logs/                              ← PENDENTE (skill 01 ainda não tem adendo formal)
+    │   └── integration.log
+    ├── i18n/pt_BR.json                    ← PENDENTE (ainda não criado)
     ├── static/
     └── docs/
-        ├── technical/
-        └── manual/
+        ├── technical/                     ← PENDENTE (skill 04)
+        └── manual/                        ← PENDENTE (skill 04)
 
-addons/addon_[pai_brewstation]/features/feature_mash_control/
-└── (manifesto) requires: ["device_manager"]   ← dependência explícita
+addons/addon_brewstation/features/feature_mash_control/
+└── feature.json: "requires": ["device_manager"]   ← já implementado (Fase 9)
 ```
 
 ---

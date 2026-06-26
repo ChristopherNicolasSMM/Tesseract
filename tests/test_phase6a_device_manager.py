@@ -140,3 +140,49 @@ def test_soft_delete_em_device_metadata(app, client):
 
     r = client.get("/api/device-manager/device-metadatas/")
     assert all(i["id"] != device_id for i in r.get_json()["items"])
+
+
+def test_device_actor_failsafe_value_e_is_risk(app, client):
+    """
+    Extensão da Fase 9 (docs/skills/05-proposta-...md, seção 4.2):
+    DeviceActor ganhou failsafe_value/is_risk em vez de tabelas
+    Sensor/Actuator novas — atende ao fail-safe MQTT (decisão 2.7)
+    reaproveitando o schema já existente.
+    """
+    _login_admin(app, client)
+
+    r = client.post(
+        "/api/device-manager/device-functions/",
+        json={"name": "heat_failsafe_test", "display_name": "Aquecedor", "category": "actuator"},
+    )
+    function_id = r.get_json()["item"]["id"]
+
+    r = client.post("/api/device-manager/device-metadatas/", json={"name": "Device Failsafe"})
+    device_id = r.get_json()["item"]["id"]
+
+    # default: is_risk=False, failsafe_value não informado
+    r = client.post(
+        "/api/device-manager/device-actors/",
+        json={
+            "device_id": device_id, "port_name": "GPIO18", "function_id": function_id,
+            "actor_type": "actuator", "name": "Aquecedor Mostura",
+        },
+    )
+    assert r.status_code == 201
+    item = r.get_json()["item"]
+    assert item["is_risk"] is False
+    assert item["failsafe_value"] is None
+
+    # atuador de risco, com valor seguro explícito
+    r = client.post(
+        "/api/device-manager/device-actors/",
+        json={
+            "device_id": device_id, "port_name": "GPIO19", "function_id": function_id,
+            "actor_type": "actuator", "name": "Bomba Mostura",
+            "is_risk": True, "failsafe_value": "0",
+        },
+    )
+    assert r.status_code == 201
+    item = r.get_json()["item"]
+    assert item["is_risk"] is True
+    assert item["failsafe_value"] == "0"

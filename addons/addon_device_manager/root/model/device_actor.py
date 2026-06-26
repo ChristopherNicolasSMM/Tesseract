@@ -50,6 +50,19 @@ class DeviceActor(db.Model):
     plugin_name = db.Column(db.String(100), nullable=True, index=True)
     plugin_entity_id = db.Column(db.String(100), nullable=True, index=True)
 
+    # MQTT fail-safe (LWT) — só relevante para actor_type="actuator".
+    # Guardado como coluna real (não dentro de config_json) porque o
+    # mqtt_client_service precisa consultar em massa "todos os atores
+    # de risco" na hora de montar os LWTs na conexão ao broker — um
+    # WHERE is_risk = true direto no banco, sem desserializar JSON de
+    # cada linha. Valor serializado como string (aplicado conforme
+    # DeviceFunction.data_type na hora de publicar: "0"/"1" para bool,
+    # "0.0" para float). mqtt_config/hardware_mapping (tópicos, qos,
+    # retain, pin, pwm_frequency) continuam em config_json — não
+    # precisam de filtro em massa, então não justificam coluna própria.
+    failsafe_value = db.Column(db.String(50), nullable=True)
+    is_risk = db.Column(db.Boolean, default=False, nullable=False)
+
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
@@ -88,6 +101,8 @@ class DeviceActor(db.Model):
             "config": self.get_config(),
             "plugin_name": self.plugin_name,
             "plugin_entity_id": self.plugin_entity_id,
+            "failsafe_value": self.failsafe_value,
+            "is_risk": self.is_risk,
             "is_active": self.is_active,
             "is_deleted": self.is_deleted,
             "created_at": self.created_at.isoformat() if self.created_at else None,
