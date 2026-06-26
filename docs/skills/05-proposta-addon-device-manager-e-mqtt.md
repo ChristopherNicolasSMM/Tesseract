@@ -68,15 +68,15 @@ algo que o mínimo não cobre. **Ainda não implementada** (Fase D).
 **Opção A** — MQTT vive dentro do próprio `addon_device_manager`, não em
 Plugin separado. Motivo: MQTT aqui é usado especificamente para
 dispositivos IoT geridos por este Addon, não é transporte genérico do
-Core. **Ainda não implementado** (Fase D) — pasta `services/` já existe
-e já tem `device_function_lookup.py` (Fase 9), mas `mqtt_client_service.py`
-e `device_service.py` ainda não foram criados.
+Core. **Implementado** (Fase D, 2026-06-26) — `device_service.py` e
+`mqtt_client_service.py` já existem, com 9 testes cobrindo a lógica
+sem depender de broker real.
 
 ```
 addon_device_manager/root/services/
 ├── device_function_lookup.py  ← já existe (Fase 9)
-├── mqtt_client_service.py     ← PENDENTE
-└── device_service.py          ← PENDENTE
+├── mqtt_client_service.py     ← EXECUTADO (LWT agregado, corrigido — seção 5.3)
+└── device_service.py          ← EXECUTADO (get_value/set_value/on_change)
 ```
 
 ### 2.4 [EXECUTADO — revisado] Granularidade de tabela
@@ -307,68 +307,81 @@ porta (4.2/4.3), não o device.
 
 ## 5. Fluxos (preparação para `docs/technical/03-fluxos.md` quando o Addon nascer)
 
-### 5.1 Fluxo de leitura de sensor (caminho feliz)
+### 5.1 Fluxo de leitura de sensor (caminho feliz) [EXECUTADO — `update_from_mqtt`, sem validação de faixa ainda]
 
 ```mermaid
 sequenceDiagram
     participant HW as Hardware (Pi/ESP32)
     participant Broker as Broker MQTT
-    participant MQTT as mqtt_client_service
-    participant Svc as device_service
-    participant DB as tesseract_dvm_sensor
+    participant MQTT as mqtt_client_service._on_message
+    participant Svc as device_service.update_from_mqtt
+    participant DB as DeviceActor.config_json["runtime"]
 
     HW->>Broker: publish state_topic (valor)
     Broker->>MQTT: mensagem roteada (assinatura ativa)
-    MQTT->>Svc: on_message(sensor_id, valor)
-    Svc->>DB: update last_value, last_seen_at
-    Svc->>Svc: valida min_value/max_value
-    alt fora da faixa
-        Svc->>Svc: grava log de erro global (2.6)
-    else dentro da faixa
-        Svc->>Svc: grava log de integração local (.log)
-    end
+    MQTT->>MQTT: resolve DeviceActor pelo state_topic (_find_actor_by_state_topic)
+    MQTT->>Svc: update_from_mqtt(actor, valor)
+    Svc->>DB: atualiza last_value, last_seen_at
+    Svc->>Svc: dispara callbacks on_change registrados
 ```
 
-### 5.2 Fluxo de comando de atuador (caminho feliz)
+Validação de faixa (`min_value`/`max_value`, hoje só em `DeviceFunction`)
+e o log de integração em 3 camadas (decisão 2.6) **ainda não estão
+implementados** — fica para quando o volume de uso real justificar.
+
+### 5.2 Fluxo de comando de atuador (caminho feliz) [EXECUTADO]
 
 ```mermaid
 sequenceDiagram
     participant Cliente as Addon dependente (ex: mash_control)
-    participant Svc as device_service
-    participant MQTT as mqtt_client_service
+    participant Svc as device_service.set_value
+    participant MQTT as mqtt_client_service.publish
     participant Broker as Broker MQTT
     participant HW as Hardware (Pi/ESP32)
 
-    Cliente->>Svc: set_value(actuator_id, valor)
-    Svc->>Svc: valida min_value/max_value
-    Svc->>MQTT: publish(command_topic, valor)
+    Cliente->>Svc: set_value(external_id_ou_name, valor)
+    Svc->>Svc: atualiza DeviceActor.config_json["runtime"] (cache)
+    Svc->>Svc: dispara callbacks on_change registrados
+    Svc->>MQTT: publish(command_topic, valor) — só se mqtt_config presente e cliente conectado
     MQTT->>Broker: publish
     Broker->>HW: mensagem roteada
-    Svc->>Svc: atualiza current_value (cache)
-    Svc->>Svc: grava log de integração local (.log)
 ```
 
-### 5.3 Fluxo de fail-safe (LWT) — conexão do Tesseract cai
+Validação de faixa antes de publicar **ainda não está implementada**
+(mesmo gap da 5.1) — `set_value` hoje aceita qualquer valor.
+
+### 5.3 Fluxo de fail-safe (LWT) — conexão do Tesseract cai [EXECUTADO — corrigido]
+
+> **Correção de protocolo (2026-06-26):** MQTT permite só **um** LWT
+> (um tópico + um payload) por conexão de cliente — não é possível
+> registrar um LWT por atuador, como a versão original deste diagrama
+> mostrava. Corrigido para um LWT único agregado, publicado num
+> "status topic", com payload JSON listando todos os atuadores de
+> risco. Quem aplica o fail-safe de fato é o **bridge**
+> (`tesseract-device-bridge`, repositório separado), assinando esse
+> tópico — não o broker republicando N comandos sozinho. Implementado
+> em `mqtt_client_service.build_lwt_payload()`.
 
 ```mermaid
 sequenceDiagram
     participant Tess as addon_device_manager
     participant Broker as Broker MQTT
-    participant HW as Hardware (Pi/ESP32)
+    participant Bridge as tesseract-device-bridge (Pi)
 
-    Tess->>Broker: connect() + registra LWT por atuador is_risk=true
-    Note over Tess,Broker: LWT = (command_topic, failsafe_value) para cada atuador de risco
+    Tess->>Broker: connect() + will_set(status_topic, payload_agregado)
+    Note over Tess,Broker: payload = {"status": "offline", "failsafe_actuators": [{command_topic, failsafe_value}, ...]}
+    Bridge->>Broker: subscribe(status_topic)
     Tess--xBroker: conexão cai (crash/rede)
     Broker->>Broker: detecta keepalive expirado
-    Broker->>HW: publica failsafe_value automaticamente em cada command_topic registrado
-    HW->>HW: aplica valor seguro (ex.: resistência desliga)
-    Note over Broker: Tesseract não precisa estar vivo para este passo
+    Broker->>Bridge: publica o payload do LWT (status="offline") no status_topic
+    Bridge->>Bridge: para cada item de failsafe_actuators, aplica failsafe_value localmente no GPIO
+    Note over Bridge: Tesseract não precisa estar vivo para este passo — o bridge já está perto do hardware
 ```
 
-Esse terceiro fluxo é o motivo pelo qual `failsafe_value`/`is_risk`
-precisam estar na tabela (4.3) e não só em configuração externa — o
-`mqtt_client_service` lê esses valores do banco **no momento da conexão**
-para montar os LWTs antes de qualquer falha acontecer.
+`failsafe_value`/`is_risk` (seção 4.2) são consultados por
+`build_lwt_payload()` a cada `mqtt_client_service.start()` — o LWT é
+remontado a cada conexão, então qualquer atuador marcado `is_risk=true`
+depois do último restart já entra no próximo LWT automaticamente.
 
 ---
 
@@ -400,8 +413,8 @@ addons/
     │   │   └── emulated_device.py         ← tesseract_dvm_emulated_device
     │   ├── services/
     │   │   ├── device_function_lookup.py  ← já implementado (Fase 9) — resolução cross-Addon por name
-    │   │   ├── device_service.py          ← PENDENTE — API pública get_value/set_value/on_change
-    │   │   └── mqtt_client_service.py     ← PENDENTE — paho-mqtt + registro de LWT (lê is_risk/failsafe_value)
+    │   │   ├── device_service.py          ← EXECUTADO — API pública get_value/set_value/on_change
+    │   │   └── mqtt_client_service.py     ← EXECUTADO — paho-mqtt + LWT agregado (lê is_risk/failsafe_value)
     │   ├── controller/
     │   ├── api/routes/
     │   └── templates/
@@ -446,16 +459,20 @@ não resolvia `root/templates/` de Addon top-level, e
 `discover_and_register_addons()` nunca registrava o módulo dinâmico em
 `sys.modules`. Ver `BACKLOG.md`, Fase 9, para o detalhe completo.
 
-### Fase D — Implementação do núcleo do Addon [PENDENTE — próxima]
+### Fase D — Implementação do núcleo do Addon [EXECUTADO — parcial]
 11. ~~Models via CrudGen~~ — não se aplica mais; schema já existe e já
     foi estendido (Fase B revisada).
-12. `device_service.py` — API `get_value`/`set_value`/`on_change`,
-    operando sobre `DeviceActor`/`DeviceMetadata` reais.
-13. `mqtt_client_service.py` — conexão, publish/subscribe, registro de
-    LWT lendo `is_risk`/`failsafe_value` de `DeviceActor` na conexão.
-14. Log de integração local — **bloqueado pela Fase A** (precisa da
-    adenda de skill antes, ou aceitar um log "fora do padrão" por ora
-    e migrar depois — decisão a tomar ao iniciar a Fase D).
+12. **[EXECUTADO]** `device_service.py` — API `get_value`/`set_value`/
+    `on_change`, operando sobre `DeviceActor` (cache em `config_json["runtime"]`).
+13. **[EXECUTADO, corrigido]** `mqtt_client_service.py` — conexão,
+    publish/subscribe, LWT **agregado** (não por atuador — correção de
+    protocolo, seção 5.3) lendo `is_risk`/`failsafe_value` na conexão.
+    Início opt-in via `MQTT_ENABLED=true` (nunca em `TESTING`).
+14. **[PENDENTE]** Log de integração local — ainda bloqueado pela Fase A
+    (adenda de skill 01/03 para `logs/`/`logging`).
+    **[PENDENTE]** Validação de faixa (`min_value`/`max_value`) antes
+    de publicar/aceitar valor — gap identificado nas seções 5.1/5.2,
+    não implementado ainda.
 
 ### Fase E — Integração com o primeiro dependente [PENDENTE]
 15–16. `feature_mash_control` ainda é escopo CRUD puro (sem motor de
@@ -490,18 +507,19 @@ qualquer migration nova.
 
 ## 9. Status consolidado (atualizado em 2026-06-26)
 
-**Executado:** Fases **B e C** (promoção estrutural completa, extensão
-de schema em `DeviceActor`, 176 testes passando, dois bugs de Core
-corrigidos). **Pendente, em ordem real de bloqueio:**
+**Executado:** Fases **B, C e D-parcial** — promoção estrutural
+completa, extensão de schema em `DeviceActor`, `device_service.py` +
+`mqtt_client_service.py` implementados (com correção do LWT agregado),
+185 testes passando. **Pendente, em ordem real de bloqueio:**
 
 1. **Fase A** — adendas formais às skills 01 (`logs/`) e 03 (seção
-   `logging`). Bloqueia o início "limpo" da Fase D (log de integração
-   local), mas não bloqueou nada do que já foi feito.
-2. **Fase D** — `device_service.py` + `mqtt_client_service.py`. Schema
-   que eles vão consultar já está pronto (`DeviceActor.failsafe_value`/
-   `is_risk`, `config_json` com `mqtt_config`/`hardware_mapping`).
+   `logging`). Bloqueia o log de integração local (item 14 da Fase D).
+2. **Fase D — itens restantes**: log de integração local; validação de
+   faixa (`min_value`/`max_value`) antes de aceitar/publicar valor.
 3. **Fase E** — integração com `feature_mash_control` (hoje CRUD puro).
 4. **Fase F** — validação ponta a ponta com `tesseract-device-bridge`
-   (spec já escrita, repositório separado).
+   (spec já escrita, repositório separado — **atenção**: a spec do
+   bridge precisa ser atualizada com a correção do LWT agregado desta
+   sessão, já que ela assumia o desenho original "LWT por atuador").
 5. **Fase G** — docs técnicos/manual do Addon (skill 04), formalização
    da skill 05 (seção 6 deste documento).

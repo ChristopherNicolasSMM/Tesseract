@@ -11,6 +11,7 @@ create_app() agora também:
   já criada)
 - registra /api/core/transactions (lista filtrada por permissão)
 """
+import os
 from pathlib import Path
 
 from flask import Flask, jsonify
@@ -122,5 +123,13 @@ def create_app(env: str | None = None) -> Flask:
             active_modules=list(app.module_manager.active_modules.keys()),
             message="Core no ar. ModuleManager, EventBus, DB, RBAC, Versionamento, Addons e Transações ativos.",
         )
+
+    # Cliente MQTT do addon_device_manager — opt-in explícito via env
+    # (MQTT_ENABLED=true), nunca em modo de teste (TESTING=True nunca
+    # tem broker disponível, e o cliente roda em thread própria que
+    # sobreviveria entre testes se iniciado por engano).
+    if not app.config.get("TESTING") and os.environ.get("MQTT_ENABLED", "false").lower() == "true":
+        from addons.addon_device_manager.root.services import mqtt_client_service
+        mqtt_client_service.start(app)
 
     return app

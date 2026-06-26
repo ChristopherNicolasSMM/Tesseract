@@ -850,14 +850,39 @@ e apontando navegação confusa.
       adendo à skill 01 (pasta `logs/` por Addon) e à skill 03 (seção
       `logging` no schema de `addon.json`) — registrado no documento de
       arquitetura, ainda não formalizado nas skills 00–04 propriamente.
-- [ ] **Pendente — Fase D do plano**: `device_service.py` (API pública
-      `get_value`/`set_value`/`on_change`) e `mqtt_client_service.py`
-      (cliente MQTT + registro de LWT lendo `is_risk`/`failsafe_value`
-      de `DeviceActor` na conexão) — schema-alvo já fechado (item acima),
-      falta só a implementação dos services.
+      Bloqueia o item de log de integração local da Fase D (abaixo).
+- [x] **Fase D do plano (parcial) — `device_service.py` +
+      `mqtt_client_service.py` implementados.**
+      `device_service.py`: API pública `get_value`/`set_value`/
+      `on_change`, cache em `DeviceActor.config_json["runtime"]`,
+      resolução por `external_id` ou `name`. `mqtt_client_service.py`:
+      cliente `paho-mqtt` (v2 callback API), `start()`/`stop()`
+      idempotentes, início opt-in via `MQTT_ENABLED=true` no
+      `app_factory.py` (nunca em `TESTING`).
+      **Correção de protocolo encontrada e aplicada**: MQTT só permite
+      um LWT (Last Will and Testament) por conexão de cliente — o
+      desenho original do documento de arquitetura ("LWT por atuador")
+      estava tecnicamente incorreto. Corrigido para LWT único agregado
+      (`build_lwt_payload()`), publicado no `status_topic`, com payload
+      JSON listando todos os `DeviceActor` com `is_risk=true`; quem
+      aplica o fail-safe de fato é o lado hardware
+      (`tesseract-device-bridge`) assinando esse tópico, não o broker
+      republicando N comandos sozinho. Diagramas da seção 5
+      (`docs/skills/05-*.md`) corrigidos. **Spec do bridge (conversa
+      separada) precisa ser atualizada com essa correção antes da
+      Fase F.**
+      9 testes novos (`tests/test_phase9d_device_service_mqtt.py`),
+      sem depender de broker real. 185/185 passando.
+      Pendente dentro da própria Fase D: log de integração local
+      (bloqueado pela Fase A) e validação de faixa
+      (`min_value`/`max_value`) antes de aceitar/publicar valor.
+- [ ] **Pendente — Fase E**: integração de `feature_mash_control` com
+      `device_service` (hoje é escopo CRUD puro, sem motor de
+      automação ativo).
 - [ ] **Pendente — Fase F/G**: validação ponta a ponta com bridge MQTT
       real (spec separada: `tesseract-device-bridge`, repositório
-      próprio), docs técnicos/manual do novo Addon (skill 04),
+      próprio — atualizar com a correção do LWT agregado antes de
+      iniciar), docs técnicos/manual do novo Addon (skill 04),
       formalização da skill 05 (EventBus vs. MQTT).
 
 
