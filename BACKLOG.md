@@ -643,12 +643,44 @@ e apontando navegação confusa.
   no código). 13 transações reais documentadas nesta entrega.
 - [x] 16 testes (`tests/test_ui_navigation_fixes.py`) + 159 das fases
       anteriores = 175 passando
-- [ ] **Não resolvido — preciso de mais detalhe**: alinhamento do
-      botão "+ Nova conexão" marcado no print (Conexões OData). Não
-      consegui isolar uma causa CSS específica a partir da descrição;
-      pode ter sido resolvido incidentalmente pela correção do tema
-      escuro (se a "caixa" era um artefato do dark mode forçado do
-      navegador) — favor confirmar com um novo print se persistir.
+- [x] **Resolvido**: causa real do alinhamento do botão "Novo"
+      isolada — `users_manage.html` tinha um
+      `<h5 class="card-title">Novo usuário</h5>` solto, duplicando o
+      texto do botão e empurrando ele pra baixo. Único caso assim em
+      todo o projeto (confirmado comparando as outras 5 telas de admin
+      e o padrão mestre do CrudGen). Corrigido removendo a linha.
+
+## Ajuste transversal — Smart-list completo nas telas administrativas
+
+Disparado pela mesma rodada de validação: as 24 entidades geradas pelo
+CrudGen têm export/filtro/colunas desde a rodada de "smart-list
+completo", mas as 6 telas administrativas (Usuários, Roles,
+Transações, Regras de Campo, OData, Designer) nunca passaram por essa
+atualização — não são geradas pelo CrudGen (models de Core são
+escritos à mão de propósito, skill 02), então ficaram de fora.
+
+- [x] `core/admin_list_helpers.py` — `paginate()`,
+      `export_csv_response()`, `export_xlsx_response()`. Extrai só a
+      parte que de fato repetia entre as 6 telas (paginação e export);
+      o filtro de busca continua específico de cada uma (campos
+      diferentes pra buscar em cada tela).
+- [x] `templates/core/admin/_list_toolbar.html` — parcial reutilizável
+      (busca + botões de export + contador + paginação), incluído
+      pelas 6 telas via `{% include ... with context %}` em vez de
+      repetir o markup 6 vezes à mão.
+- [x] **Decisão registrada**: sem "colunas configuráveis por usuário"
+      nessas 6 telas — diferente de uma entidade de domínio (que pode
+      ter dezenas de campos), cada tela administrativa já mostra um
+      número pequeno e fixo de colunas relevantes; configurar isso não
+      traria valor real.
+- [x] Aplicado em Usuários, Roles, Transações, Regras de Campo,
+      Conexões OData e Designer (lista de páginas) — busca textual,
+      export CSV/Excel, paginação.
+- [x] 19 testes (`tests/test_admin_smart_list_parity.py`) + 185 das
+      fases anteriores = 204 passando
+- [x] Teste manual via HTTP confirmando as 6 telas: busca filtra de
+      verdade, export CSV/Excel contém dados reais e respeita o
+      filtro ativo, paginação aparece quando há mais de uma página
 
 ## Fase 7a — Catálogo de Transações (concluída)
 

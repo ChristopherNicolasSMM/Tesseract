@@ -14,19 +14,56 @@ from flask_login import login_required, current_user
 
 from core.db import db
 from core.permissions import permission_required
+from core.admin_list_helpers import paginate, export_csv_response, export_xlsx_response
 from model.core.user import User
 from model.core.role import Role
 from api.routes.core.admin.users import _validate_payload, _apply_payload
 
 admin_users_bp = Blueprint("admin_users", __name__, url_prefix="/admin/users")
 
+_EXPORT_HEADERS = ["username", "nome_completo", "email", "is_active", "is_admin"]
+
+
+def _filtered_query(search: str):
+    query = User.query.order_by(User.username)
+    if search:
+        like = f"%{search}%"
+        query = query.filter(
+            User.username.ilike(like) | User.nome_completo.ilike(like) | User.email.ilike(like)
+        )
+    return query
+
 
 @admin_users_bp.route("/", methods=["GET"])
 @login_required
 @permission_required("admin")
 def manage():
-    users = User.query.order_by(User.username).all()
-    return render_template("core/admin/users_manage.html", users=users)
+    search = (request.args.get("q") or "").strip()
+    page = request.args.get("page", 1, type=int)
+
+    users, total, pages = paginate(_filtered_query(search), page)
+    return render_template(
+        "core/admin/users_manage.html",
+        users=users, search=search, total=total, page=page, pages=pages,
+    )
+
+
+@admin_users_bp.route("/export.csv", methods=["GET"])
+@login_required
+@permission_required("admin")
+def export_csv():
+    search = (request.args.get("q") or "").strip()
+    rows = [[u.username, u.nome_completo, u.email, u.is_active, u.is_admin] for u in _filtered_query(search).all()]
+    return export_csv_response(_EXPORT_HEADERS, rows, "usuarios")
+
+
+@admin_users_bp.route("/export.xlsx", methods=["GET"])
+@login_required
+@permission_required("admin")
+def export_xlsx():
+    search = (request.args.get("q") or "").strip()
+    rows = [[u.username, u.nome_completo, u.email, u.is_active, u.is_admin] for u in _filtered_query(search).all()]
+    return export_xlsx_response(_EXPORT_HEADERS, rows, "usuarios", "Usuários")
 
 
 @admin_users_bp.route("/<int:user_id>", methods=["GET"])

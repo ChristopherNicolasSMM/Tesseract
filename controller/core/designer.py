@@ -15,6 +15,7 @@ from flask_login import login_required, current_user
 
 from core.db import db
 from core.permissions import permission_required
+from core.admin_list_helpers import paginate, export_csv_response, export_xlsx_response
 from model.core.designer_page import DesignerPage
 from model.core.designer_component import DesignerComponent, COMPONENT_TYPES
 
@@ -56,8 +57,42 @@ def _slugify(name: str) -> str:
 @login_required
 @permission_required("admin")
 def manage():
-    pages = DesignerPage.query.order_by(DesignerPage.name).all()
-    return render_template("core/admin/designer_manage.html", pages=pages)
+    search = (request.args.get("q") or "").strip()
+    page = request.args.get("page", 1, type=int)
+
+    query = DesignerPage.query.order_by(DesignerPage.name)
+    if search:
+        query = query.filter(DesignerPage.name.ilike(f"%{search}%"))
+
+    pages_items, total, total_pages = paginate(query, page)
+    return render_template(
+        "core/admin/designer_manage.html",
+        designer_pages=pages_items, search=search, total=total, page=page, pages=total_pages,
+    )
+
+
+@designer_bp.route("/export.csv", methods=["GET"])
+@login_required
+@permission_required("admin")
+def export_csv():
+    search = (request.args.get("q") or "").strip()
+    query = DesignerPage.query.order_by(DesignerPage.name)
+    if search:
+        query = query.filter(DesignerPage.name.ilike(f"%{search}%"))
+    rows = [[p.name, p.slug, p.is_published, len(p.components)] for p in query.all()]
+    return export_csv_response(["name", "slug", "is_published", "componentes"], rows, "paginas_designer")
+
+
+@designer_bp.route("/export.xlsx", methods=["GET"])
+@login_required
+@permission_required("admin")
+def export_xlsx():
+    search = (request.args.get("q") or "").strip()
+    query = DesignerPage.query.order_by(DesignerPage.name)
+    if search:
+        query = query.filter(DesignerPage.name.ilike(f"%{search}%"))
+    rows = [[p.name, p.slug, p.is_published, len(p.components)] for p in query.all()]
+    return export_xlsx_response(["name", "slug", "is_published", "componentes"], rows, "paginas_designer", "Páginas")
 
 
 @designer_bp.route("/", methods=["POST"])

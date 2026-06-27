@@ -12,10 +12,21 @@ from flask_login import login_required
 
 from core.db import db
 from core.permissions import permission_required
+from core.admin_list_helpers import paginate, export_csv_response, export_xlsx_response
 from model.core.role import Role
 from model.core.permission import Permission
 
 admin_roles_bp = Blueprint("admin_roles", __name__, url_prefix="/admin/roles")
+
+_EXPORT_HEADERS = ["name", "description", "permissoes", "usuarios"]
+
+
+def _filtered_query(search: str):
+    query = Role.query.order_by(Role.name)
+    if search:
+        like = f"%{search}%"
+        query = query.filter(Role.name.ilike(like) | Role.description.ilike(like))
+    return query
 
 
 def _permissions_grouped_by_module():
@@ -38,8 +49,32 @@ def _permissions_grouped_by_module():
 @login_required
 @permission_required("admin")
 def manage():
-    roles = Role.query.order_by(Role.name).all()
-    return render_template("core/admin/roles_manage.html", roles=roles)
+    search = (request.args.get("q") or "").strip()
+    page = request.args.get("page", 1, type=int)
+
+    roles, total, pages = paginate(_filtered_query(search), page)
+    return render_template(
+        "core/admin/roles_manage.html",
+        roles=roles, search=search, total=total, page=page, pages=pages,
+    )
+
+
+@admin_roles_bp.route("/export.csv", methods=["GET"])
+@login_required
+@permission_required("admin")
+def export_csv():
+    search = (request.args.get("q") or "").strip()
+    rows = [[r.name, r.description, len(r.permissions), len(r.users)] for r in _filtered_query(search).all()]
+    return export_csv_response(_EXPORT_HEADERS, rows, "roles")
+
+
+@admin_roles_bp.route("/export.xlsx", methods=["GET"])
+@login_required
+@permission_required("admin")
+def export_xlsx():
+    search = (request.args.get("q") or "").strip()
+    rows = [[r.name, r.description, len(r.permissions), len(r.users)] for r in _filtered_query(search).all()]
+    return export_xlsx_response(_EXPORT_HEADERS, rows, "roles", "Roles")
 
 
 @admin_roles_bp.route("/", methods=["POST"])

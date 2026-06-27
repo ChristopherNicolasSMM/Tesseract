@@ -48,6 +48,12 @@
         </form>
       </div>
 
+      {% set manage_endpoint = 'admin_odata.manage' %}
+      {% set export_csv_endpoint = 'admin_odata.export_csv' %}
+      {% set export_xlsx_endpoint = 'admin_odata.export_xlsx' %}
+      {% set search_placeholder = 'Buscar por nome ou URL...' %}
+      {% include "core/admin/_list_toolbar.html" with context %}
+
       <table class="table table-striped">
         <thead><tr><th>Nome</th><th>URL</th><th>Autenticação</th><th>Metadata em cache</th><th>Ações</th></tr></thead>
         <tbody>

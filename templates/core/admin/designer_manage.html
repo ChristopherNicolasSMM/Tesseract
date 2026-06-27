@@ -31,10 +31,16 @@
         </form>
       </div>
 
+      {% set manage_endpoint = 'designer.manage' %}
+      {% set export_csv_endpoint = 'designer.export_csv' %}
+      {% set export_xlsx_endpoint = 'designer.export_xlsx' %}
+      {% set search_placeholder = 'Buscar por nome da página...' %}
+      {% include "core/admin/_list_toolbar.html" with context %}
+
       <table class="table table-striped">
         <thead><tr><th>Nome</th><th>URL</th><th>Status</th><th>Componentes</th><th>Ações</th></tr></thead>
         <tbody>
-          {% for page in pages %}
+          {% for page in designer_pages %}
           <tr>
             <td>{{ page.name }}</td>
             <td><code>/designer/{{ page.slug }}</code></td>

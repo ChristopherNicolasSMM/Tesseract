@@ -13,18 +13,53 @@ from flask_login import login_required, current_user
 
 from core.db import db
 from core.permissions import permission_required
+from core.admin_list_helpers import paginate, export_csv_response, export_xlsx_response
 from core.odata.connection_manager import ODataConnectionManager
 from model.core.odata_connection import ODataConnection
 
 admin_odata_bp = Blueprint("admin_odata", __name__, url_prefix="/admin/odata")
+
+_EXPORT_HEADERS = ["name", "base_url", "auth_type", "has_metadata_cache"]
+
+
+def _filtered_query(search: str):
+    query = ODataConnection.query.order_by(ODataConnection.name)
+    if search:
+        like = f"%{search}%"
+        query = query.filter(ODataConnection.name.ilike(like) | ODataConnection.base_url.ilike(like))
+    return query
 
 
 @admin_odata_bp.route("/", methods=["GET"])
 @login_required
 @permission_required("admin")
 def manage():
-    connections = ODataConnection.query.order_by(ODataConnection.name).all()
-    return render_template("core/admin/odata_manage.html", connections=connections)
+    search = (request.args.get("q") or "").strip()
+    page = request.args.get("page", 1, type=int)
+
+    connections, total, pages = paginate(_filtered_query(search), page)
+    return render_template(
+        "core/admin/odata_manage.html",
+        connections=connections, search=search, total=total, page=page, pages=pages,
+    )
+
+
+@admin_odata_bp.route("/export.csv", methods=["GET"])
+@login_required
+@permission_required("admin")
+def export_csv():
+    search = (request.args.get("q") or "").strip()
+    rows = [[c.name, c.base_url, c.auth_type, c.metadata_cache is not None] for c in _filtered_query(search).all()]
+    return export_csv_response(_EXPORT_HEADERS, rows, "conexoes_odata")
+
+
+@admin_odata_bp.route("/export.xlsx", methods=["GET"])
+@login_required
+@permission_required("admin")
+def export_xlsx():
+    search = (request.args.get("q") or "").strip()
+    rows = [[c.name, c.base_url, c.auth_type, c.metadata_cache is not None] for c in _filtered_query(search).all()]
+    return export_xlsx_response(_EXPORT_HEADERS, rows, "conexoes_odata", "Conexões OData")
 
 
 @admin_odata_bp.route("/", methods=["POST"])

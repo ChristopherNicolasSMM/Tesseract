@@ -31,6 +31,12 @@
         </form>
       </div>
 
+      {% set manage_endpoint = 'admin_roles.manage' %}
+      {% set export_csv_endpoint = 'admin_roles.export_csv' %}
+      {% set export_xlsx_endpoint = 'admin_roles.export_xlsx' %}
+      {% set search_placeholder = 'Buscar por nome ou descrição...' %}
+      {% include "core/admin/_list_toolbar.html" with context %}
+
       <table class="table table-striped">
         <thead><tr><th>Nome</th><th>Descrição</th><th>Permissões</th><th>Usuários</th><th>Ações</th></tr></thead>
         <tbody>

@@ -12,7 +12,6 @@
 <section class="section">
   <div class="card">
     <div class="card-body">
-      <h5 class="card-title">Novo usuário</h5>
       <button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#novoUsuarioForm">
         <i class="bi bi-plus-lg"></i> Novo usuário
       </button>
@@ -63,6 +62,12 @@
   <div class="card mt-3">
     <div class="card-body">
       <h5 class="card-title">Usuários</h5>
+      {% set manage_endpoint = 'admin_users.manage' %}
+      {% set export_csv_endpoint = 'admin_users.export_csv' %}
+      {% set export_xlsx_endpoint = 'admin_users.export_xlsx' %}
+      {% set search_placeholder = 'Buscar por usuário, nome ou e-mail...' %}
+      {% include "core/admin/_list_toolbar.html" with context %}
+
       <table class="table table-striped">
         <thead><tr><th>Usuário</th><th>Nome</th><th>E-mail</th><th>Status</th><th>Admin</th><th>Ações</th></tr></thead>
         <tbody>

@@ -21,24 +21,67 @@ from flask_login import login_required
 
 from core.db import db
 from core.permissions import permission_required
+from core.admin_list_helpers import paginate, export_csv_response, export_xlsx_response
 from model.core.transaction import Transaction
 
 admin_transactions_bp = Blueprint("admin_transactions", __name__, url_prefix="/admin/transactions")
+
+_EXPORT_HEADERS = ["code", "label", "group", "route", "permission_required", "is_active", "origem"]
 
 
 def _is_code_sourced(tx: Transaction) -> bool:
     return bool(tx.is_standard or (tx.source_module and tx.source_module != "manual"))
 
 
+def _filtered_query(search: str):
+    query = Transaction.query.order_by(Transaction.group, Transaction.label)
+    if search:
+        like = f"%{search}%"
+        query = query.filter(
+            Transaction.label.ilike(like) | Transaction.code.ilike(like) | Transaction.group.ilike(like)
+        )
+    return query
+
+
 @admin_transactions_bp.route("/", methods=["GET"])
 @login_required
 @permission_required("admin")
 def manage():
-    transactions = Transaction.query.order_by(Transaction.group, Transaction.label).all()
+    search = (request.args.get("q") or "").strip()
+    page = request.args.get("page", 1, type=int)
+
+    transactions, total, pages = paginate(_filtered_query(search), page)
     return render_template(
         "core/admin/transactions_manage.html",
         transactions=transactions, is_code_sourced=_is_code_sourced,
+        search=search, total=total, page=page, pages=pages,
     )
+
+
+@admin_transactions_bp.route("/export.csv", methods=["GET"])
+@login_required
+@permission_required("admin")
+def export_csv():
+    search = (request.args.get("q") or "").strip()
+    rows = [
+        [tx.code, tx.label, tx.group, tx.route, tx.permission_required, tx.is_active,
+         "Manual" if tx.source_module == "manual" else (tx.source_module or "Core")]
+        for tx in _filtered_query(search).all()
+    ]
+    return export_csv_response(_EXPORT_HEADERS, rows, "transacoes")
+
+
+@admin_transactions_bp.route("/export.xlsx", methods=["GET"])
+@login_required
+@permission_required("admin")
+def export_xlsx():
+    search = (request.args.get("q") or "").strip()
+    rows = [
+        [tx.code, tx.label, tx.group, tx.route, tx.permission_required, tx.is_active,
+         "Manual" if tx.source_module == "manual" else (tx.source_module or "Core")]
+        for tx in _filtered_query(search).all()
+    ]
+    return export_xlsx_response(_EXPORT_HEADERS, rows, "transacoes", "Transações")
 
 
 @admin_transactions_bp.route("/", methods=["POST"])

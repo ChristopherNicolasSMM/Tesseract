@@ -53,6 +53,12 @@
         </form>
       </div>
 
+      {% set manage_endpoint = 'admin_field_rules.manage' %}
+      {% set export_csv_endpoint = 'admin_field_rules.export_csv' %}
+      {% set export_xlsx_endpoint = 'admin_field_rules.export_xlsx' %}
+      {% set search_placeholder = 'Buscar por entidade, campo ou regra...' %}
+      {% include "core/admin/_list_toolbar.html" with context %}
+
       <table class="table table-striped">
         <thead><tr><th>Entidade</th><th>Campo</th><th>Regra</th><th>Parâmetros</th><th>Status</th><th>Ações</th></tr></thead>
         <tbody>

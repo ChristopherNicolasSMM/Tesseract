@@ -58,6 +58,12 @@
         </form>
       </div>
 
+      {% set manage_endpoint = 'admin_transactions.manage' %}
+      {% set export_csv_endpoint = 'admin_transactions.export_csv' %}
+      {% set export_xlsx_endpoint = 'admin_transactions.export_xlsx' %}
+      {% set search_placeholder = 'Buscar por código, label ou grupo...' %}
+      {% include "core/admin/_list_toolbar.html" with context %}
+
       <table class="table table-striped">
         <thead><tr><th>Grupo</th><th>Label</th><th>Rota</th><th>Origem</th><th>Status</th><th>Ações</th></tr></thead>
         <tbody>
