@@ -9,6 +9,7 @@
 <section class="section">
   <div class="row">
     {% for group_name, items in transactions_by_group.items() %}
+      {% if group_name != 'Core' %}
       <div class="col-12">
         <h5 class="mt-3">{{ group_name }}</h5>
       </div>
@@ -24,6 +25,7 @@
         </div>
       </div>
       {% endfor %}
+      {% endif %}
     {% else %}
       <p class="text-muted">Nenhuma transação disponível para o seu usuário ainda.</p>
     {% endfor %}

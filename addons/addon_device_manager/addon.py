@@ -40,12 +40,39 @@ class AddonDeviceManager(AddonBase):
     def get_transactions(self) -> list:
         return [
             {
+                "code": "TX_DEVICE_FUNCTIONS",
+                "label": "Funções de Dispositivo",
+                "group": "Dispositivos IoT",
+                "description": "Tipos de leitura/ação — sensor, atuador, híbrido.",
+                "icon": "bi-funnel",
+                "route": "/device-manager/device-functions",
+                "permission_required": "device_functions.list",
+            },
+            {
                 "code": "TX_DEVICE_MANAGER",
-                "label": "Dispositivos IoT",
-                "group": "Device Manager",
-                "description": "Cadastro de dispositivos, funções e atores.",
+                "label": "Dispositivos",
+                "group": "Dispositivos IoT",
+                "description": "Cadastro dos equipamentos físicos.",
                 "icon": "bi-cpu-fill",
                 "route": "/device-manager/device-metadatas",
                 "permission_required": "device_metadatas.list",
+            },
+            {
+                "code": "TX_DEVICE_ACTORS",
+                "label": "Atores",
+                "group": "Dispositivos IoT",
+                "description": "Liga uma porta de um dispositivo a uma Função.",
+                "icon": "bi-plug-fill",
+                "route": "/device-manager/device-actors",
+                "permission_required": "device_actors.list",
+            },
+            {
+                "code": "TX_EMULATED_DEVICES",
+                "label": "Dispositivos Emulados",
+                "group": "Dispositivos IoT",
+                "description": "Simula leituras sem hardware real.",
+                "icon": "bi-magic",
+                "route": "/device-manager/emulated-devices",
+                "permission_required": "emulated_devices.list",
             },
         ]

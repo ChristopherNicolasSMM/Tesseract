@@ -920,6 +920,36 @@ escritos à mão de propósito, skill 02), então ficaram de fora.
 
 ---
 
+## Ajuste transversal — Submenu agrupado por Feature + 20 páginas órfãs
+
+Disparado pela análise de navegação: 20 telas de CRUD completo e
+funcional (geradas pelo CrudGen, com export/filtro/paginação) não
+tinham **nenhuma** entrada no catálogo de Transações — só acessíveis
+digitando a URL direto. Causa: cada Feature só contribuía 1-2
+transações "representante", nunca uma por entidade.
+
+- [x] `feature_yeast_bank.get_transactions()` — completo, 9 entradas
+      (era 2), grupo trocado de `"BrewStation"` genérico para
+      `"Banco de Levedura"`
+- [x] `feature_mash_control.get_transactions()` — completo, 12
+      entradas (era 2), grupo `"Controle de Mostura"`
+- [x] `addon_device_manager.get_transactions()` — completo, 4 entradas
+      (era 1), grupo `"Dispositivos IoT"` (era `"Device Manager"`)
+- [x] **Resultado**: cada Feature/Addon agora é o próprio submenu
+      colapsável (mecanismo já existia desde a correção do toggle —
+      só faltava o `group` ser granular o suficiente). Não foi preciso
+      mudar schema nem JS.
+- [x] **Achado lateral corrigido**: `TX_HOME` (grupo `"Core"`, rota
+      `/`) duplicava o link "Início", que já existe fixo, fora do loop
+      de grupos, em `base.html`. Grupo `"Core"` agora é pulado no loop
+      da sidebar e dos cards da home — `TX_HOME` continua existindo só
+      pra aparecer em `/admin/transactions/`.
+- [x] 30 testes (`tests/test_menu_grouped_by_feature.py`) + 204 das
+      fases anteriores = 234 passando
+- [x] Teste manual via HTTP confirmando: as 20 rotas órfãs aparecem na
+      home e na sidebar, os 3 grupos novos aparecem como seção, nenhum
+      "Início" duplicado
+
 ## Pendências em aberto (não bloqueiam Fase 0, mas precisam de decisão)
 
 - [x] **Resolvido**: limite de 63 caracteres (Postgres `NAMEDATALEN`)

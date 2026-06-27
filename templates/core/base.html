@@ -80,6 +80,7 @@
         </a>
       </li>
       {% for group_name, items in transactions_by_group.items() %}
+      {% if group_name != 'Core' %}
       <li class="nav-item">
         <a class="nav-link" data-bs-target="#group-nav-{{ loop.index }}" data-bs-toggle="collapse" href="#">
           <i class="bi bi-folder2-open"></i>
@@ -97,6 +98,7 @@
           {% endfor %}
         </ul>
       </li>
+      {% endif %}
       {% endfor %}
     </ul>
   </aside><!-- End Sidebar -->
