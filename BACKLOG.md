@@ -827,6 +827,24 @@ escritos à mão de propósito, skill 02), então ficaram de fora.
 
 ## Fase 9 — Promoção de `feature_device_manager` a Addon + base para MQTT (em andamento)
 
+- [x] **Fase G — Correção arquitetural encontrada ao formalizar a
+      skill 05 (2026-06-29): motor de automação passa a usar o
+      EventBus real do Core.** A primeira versão do motor de
+      automação (Fase E, bullet abaixo) usava um mecanismo de
+      callback paralelo próprio
+      (`device_service.on_any_change`/`_on_any_change_callbacks`),
+      criado sem verificar se o projeto já tinha uma solução —
+      tinha: `core/event_bus.py`, que o próprio módulo documenta como
+      "o único canal permitido de comunicação entre Addons
+      diferentes" (skill 02). Corrigido:
+      `device_service._publish_value_changed_event()` agora publica
+      `device_manager.actor.value_changed` via `event_bus.publish()`;
+      `automation_engine.register()` usa `event_bus.subscribe()`.
+      Removido todo o mecanismo paralelo. **Lição registrada como
+      regra de ouro na skill 05** (seção 6): verificar
+      `core/event_bus.py` antes de criar qualquer pub/sub novo.
+      269/269 mantido (refatoração transparente para os testes —
+      nenhum teste chamava o mecanismo antigo diretamente).
 - [x] **Sistema de Tasks portado do PyTeca (infraestrutura geral do
       Core, decisão de 2026-06-29 — antes da Fase E do
       device_manager)**: `ScheduledTask`/`TaskLog`/`MessageQueue`
@@ -980,11 +998,20 @@ escritos à mão de propósito, skill 02), então ficaram de fora.
       cobrindo as 4 ações, cooldown, regra inativa, valor não-numérico,
       function de ator inexistente (log de falha) e múltiplas regras
       no mesmo sensor. 260/260 passando.
-- [ ] **Pendente — Fase F/G**: validação ponta a ponta com bridge MQTT
+- [x] **Fase G concluída (2026-06-29).** `docs/technical/01–06` e
+      `docs/manual/01–04` do `addon_device_manager` reescritos por
+      completo (estavam herdados de quando era Feature — nomes de
+      tabela errados, "FK cross-Feature" onde hoje é referência
+      fraca, coluna fictícia `current_temperature_c` que nunca
+      existiu no model real, nada de MQTT/automação/tasks). Criados
+      `02-diagrama-c4.md` e `03-fluxos.md` (faltavam por completo) e
+      `i18n/pt_BR.json` (primeiro arquivo de tradução do projeto,
+      skill 00). Skill 05 formalizada — deixou de ser "proposta em
+      discussão", passa a ter o mesmo peso normativo das skills 00–04.
+- [ ] **Pendente — Fase F**: validação ponta a ponta com bridge MQTT
       real (spec separada: `tesseract-device-bridge`, repositório
       próprio — atualizar com a correção do LWT agregado antes de
-      iniciar), docs técnicos/manual do novo Addon (skill 04),
-      formalização da skill 05 (EventBus vs. MQTT).
+      iniciar).
 
 
 ---

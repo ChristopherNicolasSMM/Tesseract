@@ -43,17 +43,13 @@ logger = logging.getLogger(__name__)
 
 # Registro de callbacks em memória (processo local — não persiste, não
 # cruza Addons via ORM). Chave: DeviceActor.external_id. Valor: lista
-# de callables(new_value).
+# de callables(new_value). Mantido como mecanismo simples por-actor
+# (uso interno/local) — diferente de mudança cross-Addon, que usa o
+# EventBus do Core (ver _publish_value_changed_event abaixo).
 _on_change_callbacks: dict[str, list] = {}
 
-# Callbacks globais — disparados em TODA mudança de valor, de
-# qualquer DeviceActor, não só de um específico. Pensado para o
-# motor de automação (feature_mash_control/services/automation_engine.py)
-# se inscrever uma única vez no boot e filtrar internamente por
-# DeviceFunction.name — device_manager nunca importa mash_control
-# (skill 02), é mash_control que se inscreve aqui, na direção
-# correta da dependência (mash_control -> device_manager).
-_on_any_change_callbacks: list = []
+EVENT_ACTOR_VALUE_CHANGED = "device_manager.actor.value_changed"
+
 
 
 def _resolve_actor(identifier: str) -> DeviceActor | None:
@@ -159,27 +155,12 @@ def set_value(identifier: str, value, *, publish: bool = True) -> bool:
     get_integration_logger().info("set_value: actor=%s value=%r", actor.name, value)
 
     _fire_on_change(actor.external_id, value)
-    _fire_on_any_change(actor, value)
+    _publish_value_changed_event(actor, value)
 
     if publish:
         _maybe_publish(actor, value)
 
     return True
-
-
-def on_any_change(callback) -> None:
-    """
-    Registra um callback(function_name: str, value) chamado em TODA
-    mudança de valor de qualquer DeviceActor — via set_value() ou via
-    mensagem MQTT recebida (update_from_mqtt). Recebe `function_name`
-    (string, a referência fraca já usada em toda parte — skill 02),
-    nunca o objeto DeviceActor em si: quem se inscreve aqui (ex.:
-    feature_mash_control/automation_engine.py) nunca deve enxergar
-    ORM de outro módulo, mesmo de leitura. Pensado para registro
-    único no boot (FeatureMashControl.register_routes() chamando isso
-    uma vez), não por instância de actor.
-    """
-    _on_any_change_callbacks.append(callback)
 
 
 def on_change(identifier: str, callback) -> bool:
@@ -200,18 +181,22 @@ def _fire_on_change(external_id: str, value) -> None:
         callback(value)
 
 
-def _fire_on_any_change(actor: DeviceActor, value) -> None:
+def _publish_value_changed_event(actor: DeviceActor, value) -> None:
+    """
+    Publica EVENT_ACTOR_VALUE_CHANGED no EventBus do Core
+    (core/event_bus.py) — único canal permitido de comunicação entre
+    Addons diferentes (skill 02). Substituiu um mecanismo paralelo
+    (`on_any_change`/`_on_any_change_callbacks`) criado por engano na
+    Fase E — corrigido na Fase G ao formalizar esta skill: o projeto
+    já tinha o EventBus certo, não precisava de um novo.
+
+    Payload é só `function_name` (string) — nunca o objeto
+    `DeviceActor` em si (mesma regra de fronteira da Fase E: quem
+    escuta não pode enxergar ORM de outro módulo, nem de leitura).
+    """
     function_name = actor.function.name if actor.function else None
-    for callback in _on_any_change_callbacks:
-        try:
-            callback(function_name, value)
-        except Exception:
-            # Um callback de automação com bug nunca pode quebrar a
-            # leitura/escrita de device_service em si — log e segue.
-            import logging
-            logging.getLogger(__name__).exception(
-                "Erro em callback on_any_change (actor=%s)", actor.external_id
-            )
+    from core.event_bus import event_bus
+    event_bus.publish(EVENT_ACTOR_VALUE_CHANGED, function_name=function_name, value=value)
 
 
 def _maybe_publish(actor: DeviceActor, value) -> None:
@@ -260,4 +245,4 @@ def update_from_mqtt(actor: DeviceActor, value) -> None:
     actor.set_config(config)
     db.session.commit()
     _fire_on_change(actor.external_id, value)
-    _fire_on_any_change(actor, value)
+    _publish_value_changed_event(actor, value)

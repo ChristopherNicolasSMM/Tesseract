@@ -2,8 +2,11 @@
 tests/test_phase9f_automation_engine.py
 
 Cobre o motor de automação reativo (Fase E, Opção 1 — decisão de
-2026-06-29): sensor -> condição -> ator, disparado via
-device_service.on_any_change(), sem polling/scheduler.
+2026-06-29): sensor -> condição -> ator, disparado via EventBus do
+Core (core/event_bus.py, evento "device_manager.actor.value_changed"),
+sem polling/scheduler. Mecanismo corrigido na Fase G (ver
+automation_engine.py) — versão original da Fase E usava um callback
+paralelo próprio em vez do EventBus já existente no projeto.
 """
 import pytest
 

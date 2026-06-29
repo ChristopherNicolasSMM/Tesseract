@@ -1,0 +1,31 @@
+{
+  "device_manager.addon.label": "Gestão de Dispositivos",
+  "device_manager.addon.menu_group": "Dispositivos IoT",
+
+  "device_manager.function.field_name": "Nome (interno)",
+  "device_manager.function.field_display_name": "Nome de Exibição",
+  "device_manager.function.field_category": "Categoria",
+  "device_manager.function.field_data_type": "Tipo de Dado",
+  "device_manager.function.field_min_value": "Valor Mínimo",
+  "device_manager.function.field_max_value": "Valor Máximo",
+  "device_manager.function.field_unit": "Unidade",
+
+  "device_manager.device.field_name": "Nome do Dispositivo",
+  "device_manager.device.field_device_type": "Tipo",
+  "device_manager.device.field_protocol": "Protocolo",
+  "device_manager.device.field_external_id": "Identificador Externo",
+
+  "device_manager.actor.field_name": "Nome",
+  "device_manager.actor.field_port_name": "Porta",
+  "device_manager.actor.field_actor_type": "Tipo de Ator",
+  "device_manager.actor.field_is_risk": "Atuador de Risco (fail-safe)",
+  "device_manager.actor.field_failsafe_value": "Valor Seguro (fail-safe)",
+  "device_manager.actor.help_is_risk": "Se marcado, este atuador recebe um valor seguro automaticamente caso o sistema fique indisponível.",
+
+  "device_manager.emulated_device.field_emulation_mode": "Modo de Emulação",
+  "device_manager.emulated_device.field_is_running": "Em Execução",
+
+  "device_manager.error.actor_not_found": "Dispositivo/porta não encontrado.",
+  "device_manager.error.value_out_of_range": "Valor fora da faixa permitida para esta função.",
+  "device_manager.error.mqtt_disconnected": "Sem conexão com o broker MQTT no momento."
+}

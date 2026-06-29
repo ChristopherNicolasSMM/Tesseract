@@ -1,10 +1,21 @@
-# 05 — Promoção de `feature_device_manager` a Addon + Integração MQTT
+# 05 — EventBus interno vs. MQTT externo + Promoção de Addon a partir de Feature
 
-> **Status: Fases A–C EXECUTADAS (promoção estrutural concluída, 176
-> testes passando). Fases D–G ainda pendentes (MQTT/EventBus).** Este
-> documento começou como proposta e foi sendo atualizado conforme a
-> execução avançou — seções marcadas [EXECUTADO] já refletem código
-> real no repositório, não mais intenção.
+> **Status: SKILL FORMALIZADA (2026-06-29).** Nasceu como documento de
+> proposta para a promoção de `feature_device_manager` a
+> `addon_device_manager`; Fases A–E foram executadas (269 testes
+> passando), e a seção 6 (convenção MQTT vs. EventBus) está validada
+> em código real (`mqtt_client_service.py`). Mantido o título de
+> arquivo original por continuidade de histórico/referência em commits
+> e BACKLOG — o conteúdo abaixo agora tem o mesmo peso normativo das
+> skills 00–04: qualquer divergência deve ajustar esta skill antes de
+> violar a convenção (regra de ouro, skill 00).
+>
+> Pendente apenas: Fases F (validação ponta a ponta com
+> `tesseract-device-bridge`) e G (restante de docs — agora em
+> andamento neste commit). Seções históricas de decisão (2–5, 8)
+> ficam como registro do raciocínio que levou à convenção final
+> (seção 6) — não precisam ser relidas para aplicar a skill no dia a
+> dia, só a seção 6 e o schema da seção 4.
 >
 > Convenção de status usada neste documento (em vez de ícone de cadeado,
 > para evitar repetição visual confusa):
@@ -388,16 +399,38 @@ depois do último restart já entra no próximo LWT automaticamente.
 
 ---
 
-## 6. Convenção MQTT vs. EventBus (rascunho da futura skill 05)
+## 6. Convenção MQTT vs. EventBus [EXECUTADO, FORMALIZADO]
 
-| Canal | Escopo | Convenção de nome |
-|---|---|---|
-| **EventBus** (interno, Addon ↔ Addon) | Já coberto pela skill 00 | `[modulo].[entidade].[acao]`, ex. `device_manager.sensor.value_changed` |
-| **MQTT** (externo, Tesseract ↔ hardware) | Ainda não coberto por skill nenhuma | Proposto: `[topic_prefix]/[tipo]/[device_id]/[state\|set]`, ex. `brewery/sensors/mash_tun_temp/state` — fora do `snake_case` interno porque é payload de protocolo externo |
+| Canal | Escopo | Convenção de nome | Implementação real |
+|---|---|---|---|
+| **EventBus** (interno, Addon ↔ Addon) | Já coberto pela skill 00 | `[modulo].[entidade].[acao]`, ex. `device_manager.actor.value_changed` | `core/event_bus.py` (`event_bus.publish`/`.subscribe`) — singleton já existente do Core, **não criar mecanismo paralelo** |
+| **MQTT** (externo, Tesseract ↔ hardware) | Esta skill | `[topic_prefix]/[tipo]/[device_id]/[state\|set]`, ex. `brewery/sensors/mash_tun_temp/state` — fora do `snake_case` interno porque é payload de protocolo externo | `mqtt_client_service.py` (`_full_topic()`, `build_lwt_payload()`) |
 
-**[ABERTO]** Formalizar isso como skill 05 só quando todo o desenho do
-Addon estiver validado em uso real — por ora fica registrado aqui como
-rascunho de referência.
+**Regra de ouro desta seção** (a lição mais cara aprendida na
+construção desta skill): antes de criar qualquer mecanismo de
+pub/sub, callback global, ou registro em memória para comunicação
+cross-Addon, **verificar primeiro se `core/event_bus.py` já resolve**.
+Na Fase E, o motor de automação foi implementado com um callback
+paralelo próprio (`device_service.on_any_change`) sem checar isso —
+funcionava (269 testes passaram), mas duplicava infraestrutura que já
+existia e que o próprio `core/event_bus.py` documenta como "o único
+canal permitido de comunicação entre Addons diferentes" (skill 02).
+Corrigido na Fase G, ao formalizar esta skill — `device_service.py`
+agora publica `device_manager.actor.value_changed` via `event_bus`,
+e `automation_engine.py` se inscreve nele, sem nenhum mecanismo
+próprio.
+
+Evento publicado por `device_service.py` em toda mudança de valor
+(`set_value`/`update_from_mqtt`):
+
+```python
+event_bus.publish("device_manager.actor.value_changed", function_name=..., value=...)
+```
+
+Payload é sempre primitivo (`function_name: str`, `value`) — nunca o
+objeto `DeviceActor` em si, mesmo para quem só vai ler (regra de
+fronteira válida tanto para EventBus quanto para qualquer service
+público: cross-Addon nunca enxerga ORM de outro módulo).
 
 ---
 
@@ -483,11 +516,12 @@ não resolvia `root/templates/` de Addon top-level, e
 ### Fase E — Integração com o primeiro dependente [EXECUTADO — Opção 1]
 15–16. Decisão tomada em 2026-06-29: **Opção 1, motor de automação
 reativo**, não só preparação de terreno. `AutomationRule` passou a
-avaliar de fato via `device_service.on_any_change()` — ver detalhe
-completo no `BACKLOG.md`, Fase 9. Sem polling/scheduler (não precisou
-do sistema de tasks recém-portado para isso — é puramente
-event-driven sobre o que já chega via MQTT/`set_value`). 10 testes
-novos, 260/260 passando.
+avaliar de fato via EventBus do Core (`device_manager.actor.value_changed`
+— corrigido na Fase G; a primeira versão usava um callback paralelo
+próprio, ver seção 6) — ver detalhe completo no `BACKLOG.md`, Fase 9.
+Sem polling/scheduler (não precisou do sistema de tasks recém-portado
+para isso — é puramente event-driven sobre o que já chega via
+MQTT/`set_value`). 10 testes novos, 260/260 passando.
 
 ### Fase F — Validação ponta a ponta [PENDENTE]
 17–18. Spec do lado hardware já escrita em conversa separada:

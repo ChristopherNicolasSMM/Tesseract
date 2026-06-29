@@ -3,16 +3,24 @@ addons/addon_brewstation/features/feature_mash_control/services/automation_engin
 
 Motor de automação reativo (Fase E, Opção 1 — decisão de 2026-06-29).
 Sensor -> condição -> ator: avalia AutomationRule a cada mudança de
-valor de QUALQUER DeviceActor (via device_service.on_any_change),
-não por polling — não há scheduler envolvido, é puramente
-event-driven sobre o que já chega via device_service/mqtt_client_service.
+valor de QUALQUER DeviceActor, via EventBus do Core
+(core/event_bus.py, evento "device_manager.actor.value_changed") —
+não por polling, não há scheduler envolvido, é puramente event-driven
+sobre o que já chega via device_service/mqtt_client_service.
+
+Correção registrada na Fase G (ao formalizar a skill 05): a primeira
+versão deste motor (Fase E) usava um mecanismo de callback paralelo
+(`device_service.on_any_change`), criado sem checar se o projeto já
+tinha um EventBus formal — tinha (core/event_bus.py, "único canal
+permitido de comunicação entre Addons diferentes", skill 02).
+Corrigido para usar o EventBus real.
 
 Nunca importa nada de addons.addon_device_manager.root.model
 diretamente, nem recebe objetos ORM de lá (skill 02 — cross-Addon só
-via service público, com dados primitivos/dict, nunca objeto vivo).
-Toda interação passa por device_service (get_value/set_value/
-on_any_change/find_actor_external_id_by_function_name), que entrega
-sempre string/valor primitivo, nunca o DeviceActor em si.
+via EventBus/service público, com dados primitivos, nunca objeto
+vivo). Toda interação direta passa por device_service
+(get_value/set_value/find_actor_external_id_by_function_name), que
+entrega sempre string/valor primitivo, nunca o DeviceActor em si.
 
 Registro: chamado uma única vez por
 FeatureMashControl.register_routes() — ver feature.py.
@@ -23,6 +31,7 @@ import logging
 from datetime import datetime, timezone
 
 from core.db import db
+from core.event_bus import event_bus
 from addons.addon_brewstation.features.feature_mash_control.model.automation_rule import AutomationRule
 from addons.addon_brewstation.features.feature_mash_control.model.automation_rule_log import AutomationRuleLog
 
@@ -37,34 +46,39 @@ _OPERATORS = {
     ">": lambda a, b: a > b,
 }
 
+EVENT_ACTOR_VALUE_CHANGED = "device_manager.actor.value_changed"
+
 _registered = False
 
 
 def register() -> None:
     """
-    Inscreve _on_device_value_changed em device_service.on_any_change().
-    Idempotente — chamar mais de uma vez (ex.: testes recriando a app)
-    não duplica a inscrição.
+    Inscreve _on_device_value_changed no EventBus do Core, para o
+    evento EVENT_ACTOR_VALUE_CHANGED (publicado por
+    addon_device_manager/root/services/device_service.py). Idempotente
+    — chamar mais de uma vez (ex.: testes recriando a app) não duplica
+    a inscrição.
     """
     global _registered
     if _registered:
         return
-    from addons.addon_device_manager.root.services import device_service
-    device_service.on_any_change(_on_device_value_changed)
+    event_bus.subscribe(EVENT_ACTOR_VALUE_CHANGED, _on_device_value_changed)
     _registered = True
 
 
-def _on_device_value_changed(sensor_function_name: str | None, value) -> None:
+def _on_device_value_changed(function_name: str | None = None, value=None) -> None:
     """
-    `sensor_function_name` já vem como string (referência fraca,
-    skill 02) — device_service nunca expõe o objeto DeviceActor pra
-    fora do próprio módulo.
+    Assinatura em keyword args — `core.event_bus.EventBus.publish()`
+    despacha via `handler(**payload)`, então os nomes dos parâmetros
+    aqui precisam bater exatamente com as chaves publicadas em
+    `device_service._publish_value_changed_event()`
+    (`function_name`, `value`).
     """
-    if sensor_function_name is None:
+    if function_name is None:
         return
 
     rules = AutomationRule.query.filter_by(
-        sensor_function_name=sensor_function_name, is_active=True, is_deleted=False,
+        sensor_function_name=function_name, is_active=True, is_deleted=False,
     ).all()
     for rule in rules:
         _evaluate_rule(rule, value)
