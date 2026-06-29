@@ -827,6 +827,27 @@ escritos à mão de propósito, skill 02), então ficaram de fora.
 
 ## Fase 9 — Promoção de `feature_device_manager` a Addon + base para MQTT (em andamento)
 
+- [x] **Sistema de Tasks portado do PyTeca (infraestrutura geral do
+      Core, decisão de 2026-06-29 — antes da Fase E do
+      device_manager)**: `ScheduledTask`/`TaskLog`/`MessageQueue`
+      (`model/core/`), `services/core/task_service.py` (primeiro
+      service do Core no Tesseract — controllers antes faziam acesso a
+      banco inline), `core/task_registry.py` (ponto de extensão para
+      Addons registrarem funções `python_call` — ex.: futuro
+      `device_manager.mqtt_reconnect`), monitor em
+      `/admin/tasks` (cards, gráfico 7 dias, abas Tarefas/Fila/Logs).
+      **Gap do PyTeca corrigido no porte**: a aba Logs do template
+      original carregava sempre todos os logs, sem filtro — adicionado
+      filtro por task (botão "Ver Logs" por linha) e busca textual
+      livre (`?q=`), conforme pedido. **Bônus que vem junto**: conecta
+      finalmente o job de `cleanup_old_snapshots()` que
+      `core/versioning.py` já esperava desde a Fase 1 ("pensado para
+      job futuro, não cria scheduler aqui"). Scheduler real
+      (APScheduler) é opt-in via `TASK_SCHEDULER_ENABLED=true`, nunca
+      em `TESTING` (mesmo padrão do cliente MQTT). `croniter` opcional
+      (sem ele, só intervalo em minutos funciona). Migration
+      `9c4f1e8a3b27` (3 tabelas novas). 14 testes novos
+      (`tests/test_phase9e_task_system.py`). 199/199 passando.
 - [x] **Documento de arquitetura**: `docs/skills/05-proposta-addon-device-manager-e-mqtt.md`
       — decisões fechadas (sigla `dvm`, API mínima `get_value`/`set_value`/
       `on_change`, MQTT dentro do próprio Addon — Opção A, tabelas

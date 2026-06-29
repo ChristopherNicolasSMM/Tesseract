@@ -58,6 +58,7 @@ def create_app(env: str | None = None) -> Flask:
         from model.core import field_rule  # noqa: F401
         from model.core import odata_connection  # noqa: F401
         from model.core import designer_page, designer_component  # noqa: F401
+        from model.core import scheduled_task, task_log, message_queue  # noqa: F401
 
         app.module_manager.discover_and_register_addons(project_root / "addons")
         app.module_manager.apply_template_loader()
@@ -73,6 +74,7 @@ def create_app(env: str | None = None) -> Flask:
 
     from api.routes.core.auth import auth_api_bp
     from api.routes.core.admin.users import users_api_bp
+    from api.routes.core.admin.tasks import tasks_api_bp
     from api.routes.core.transactions import transactions_api_bp
     from api.routes.core.theme import theme_api_bp
     from controller.core.pages import core_pages_bp
@@ -81,11 +83,13 @@ def create_app(env: str | None = None) -> Flask:
     from controller.core.admin_versioning import admin_versioning_bp
     from controller.core.admin_field_rules import admin_field_rules_bp
     from controller.core.admin_odata import admin_odata_bp
+    from controller.core.admin_tasks import admin_tasks_bp
     from controller.core.designer import designer_bp, designer_view_bp
     from controller.core.admin_transactions import admin_transactions_bp
     from controller.core.profile import profile_bp
     app.register_blueprint(auth_api_bp)
     app.register_blueprint(users_api_bp)
+    app.register_blueprint(tasks_api_bp)
     app.register_blueprint(transactions_api_bp)
     app.register_blueprint(theme_api_bp)
     app.register_blueprint(core_pages_bp)
@@ -94,10 +98,18 @@ def create_app(env: str | None = None) -> Flask:
     app.register_blueprint(admin_versioning_bp)
     app.register_blueprint(admin_field_rules_bp)
     app.register_blueprint(admin_odata_bp)
+    app.register_blueprint(admin_tasks_bp)
     app.register_blueprint(designer_bp)
     app.register_blueprint(designer_view_bp)
     app.register_blueprint(admin_transactions_bp)
     app.register_blueprint(profile_bp)
+
+    # Scheduler de tasks — opt-in via env (TASK_SCHEDULER_ENABLED=true),
+    # nunca em modo de teste (mesmo padrão do cliente MQTT do
+    # addon_device_manager — ver core/app_factory.py mais abaixo).
+    if not app.config.get("TESTING") and os.environ.get("TASK_SCHEDULER_ENABLED", "false").lower() == "true":
+        from services.core.task_service import TaskService
+        TaskService.init_scheduler(app)
 
     @app.context_processor
     def inject_transactions_menu():

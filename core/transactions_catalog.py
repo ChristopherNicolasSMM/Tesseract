@@ -94,4 +94,14 @@ CORE_TRANSACTIONS = [
         "permission_required": "admin",
         "is_standard": True,
     },
+    {
+        "code": "TX_ADMIN_TASKS",
+        "label": "Monitor de Tarefas",
+        "group": "Admin",
+        "description": "Tarefas agendadas/sob demanda, fila de mensagens e histórico de execução.",
+        "icon": "bi-clock-history",
+        "route": "/admin/tasks",
+        "permission_required": "admin",
+        "is_standard": True,
+    },
 ]
