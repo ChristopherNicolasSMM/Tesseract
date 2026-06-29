@@ -22,13 +22,23 @@ formato de runtime mudar). Estrutura:
             "last_seen_at": "<isoformat>",
         },
     }
+
+Logging (Fase D, item pendente fechado em 2026-06-29 — decisão 2.6):
+eventos de rotina (valor aceito, valor rejeitado por faixa) vão para
+o log de integração local (integration_logger.py), nunca pro log
+global — exceto valor fora de faixa, que é "erro que importa" e por
+isso sobe TAMBÉM pro log global (logger padrão deste módulo).
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 
 from core.db import db
 from addons.addon_device_manager.root.model.device_actor import DeviceActor
+from addons.addon_device_manager.root.services.integration_logger import get_integration_logger
+
+logger = logging.getLogger(__name__)
 
 
 # Registro de callbacks em memória (processo local — não persiste, não
@@ -86,6 +96,28 @@ def find_actor_external_id_by_function_name(function_name: str) -> str | None:
     return actor.external_id if actor else None
 
 
+def _validate_range(actor: DeviceActor, value) -> bool:
+    """
+    Valida `value` contra DeviceFunction.min_value/max_value (se
+    configurados). Sempre retorna True para valor não-numérico ou
+    function sem faixa definida — só rejeita quando há faixa E o
+    valor numérico está fora dela.
+    """
+    function = actor.function
+    if function is None or (function.min_value is None and function.max_value is None):
+        return True
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return True  # não é faixa de número (ex.: bool/string), não se aplica
+
+    if function.min_value is not None and numeric < function.min_value:
+        return False
+    if function.max_value is not None and numeric > function.max_value:
+        return False
+    return True
+
+
 def get_value(identifier: str):
     """Retorna o último valor conhecido (cache) de um DeviceActor, ou None."""
     actor = _resolve_actor(identifier)
@@ -101,10 +133,20 @@ def set_value(identifier: str, value, *, publish: bool = True) -> bool:
     Atualiza o cache local sempre; se `publish=True` (default) e o
     cliente MQTT estiver conectado, também publica no command_topic
     configurado em config_json["mqtt_config"]. Retorna False se o
-    actor não existir.
+    actor não existir OU se `value` estiver fora da faixa
+    (DeviceFunction.min_value/max_value) — um comando fora de faixa
+    nunca é aplicado (diferente de update_from_mqtt, que registra a
+    leitura mesmo fora de faixa, por ser dado observado, não comando).
     """
     actor = _resolve_actor(identifier)
     if actor is None:
+        return False
+
+    if not _validate_range(actor, value):
+        logger.error(
+            "set_value REJEITADO — valor %r fora da faixa de '%s' (min=%s, max=%s).",
+            value, actor.name, actor.function.min_value, actor.function.max_value,
+        )
         return False
 
     config = actor.get_config()
@@ -113,6 +155,8 @@ def set_value(identifier: str, value, *, publish: bool = True) -> bool:
     runtime["last_seen_at"] = datetime.now(timezone.utc).isoformat()
     actor.set_config(config)
     db.session.commit()
+
+    get_integration_logger().info("set_value: actor=%s value=%r", actor.name, value)
 
     _fire_on_change(actor.external_id, value)
     _fire_on_any_change(actor, value)
@@ -196,7 +240,19 @@ def update_from_mqtt(actor: DeviceActor, value) -> None:
     Chamado pelo mqtt_client_service quando chega uma mensagem em um
     state_topic — atualiza o cache SEM republicar (publish=False),
     para não gerar eco MQTT (publicar de volta o que acabou de chegar).
+    Diferente de set_value(): fora de faixa NUNCA é rejeitado aqui —
+    é leitura observada de sensor, não comando; rejeitar perderia o
+    dado real (que pode ser sintoma de um sensor com defeito, algo
+    que vale registrar, não esconder). Só gera log de erro global.
     """
+    if not _validate_range(actor, value):
+        logger.error(
+            "Leitura fora da faixa — actor=%s value=%r (min=%s, max=%s). Valor registrado mesmo assim.",
+            actor.name, value, actor.function.min_value, actor.function.max_value,
+        )
+    else:
+        get_integration_logger().info("update_from_mqtt: actor=%s value=%r", actor.name, value)
+
     config = actor.get_config()
     runtime = config.setdefault("runtime", {})
     runtime["last_value"] = value

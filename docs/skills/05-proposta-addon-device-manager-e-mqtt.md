@@ -471,11 +471,14 @@ não resolvia `root/templates/` de Addon top-level, e
     publish/subscribe, LWT **agregado** (não por atuador — correção de
     protocolo, seção 5.3) lendo `is_risk`/`failsafe_value` na conexão.
     Início opt-in via `MQTT_ENABLED=true` (nunca em `TESTING`).
-14. **[PENDENTE]** Log de integração local — ainda bloqueado pela Fase A
-    (adenda de skill 01/03 para `logs/`/`logging`).
-    **[PENDENTE]** Validação de faixa (`min_value`/`max_value`) antes
-    de publicar/aceitar valor — gap identificado nas seções 5.1/5.2,
-    não implementado ainda.
+14. **[EXECUTADO, 2026-06-29]** Log de integração local —
+    `integration_logger.py` (`RotatingFileHandler` escopado, sem
+    tocar no root logger), seção `logging` aplicada no `addon.json`
+    real. **[EXECUTADO, 2026-06-29]** Validação de faixa
+    (`min_value`/`max_value`) — `_validate_range()` em
+    `device_service.py`; `set_value` rejeita fora de faixa,
+    `update_from_mqtt` aceita mas loga erro global (leitura de sensor
+    é dado observado, não comando).
 
 ### Fase E — Integração com o primeiro dependente [EXECUTADO — Opção 1]
 15–16. Decisão tomada em 2026-06-29: **Opção 1, motor de automação
@@ -513,22 +516,22 @@ qualquer migration nova.
 
 ## 9. Status consolidado (atualizado em 2026-06-29)
 
-**Executado:** Fases **A, B, C, D-parcial e E** — promoção estrutural
-completa, extensão de schema em `DeviceActor`, `device_service.py` +
-`mqtt_client_service.py` implementados (com correção do LWT agregado),
-sistema de Tasks portado do PyTeca como infraestrutura geral do Core,
-motor de automação reativo (`AutomationRule` → `device_service`),
-260 testes passando. **Pendente, em ordem real de bloqueio:**
+**Executado:** Fases **A, B, C, D (completa) e E** — promoção
+estrutural completa, extensão de schema em `DeviceActor`,
+`device_service.py` + `mqtt_client_service.py` implementados (com
+correção do LWT agregado, validação de faixa e log de integração
+local em 3 camadas), sistema de Tasks portado do PyTeca como
+infraestrutura geral do Core, motor de automação reativo
+(`AutomationRule` → `device_service`), 269 testes passando.
+**Pendente:**
 
-1. **Fase D — itens restantes**: log de integração local (já
-   desbloqueado pela Fase A, só falta implementar); validação de
-   faixa (`min_value`/`max_value`) antes de aceitar/publicar valor —
-   relevante agora especialmente para o motor de automação (Fase E),
-   que hoje aceita qualquer valor numérico sem checar contra a faixa
-   cadastrada em `DeviceFunction`.
-2. **Fase F** — validação ponta a ponta com `tesseract-device-bridge`
+1. **Fase F** — validação ponta a ponta com `tesseract-device-bridge`
    (spec já escrita, repositório separado — **atenção**: a spec do
    bridge precisa ser atualizada com a correção do LWT agregado, já
    que ela assumia o desenho original "LWT por atuador").
-3. **Fase G** — docs técnicos/manual do Addon (skill 04), formalização
+2. **Fase G** — docs técnicos/manual do Addon (skill 04), formalização
    da skill 05 (seção 6 deste documento).
+
+Não há mais nada pendente nas Fases A–E — a partir daqui, qualquer
+trabalho novo já depende de algo fora do controle só deste
+repositório (hardware real/simulado para a Fase F).

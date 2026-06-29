@@ -10,7 +10,20 @@
   "requires": [],
   "provides": ["device_data", "device_actor_data", "device_function_data"],
   "features": [],
-  "env_keys": [],
+  "env_keys": [
+    "MQTT_BROKER_HOST",
+    "MQTT_BROKER_PORT",
+    "MQTT_USERNAME",
+    "MQTT_PASSWORD",
+    "MQTT_CLIENT_ID",
+    "MQTT_TOPIC_PREFIX"
+  ],
   "default_locale": "pt_BR",
-  "available_locales": ["pt_BR"]
+  "available_locales": ["pt_BR"],
+  "logging": {
+    "integration_log_enabled": true,
+    "integration_log_path": "logs/integration.log",
+    "integration_log_max_bytes": 5242880,
+    "integration_log_backup_count": 5
+  }
 }

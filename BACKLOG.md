@@ -939,9 +939,24 @@ escritos à mão de propósito, skill 02), então ficaram de fora.
       Fase F.**
       9 testes novos (`tests/test_phase9d_device_service_mqtt.py`),
       sem depender de broker real. 185/185 passando.
-      Pendente dentro da própria Fase D: log de integração local
-      (bloqueado pela Fase A) e validação de faixa
-      (`min_value`/`max_value`) antes de aceitar/publicar valor.
+- [x] **Fase D — itens restantes fechados (2026-06-29).**
+      `addon.json` real ganhou a seção `logging` (`addons/addon_device_manager/addon.json`)
+      e `env_keys` do MQTT (faltavam, apesar do `mqtt_client_service.py`
+      já existir). `integration_logger.py` (novo): `RotatingFileHandler`
+      escopado a um logger nomeado (`addon_device_manager.integration`,
+      `propagate=False`) — não conflita com a regra do
+      `core/logging_config.py` ("nenhum módulo cria seu próprio
+      `basicConfig()`") porque não toca no root logger, só adiciona um
+      handler a um logger específico. Eventos de rotina
+      (`set_value`/`update_from_mqtt`) vão só pro arquivo local;
+      **validação de faixa** (`DeviceFunction.min_value`/`max_value`)
+      implementada em `device_service._validate_range()` — `set_value`
+      **rejeita** valor fora de faixa (comando inseguro nunca é
+      aplicado); `update_from_mqtt` **aceita mas loga erro global**
+      (leitura de sensor é dado observado, não comando — esconder uma
+      leitura anômala seria pior que registrá-la). 9 testes novos
+      (`tests/test_phase9g_validacao_faixa_e_log.py`). 269/269 passando.
+      **Fase D agora 100% concluída.**
 - [x] **Fase E — Opção 1 (motor de automação reativo) concluída.**
       `AutomationRule` agora avalia de fato: a cada
       `device_service.update_from_mqtt`/`set_value`, dispara
