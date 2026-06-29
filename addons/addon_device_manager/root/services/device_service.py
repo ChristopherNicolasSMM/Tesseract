@@ -36,6 +36,15 @@ from addons.addon_device_manager.root.model.device_actor import DeviceActor
 # de callables(new_value).
 _on_change_callbacks: dict[str, list] = {}
 
+# Callbacks globais — disparados em TODA mudança de valor, de
+# qualquer DeviceActor, não só de um específico. Pensado para o
+# motor de automação (feature_mash_control/services/automation_engine.py)
+# se inscrever uma única vez no boot e filtrar internamente por
+# DeviceFunction.name — device_manager nunca importa mash_control
+# (skill 02), é mash_control que se inscreve aqui, na direção
+# correta da dependência (mash_control -> device_manager).
+_on_any_change_callbacks: list = []
+
 
 def _resolve_actor(identifier: str) -> DeviceActor | None:
     """
@@ -50,6 +59,31 @@ def _resolve_actor(identifier: str) -> DeviceActor | None:
     if actor is None:
         actor = DeviceActor.query.filter_by(name=identifier, is_deleted=False).first()
     return actor
+
+
+def find_actor_external_id_by_function_name(function_name: str) -> str | None:
+    """
+    Resolve o external_id do primeiro DeviceActor ativo cuja
+    DeviceFunction tenha esse nome — usado por módulos externos (ex.:
+    feature_mash_control/automation_engine.py) que só guardam
+    referência fraca a `function_name` (skill 02), nunca a um
+    DeviceActor específico, e precisam de um identificador aceito por
+    get_value()/set_value().
+
+    Limitação conhecida: se mais de um DeviceActor compartilhar a
+    mesma function, só o primeiro é retornado — aceitável para o
+    volume atual de uso (poucos atores por function); revisar se isso
+    se tornar um problema real em produção.
+    """
+    from addons.addon_device_manager.root.model.device_function import DeviceFunction
+
+    actor = (
+        DeviceActor.query
+        .join(DeviceFunction, DeviceActor.function_id == DeviceFunction.id)
+        .filter(DeviceFunction.name == function_name, DeviceActor.is_deleted.is_(False))
+        .first()
+    )
+    return actor.external_id if actor else None
 
 
 def get_value(identifier: str):
@@ -81,11 +115,27 @@ def set_value(identifier: str, value, *, publish: bool = True) -> bool:
     db.session.commit()
 
     _fire_on_change(actor.external_id, value)
+    _fire_on_any_change(actor, value)
 
     if publish:
         _maybe_publish(actor, value)
 
     return True
+
+
+def on_any_change(callback) -> None:
+    """
+    Registra um callback(function_name: str, value) chamado em TODA
+    mudança de valor de qualquer DeviceActor — via set_value() ou via
+    mensagem MQTT recebida (update_from_mqtt). Recebe `function_name`
+    (string, a referência fraca já usada em toda parte — skill 02),
+    nunca o objeto DeviceActor em si: quem se inscreve aqui (ex.:
+    feature_mash_control/automation_engine.py) nunca deve enxergar
+    ORM de outro módulo, mesmo de leitura. Pensado para registro
+    único no boot (FeatureMashControl.register_routes() chamando isso
+    uma vez), não por instância de actor.
+    """
+    _on_any_change_callbacks.append(callback)
 
 
 def on_change(identifier: str, callback) -> bool:
@@ -104,6 +154,20 @@ def on_change(identifier: str, callback) -> bool:
 def _fire_on_change(external_id: str, value) -> None:
     for callback in _on_change_callbacks.get(external_id, []):
         callback(value)
+
+
+def _fire_on_any_change(actor: DeviceActor, value) -> None:
+    function_name = actor.function.name if actor.function else None
+    for callback in _on_any_change_callbacks:
+        try:
+            callback(function_name, value)
+        except Exception:
+            # Um callback de automação com bug nunca pode quebrar a
+            # leitura/escrita de device_service em si — log e segue.
+            import logging
+            logging.getLogger(__name__).exception(
+                "Erro em callback on_any_change (actor=%s)", actor.external_id
+            )
 
 
 def _maybe_publish(actor: DeviceActor, value) -> None:
@@ -140,3 +204,4 @@ def update_from_mqtt(actor: DeviceActor, value) -> None:
     actor.set_config(config)
     db.session.commit()
     _fire_on_change(actor.external_id, value)
+    _fire_on_any_change(actor, value)

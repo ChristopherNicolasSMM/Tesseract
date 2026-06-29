@@ -43,6 +43,13 @@ class FeatureMashControl(FeatureBase):
             app.register_blueprint(getattr(controller_mod, f"{name}_bp"))
             app.register_blueprint(getattr(routes_mod, f"{name}_api_bp"))
 
+        # Motor de automação reativo (Fase E, Opção 1) — inscreve-se
+        # uma única vez em device_service.on_any_change(). Registro em
+        # memória, sem acesso a banco (idêntico em espírito ao
+        # core.task_registry.register_task() do addon_device_manager).
+        from addons.addon_brewstation.features.feature_mash_control.services import automation_engine
+        automation_engine.register()
+
     def get_transactions(self) -> list:
         return [
             {

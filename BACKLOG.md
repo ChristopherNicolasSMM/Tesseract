@@ -942,9 +942,29 @@ escritos à mão de propósito, skill 02), então ficaram de fora.
       Pendente dentro da própria Fase D: log de integração local
       (bloqueado pela Fase A) e validação de faixa
       (`min_value`/`max_value`) antes de aceitar/publicar valor.
-- [ ] **Pendente — Fase E**: integração de `feature_mash_control` com
-      `device_service` (hoje é escopo CRUD puro, sem motor de
-      automação ativo).
+- [x] **Fase E — Opção 1 (motor de automação reativo) concluída.**
+      `AutomationRule` agora avalia de fato: a cada
+      `device_service.update_from_mqtt`/`set_value`, dispara
+      `on_any_change` global → `automation_engine._on_device_value_changed`
+      (`feature_mash_control/services/automation_engine.py`) → busca
+      regras por `sensor_function_name` → avalia `condition_operator`/
+      `condition_value` (respeitando `cooldown_seconds`) → se
+      verdadeiro, resolve o ator via novo
+      `device_service.find_actor_external_id_by_function_name()` e
+      chama `set_value()` → grava `AutomationRuleLog`. Suporta as 4
+      ações (`ON`/`OFF`/`SET_VALUE`/`TOGGLE`). Sem polling/scheduler —
+      100% reativo ao que já chega via MQTT.
+      **Correção de fronteira durante a implementação**: a primeira
+      versão passava o objeto `DeviceActor` inteiro pro callback do
+      `mash_control`, que navegava `actor.function.name` — violava a
+      própria regra que o módulo documentava (nunca ORM de outro
+      Addon, nem de leitura). Corrigido: `device_service` agora
+      resolve o `function_name` internamente e entrega só a string ao
+      callback (`on_any_change(function_name, value)`).
+      10 testes novos (`tests/test_phase9f_automation_engine.py`),
+      cobrindo as 4 ações, cooldown, regra inativa, valor não-numérico,
+      function de ator inexistente (log de falha) e múltiplas regras
+      no mesmo sensor. 260/260 passando.
 - [ ] **Pendente — Fase F/G**: validação ponta a ponta com bridge MQTT
       real (spec separada: `tesseract-device-bridge`, repositório
       próprio — atualizar com a correção do LWT agregado antes de
