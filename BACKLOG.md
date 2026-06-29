@@ -848,6 +848,15 @@ escritos à mão de propósito, skill 02), então ficaram de fora.
       (sem ele, só intervalo em minutos funciona). Migration
       `9c4f1e8a3b27` (3 tabelas novas). 14 testes novos
       (`tests/test_phase9e_task_system.py`). 199/199 passando.
+- [x] **Primeira task real registrada**: `mqtt_client_service.reconnect(app)`
+      (stop+start, remonta o LWT do zero) exposta como
+      `device_manager.mqtt_reconnect` via `core.task_registry.register_task()`,
+      chamado em `AddonDeviceManager.register_routes()` — registro só em
+      memória (TASK_REGISTRY), nenhuma `ScheduledTask` é criada
+      automaticamente no banco (decisão: o operador cria a instância
+      real pela UI do monitor quando quiser, escolhendo esse target —
+      evitar decidir agendamento/aprovação sem ser pedido). 2 testes
+      novos. 250/250 passando.
 - [x] **Documento de arquitetura**: `docs/skills/05-proposta-addon-device-manager-e-mqtt.md`
       — decisões fechadas (sigla `dvm`, API mínima `get_value`/`set_value`/
       `on_change`, MQTT dentro do próprio Addon — Opção A, tabelas

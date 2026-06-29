@@ -37,6 +37,16 @@ class AddonDeviceManager(AddonBase):
         ]:
             app.register_blueprint(bp)
 
+        # Registro em memória (TASK_REGISTRY) — não grava nada no banco
+        # aqui (tabelas de task ainda não existem neste ponto do boot,
+        # ver core/module_manager.py: register_routes roda antes de
+        # create_all_pending_tables). A ScheduledTask real (com
+        # schedule/aprovação) é criada pelo operador via UI do monitor
+        # (/admin/tasks), escolhendo este target.
+        from core.task_registry import register_task
+        from addons.addon_device_manager.root.services import mqtt_client_service
+        register_task("device_manager.mqtt_reconnect", lambda: mqtt_client_service.reconnect(app))
+
     def get_transactions(self) -> list:
         return [
             {

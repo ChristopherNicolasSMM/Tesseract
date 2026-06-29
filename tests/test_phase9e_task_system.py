@@ -229,7 +229,36 @@ def test_stats_endpoint(app, client):
     assert "daily_chart" in data
 
 
-# ── Página HTML do monitor ───────────────────────────────────────────────────
+# ── Integração com addon_device_manager ──────────────────────────────────────
+
+def test_device_manager_registra_mqtt_reconnect_no_boot(app):
+    """
+    addon_device_manager.register_routes() registra
+    'device_manager.mqtt_reconnect' no TASK_REGISTRY assim que a app
+    sobe — confirma a integração Fase D <-> sistema de tasks (Fase 9).
+    """
+    with app.app_context():
+        assert "device_manager.mqtt_reconnect" in list_registered_tasks()
+
+
+def test_run_now_mqtt_reconnect_sem_cliente_ativo(app, client):
+    """
+    Sem MQTT_ENABLED=true (padrão em TESTING), mqtt_client_service
+    nunca foi iniciado — reconnect() deve retornar False sem lançar
+    exceção, e a task ainda é marcada 'success' (False é um retorno
+    válido, não um erro).
+    """
+    _login_admin(app, client)
+    r = client.post("/api/admin/tasks/", json={
+        "name": "MQTT Reconnect Teste", "task_type": "python_call",
+        "target": "device_manager.mqtt_reconnect", "schedule": "60",
+    })
+    task_id = r.get_json()["data"]["id"]
+
+    r = client.post(f"/api/admin/tasks/{task_id}/run")
+    assert r.status_code == 200
+    assert r.get_json()["data"]["result"] == "False"
+
 
 def test_pagina_monitor_carrega(app, client):
     _login_admin(app, client)

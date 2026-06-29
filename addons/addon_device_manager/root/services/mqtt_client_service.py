@@ -175,3 +175,24 @@ def publish(relative_topic: str, value, *, qos: int = 0, retain: bool = False) -
 
 def is_connected() -> bool:
     return _client is not None and _client.is_connected()
+
+
+def reconnect(app) -> bool:
+    """
+    Força stop() + start(app) — remonta o LWT (build_lwt_payload) do
+    zero, então qualquer DeviceActor marcado is_risk=true DEPOIS da
+    última conexão entra no LWT novo (limitação documentada na seção
+    5.3 do documento de arquitetura: o LWT só é remontado em
+    start()/connect(), não dinamicamente). Pensado para ser registrado
+    como ScheduledTask via core.task_registry (ver addon.py) — assim
+    um operador pode forçar a atualização do LWT pela UI do monitor de
+    tasks sem precisar reiniciar o processo inteiro do Tesseract.
+    Sem efeito (retorna False) se o cliente nunca foi iniciado
+    (MQTT_ENABLED=false) — não força conexão que não estava habilitada.
+    """
+    if _client is None:
+        logger.info("reconnect() chamado sem cliente MQTT ativo — ignorado (MQTT_ENABLED=false?).")
+        return False
+    stop()
+    start(app)
+    return True
