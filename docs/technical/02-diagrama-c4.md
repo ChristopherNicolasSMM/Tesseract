@@ -64,7 +64,7 @@ C4Component
     Container_Boundary(core, "Core") {
         Component(app_factory, "app_factory.py", "Flask factory", "Monta a aplicação, ordem de boot")
         Component(module_manager, "ModuleManager", "Python", "Descoberta, prefixo de tabela, sync de permissão/transação, ChoiceLoader de templates")
-        Component(event_bus, "EventBus", "Python", "Pub/sub em memória")
+        Component(event_bus, "EventBus", "Python", "Pub/sub em memória, síncrono — único canal cross-Addon (skill 02)")
         Component(auth, "auth.py / permissions.py", "Flask-Login", "Autenticação e RBAC")
         Component(crudgen, "crudgen/", "Jinja2", "Gera Service/Controller/Routes/Templates — smart-list completo")
         Component(versioning, "versioning.py / snapshot_service.py", "Python", "CodeSnapshot, diff, restauração")

@@ -122,7 +122,7 @@ arquivo gigante central.
 | Rota web | kebab-friendly, plural | `/brewstation/yeast-strains` |
 | Rota API | igual à web, sob `/api/` | `/api/brewstation/yeast-strains` |
 | Chave de config (`system_config`) | `snake_case` com namespace por ponto | `versioning.retention_days` |
-| Evento (EventBus) | namespace por ponto, presente do indicativo no domínio + passado na ação | `brewstation.device.status_changed` |
+| Evento (EventBus) | namespace por ponto, presente do indicativo no domínio + passado na ação | `device_manager.actor.value_changed` (real, em uso — ver tabela completa em `docs/technical/06-manutencao-e-expansao.md`) |
 | Permissão (RBAC) | `<plural>.<acao>` | `yeast_strains.trash` |
 
 ## Regra de ouro transversal

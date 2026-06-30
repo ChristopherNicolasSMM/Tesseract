@@ -98,7 +98,32 @@ Ainda não há rotina automatizada. Hoje significa:
 
 ## Pontos de extensão conhecidos
 
-- **`EventBus`** — pub/sub sem acoplamento direto entre Addons.
+- **`EventBus`** (`core/event_bus.py`) — pub/sub em memória, síncrono,
+  sem persistência. É o **único canal permitido** de comunicação
+  entre Addons diferentes (skill 02 — nunca FK/ORM direto cross-Addon).
+  Sempre ativo (sem gate de opt-in, ao contrário do cliente MQTT do
+  `addon_device_manager` ou do scheduler de Tasks — ver
+  `core/app_factory.py`), porque não envolve rede nem broker externo,
+  só um dicionário `{evento: [handlers]}` dentro do mesmo processo
+  Python. Um handler com erro nunca derruba o publicador nem os
+  demais handlers do mesmo evento (try/except por handler).
+
+  **Convenção de nome de evento** (skill 00): namespace por ponto,
+  presente do indicativo no domínio + passado na ação — ex.
+  `device_manager.actor.value_changed`.
+
+  **Eventos reais em uso hoje** (todo uso novo deve ser adicionado a
+  esta tabela):
+
+  | Evento | Publicado por | Assinado por | Propósito |
+  |---|---|---|---|
+  | `core.module.activated` | `core/module_manager.py`, a cada Addon/Feature ativado | `register_example_listener()` (`core/event_bus.py`) | Listener de demonstração desde a Fase 1 — prova que a infraestrutura funciona; nunca foi removido, sem lógica de negócio real |
+  | `device_manager.actor.value_changed` | `addons/addon_device_manager/root/services/device_service.py`, a cada `set_value()`/`update_from_mqtt()` | `addons/addon_brewstation/features/feature_mash_control/services/automation_engine.py` | Dispara o motor de automação reativo (`AutomationRule` sensor→condição→ação) — ver `docs/skills/05-proposta-addon-device-manager-e-mqtt.md`, seção 6, para o histórico completo (inclui uma correção real: a primeira versão desse motor criou um mecanismo de callback paralelo por engano, sem checar que o EventBus já resolvia) |
+
+  **Antes de criar um pub/sub novo, callback global, ou registro em
+  memória para comunicação cross-Addon**: verificar primeiro se
+  `event_bus.publish()`/`.subscribe()` já resolve — é a regra de ouro
+  registrada após o incidente acima.
 - **Hooks** (`*_hooks.py`) — customização sem editar código gerado.
 - **`core/versioning.py`/`snapshot_service.py`** — qualquer escrita de
   arquivo pode ser versionada, não só pelo CrudGen.
