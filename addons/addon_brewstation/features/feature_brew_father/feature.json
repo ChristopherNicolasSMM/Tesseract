@@ -1,0 +1,11 @@
+{
+  "name": "feature_brew_father",
+  "label": "Brew Father",
+  "version": "1.0.0",
+  "description": "Gerenciamento de receitas e processos de cervejaria",
+  "table_prefix_suffix": "brewfather",
+  "enabled": true,
+  "requires": [],
+  "provides": ["brewfather_lote", "brewfather_receita", "brewfather_ingrediente"],
+  "settings": {}
+}
