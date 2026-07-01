@@ -9,6 +9,7 @@ Menu/cards da home vêm do catálogo de Transações (Fase 7a) — nada
 hardcoded.
 """
 from collections import OrderedDict
+#from urllib import request
 
 from flask import Blueprint, render_template, redirect, url_for
 from flask_login import login_required, current_user
@@ -49,3 +50,4 @@ def home():
         "core/home.html",
         transactions_by_group=_visible_transactions_by_group(),
     )
+
