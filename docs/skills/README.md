@@ -29,6 +29,11 @@ Ordem de leitura recomendada:
    API/SQL Playground.
 8. **07-menu-personalizacao.md** — ordem e colapso de grupos de menu,
    com padrão global (admin) e override por usuário.
+9. **08-logging-observabilidade-e-administracao.md** — convenção de nome
+   de logger, separação de camadas de log (rotina vs. erro grave) com
+   enforcement técnico, formato de console, log global do Core (`logs/`
+   na raiz), e tela administrativa de consulta/exclusão de logs (RBAC
+   padrão, sem tier separado).
 
 ## Status
 
@@ -38,7 +43,7 @@ aqui (Core, RBAC, versionamento, CrudGen, `addon_brewstation` com 3
 Features/24 entidades, páginas HTML, Roles/Permissions, catálogo de
 Transações, Migrations, `addon_device_manager`) seguiu essas regras.
 
-As skills 06 e 07 estão em **fase de decisão** (schema e regra fechados,
+As skills 06, 07 e 08 estão em **fase de decisão** (schema e regra fechados,
 implementação ainda não autorizada) — ver o próprio arquivo de cada uma
 para o detalhe do que está `[DECIDIDO]` vs. `[ABERTO]`.
 
@@ -47,7 +52,8 @@ construídas, ou que têm pouca regra formal além do próprio código):
 
 - **EventBus** — convenção de nomes de evento e contrato de payload (hoje
   só `core.module.activated` existe; código já segue namespace por ponto,
-  mas não há skill dedicada)
+  reaproveitado pela skill 08 para nome de logger — mas o EventBus em si
+  ainda não tem skill dedicada)
 - **Motor de regras** (validação/visibilidade/cálculo, herdado do
   DEVStationFlask) — Fase 7b, não iniciada
 - **Designer visual drag-and-drop** — Fase 7c, não iniciada

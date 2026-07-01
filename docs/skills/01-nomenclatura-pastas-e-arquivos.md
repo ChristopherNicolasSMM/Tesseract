@@ -22,11 +22,26 @@ tesseract/
 ├── services/core/
 ├── templates/core/
 ├── static/core/
+├── logs/                        # log global do Core (skill 08) — ver nota abaixo
+│   └── core.log
 ├── addons/
 │   └── addon_[nome]/
 └── plugins/
     └── plugin_[nome]/
 ```
+
+> **Pasta `logs/` na raiz do projeto (adenda — skill 08, Logging e
+> Observabilidade)**: obrigatória, destino do log global do Core
+> (camada de erro grave — broker inacessível, payload inválido, falha
+> de fail-safe, etc.). **Não confundir** com a pasta `logs/` opcional
+> por Addon (nota logo abaixo, na seção de Addon) — são dois destinos
+> diferentes: log de rotina de um Addon específico nunca vai para
+> `tesseract/logs/`, e o log global do Core nunca vai para
+> `addons/addon_[nome]/logs/`. Path do arquivo (`core.log`) e regras de
+> rotação (tamanho/backup count) são definidos via `system_config`,
+> chaves `logging.*` (skill 03/08) — não hardcoded. Esta pasta não é
+> versionada (entra no `.gitignore`), só a estrutura em si é garantida
+> pelo boot do Core.
 
 ## Estrutura obrigatória de um Addon
 
@@ -63,15 +78,15 @@ addons/addon_[nome]/
 > intenção real (confirmada em conversa, e já em uso desde a Fase 9 —
 > `addons/addon_device_manager/root/...`). Corrigido aqui; `core/` sem
 > prefixo continua reservado exclusivamente ao Core do Tesseract
-> (`tesseract/core/`, ver seção seguinte) — nunca à subpasta interna de
+> (`tesseract/core/`, ver seção anterior) — nunca à subpasta interna de
 > um Addon.
 >
 > **Pasta `logs/` (adenda — docs/skills/05-proposta-addon-device-manager-e-mqtt.md,
 > Fase A)**: opcional, só existe se o `addon.json` do módulo declarar a
 > seção `logging` (skill 03). Quando presente, é o destino do log de
 > integração local daquele Addon — nunca do log global do Core (esse
-> continua centralizado, fora de qualquer pasta de Addon). O caminho
-> exato do arquivo dentro de `logs/` é definido por
+> continua centralizado em `tesseract/logs/`, ver seção anterior — skill
+> 08). O caminho exato do arquivo dentro de `logs/` é definido por
 > `logging.integration_log_path` no manifesto, não fixo nesta skill.
 >
 > **Arquivo `menu_config.json` na raiz do Addon (adenda — skill 07,
