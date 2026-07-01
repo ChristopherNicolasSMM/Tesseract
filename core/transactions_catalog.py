@@ -124,4 +124,14 @@ CORE_TRANSACTIONS = [
         "permission_required": "admin",
         "is_standard": True,
     },
+    {
+        "code": "TX_ADMIN_MENU_SETTINGS",
+        "label": "Configurações de Menu",
+        "group": "Admin",
+        "description": "Ordem e colapso padrão dos grupos de menu (skill 07).",
+        "icon": "bi-list-nested",
+        "route": "/admin/menu-settings",
+        "permission_required": "system_config.menu_settings",
+        "is_standard": True,
+    },
 ]

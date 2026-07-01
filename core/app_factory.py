@@ -68,6 +68,7 @@ def create_app(env: str | None = None) -> Flask:
         from model.core import designer_page, designer_component  # noqa: F401
         from model.core import scheduled_task, task_log, message_queue  # noqa: F401
         from model.core import model_definition, model_field_definition  # noqa: F401
+        from model.core import user_menu_preference  # noqa: F401
 
         app.module_manager.discover_and_register_addons(project_root / "addons")
         app.module_manager.apply_template_loader()
@@ -90,6 +91,7 @@ def create_app(env: str | None = None) -> Flask:
     from api.routes.core.admin.tasks import tasks_api_bp
     from api.routes.core.transactions import transactions_api_bp
     from api.routes.core.theme import theme_api_bp
+    from api.routes.core.menu_preferences import menu_preferences_api_bp
     from controller.core.pages import core_pages_bp
     from controller.core.admin_users import admin_users_bp
     from controller.core.admin_roles import admin_roles_bp
@@ -102,11 +104,13 @@ def create_app(env: str | None = None) -> Flask:
     from controller.core.admin_logs import admin_logs_bp
     from controller.core.profile import profile_bp
     from controller.core.model_builder import model_builder_bp
+    from controller.core.admin_menu_settings import admin_menu_settings_bp
     app.register_blueprint(auth_api_bp)
     app.register_blueprint(users_api_bp)
     app.register_blueprint(tasks_api_bp)
     app.register_blueprint(transactions_api_bp)
     app.register_blueprint(theme_api_bp)
+    app.register_blueprint(menu_preferences_api_bp)
     app.register_blueprint(core_pages_bp)
     app.register_blueprint(admin_users_bp)
     app.register_blueprint(admin_roles_bp)
@@ -120,6 +124,7 @@ def create_app(env: str | None = None) -> Flask:
     app.register_blueprint(admin_logs_bp)
     app.register_blueprint(profile_bp)
     app.register_blueprint(model_builder_bp)
+    app.register_blueprint(admin_menu_settings_bp)
 
     # Scheduler de tasks — opt-in via env (TASK_SCHEDULER_ENABLED=true),
     # nunca em modo de teste (mesmo padrão do cliente MQTT do
@@ -136,12 +141,23 @@ def create_app(env: str | None = None) -> Flask:
         transactions_by_group manualmente em todo render_template().
         Só roda para usuário autenticado (sidebar não existe na tela
         de login, que estende base_no_login.html).
+
+        menu_collapsed_groups/menu_sidebar_collapsed (skill 07):
+        resolvidos uma vez aqui e usados em core/base.html — evita
+        chamar resolve_menu_state() duas vezes (uma para ordenar os
+        grupos, outra para saber o estado de colapso).
         """
         from flask_login import current_user
         if not current_user.is_authenticated:
             return {}
-        from controller.core.pages import _visible_transactions_by_group
-        return {"transactions_by_group": _visible_transactions_by_group()}
+        from controller.core.pages import _visible_transactions_grouped_and_state
+
+        grouped, state = _visible_transactions_grouped_and_state(current_user.id)
+        return {
+            "transactions_by_group": grouped,
+            "menu_collapsed_groups": state["collapsed_groups"],
+            "menu_sidebar_collapsed": state["sidebar_collapsed"],
+        }
 
     @app.route("/health")
     def health():

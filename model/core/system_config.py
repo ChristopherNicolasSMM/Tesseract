@@ -31,6 +31,9 @@ class SystemConfig(db.Model):
             return value.lower() in ("true", "1", "yes")
         if value_type == "int":
             return int(value)
+        if value_type == "json":
+            import json
+            return json.loads(value)
         return value
 
     def __repr__(self) -> str:

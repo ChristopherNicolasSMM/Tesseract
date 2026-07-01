@@ -26,7 +26,7 @@
 
   {% block extra_css %}{% endblock %}
 </head>
-<body class="theme-{{ _theme }}" data-theme="{{ _theme }}">
+<body class="theme-{{ _theme }}{% if menu_sidebar_collapsed %} toggle-sidebar{% endif %}" data-theme="{{ _theme }}">
   <!-- ======= Header ======= -->
   <header id="header" class="header fixed-top d-flex align-items-center">
     <!--
@@ -115,13 +115,26 @@
       </li>
       {% for group_name, items in transactions_by_group.items() %}
       {% if group_name != 'Core' %}
-      <li class="nav-item">
-        <a class="nav-link" data-bs-target="#group-nav-{{ loop.index }}" data-bs-toggle="collapse" href="#">
-          <i class="bi bi-folder2-open"></i>
-          <span>{{ group_name }}</span>
-          <i class="bi bi-chevron-down ms-auto"></i>
-        </a>
-        <ul id="group-nav-{{ loop.index }}" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
+      {% set is_collapsed = group_name in menu_collapsed_groups %}
+      <li class="nav-item" data-menu-group="{{ group_name }}">
+        <div class="d-flex align-items-center">
+          <a class="nav-link {% if is_collapsed %}collapsed{% endif %} flex-grow-1" style="width:auto;"
+             data-bs-target="#group-nav-{{ loop.index }}" data-bs-toggle="collapse" href="#"
+             data-menu-group-toggle="{{ group_name }}">
+            <i class="bi bi-folder2-open"></i>
+            <span>{{ group_name }}</span>
+            <i class="bi bi-chevron-down ms-auto"></i>
+          </a>
+          <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 px-1"
+                  data-menu-group-move="up" data-menu-group="{{ group_name }}" title="Mover grupo para cima">
+            <i class="bi bi-arrow-up-short"></i>
+          </button>
+          <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 px-1"
+                  data-menu-group-move="down" data-menu-group="{{ group_name }}" title="Mover grupo para baixo">
+            <i class="bi bi-arrow-down-short"></i>
+          </button>
+        </div>
+        <ul id="group-nav-{{ loop.index }}" class="nav-content collapse {% if not is_collapsed %}show{% endif %}" data-bs-parent="#sidebar-nav">
           {% for tx in items %}
           <li>
             <a href="{{ tx.route }}">
@@ -207,6 +220,76 @@
 
     });
 
+  </script>
+
+  <!-- Personalização de menu (skill 07): sidebar aberta/fechada, grupo
+       colapsado/expandido, e ordem dos grupos — cada mudança feita
+       aqui é override individual do usuário (nunca mexe no padrão
+       global, que só o admin edita em /admin/menu-settings). -->
+  <script>
+  (function () {
+    'use strict';
+
+    function saveMenuPreference(partial) {
+      fetch('/api/menu-preference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(partial),
+      }).catch(function () { /* best-effort — falha de rede não deve travar a UI */ });
+    }
+
+    // Sidebar inteira aberta/fechada — web.js já faz o toggle visual
+    // (classe toggle-sidebar no body); aqui só persiste o resultado.
+    var sidebarBtn = document.querySelector('.toggle-sidebar-btn');
+    if (sidebarBtn) {
+      sidebarBtn.addEventListener('click', function () {
+        setTimeout(function () {
+          var collapsed = document.body.classList.contains('toggle-sidebar');
+          saveMenuPreference({ sidebar_collapsed: collapsed });
+        }, 0);
+      });
+    }
+
+    // Colapso por grupo — eventos nativos do Bootstrap Collapse.
+    document.querySelectorAll('#sidebar-nav .nav-content').forEach(function (el) {
+      el.addEventListener('shown.bs.collapse', persistCollapsedGroups);
+      el.addEventListener('hidden.bs.collapse', persistCollapsedGroups);
+    });
+
+    function persistCollapsedGroups() {
+      var collapsed = [];
+      document.querySelectorAll('#sidebar-nav > li[data-menu-group]').forEach(function (li) {
+        var content = li.querySelector('.nav-content');
+        if (content && !content.classList.contains('show')) {
+          collapsed.push(li.getAttribute('data-menu-group'));
+        }
+      });
+      saveMenuPreference({ collapsed_groups: collapsed });
+    }
+
+    // Reordenar grupos — setas para cima/baixo (v1 da skill 07: só
+    // grupo inteiro, não item individual).
+    function currentGroupOrder() {
+      return Array.from(document.querySelectorAll('#sidebar-nav > li[data-menu-group]'))
+        .map(function (li) { return li.getAttribute('data-menu-group'); });
+    }
+
+    document.querySelectorAll('[data-menu-group-move]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var li = btn.closest('li[data-menu-group]');
+        var direction = btn.getAttribute('data-menu-group-move');
+        var sibling = direction === 'up' ? li.previousElementSibling : li.nextElementSibling;
+        if (!sibling || !sibling.hasAttribute('data-menu-group')) return;
+
+        if (direction === 'up') {
+          li.parentNode.insertBefore(li, sibling);
+        } else {
+          li.parentNode.insertBefore(sibling, li);
+        }
+        saveMenuPreference({ group_order: currentGroupOrder() });
+      });
+    });
+  })();
   </script>
   {% block extra_js %}{% endblock %}
 </body>

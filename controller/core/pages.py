@@ -19,7 +19,13 @@ from model.core.transaction import Transaction
 core_pages_bp = Blueprint("core_pages", __name__)
 
 
-def _visible_transactions_by_group() -> OrderedDict:
+def _visible_transactions_grouped_and_state(user_id: int | None = None) -> tuple[OrderedDict, dict]:
+    """
+    Retorna (grupos ordenados, estado resolvido de colapso/sidebar) em
+    uma única resolução — usado tanto por home() quanto pelo
+    context_processor de core/app_factory.py, que também precisa do
+    estado de colapso (skill 07) sem chamar resolve_menu_state() de novo.
+    """
     all_tx = (
         Transaction.query.filter_by(is_active=True)
         .order_by(Transaction.group, Transaction.label)
@@ -33,7 +39,14 @@ def _visible_transactions_by_group() -> OrderedDict:
     grouped: OrderedDict = OrderedDict()
     for tx in visible:
         grouped.setdefault(tx.group, []).append(tx)
-    return grouped
+
+    from services.core.menu_preference_service import resolve_menu_state
+    state = resolve_menu_state(user_id, list(grouped.keys()))
+
+    ordered: OrderedDict = OrderedDict()
+    for group_name in state["ordered_groups"]:
+        ordered[group_name] = grouped[group_name]
+    return ordered, state
 
 
 @core_pages_bp.route("/login", methods=["GET"])
@@ -46,8 +59,5 @@ def login_page():
 @core_pages_bp.route("/", methods=["GET"])
 @login_required
 def home():
-    return render_template(
-        "core/home.html",
-        transactions_by_group=_visible_transactions_by_group(),
-    )
+    return render_template("core/home.html")
 

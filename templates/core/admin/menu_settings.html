@@ -1,0 +1,82 @@
+{% extends "core/base.html" %}
+{% block title %}Configurações de Menu - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Configurações de Menu</h1>
+  <p class="text-muted small mb-0">
+    Padrão global (skill 07) — vale para todo usuário que não tiver
+    feito seu próprio ajuste na sidebar (arrastar/colapsar lá sempre
+    vira preferência individual, sem afetar isto aqui).
+  </p>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <form method="post" action="{{ url_for('admin_menu_settings.save') }}">
+        <h5 class="card-title">Ordem dos grupos</h5>
+        <p class="small text-muted">Use as setas para reordenar. Só reordena grupos inteiros (skill 07, v1).</p>
+        <ul class="list-group mb-4" id="groupOrderList">
+          {% for group in ordered_groups %}
+          <li class="list-group-item d-flex justify-content-between align-items-center" data-group="{{ group }}">
+            <span>
+              {{ group }}
+              <input type="hidden" name="group_order" value="{{ group }}">
+            </span>
+            <span>
+              <button type="button" class="btn btn-sm btn-outline-secondary" data-move="up"><i class="bi bi-arrow-up"></i></button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" data-move="down"><i class="bi bi-arrow-down"></i></button>
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+
+        <h5 class="card-title">Grupos colapsados por padrão</h5>
+        <div class="mb-4">
+          {% for group in ordered_groups %}
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="default_collapsed_groups" value="{{ group }}"
+                   id="collapsed_{{ loop.index }}" {% if group in default_collapsed %}checked{% endif %}>
+            <label class="form-check-label" for="collapsed_{{ loop.index }}">{{ group }}</label>
+          </div>
+          {% endfor %}
+        </div>
+
+        <h5 class="card-title">Sidebar</h5>
+        <div class="form-check mb-4">
+          <input class="form-check-input" type="checkbox" name="default_sidebar_collapsed" id="defaultSidebarCollapsed"
+                 value="1" {% if default_sidebar_collapsed %}checked{% endif %}>
+          <label class="form-check-label" for="defaultSidebarCollapsed">Sidebar inicia fechada por padrão</label>
+        </div>
+
+        <button class="btn btn-primary" type="submit">Salvar padrão global</button>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  'use strict';
+  document.querySelectorAll('#groupOrderList [data-move]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var li = btn.closest('li[data-group]');
+      var direction = btn.getAttribute('data-move');
+      var sibling = direction === 'up' ? li.previousElementSibling : li.nextElementSibling;
+      if (!sibling) return;
+      if (direction === 'up') {
+        li.parentNode.insertBefore(li, sibling);
+      } else {
+        li.parentNode.insertBefore(sibling, li);
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}
