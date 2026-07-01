@@ -1,0 +1,24 @@
+{% extends "core/base.html" %}
+{% block title %}Log - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Conteúdo do Log</h1>
+  <p class="text-muted small">
+    <a href="{{ url_for('admin_logs.manage') }}">&larr; Voltar</a>
+    {% if truncated %} — mostrando só as últimas {{ lines|length }} linhas.{% endif %}
+  </p>
+</div>
+
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      {% if lines %}
+      <pre class="bg-dark text-light p-3" style="max-height: 70vh; overflow-y: auto; font-size: 0.85rem; white-space: pre-wrap;">{% for line in lines %}{{ line }}
+{% endfor %}</pre>
+      {% else %}
+      <p class="text-muted">Arquivo vazio.</p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -13,3 +13,6 @@ docs/skills/.DS_Store
 
 # Logs de integração locais por Addon (skill 01/03 - Fase A)
 addons/*/logs/*.log*
+
+# Log global do Core (skill 08)
+/logs/*.log*

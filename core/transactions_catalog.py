@@ -114,4 +114,14 @@ CORE_TRANSACTIONS = [
         "permission_required": "model_definitions.view",
         "is_standard": True,
     },
+    {
+        "code": "TX_ADMIN_LOGS",
+        "label": "Logs",
+        "group": "Admin",
+        "description": "Log global do Core e logs de integração locais dos Addons — consulta e exclusão (skill 08).",
+        "icon": "bi-file-text-fill",
+        "route": "/admin/logs",
+        "permission_required": "admin",
+        "is_standard": True,
+    },
 ]

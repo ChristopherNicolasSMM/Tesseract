@@ -17,7 +17,7 @@ from pathlib import Path
 from flask import Flask, jsonify
 
 from core.config import get_config
-from core.logging_config import configure_logging
+from core.logging_config import configure_logging, apply_logging_level_overrides
 from core.db import init_db
 from core.event_bus import event_bus, register_example_listener
 from core.module_manager import ModuleManager
@@ -37,7 +37,15 @@ def create_app(env: str | None = None) -> Flask:
     config_cls = get_config(env)
     app.config.from_object(config_cls)
 
-    configure_logging(app.config["LOG_LEVEL"])
+    # Handler de arquivo global (logs/core.log) desligado em TESTING —
+    # mesmo padrão já usado pro cliente MQTT e pro scheduler de tasks
+    # (nunca em modo de teste): evita escrever centenas de linhas em
+    # disco a cada execução da suíte e evita lock de arquivo no
+    # Windows entre apps de teste sucessivos (skill 08).
+    configure_logging(
+        app.config["LOG_LEVEL"],
+        enable_file_handler=not app.config.get("TESTING", False),
+    )
 
     init_db(app)
     init_auth(app)
@@ -75,6 +83,7 @@ def create_app(env: str | None = None) -> Flask:
         sync_core_transactions()
 
         ensure_default_system_config()
+        apply_logging_level_overrides()
 
     from api.routes.core.auth import auth_api_bp
     from api.routes.core.admin.users import users_api_bp
@@ -90,6 +99,7 @@ def create_app(env: str | None = None) -> Flask:
     from controller.core.admin_tasks import admin_tasks_bp
     from controller.core.designer import designer_bp, designer_view_bp
     from controller.core.admin_transactions import admin_transactions_bp
+    from controller.core.admin_logs import admin_logs_bp
     from controller.core.profile import profile_bp
     from controller.core.model_builder import model_builder_bp
     app.register_blueprint(auth_api_bp)
@@ -107,6 +117,7 @@ def create_app(env: str | None = None) -> Flask:
     app.register_blueprint(designer_bp)
     app.register_blueprint(designer_view_bp)
     app.register_blueprint(admin_transactions_bp)
+    app.register_blueprint(admin_logs_bp)
     app.register_blueprint(profile_bp)
     app.register_blueprint(model_builder_bp)
 

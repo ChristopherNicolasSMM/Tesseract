@@ -1,0 +1,57 @@
+{% extends "core/base.html" %}
+{% block title %}Logs - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Logs</h1>
+  <p class="text-muted small">Log global do Core e logs de integração locais de cada Addon (skill 08).</p>
+</div>
+
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Origem</th>
+            <th>Arquivo</th>
+            <th>Tamanho</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in sources %}
+          <tr>
+            <td>{{ s.label }}</td>
+            <td><code>{{ s.path }}</code></td>
+            <td>{{ "%.1f"|format(s.size_bytes / 1024) }} KB</td>
+            <td>
+              {% if s.exists %}
+                <span class="badge bg-success">Existe</span>
+              {% else %}
+                <span class="badge bg-secondary">Ainda não criado</span>
+              {% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('admin_logs.view', source_id=s.id) }}"
+                 class="btn btn-sm btn-outline-primary {{ 'disabled' if not s.exists }}">
+                Ver conteúdo
+              </a>
+              <form method="post" action="{{ url_for('admin_logs.delete', source_id=s.id) }}"
+                    class="d-inline"
+                    onsubmit="return confirm('Apagar este arquivo de log? Ele é recriado na próxima escrita.');">
+                <button type="submit" class="btn btn-sm btn-outline-danger" {{ 'disabled' if not s.exists }}>
+                  Apagar
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-muted">Nenhuma fonte de log conhecida.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}
