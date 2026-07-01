@@ -148,6 +148,30 @@ def test_associar_permissoes_a_role(app, client):
         assert "teste.list" in [p.name for p in role.permissions]
 
 
+def test_tela_detalhe_role_exibe_controles_de_selecionar_todas(app, client):
+    """
+    Bug reportado: /admin/roles/ precisava de opção de selecionar todas
+    as permissões de um grupo, além de todas de uma vez. Cobre só a
+    presença dos controles no HTML — a marcação/desmarcação em si é
+    client-side (JS), fora do escopo de teste de integração Flask.
+    """
+    _login_admin(app, client)
+    with app.app_context():
+        role = Role(name="leitor_geral")
+        perm_a = Permission(name="teste.list")
+        perm_b = Permission(name="teste.create")
+        db.session.add_all([role, perm_a, perm_b])
+        db.session.commit()
+        role_id = role.id
+
+    resp = client.get(f"/admin/roles/{role_id}")
+    assert b"data-perm-select-all" in resp.data
+    assert b"data-perm-clear-all" in resp.data
+    assert b'data-perm-group-toggle="teste"' in resp.data
+    assert b'data-perm-group-counter="teste"' in resp.data
+    assert b'data-perm-group="teste"' in resp.data
+
+
 def test_nao_permite_excluir_role_com_usuario_atribuido(app, client):
     _login_admin(app, client)
     with app.app_context():

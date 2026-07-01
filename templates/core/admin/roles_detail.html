@@ -62,22 +62,33 @@
           </p>
           <form method="post" action="{{ url_for('admin_roles.update_permissions', role_id=role.id) }}">
             {% set role_perm_ids = role.permissions | map(attribute='id') | list %}
+            <div class="d-flex justify-content-end gap-2 mb-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary" data-perm-select-all>Marcar todas</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" data-perm-clear-all>Desmarcar todas</button>
+            </div>
             <div class="accordion" id="permAccordion">
               {% for group_name, perms in permissions_grouped.items() %}
               <div class="accordion-item">
-                <h2 class="accordion-header">
-                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#perm-{{ group_name }}">
+                <h2 class="accordion-header d-flex align-items-center">
+                  <button class="accordion-button collapsed flex-grow-1" style="width:auto;" type="button" data-bs-toggle="collapse" data-bs-target="#perm-{{ group_name }}">
                     {{ group_name }}
-                    <span class="badge bg-info ms-2">
+                    <span class="badge bg-info ms-2" data-perm-group-counter="{{ group_name }}">
                       {{ perms | selectattr('id', 'in', role_perm_ids) | list | length }}/{{ perms | length }}
                     </span>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-link text-decoration-none flex-shrink-0 me-2"
+                          data-perm-group-toggle="{{ group_name }}">
+                    Marcar/desmarcar grupo
                   </button>
                 </h2>
                 <div class="accordion-collapse collapse" id="perm-{{ group_name }}">
                   <div class="accordion-body">
                     {% for perm in perms %}
                     <div class="form-check">
-                      <input class="form-check-input" type="checkbox" name="permission_ids" id="perm_{{ perm.id }}" value="{{ perm.id }}" {% if perm.id in role_perm_ids %}checked{% endif %}>
+                      <input class="form-check-input" type="checkbox" name="permission_ids"
+                             id="perm_{{ perm.id }}" value="{{ perm.id }}"
+                             data-perm-checkbox data-perm-group="{{ group_name }}"
+                             {% if perm.id in role_perm_ids %}checked{% endif %}>
                       <label class="form-check-label" for="perm_{{ perm.id }}">
                         {{ perm.name }}
                         {% if perm.description %}<span class="text-muted small"> — {{ perm.description }}</span>{% endif %}
@@ -98,4 +109,62 @@
     </div>
   </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  'use strict';
+
+  function checkboxesOf(group) {
+    const selector = group
+      ? `[data-perm-checkbox][data-perm-group="${group}"]`
+      : '[data-perm-checkbox]';
+    return Array.from(document.querySelectorAll(selector));
+  }
+
+  function updateGroupCounter(group) {
+    const counter = document.querySelector(`[data-perm-group-counter="${group}"]`);
+    if (!counter) return;
+    const boxes = checkboxesOf(group);
+    const checked = boxes.filter((b) => b.checked).length;
+    counter.textContent = `${checked}/${boxes.length}`;
+  }
+
+  function updateAllCounters() {
+    document.querySelectorAll('[data-perm-group-counter]').forEach((el) => {
+      updateGroupCounter(el.getAttribute('data-perm-group-counter'));
+    });
+  }
+
+  function setAll(group, checked) {
+    checkboxesOf(group).forEach((b) => { b.checked = checked; });
+    if (group) {
+      updateGroupCounter(group);
+    } else {
+      updateAllCounters();
+    }
+  }
+
+  const selectAllBtn = document.querySelector('[data-perm-select-all]');
+  const clearAllBtn = document.querySelector('[data-perm-clear-all]');
+  if (selectAllBtn) selectAllBtn.addEventListener('click', () => setAll(null, true));
+  if (clearAllBtn) clearAllBtn.addEventListener('click', () => setAll(null, false));
+
+  document.querySelectorAll('[data-perm-group-toggle]').forEach((btn) => {
+    btn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const group = btn.getAttribute('data-perm-group-toggle');
+      const boxes = checkboxesOf(group);
+      const allChecked = boxes.length > 0 && boxes.every((b) => b.checked);
+      setAll(group, !allChecked);
+    });
+  });
+
+  document.querySelectorAll('[data-perm-checkbox]').forEach((box) => {
+    box.addEventListener('change', () => updateGroupCounter(box.getAttribute('data-perm-group')));
+  });
+})();
+</script>
 {% endblock %}
