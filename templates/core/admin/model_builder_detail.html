@@ -1,0 +1,182 @@
+{% extends "core/base.html" %}
+{% block title %}Model Builder: {{ definition.model_name }} - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Model Builder: {{ definition.model_name }}</h1>
+  <a href="{{ url_for('model_builder.manage') }}">&larr; Voltar para a lista</a>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  <div class="row">
+    <div class="col-lg-5">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Destino</h5>
+          <p class="mb-1"><strong>Addon:</strong> {{ definition.target_addon_name }}</p>
+          <p class="mb-1"><strong>Feature:</strong> {{ definition.target_feature_name or '— (núcleo do Addon)' }}</p>
+          <p class="mb-1"><strong>Tabela curta:</strong> <code>{{ definition.table_short_name }}</code></p>
+          <p class="mb-0"><strong>Status:</strong>
+            {% if definition.status == 'generated' %}<span class="badge bg-success">Gerado</span>
+            {% elif definition.status == 'error' %}<span class="badge bg-danger">Erro</span>
+            {% else %}<span class="badge bg-secondary">Rascunho</span>{% endif %}
+          </p>
+        </div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-body">
+          <h5 class="card-title">Gerar</h5>
+          <p class="small text-muted">
+            Escreve o model.py, roda o pipeline do CrudGen (Service/
+            Controller/Routes/Templates + hooks), sincroniza permissões,
+            atualiza o i18n e sempre gera uma migration via Flask-Migrate
+            (nunca aplica sozinho — <code>flask db upgrade</code> continua manual).
+          </p>
+          <form method="post" action="{{ url_for('model_builder.generate', definition_id=definition.id) }}"
+                onsubmit="return confirm('Gerar código a partir deste rascunho?');">
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" name="overwrite" id="overwrite" value="1">
+              <label class="form-check-label" for="overwrite">Sobrescrever arquivos já existentes</label>
+            </div>
+            <button class="btn btn-success" type="submit" {% if not definition.fields %}disabled{% endif %}>
+              <i class="bi bi-lightning-fill"></i> Gerar
+            </button>
+            {% if not definition.fields %}
+              <p class="small text-muted mt-1">Adicione pelo menos um campo antes de gerar.</p>
+            {% endif %}
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Campos</h5>
+
+          <table class="table table-sm table-striped">
+            <thead>
+              <tr>
+                <th>Nome</th><th>Tipo</th><th>Label</th><th>Regras</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for f in definition.fields %}
+              <tr>
+                <td><code>{{ f.field_name }}</code></td>
+                <td>{{ f.field_type }}{% if f.field_type == 'foreign_key' %} &rarr; <code>{{ f.fk_target_table }}</code>{% endif %}</td>
+                <td>{{ f.label_text }}</td>
+                <td class="small text-muted">
+                  {% if f.is_required %}obrigatório{% endif %}
+                  {% if f.unique %} único{% endif %}
+                  {% if f.max_length %} max({{ f.max_length }}){% endif %}
+                </td>
+                <td>
+                  <form method="post" action="{{ url_for('model_builder.delete_field', definition_id=definition.id, field_id=f.id) }}"
+                        onsubmit="return confirm('Remover este campo?');">
+                    <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash"></i></button>
+                  </form>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="5" class="text-muted">Nenhum campo ainda.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+          <hr>
+
+          <h6>Adicionar campo</h6>
+          <form method="post" action="{{ url_for('model_builder.add_field', definition_id=definition.id) }}" class="row g-2">
+            <div class="col-md-4">
+              <label class="form-label">Nome (snake_case)</label>
+              <input type="text" name="field_name" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Tipo</label>
+              <select name="field_type" class="form-select" id="fieldTypeSelect">
+                {% for t in field_types %}
+                <option value="{{ t }}">{{ t }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Label (PT-BR)</label>
+              <input type="text" name="label_text" class="form-control" required>
+            </div>
+
+            <div class="col-md-4" id="fkTargetWrapper" style="display:none;">
+              <label class="form-label">Tabela referenciada (FK)</label>
+              <select name="fk_target_table" class="form-select">
+                <option value="">—</option>
+                {% for c in fk_candidates %}
+                <option value="{{ c.table_name }}">{{ c.label }}</option>
+                {% endfor %}
+              </select>
+              <p class="small text-muted mb-0">
+                Só lista tabelas do mesmo Addon + tesseract_user (skill 02).
+              </p>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Tamanho máximo (só string)</label>
+              <input type="number" name="max_length" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Valor padrão</label>
+              <input type="text" name="default_value" class="form-control">
+            </div>
+
+            <div class="col-12 d-flex gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="nullable" id="nullable" checked>
+                <label class="form-check-label" for="nullable">Aceita nulo</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="unique" id="unique">
+                <label class="form-check-label" for="unique">Único</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="is_required" id="is_required">
+                <label class="form-check-label" for="is_required">Obrigatório (form)</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="is_listview_column" id="is_listview_column" checked>
+                <label class="form-check-label" for="is_listview_column">Coluna na listagem</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="is_form_field" id="is_form_field" checked>
+                <label class="form-check-label" for="is_form_field">Aparece no form</label>
+              </div>
+            </div>
+
+            <div class="col-12 mt-2">
+              <button class="btn btn-primary" type="submit">Adicionar campo</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  'use strict';
+  const select = document.getElementById('fieldTypeSelect');
+  const fkWrapper = document.getElementById('fkTargetWrapper');
+  if (!select || !fkWrapper) return;
+
+  function syncFkVisibility() {
+    fkWrapper.style.display = select.value === 'foreign_key' ? '' : 'none';
+  }
+  select.addEventListener('change', syncFkVisibility);
+  syncFkVisibility();
+})();
+</script>
+{% endblock %}

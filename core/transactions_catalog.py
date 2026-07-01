@@ -104,4 +104,14 @@ CORE_TRANSACTIONS = [
         "permission_required": "admin",
         "is_standard": True,
     },
+    {
+        "code": "TX_ADMIN_MODEL_BUILDER",
+        "label": "Model Builder",
+        "group": "Ferramentas de Desenvolvimento",
+        "description": "Cria Model + Service/Controller/Routes/Templates (equivalente web ao CrudGen via CLI) — skill 06.",
+        "icon": "bi-diagram-3-fill",
+        "route": "/admin/model-builder",
+        "permission_required": "model_definitions.view",
+        "is_standard": True,
+    },
 ]

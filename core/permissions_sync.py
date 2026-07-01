@@ -87,3 +87,34 @@ def sync_model_permissions(model_class, plural: str) -> dict:
         logger.info("Permissões sincronizadas (novas): %s", ", ".join(created))
 
     return {"created": created, "existing": existing}
+
+
+# ── Permissões fixas de telas de Core (não-CrudGen) ─────────────────────────
+# Mesmo padrão "código lidera, banco segue" do catálogo de Transações
+# (core/transactions_catalog.py + core/transactions_sync.py) — aqui para
+# telas de Core escritas à mão (skill 00, Adendo Fase 7a) que precisam de
+# permissão própria em vez de reaproveitar o "admin" genérico.
+CORE_FIXED_PERMISSIONS = [
+    ("model_definitions.create", "Criar/editar rascunho no Model Builder"),
+    ("model_definitions.generate", "Disparar geração de código a partir de um rascunho do Model Builder"),
+    ("model_definitions.view", "Ver rascunhos do Model Builder"),
+]
+
+
+def sync_core_fixed_permissions() -> dict:
+    from model.core.permission import Permission
+
+    created, existing = [], []
+    for perm_name, description in CORE_FIXED_PERMISSIONS:
+        perm = Permission.query.filter_by(name=perm_name).first()
+        if perm is None:
+            db.session.add(Permission(name=perm_name, description=description))
+            created.append(perm_name)
+        else:
+            existing.append(perm_name)
+    db.session.commit()
+
+    if created:
+        logger.info("Permissões fixas de Core sincronizadas (novas): %s", ", ".join(created))
+
+    return {"created": created, "existing": existing}

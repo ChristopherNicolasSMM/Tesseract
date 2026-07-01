@@ -59,6 +59,7 @@ def create_app(env: str | None = None) -> Flask:
         from model.core import odata_connection  # noqa: F401
         from model.core import designer_page, designer_component  # noqa: F401
         from model.core import scheduled_task, task_log, message_queue  # noqa: F401
+        from model.core import model_definition, model_field_definition  # noqa: F401
 
         app.module_manager.discover_and_register_addons(project_root / "addons")
         app.module_manager.apply_template_loader()
@@ -66,6 +67,9 @@ def create_app(env: str | None = None) -> Flask:
         app.module_manager.create_all_pending_tables()
         app.module_manager.sync_all_permissions()
         app.module_manager.sync_all_transactions()
+
+        from core.permissions_sync import sync_core_fixed_permissions
+        sync_core_fixed_permissions()
 
         from core.transactions_sync import sync_core_transactions
         sync_core_transactions()
@@ -87,6 +91,7 @@ def create_app(env: str | None = None) -> Flask:
     from controller.core.designer import designer_bp, designer_view_bp
     from controller.core.admin_transactions import admin_transactions_bp
     from controller.core.profile import profile_bp
+    from controller.core.model_builder import model_builder_bp
     app.register_blueprint(auth_api_bp)
     app.register_blueprint(users_api_bp)
     app.register_blueprint(tasks_api_bp)
@@ -103,6 +108,7 @@ def create_app(env: str | None = None) -> Flask:
     app.register_blueprint(designer_view_bp)
     app.register_blueprint(admin_transactions_bp)
     app.register_blueprint(profile_bp)
+    app.register_blueprint(model_builder_bp)
 
     # Scheduler de tasks — opt-in via env (TASK_SCHEDULER_ENABLED=true),
     # nunca em modo de teste (mesmo padrão do cliente MQTT do

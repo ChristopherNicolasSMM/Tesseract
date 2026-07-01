@@ -1,0 +1,66 @@
+"""
+{{ output_module_path }}/model/{{ class_name_lower }}.py
+
+Gerado pelo Model Builder Visual (skill 06) a partir de
+ModelDefinition #{{ model_definition_id }} — NÃO editar diretamente
+(reflete o rascunho salvo na tela). Campos adicionados depois da
+geração via código direto continuam funcionando normalmente, só não
+aparecem de volta na tela do Model Builder (ela não faz reverse-parse
+de model.py).
+"""
+from datetime import datetime, timezone
+
+from core.db import db
+from annotations import label, plural{% if required_fields %}, required{% endif %}{% if max_length_fields %}, max_length{% endif %}
+
+
+@label("{{ label }}")
+@plural("{{ plural }}")
+{%- for f in required_fields %}
+@required("{{ f.field_name }}")
+{%- endfor %}
+{%- for f in max_length_fields %}
+@max_length("{{ f.field_name }}", {{ f.max_length }})
+{%- endfor %}
+class {{ class_name }}(db.Model):
+    __tablename__ = "{{ table_short_name }}"  # nome curto — CrudGen/ModuleManager aplicam o prefixo
+
+    id = db.Column(db.Integer, primary_key=True)
+{% for f in fields %}
+    {{ f.field_name }} = db.Column(
+        {{ f.sqlalchemy_column }}{% if f.field_type == "string" and f.max_length %}({{ f.max_length }}){% endif %},
+        {%- if f.field_type == "foreign_key" %}
+        db.ForeignKey("{{ f.fk_target_table }}.id"),
+        {%- endif %}
+        nullable={{ f.nullable }},
+        {%- if f.unique %}
+        unique=True,
+        {%- endif %}
+        {%- if f.default_value is not none %}
+        default={{ f.default_value_repr }},
+        {%- endif %}
+    )
+{% endfor %}
+    is_deleted = db.Column(db.Boolean, default=False, nullable=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+{%- for f in fields %}
+            "{{ f.field_name }}": self.{{ f.field_name }},
+{%- endfor %}
+            "is_deleted": self.is_deleted,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def __repr__(self) -> str:
+        return f"<{{ class_name }} id={self.id}>"

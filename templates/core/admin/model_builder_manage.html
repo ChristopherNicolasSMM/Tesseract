@@ -1,0 +1,72 @@
+{% extends "core/base.html" %}
+{% block title %}Model Builder - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Model Builder</h1>
+  <p class="text-muted small mb-0">
+    Equivalente web ao CrudGen via CLI (<code>python run.py generate --model</code>).
+    Nesta versão só cobre Model dentro de um Addon/Feature já existente —
+    criar Addon/Feature do zero pela tela é uma próxima etapa (skill 06).
+  </p>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#novoModelForm">
+        <i class="bi bi-plus-lg"></i> Novo Model
+      </button>
+      <div class="collapse" id="novoModelForm">
+        <form method="post" action="{{ url_for('model_builder.create') }}" class="row g-3 mb-3">
+          <div class="col-md-3">
+            <label class="form-label">Addon (sem prefixo "addon_")</label>
+            <input type="text" name="target_addon_name" class="form-control" placeholder="ex.: brewstation" required>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Feature (opcional, sem prefixo "feature_")</label>
+            <input type="text" name="target_feature_name" class="form-control" placeholder="deixe em branco para núcleo do Addon">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Nome do Model (PascalCase)</label>
+            <input type="text" name="model_name" class="form-control" placeholder="ex.: YeastStrain" required>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Nome curto da tabela (snake_case)</label>
+            <input type="text" name="table_short_name" class="form-control" placeholder="ex.: yeast_strain" required>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-primary" type="submit">Criar rascunho</button>
+          </div>
+        </form>
+      </div>
+
+      <table class="table table-striped">
+        <thead><tr><th>Model</th><th>Addon / Feature</th><th>Tabela</th><th>Status</th><th>Ações</th></tr></thead>
+        <tbody>
+          {% for d in definitions %}
+          <tr>
+            <td>{{ d.model_name }}</td>
+            <td>{{ d.target_addon_name }}{% if d.target_feature_name %} / {{ d.target_feature_name }}{% endif %}</td>
+            <td><code>{{ d.table_short_name }}</code></td>
+            <td>
+              {% if d.status == 'generated' %}<span class="badge bg-success">Gerado</span>
+              {% elif d.status == 'error' %}<span class="badge bg-danger">Erro</span>
+              {% else %}<span class="badge bg-secondary">Rascunho</span>{% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('model_builder.detail', definition_id=d.id) }}" class="btn btn-sm btn-outline-primary">Ver / Editar</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-muted">Nenhum rascunho criado ainda.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}
