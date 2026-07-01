@@ -21,14 +21,26 @@ Ordem de leitura recomendada:
 5. **04-padrao-de-documentacao.md** — padrão de documentação técnica
    (C4, fluxos, ER/MER, casos de uso) e manual do usuário final, e onde cada
    um vive em `docs/`.
+6. **05-proposta-addon-device-manager-e-mqtt.md** — convenção EventBus vs.
+   MQTT, promoção de Feature a Addon independente, schema de dispositivos
+   IoT e fail-safe (LWT agregado).
+7. **06-model-builder-e-playground.md** — tela web de criação de Model/
+   Addon/Feature (equivalente ao CrudGen via CLI, herdado do PyTeca) e
+   API/SQL Playground.
+8. **07-menu-personalizacao.md** — ordem e colapso de grupos de menu,
+   com padrão global (admin) e override por usuário.
 
 ## Status
 
-As 5 skills de fundação (nomenclatura, estrutura, parâmetros, documentação)
+As skills de fundação (nomenclatura, estrutura, parâmetros, documentação)
 estão completas e em uso ativo — toda a construção real do Tesseract até
 aqui (Core, RBAC, versionamento, CrudGen, `addon_brewstation` com 3
 Features/24 entidades, páginas HTML, Roles/Permissions, catálogo de
-Transações, Migrations) seguiu essas regras.
+Transações, Migrations, `addon_device_manager`) seguiu essas regras.
+
+As skills 06 e 07 estão em **fase de decisão** (schema e regra fechados,
+implementação ainda não autorizada) — ver o próprio arquivo de cada uma
+para o detalhe do que está `[DECIDIDO]` vs. `[ABERTO]`.
 
 Ainda não cobertos por uma skill própria (peças que ainda não foram
 construídas, ou que têm pouca regra formal além do próprio código):

@@ -34,6 +34,7 @@ tesseract/
 addons/addon_[nome]/
 ├── addon.json                  # manifesto — ver skill 03
 ├── addon.py                    # classe AddonX(AddonBase)
+├── menu_config.json            # opcional — ordem/label/ícone padrão do grupo de menu do Addon (skill 07)
 ├── root/                       # parte "núcleo" do addon, sem feature específica
 │   ├── model/
 │   ├── controller/
@@ -72,6 +73,16 @@ addons/addon_[nome]/
 > continua centralizado, fora de qualquer pasta de Addon). O caminho
 > exato do arquivo dentro de `logs/` é definido por
 > `logging.integration_log_path` no manifesto, não fixo nesta skill.
+>
+> **Arquivo `menu_config.json` na raiz do Addon (adenda — skill 07,
+> Model Builder/Personalização de Menu)**: opcional. Antes desta
+> adenda, `menu_config.json` só existia por Feature; passa a existir
+> também na raiz do Addon e na raiz do Plugin (ver estrutura de Plugin
+> abaixo), com o mesmo papel: declarar o **valor de autoria** do grupo
+> de menu daquele módulo (ordem relativa sugerida, label, ícone) —
+> nunca o **override de runtime** feito pelo admin ou pelo usuário
+> final, que vive em `system_config`/`tesseract_user_menu_preference`
+> (skill 07), não neste arquivo.
 
 ## Estrutura obrigatória de um Plugin
 
@@ -79,6 +90,7 @@ addons/addon_[nome]/
 plugins/plugin_[nome]/
 ├── plugin.json                 # manifesto — ver skill 03
 ├── plugin.py                   # classe PluginX(PluginBase)
+├── menu_config.json            # opcional — mesmo papel do Addon, ver nota acima (skill 07)
 ├── controller/                 # rotas web, se houver
 ├── api/routes/                 # rotas REST, se houver
 ├── services/                   # orquestração, integrações externas
