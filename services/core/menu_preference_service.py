@@ -21,6 +21,24 @@ _KEY_DEFAULT_COLLAPSED = "core.menu.default_collapsed_groups"
 _KEY_SIDEBAR_COLLAPSED = "core.menu.default_sidebar_collapsed"
 
 
+def list_available_groups() -> list[str]:
+    """
+    Todo grupo de Transação ativa, exceto 'Core' (que nunca aparece na
+    sidebar — ver core/base.html). Compartilhado pelas telas de admin
+    (/admin/menu-settings) e pessoal (/perfil/menu-preferencias) para
+    nunca dessincronizar a lista de grupos disponíveis entre as duas.
+    """
+    from model.core.transaction import Transaction
+
+    rows = (
+        Transaction.query.with_entities(Transaction.group)
+        .filter(Transaction.is_active.is_(True), Transaction.group != "Core")
+        .distinct()
+        .all()
+    )
+    return sorted({r[0] for r in rows})
+
+
 # ── Padrão global (admin) ───────────────────────────────────────────────────
 
 def get_global_group_order() -> list[str]:

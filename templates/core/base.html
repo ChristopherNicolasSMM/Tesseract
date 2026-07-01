@@ -84,6 +84,12 @@
                 <span>Meu Perfil</span>
               </a>
             </li>
+            <li>
+              <a class="dropdown-item d-flex align-items-center" href="{{ url_for('profile.menu_preferences') }}">
+                <i class="bi bi-list-nested"></i>
+                <span>Personalizar Menu</span>
+              </a>
+            </li>
             <li><hr class="dropdown-divider"></li>
             <li>
               <a class="dropdown-item d-flex align-items-center" href="#" id="themeToggleBtn">
@@ -117,23 +123,12 @@
       {% if group_name != 'Core' %}
       {% set is_collapsed = group_name in menu_collapsed_groups %}
       <li class="nav-item" data-menu-group="{{ group_name }}">
-        <div class="d-flex align-items-center">
-          <a class="nav-link {% if is_collapsed %}collapsed{% endif %} flex-grow-1" style="width:auto;"
-             data-bs-target="#group-nav-{{ loop.index }}" data-bs-toggle="collapse" href="#"
-             data-menu-group-toggle="{{ group_name }}">
-            <i class="bi bi-folder2-open"></i>
-            <span>{{ group_name }}</span>
-            <i class="bi bi-chevron-down ms-auto"></i>
-          </a>
-          <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 px-1"
-                  data-menu-group-move="up" data-menu-group="{{ group_name }}" title="Mover grupo para cima">
-            <i class="bi bi-arrow-up-short"></i>
-          </button>
-          <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 px-1"
-                  data-menu-group-move="down" data-menu-group="{{ group_name }}" title="Mover grupo para baixo">
-            <i class="bi bi-arrow-down-short"></i>
-          </button>
-        </div>
+        <a class="nav-link {% if is_collapsed %}collapsed{% endif %}"
+           data-bs-target="#group-nav-{{ loop.index }}" data-bs-toggle="collapse" href="#">
+          <i class="bi bi-folder2-open"></i>
+          <span>{{ group_name }}</span>
+          <i class="bi bi-chevron-down ms-auto"></i>
+        </a>
         <ul id="group-nav-{{ loop.index }}" class="nav-content collapse {% if not is_collapsed %}show{% endif %}" data-bs-parent="#sidebar-nav">
           {% for tx in items %}
           <li>
@@ -222,10 +217,13 @@
 
   </script>
 
-  <!-- Personalização de menu (skill 07): sidebar aberta/fechada, grupo
-       colapsado/expandido, e ordem dos grupos — cada mudança feita
-       aqui é override individual do usuário (nunca mexe no padrão
-       global, que só o admin edita em /admin/menu-settings). -->
+  <!-- Personalização de menu (skill 07): sidebar aberta/fechada e
+       grupo colapsado/expandido são persistidos direto daqui — cada
+       mudança é override individual do usuário. Reordenar grupos NÃO
+       fica na sidebar (setas ali ficavam poluídas) — vive em telas
+       dedicadas: /admin/menu-settings (padrão global) e
+       /perfil/menu-preferencias (override pessoal), ambas com
+       drag-and-drop. -->
   <script>
   (function () {
     'use strict';
@@ -266,29 +264,6 @@
       });
       saveMenuPreference({ collapsed_groups: collapsed });
     }
-
-    // Reordenar grupos — setas para cima/baixo (v1 da skill 07: só
-    // grupo inteiro, não item individual).
-    function currentGroupOrder() {
-      return Array.from(document.querySelectorAll('#sidebar-nav > li[data-menu-group]'))
-        .map(function (li) { return li.getAttribute('data-menu-group'); });
-    }
-
-    document.querySelectorAll('[data-menu-group-move]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var li = btn.closest('li[data-menu-group]');
-        var direction = btn.getAttribute('data-menu-group-move');
-        var sibling = direction === 'up' ? li.previousElementSibling : li.nextElementSibling;
-        if (!sibling || !sibling.hasAttribute('data-menu-group')) return;
-
-        if (direction === 'up') {
-          li.parentNode.insertBefore(li, sibling);
-        } else {
-          li.parentNode.insertBefore(sibling, li);
-        }
-        saveMenuPreference({ group_order: currentGroupOrder() });
-      });
-    });
   })();
   </script>
   {% block extra_js %}{% endblock %}

@@ -13,6 +13,7 @@ from flask_login import login_required, current_user
 
 from core.db import db
 from core.validators import validate_cpf, format_cpf
+from services.core import menu_preference_service as menu_svc
 
 profile_bp = Blueprint("profile", __name__, url_prefix="/perfil")
 
@@ -88,3 +89,39 @@ def change_password():
     db.session.commit()
     flash("Senha alterada com sucesso.", "success")
     return redirect(url_for("profile.view_profile"))
+
+
+@profile_bp.route("/menu-preferencias", methods=["GET"])
+@login_required
+def menu_preferences():
+    """
+    Override PESSOAL de ordem/colapso de menu (skill 07) — não exige
+    permissão além de login, escopo é sempre o próprio usuário. Mesmo
+    molde da tela de admin (/admin/menu-settings), mas grava em
+    tesseract_user_menu_preference em vez do padrão global.
+    """
+    all_groups = menu_svc.list_available_groups()
+    state = menu_svc.resolve_menu_state(current_user.id, all_groups)
+    return render_template(
+        "core/profile_menu_preferences.html",
+        ordered_groups=state["ordered_groups"],
+        collapsed_groups=state["collapsed_groups"],
+        sidebar_collapsed=state["sidebar_collapsed"],
+    )
+
+
+@profile_bp.route("/menu-preferencias", methods=["POST"])
+@login_required
+def save_menu_preferences():
+    group_order = request.form.getlist("group_order")
+    collapsed_groups = request.form.getlist("collapsed_groups")
+    sidebar_collapsed = bool(request.form.get("sidebar_collapsed"))
+
+    menu_svc.save_user_preference(
+        current_user.id,
+        group_order=group_order,
+        collapsed_groups=collapsed_groups,
+        sidebar_collapsed=sidebar_collapsed,
+    )
+    flash("Suas preferências de menu foram salvas.", "success")
+    return redirect(url_for("profile.menu_preferences"))

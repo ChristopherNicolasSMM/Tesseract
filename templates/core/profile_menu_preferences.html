@@ -1,12 +1,12 @@
 {% extends "core/base.html" %}
-{% block title %}Configurações de Menu - Tesseract{% endblock %}
+{% block title %}Minhas Preferências de Menu - Tesseract{% endblock %}
 {% block content %}
 <div class="pagetitle">
-  <h1>Configurações de Menu</h1>
+  <h1>Minhas Preferências de Menu</h1>
   <p class="text-muted small mb-0">
-    Padrão global (skill 07) — vale para todo usuário que não tiver
-    feito seu próprio ajuste na sidebar (arrastar/colapsar lá sempre
-    vira preferência individual, sem afetar isto aqui).
+    Sobrepõe o padrão global só para você (skill 07) — não afeta
+    nenhum outro usuário. Deixe como está para continuar seguindo o
+    padrão definido pelo administrador.
   </p>
 </div>
 
@@ -17,9 +17,9 @@
 <section class="section">
   <div class="card">
     <div class="card-body">
-      <form method="post" action="{{ url_for('admin_menu_settings.save') }}">
+      <form method="post" action="{{ url_for('profile.save_menu_preferences') }}">
         <h5 class="card-title">Ordem dos grupos</h5>
-        <p class="small text-muted">Arraste para reordenar. Só reordena grupos inteiros (skill 07, v1).</p>
+        <p class="small text-muted">Arraste para reordenar do seu jeito.</p>
         <ul class="list-group mb-4" id="groupOrderList">
           {% for group in ordered_groups %}
           <li class="list-group-item d-flex align-items-center gap-2" draggable="true" data-group="{{ group }}" style="cursor: move;">
@@ -30,25 +30,25 @@
           {% endfor %}
         </ul>
 
-        <h5 class="card-title">Grupos colapsados por padrão</h5>
+        <h5 class="card-title">Grupos que você quer com colapsados</h5>
         <div class="mb-4">
           {% for group in ordered_groups %}
           <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="default_collapsed_groups" value="{{ group }}"
-                   id="collapsed_{{ loop.index }}" {% if group in default_collapsed %}checked{% endif %}>
-            <label class="form-check-label" for="collapsed_{{ loop.index }}">{{ group }}</label>
+            <input class="form-check-input" type="checkbox" name="collapsed_groups" value="{{ group }}"
+                   id="pcollapsed_{{ loop.index }}" {% if group in collapsed_groups %}checked{% endif %}>
+            <label class="form-check-label" for="pcollapsed_{{ loop.index }}">{{ group }}</label>
           </div>
           {% endfor %}
         </div>
 
         <h5 class="card-title">Sidebar</h5>
         <div class="form-check mb-4">
-          <input class="form-check-input" type="checkbox" name="default_sidebar_collapsed" id="defaultSidebarCollapsed"
-                 value="1" {% if default_sidebar_collapsed %}checked{% endif %}>
-          <label class="form-check-label" for="defaultSidebarCollapsed">Sidebar inicia fechada por padrão</label>
+          <input class="form-check-input" type="checkbox" name="sidebar_collapsed" id="sidebarCollapsed"
+                 value="1" {% if sidebar_collapsed %}checked{% endif %}>
+          <label class="form-check-label" for="sidebarCollapsed">Iniciar com a sidebar fechada</label>
         </div>
 
-        <button class="btn btn-primary" type="submit">Salvar padrão global</button>
+        <button class="btn btn-primary" type="submit">Salvar minhas preferências</button>
       </form>
     </div>
   </div>

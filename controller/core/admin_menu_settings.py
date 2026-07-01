@@ -10,27 +10,16 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required
 
 from core.permissions import permission_required
-from model.core.transaction import Transaction
 from services.core import menu_preference_service as svc
 
 admin_menu_settings_bp = Blueprint("admin_menu_settings", __name__, url_prefix="/admin/menu-settings")
-
-
-def _all_group_names() -> list[str]:
-    groups = (
-        Transaction.query.with_entities(Transaction.group)
-        .filter(Transaction.is_active.is_(True), Transaction.group != "Core")
-        .distinct()
-        .all()
-    )
-    return sorted({g[0] for g in groups})
 
 
 @admin_menu_settings_bp.route("/", methods=["GET"])
 @login_required
 @permission_required("system_config.menu_settings")
 def manage():
-    all_groups = _all_group_names()
+    all_groups = svc.list_available_groups()
     current_order = svc.get_global_group_order() or all_groups
     # Garante que grupos novos (sem posição salva ainda) apareçam no fim,
     # e que grupos removidos não quebrem a tela.

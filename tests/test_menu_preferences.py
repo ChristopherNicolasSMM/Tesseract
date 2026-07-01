@@ -157,6 +157,50 @@ def test_salvar_padrao_global_via_form(app, client):
         assert svc.get_global_default_sidebar_collapsed() is False
 
 
+# ── Tela pessoal de preferências (perfil) ───────────────────────────────
+
+def test_tela_pessoal_de_menu_carrega_para_qualquer_usuario_logado(app, client):
+    with app.app_context():
+        user = User(username="usuario_comum", email="uc@test.local", nome="Comum",
+                     nome_completo="Usuario Comum", celular="0", is_active=True, is_admin=False)
+        user.set_password("x")
+        db.session.add(user)
+        db.session.commit()
+    client.post("/api/auth/login", json={"username": "usuario_comum", "password": "x"})
+
+    resp = client.get("/perfil/menu-preferencias")
+    assert resp.status_code == 200
+    assert b"Minhas Prefer\xc3\xaancias de Menu" in resp.data
+
+
+def test_salvar_preferencia_pessoal_via_form_nao_afeta_padrao_global(app, client):
+    with app.app_context():
+        user = User(username="usuario_menu", email="um@test.local", nome="Menu",
+                     nome_completo="Usuario Menu", celular="0", is_active=True, is_admin=False)
+        user.set_password("x")
+        db.session.add(user)
+        db.session.commit()
+        user_id = user.id
+    client.post("/api/auth/login", json={"username": "usuario_menu", "password": "x"})
+
+    with app.app_context():
+        svc.set_global_defaults(group_order=["Admin", "Ferramentas de Desenvolvimento"])
+
+    resp = client.post(
+        "/perfil/menu-preferencias",
+        data={"group_order": ["Ferramentas de Desenvolvimento", "Admin"]},
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+
+    with app.app_context():
+        from model.core.user_menu_preference import UserMenuPreference
+        pref = UserMenuPreference.query.filter_by(user_id=user_id).first()
+        assert pref.group_order_json == ["Ferramentas de Desenvolvimento", "Admin"]
+        # Padrão global não foi tocado pelo salvamento pessoal.
+        assert svc.get_global_group_order() == ["Admin", "Ferramentas de Desenvolvimento"]
+
+
 # ── Permissão fixa seedada no boot ──────────────────────────────────────
 
 def test_permissao_menu_settings_seedada_no_boot(app):
