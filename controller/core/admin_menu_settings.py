@@ -1,11 +1,12 @@
 """
 controller/core/admin_menu_settings.py
 
-Tela de edição do padrão GLOBAL de ordem/colapso de menu (skill 07).
-Preferência individual do usuário não passa por aqui — é sempre
-sobrescrita a partir da própria sidebar (ver
-api/routes/core/menu_preferences.py + core/base.html).
+Tela de edição do padrão GLOBAL de ordem/colapso de menu (skill 07 +
+árvore skill 10). Preferência individual do usuário não passa por
+aqui — vive em /perfil/menu-preferencias (controller/core/profile.py).
 """
+import json
+
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required
 
@@ -19,16 +20,11 @@ admin_menu_settings_bp = Blueprint("admin_menu_settings", __name__, url_prefix="
 @login_required
 @permission_required("system_config.menu_settings")
 def manage():
-    all_groups = svc.list_available_groups()
-    current_order = svc.get_global_group_order() or all_groups
-    # Garante que grupos novos (sem posição salva ainda) apareçam no fim,
-    # e que grupos removidos não quebrem a tela.
-    ordered = [g for g in current_order if g in all_groups] + [g for g in all_groups if g not in current_order]
-
     return render_template(
         "core/admin/menu_settings.html",
-        ordered_groups=ordered,
-        default_collapsed=set(svc.get_global_default_collapsed_groups()),
+        tree=svc.list_full_transaction_tree(),
+        order_overrides=svc.get_global_order_overrides(),
+        collapsed_nodes=set(svc.get_global_collapsed_nodes()),
         default_sidebar_collapsed=svc.get_global_default_sidebar_collapsed(),
     )
 
@@ -37,13 +33,18 @@ def manage():
 @login_required
 @permission_required("system_config.menu_settings")
 def save():
-    group_order = request.form.getlist("group_order")
-    default_collapsed = request.form.getlist("default_collapsed_groups")
+    try:
+        order_overrides = json.loads(request.form.get("order_overrides_json") or "{}")
+        collapsed_nodes = json.loads(request.form.get("collapsed_nodes_json") or "[]")
+    except json.JSONDecodeError:
+        flash("Dados de ordenação inválidos — tente novamente.", "error")
+        return redirect(url_for("admin_menu_settings.manage"))
+
     default_sidebar_collapsed = bool(request.form.get("default_sidebar_collapsed"))
 
     svc.set_global_defaults(
-        group_order=group_order,
-        default_collapsed_groups=default_collapsed,
+        order_overrides=order_overrides,
+        collapsed_nodes=collapsed_nodes,
         default_sidebar_collapsed=default_sidebar_collapsed,
     )
     flash("Padrão global de menu atualizado.", "success")

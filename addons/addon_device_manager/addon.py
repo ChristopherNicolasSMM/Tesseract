@@ -50,9 +50,16 @@ class AddonDeviceManager(AddonBase):
     def get_transactions(self) -> list:
         return [
             {
+                "code": "TX_GROUP_DEVICE_MANAGER",
+                "label": "Dispositivos IoT",
+                "parent_code": None,
+                "route": None,
+                "icon": "bi-cpu-fill",
+            },
+            {
                 "code": "TX_DEVICE_FUNCTIONS",
                 "label": "Funções de Dispositivo",
-                "group": "Dispositivos IoT",
+                "parent_code": "TX_GROUP_DEVICE_MANAGER",
                 "description": "Tipos de leitura/ação — sensor, atuador, híbrido.",
                 "icon": "bi-funnel",
                 "route": "/device-manager/device-functions",
@@ -61,7 +68,7 @@ class AddonDeviceManager(AddonBase):
             {
                 "code": "TX_DEVICE_MANAGER",
                 "label": "Dispositivos",
-                "group": "Dispositivos IoT",
+                "parent_code": "TX_GROUP_DEVICE_MANAGER",
                 "description": "Cadastro dos equipamentos físicos.",
                 "icon": "bi-cpu-fill",
                 "route": "/device-manager/device-metadatas",
@@ -70,7 +77,7 @@ class AddonDeviceManager(AddonBase):
             {
                 "code": "TX_DEVICE_ACTORS",
                 "label": "Atores",
-                "group": "Dispositivos IoT",
+                "parent_code": "TX_GROUP_DEVICE_MANAGER",
                 "description": "Liga uma porta de um dispositivo a uma Função.",
                 "icon": "bi-plug-fill",
                 "route": "/device-manager/device-actors",
@@ -79,7 +86,7 @@ class AddonDeviceManager(AddonBase):
             {
                 "code": "TX_EMULATED_DEVICES",
                 "label": "Dispositivos Emulados",
-                "group": "Dispositivos IoT",
+                "parent_code": "TX_GROUP_DEVICE_MANAGER",
                 "description": "Simula leituras sem hardware real.",
                 "icon": "bi-magic",
                 "route": "/device-manager/emulated-devices",

@@ -198,8 +198,12 @@ class ModuleManager:
         contribuídas por todo Addon/Feature registrado nesta sessão
         de boot — o catálogo de Core (core/transactions_catalog.py)
         é sincronizado separadamente, em core/app_factory.py.
+
+        Skill 10: duas passadas, igual sync_core_transactions() — upsert
+        de tudo primeiro, resolve parent_code -> parent_id depois (pode
+        apontar pra um grupo do Core, ex.: TX_GROUP_ADMIN).
         """
-        from core.transactions_sync import sync_transaction
+        from core.transactions_sync import sync_transaction, resolve_transaction_parents
         from core.db import db as _db
 
         if not self._pending_transactions:
@@ -208,8 +212,11 @@ class ModuleManager:
             "Sincronizando %d transação(ões) de módulo(s)...",
             len(self._pending_transactions),
         )
-        for tx_data, source_module in self._pending_transactions:
-            sync_transaction(tx_data, source_module=source_module, is_standard=False)
+        tx_data_list = [tx_data for tx_data, _source in self._pending_transactions]
+        for order_index, (tx_data, source_module) in enumerate(self._pending_transactions):
+            sync_transaction(tx_data, source_module=source_module, is_standard=False, order_index=order_index)
+        _db.session.flush()
+        resolve_transaction_parents(tx_data_list)
         _db.session.commit()
 
     def discover_and_register_addons(self, addons_dir) -> list[str]:

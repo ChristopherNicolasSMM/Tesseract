@@ -1,10 +1,10 @@
 # 10 — Menu Hierárquico (N níveis)
 
-> **Status: SKILL FORMALIZADA (fase de decisão, 2026-07-02).** Nasceu
-> de um pedido direto de navegação em árvore (`addon > sub item > sub
-> item do sub item`, profundidade arbitrária), motivado por
-> preocupação real de escala — sem isso, o menu ficaria grande demais
-> pra navegar conforme mais Addons/Features forem entrando.
+> **Status: EXECUTADA (2026-07-02).** Nasceu de um pedido direto de
+> navegação em árvore (`addon > sub item > sub item do sub item`,
+> profundidade arbitrária), motivado por preocupação real de escala —
+> sem isso, o menu ficaria grande demais pra navegar conforme mais
+> Addons/Features forem entrando.
 >
 > Investigação no código real (`model/core/transaction.py`,
 > `core/transactions_sync.py`, `controller/core/admin_transactions.py`)

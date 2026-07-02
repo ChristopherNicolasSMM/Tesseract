@@ -4,10 +4,12 @@
 <div class="pagetitle">
   <h1>Catálogo de Transações</h1>
   <p class="text-muted small">
-    Itens do menu de navegação. Transações vindas do código (Core ou
-    Addon/Feature) só permitem ativar/desativar aqui — label/rota são
-    sobrescritos pelo código a cada boot. Transações <strong>manuais</strong>
-    são totalmente editáveis e excluíveis.
+    Itens do menu de navegação, em árvore (skill 10). Transações vindas do
+    código (Core ou Addon/Feature) só permitem ativar/desativar aqui —
+    label/rota/pai são sobrescritos pelo código a cada boot. Transações
+    <strong>manuais</strong> são totalmente editáveis e excluíveis. Deixe
+    "Rota" em branco pra criar um nó-pasta novo (disponível como pai pra
+    outras transações).
   </p>
 </div>
 
@@ -32,12 +34,17 @@
             <input type="text" name="label" class="form-control" required>
           </div>
           <div class="col-md-2">
-            <label class="form-label">Grupo</label>
-            <input type="text" name="group" class="form-control" placeholder="Geral">
+            <label class="form-label">Pai (opcional)</label>
+            <select name="parent_id" class="form-select">
+              <option value="">— sem pai / raiz —</option>
+              {% for folder in folder_options %}
+              <option value="{{ folder.id }}">{{ breadcrumb(folder) }}</option>
+              {% endfor %}
+            </select>
           </div>
           <div class="col-md-3">
-            <label class="form-label">Rota</label>
-            <input type="text" name="route" class="form-control" placeholder="/designer/meu-painel" required>
+            <label class="form-label">Rota (vazio = nó-pasta)</label>
+            <input type="text" name="route" class="form-control" placeholder="/designer/meu-painel">
           </div>
           <div class="col-md-2">
             <label class="form-label">Ícone (bi-*)</label>
@@ -61,18 +68,18 @@
       {% set manage_endpoint = 'admin_transactions.manage' %}
       {% set export_csv_endpoint = 'admin_transactions.export_csv' %}
       {% set export_xlsx_endpoint = 'admin_transactions.export_xlsx' %}
-      {% set search_placeholder = 'Buscar por código, label ou grupo...' %}
+      {% set search_placeholder = 'Buscar por código ou label...' %}
       {% include "core/admin/_list_toolbar.html" with context %}
 
       <table class="table table-striped">
-        <thead><tr><th>Grupo</th><th>Label</th><th>Rota</th><th>Origem</th><th>Status</th><th>Ações</th></tr></thead>
+        <thead><tr><th>Caminho</th><th>Label</th><th>Rota</th><th>Origem</th><th>Status</th><th>Ações</th></tr></thead>
         <tbody>
           {% for tx in transactions %}
           {% set from_code = is_code_sourced(tx) %}
           <tr>
-            <td>{{ tx.group }}</td>
-            <td><i class="{{ tx.icon or 'bi-app' }}"></i> {{ tx.label }}</td>
-            <td><code>{{ tx.route }}</code></td>
+            <td class="text-muted small">{{ breadcrumb(tx) }}</td>
+            <td><i class="{{ tx.icon or 'bi-app' }}"></i> {{ tx.label }} {% if not tx.route %}<span class="badge bg-secondary">pasta</span>{% endif %}</td>
+            <td>{% if tx.route %}<code>{{ tx.route }}</code>{% else %}—{% endif %}</td>
             <td>
               {% if from_code %}<span class="badge bg-secondary">Código ({{ tx.source_module or 'core' }})</span>
               {% else %}<span class="badge bg-info">Manual</span>{% endif %}
@@ -97,8 +104,17 @@
             <td colspan="6">
               <form method="post" action="{{ url_for('admin_transactions.update', tx_id=tx.id) }}" class="row g-2">
                 <div class="col-md-2"><input type="text" name="label" class="form-control form-control-sm" value="{{ tx.label }}" placeholder="Label" required></div>
-                <div class="col-md-2"><input type="text" name="group" class="form-control form-control-sm" value="{{ tx.group }}" placeholder="Grupo"></div>
-                <div class="col-md-3"><input type="text" name="route" class="form-control form-control-sm" value="{{ tx.route }}" placeholder="Rota" required></div>
+                <div class="col-md-2">
+                  <select name="parent_id" class="form-select form-select-sm">
+                    <option value="">— sem pai / raiz —</option>
+                    {% for folder in folder_options %}
+                    {% if folder.id != tx.id %}
+                    <option value="{{ folder.id }}" {% if tx.parent_id == folder.id %}selected{% endif %}>{{ breadcrumb(folder) }}</option>
+                    {% endif %}
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-3"><input type="text" name="route" class="form-control form-control-sm" value="{{ tx.route or '' }}" placeholder="Rota (vazio = pasta)"></div>
                 <div class="col-md-2"><input type="text" name="icon" class="form-control form-control-sm" value="{{ tx.icon or '' }}" placeholder="Ícone"></div>
                 <div class="col-md-2"><input type="text" name="permission_required" class="form-control form-control-sm" value="{{ tx.permission_required or '' }}" placeholder="Permissão"></div>
                 <div class="col-md-1"><button class="btn btn-sm btn-primary w-100" type="submit">Salvar</button></div>

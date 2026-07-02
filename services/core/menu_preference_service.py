@@ -1,12 +1,14 @@
 """
 services/core/menu_preference_service.py
 
-Resolve o estado de ordem/colapso do menu (skill 07): override do
-usuário -> padrão global (system_config) -> ordem alfabética original
-(o que já era o comportamento antes desta skill).
+Resolve o estado de ordem/colapso do menu em ÁRVORE (skill 10): override
+do usuário -> padrão global (system_config) -> ordem original
+(order_index já persistido no banco pelo sync, skill 10 seção 4).
 
-Nível de item dentro do grupo não é coberto aqui (skill 07 §0 —
-v1 só reordena grupos inteiros).
+Schema mudou de "lista de grupos" (skill 07 original) pra:
+- order_overrides: dict {parent_code|"__root__": [code_filho, ...]}
+  — ordenação é por pai, não uma lista global de um nível só.
+- collapsed_nodes: lista de códigos, qualquer nível da árvore.
 """
 from __future__ import annotations
 
@@ -16,37 +18,64 @@ from core.db import db
 from model.core.system_config import SystemConfig
 from model.core.user_menu_preference import UserMenuPreference
 
-_KEY_GROUP_ORDER = "core.menu.group_order"
-_KEY_DEFAULT_COLLAPSED = "core.menu.default_collapsed_groups"
+_KEY_ORDER_OVERRIDES = "core.menu.order_overrides"
+_KEY_COLLAPSED_NODES = "core.menu.collapsed_nodes"
 _KEY_SIDEBAR_COLLAPSED = "core.menu.default_sidebar_collapsed"
+
+ROOT_KEY = "__root__"  # chave de order_overrides pro nível raiz (parent_id IS NULL)
 
 
 def list_available_groups() -> list[str]:
+    """Mantido por compatibilidade — ver list_full_transaction_tree() (skill 10)."""
+    return [node["code"] for node in list_full_transaction_tree()]
+
+
+def list_full_transaction_tree() -> list[dict]:
     """
-    Todo grupo de Transação ativa, exceto 'Core' (que nunca aparece na
-    sidebar — ver core/base.html). Compartilhado pelas telas de admin
-    (/admin/menu-settings) e pessoal (/perfil/menu-preferencias) para
-    nunca dessincronizar a lista de grupos disponíveis entre as duas.
+    Árvore completa (sem filtro de permissão) — usada pelas telas de
+    edição de preferência (admin e pessoal, skill 10), que precisam
+    mostrar TODO nó pra poder reordenar/colapsar, independente de quem
+    está logado. Não afeta o que a sidebar de fato mostra — isso
+    continua filtrado por permissão em controller/core/pages.py.
+
+    TX_GROUP_CORE nunca aparece aqui — mesmo comportamento que já
+    existia antes da skill 10 (grupo "Core" nunca editável/visível).
     """
     from model.core.transaction import Transaction
 
-    rows = (
-        Transaction.query.with_entities(Transaction.group)
-        .filter(Transaction.is_active.is_(True), Transaction.group != "Core")
-        .distinct()
+    all_tx = (
+        Transaction.query.filter_by(is_active=True)
+        .order_by(Transaction.order_index, Transaction.label)
         .all()
     )
-    return sorted({r[0] for r in rows})
+    children_by_parent: dict = {}
+    for tx in all_tx:
+        children_by_parent.setdefault(tx.parent_id, []).append(tx)
+
+    def build(parent_id):
+        nodes = []
+        for tx in children_by_parent.get(parent_id, []):
+            if tx.code == "TX_GROUP_CORE":
+                continue
+            nodes.append({
+                "code": tx.code,
+                "label": tx.label,
+                "is_folder": tx.route is None,
+                "children": build(tx.id),
+            })
+        return nodes
+
+    return build(None)
 
 
 # ── Padrão global (admin) ───────────────────────────────────────────────────
 
-def get_global_group_order() -> list[str]:
-    return SystemConfig.get(_KEY_GROUP_ORDER, default=[]) or []
+def get_global_order_overrides() -> dict:
+    return SystemConfig.get(_KEY_ORDER_OVERRIDES, default={}) or {}
 
 
-def get_global_default_collapsed_groups() -> list[str]:
-    return SystemConfig.get(_KEY_DEFAULT_COLLAPSED, default=[]) or []
+def get_global_collapsed_nodes() -> list[str]:
+    return SystemConfig.get(_KEY_COLLAPSED_NODES, default=[]) or []
 
 
 def get_global_default_sidebar_collapsed() -> bool:
@@ -66,13 +95,13 @@ def _set_config(key: str, value, value_type: str) -> None:
         row.value_type = value_type
 
 
-def set_global_defaults(*, group_order: Optional[list[str]] = None,
-                         default_collapsed_groups: Optional[list[str]] = None,
+def set_global_defaults(*, order_overrides: Optional[dict] = None,
+                         collapsed_nodes: Optional[list[str]] = None,
                          default_sidebar_collapsed: Optional[bool] = None) -> None:
-    if group_order is not None:
-        _set_config(_KEY_GROUP_ORDER, group_order, "json")
-    if default_collapsed_groups is not None:
-        _set_config(_KEY_DEFAULT_COLLAPSED, default_collapsed_groups, "json")
+    if order_overrides is not None:
+        _set_config(_KEY_ORDER_OVERRIDES, order_overrides, "json")
+    if collapsed_nodes is not None:
+        _set_config(_KEY_COLLAPSED_NODES, collapsed_nodes, "json")
     if default_sidebar_collapsed is not None:
         _set_config(_KEY_SIDEBAR_COLLAPSED, default_sidebar_collapsed, "bool")
     db.session.commit()
@@ -89,14 +118,14 @@ def _get_or_create_preference(user_id: int) -> UserMenuPreference:
     return pref
 
 
-def save_user_preference(user_id: int, *, group_order: Optional[list[str]] = None,
-                          collapsed_groups: Optional[list[str]] = None,
+def save_user_preference(user_id: int, *, order_overrides: Optional[dict] = None,
+                          collapsed_nodes: Optional[list[str]] = None,
                           sidebar_collapsed: Optional[bool] = None) -> UserMenuPreference:
     pref = _get_or_create_preference(user_id)
-    if group_order is not None:
-        pref.group_order_json = group_order
-    if collapsed_groups is not None:
-        pref.collapsed_groups_json = collapsed_groups
+    if order_overrides is not None:
+        pref.order_overrides_json = order_overrides
+    if collapsed_nodes is not None:
+        pref.collapsed_nodes_json = collapsed_nodes
     if sidebar_collapsed is not None:
         pref.sidebar_collapsed = sidebar_collapsed
     db.session.commit()
@@ -105,24 +134,25 @@ def save_user_preference(user_id: int, *, group_order: Optional[list[str]] = Non
 
 # ── Resolução final (usado pelo context_processor / pages.py) ──────────────
 
-def resolve_menu_state(user_id: Optional[int], available_groups: list[str]) -> dict:
+def resolve_menu_state(user_id: Optional[int]) -> dict:
     """
-    Prioridade: override do usuário -> padrão global -> ordem original
-    (a lista de grupos como veio, tipicamente alfabética via ORDER BY
-    já existente em pages.py).
+    Prioridade: override do usuário -> padrão global -> {} (que, na
+    prática, significa "usa a ordem natural do banco", já que
+    controller/core/pages.py só aplica um override quando ele existe
+    de fato pra aquele parent_code).
     """
     pref = None
     if user_id is not None:
         pref = UserMenuPreference.query.filter_by(user_id=user_id).first()
 
-    group_order = (
-        (pref.group_order_json if pref and pref.group_order_json else None)
-        or get_global_group_order()
-        or []
+    order_overrides = (
+        (pref.order_overrides_json if pref and pref.order_overrides_json else None)
+        or get_global_order_overrides()
+        or {}
     )
-    collapsed_groups = set(
-        (pref.collapsed_groups_json if pref and pref.collapsed_groups_json is not None else None)
-        or get_global_default_collapsed_groups()
+    collapsed_nodes = set(
+        (pref.collapsed_nodes_json if pref and pref.collapsed_nodes_json is not None else None)
+        or get_global_collapsed_nodes()
         or []
     )
     sidebar_collapsed = (
@@ -130,16 +160,8 @@ def resolve_menu_state(user_id: Optional[int], available_groups: list[str]) -> d
         else get_global_default_sidebar_collapsed()
     )
 
-    def sort_key(group_name: str):
-        try:
-            return (0, group_order.index(group_name))
-        except ValueError:
-            return (1, available_groups.index(group_name))
-
-    ordered_groups = sorted(available_groups, key=sort_key)
-
     return {
-        "ordered_groups": ordered_groups,
-        "collapsed_groups": collapsed_groups,
+        "order_overrides": order_overrides,
+        "collapsed_nodes": collapsed_nodes,
         "sidebar_collapsed": sidebar_collapsed,
     }

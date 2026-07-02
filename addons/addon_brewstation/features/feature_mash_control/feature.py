@@ -54,9 +54,16 @@ class FeatureMashControl(FeatureBase):
     def get_transactions(self) -> list:
         return [
             {
+                "code": "TX_GROUP_MASH_CONTROL",
+                "label": "Controle de Mostura",
+                "parent_code": None,
+                "route": None,
+                "icon": "bi-thermometer-half",
+            },
+            {
                 "code": "TX_MASH_RECIPES",
                 "label": "Receitas de Brassagem",
-                "group": "Controle de Mostura",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
                 "description": "Cadastro de receitas.",
                 "icon": "bi-journal-text",
                 "route": "/brewstation/mash-recipes",
@@ -65,7 +72,7 @@ class FeatureMashControl(FeatureBase):
             {
                 "code": "TX_BREW_PLANTS",
                 "label": "Plantas de Brassagem",
-                "group": "Controle de Mostura",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
                 "description": "Estrutura física — panelas, fermentadores.",
                 "icon": "bi-diagram-3",
                 "route": "/brewstation/brew-plants",
@@ -74,7 +81,7 @@ class FeatureMashControl(FeatureBase):
             {
                 "code": "TX_BREW_PLANT_VESSELS",
                 "label": "Vasilhames",
-                "group": "Controle de Mostura",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
                 "description": "Vasilhames de uma planta de brassagem.",
                 "icon": "bi-cup-straw",
                 "route": "/brewstation/brew-plant-vessels",
@@ -83,7 +90,7 @@ class FeatureMashControl(FeatureBase):
             {
                 "code": "TX_BREW_PLANT_MAPPINGS",
                 "label": "Mapeamentos de Planta",
-                "group": "Controle de Mostura",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
                 "description": "Liga um vasilhame a um sensor/atuador do device_manager.",
                 "icon": "bi-bezier2",
                 "route": "/brewstation/brew-plant-mappings",
@@ -92,7 +99,7 @@ class FeatureMashControl(FeatureBase):
             {
                 "code": "TX_BREW_SESSIONS",
                 "label": "Sessões de Brassagem",
-                "group": "Controle de Mostura",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
                 "description": "Acompanhamento de sessões em andamento e finalizadas.",
                 "icon": "bi-thermometer-half",
                 "route": "/brewstation/brew-sessions",
@@ -101,7 +108,7 @@ class FeatureMashControl(FeatureBase):
             {
                 "code": "TX_BREW_SESSION_STEPS",
                 "label": "Passos da Sessão",
-                "group": "Controle de Mostura",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
                 "description": "Etapas registradas de uma sessão de brassagem.",
                 "icon": "bi-list-ol",
                 "route": "/brewstation/brew-session-steps",
@@ -110,7 +117,7 @@ class FeatureMashControl(FeatureBase):
             {
                 "code": "TX_BREW_SESSION_LOGS",
                 "label": "Logs da Sessão",
-                "group": "Controle de Mostura",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
                 "description": "Registro livre de eventos de uma sessão.",
                 "icon": "bi-card-text",
                 "route": "/brewstation/brew-session-logs",
@@ -119,7 +126,7 @@ class FeatureMashControl(FeatureBase):
             {
                 "code": "TX_BREW_SESSION_ALARMS",
                 "label": "Alarmes da Sessão",
-                "group": "Controle de Mostura",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
                 "description": "Alarmes disparados durante uma sessão.",
                 "icon": "bi-bell-fill",
                 "route": "/brewstation/brew-session-alarms",
@@ -128,7 +135,7 @@ class FeatureMashControl(FeatureBase):
             {
                 "code": "TX_DASHBOARD_LAYOUTS",
                 "label": "Layouts de Dashboard",
-                "group": "Controle de Mostura",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
                 "description": "Layouts visuais de acompanhamento (em construção).",
                 "icon": "bi-grid-1x2",
                 "route": "/brewstation/dashboard-layouts",
@@ -137,7 +144,7 @@ class FeatureMashControl(FeatureBase):
             {
                 "code": "TX_DASHBOARD_WIDGETS",
                 "label": "Widgets de Dashboard",
-                "group": "Controle de Mostura",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
                 "description": "Widgets de um layout de dashboard.",
                 "icon": "bi-pip",
                 "route": "/brewstation/dashboard-widgets",
@@ -146,7 +153,7 @@ class FeatureMashControl(FeatureBase):
             {
                 "code": "TX_AUTOMATION_RULES",
                 "label": "Regras de Automação",
-                "group": "Controle de Mostura",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
                 "description": "Definição de regras sensor->ação (sem motor de execução ainda).",
                 "icon": "bi-cpu",
                 "route": "/brewstation/automation-rules",
@@ -155,7 +162,7 @@ class FeatureMashControl(FeatureBase):
             {
                 "code": "TX_AUTOMATION_RULE_LOGS",
                 "label": "Histórico de Regras",
-                "group": "Controle de Mostura",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
                 "description": "Histórico de avaliação de regras de automação.",
                 "icon": "bi-clock-history",
                 "route": "/brewstation/automation-rule-logs",

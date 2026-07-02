@@ -57,7 +57,7 @@ class ModuleBase(ABC):
         register_models = getattr(self, "register_models", None)
         if not callable(register_models):
             return []
-        return auto_transactions_from_models(register_models(), group_label=self.label)
+        return auto_transactions_from_models(register_models(), module_name=self.name, module_label=self.label)
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} name={self.name!r} v{self.version}>"

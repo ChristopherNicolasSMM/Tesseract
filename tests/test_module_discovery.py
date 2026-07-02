@@ -133,7 +133,9 @@ def test_transacao_auto_gerada_com_convencao_da_skill09(app):
         assert tx is not None
         assert tx.label == "Widget de Teste"
         assert tx.icon == "bi-star"
-        assert tx.group == "Autodisco Smoketest"  # label do módulo dono (skill 00, adenda)
+        assert tx.parent is not None
+        assert tx.parent.label == "Autodisco Smoketest"  # label do módulo dono (skill 00, adenda)
+        assert tx.parent.code == "TX_GROUP_AUTO_AUTODISCO_SMOKETEST"  # skill 10, namespace separado do manual
         assert tx.permission_required == "autodisco_widgets.list"
         assert tx.route == "/autodisco/widgets/"
 

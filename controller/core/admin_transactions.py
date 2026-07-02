@@ -8,13 +8,18 @@ tem duas origens:
 - **Vinda do código** (`is_standard=True` ou `source_module`
   preenchido por um Addon/Feature via `get_transactions()`): só
   `is_active` é seguro editar aqui — `sync_transaction()`
-  (core/transactions_sync.py) SOBRESCREVE label/rota/ícone/grupo a
+  (core/transactions_sync.py) SOBRESCREVE label/rota/ícone/pai a
   partir do código em todo boot. Editar esses campos aqui daria a
   falsa impressão de persistir, quando na verdade se perde no próximo
   restart. Por isso o formulário completo só aparece pra transações
   manuais.
 - **Manual** (`source_module="manual"`, criada por aqui): totalmente
   editável e excluível — não existe em nenhum código pra sobrescrever.
+
+Árvore (skill 10): `group` (string) foi substituído por `parent_id` —
+o form usa um seletor de pai (qualquer nó-pasta existente, `route IS
+NULL`) em vez de texto livre. Deixar `route` em branco na criação cria
+um nó-pasta novo, disponível como pai pra próximas transações.
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required
@@ -26,21 +31,38 @@ from model.core.transaction import Transaction
 
 admin_transactions_bp = Blueprint("admin_transactions", __name__, url_prefix="/admin/transactions")
 
-_EXPORT_HEADERS = ["code", "label", "group", "route", "permission_required", "is_active", "origem"]
+_EXPORT_HEADERS = ["code", "label", "caminho", "route", "permission_required", "is_active", "origem"]
 
 
 def _is_code_sourced(tx: Transaction) -> bool:
     return bool(tx.is_standard or (tx.source_module and tx.source_module != "manual"))
 
 
+def _breadcrumb(tx: Transaction) -> str:
+    parts = [tx.label]
+    node = tx.parent
+    seen_ids = {tx.id}
+    while node is not None and node.id not in seen_ids:
+        parts.append(node.label)
+        seen_ids.add(node.id)
+        node = node.parent
+    return " > ".join(reversed(parts))
+
+
 def _filtered_query(search: str):
-    query = Transaction.query.order_by(Transaction.group, Transaction.label)
+    query = Transaction.query.order_by(Transaction.order_index, Transaction.label)
     if search:
         like = f"%{search}%"
-        query = query.filter(
-            Transaction.label.ilike(like) | Transaction.code.ilike(like) | Transaction.group.ilike(like)
-        )
+        query = query.filter(Transaction.label.ilike(like) | Transaction.code.ilike(like))
     return query
+
+
+def _folder_options(exclude_id: int | None = None):
+    """Nós-pasta (route IS NULL) — únicos candidatos válidos a pai."""
+    query = Transaction.query.filter(Transaction.route.is_(None)).order_by(Transaction.label)
+    if exclude_id is not None:
+        query = query.filter(Transaction.id != exclude_id)
+    return query.all()
 
 
 @admin_transactions_bp.route("/", methods=["GET"])
@@ -53,7 +75,8 @@ def manage():
     transactions, total, pages = paginate(_filtered_query(search), page)
     return render_template(
         "core/admin/transactions_manage.html",
-        transactions=transactions, is_code_sourced=_is_code_sourced,
+        transactions=transactions, is_code_sourced=_is_code_sourced, breadcrumb=_breadcrumb,
+        folder_options=_folder_options(),
         search=search, total=total, page=page, pages=pages,
     )
 
@@ -64,7 +87,7 @@ def manage():
 def export_csv():
     search = (request.args.get("q") or "").strip()
     rows = [
-        [tx.code, tx.label, tx.group, tx.route, tx.permission_required, tx.is_active,
+        [tx.code, tx.label, _breadcrumb(tx), tx.route, tx.permission_required, tx.is_active,
          "Manual" if tx.source_module == "manual" else (tx.source_module or "Core")]
         for tx in _filtered_query(search).all()
     ]
@@ -77,7 +100,7 @@ def export_csv():
 def export_xlsx():
     search = (request.args.get("q") or "").strip()
     rows = [
-        [tx.code, tx.label, tx.group, tx.route, tx.permission_required, tx.is_active,
+        [tx.code, tx.label, _breadcrumb(tx), tx.route, tx.permission_required, tx.is_active,
          "Manual" if tx.source_module == "manual" else (tx.source_module or "Core")]
         for tx in _filtered_query(search).all()
     ]
@@ -90,11 +113,11 @@ def export_xlsx():
 def create():
     code = (request.form.get("code") or "").strip()
     label = (request.form.get("label") or "").strip()
-    group = (request.form.get("group") or "Geral").strip()
-    route = (request.form.get("route") or "").strip()
+    route = (request.form.get("route") or "").strip() or None  # vazio = nó-pasta novo
+    parent_id = request.form.get("parent_id", type=int) or None
 
-    if not code or not label or not route:
-        flash("Código, label e rota são obrigatórios.", "error")
+    if not code or not label:
+        flash("Código e label são obrigatórios.", "error")
         return redirect(url_for("admin_transactions.manage"))
 
     if Transaction.query.filter_by(code=code).first():
@@ -102,7 +125,7 @@ def create():
         return redirect(url_for("admin_transactions.manage"))
 
     tx = Transaction(
-        code=code, label=label, group=group, route=route,
+        code=code, label=label, route=route, parent_id=parent_id,
         icon=(request.form.get("icon") or "").strip() or None,
         description=(request.form.get("description") or "").strip() or None,
         permission_required=(request.form.get("permission_required") or "").strip() or None,
@@ -125,7 +148,7 @@ def update(tx_id: int):
 
     if _is_code_sourced(tx):
         flash(
-            "Esta transação vem do código — label/rota/ícone são "
+            "Esta transação vem do código — label/rota/ícone/pai são "
             "sobrescritos a cada boot pelo sync. Só 'Ativa/Inativa' é "
             "editável aqui.",
             "error",
@@ -133,14 +156,18 @@ def update(tx_id: int):
         return redirect(url_for("admin_transactions.manage"))
 
     label = (request.form.get("label") or "").strip()
-    route = (request.form.get("route") or "").strip()
-    if not label or not route:
-        flash("Label e rota são obrigatórios.", "error")
+    if not label:
+        flash("Label é obrigatório.", "error")
+        return redirect(url_for("admin_transactions.manage"))
+
+    parent_id = request.form.get("parent_id", type=int) or None
+    if parent_id == tx.id:
+        flash("Uma Transação não pode ser pai dela mesma.", "error")
         return redirect(url_for("admin_transactions.manage"))
 
     tx.label = label
-    tx.group = (request.form.get("group") or tx.group or "Geral").strip()
-    tx.route = route
+    tx.route = (request.form.get("route") or "").strip() or None
+    tx.parent_id = parent_id
     tx.icon = (request.form.get("icon") or "").strip() or None
     tx.description = (request.form.get("description") or "").strip() or None
     tx.permission_required = (request.form.get("permission_required") or "").strip() or None
@@ -173,6 +200,14 @@ def delete(tx_id: int):
         flash(
             "Esta transação vem do código (Core ou Addon/Feature) — "
             "desative em vez de excluir, ou ela volta no próximo boot.",
+            "error",
+        )
+        return redirect(url_for("admin_transactions.manage"))
+
+    if Transaction.query.filter_by(parent_id=tx.id).first():
+        flash(
+            "Esta transação é pai de outra(s) — mova os filhos antes "
+            "de excluir, ou desative em vez de excluir.",
             "error",
         )
         return redirect(url_for("admin_transactions.manage"))

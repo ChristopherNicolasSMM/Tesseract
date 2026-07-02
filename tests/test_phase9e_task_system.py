@@ -48,7 +48,8 @@ def test_tx_admin_tasks_existe_no_grupo_admin(app):
     with app.app_context():
         tx = Transaction.query.filter_by(code="TX_ADMIN_TASKS").first()
         assert tx is not None
-        assert tx.group == "Admin"
+        assert tx.parent is not None
+        assert tx.parent.label == "Admin"  # skill 10: grupo agora é o nó-pai
         assert tx.route == "/admin/tasks"
 
 

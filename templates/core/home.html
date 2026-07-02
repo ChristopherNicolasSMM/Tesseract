@@ -6,29 +6,36 @@
   <p>Olá, {{ current_user.nome }}. Escolha uma transação abaixo.</p>
 </div>
 
-<section class="section">
-  <div class="row">
-    {% for group_name, items in transactions_by_group.items() %}
-      {% if group_name != 'Core' %}
-      <div class="col-12">
-        <h5 class="mt-3">{{ group_name }}</h5>
-      </div>
-      {% for tx in items %}
-      <div class="col-xl-3 col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <a href="{{ tx.route }}" class="text-decoration-none">
-              <h5 class="card-title"><i class="{{ tx.icon or 'bi-app' }}"></i> {{ tx.label }}</h5>
-              <p class="card-text small text-muted">{{ tx.description or '' }}</p>
-            </a>
-          </div>
+{% macro render_home_nodes(nodes) %}
+  {% for node in nodes %}
+    {% set tx = node.tx %}
+    {% if node.children %}
+    <div class="col-12">
+      <h5 class="mt-3"><i class="{{ tx.icon or 'bi-folder2-open' }}"></i> {{ tx.label }}</h5>
+    </div>
+    {{ render_home_nodes(node.children) }}
+    {% else %}
+    <div class="col-xl-3 col-md-6">
+      <div class="card">
+        <div class="card-body">
+          <a href="{{ tx.route }}" class="text-decoration-none">
+            <h5 class="card-title"><i class="{{ tx.icon or 'bi-app' }}"></i> {{ tx.label }}</h5>
+            <p class="card-text small text-muted">{{ tx.description or '' }}</p>
+          </a>
         </div>
       </div>
-      {% endfor %}
-      {% endif %}
+    </div>
+    {% endif %}
+  {% endfor %}
+{% endmacro %}
+
+<section class="section">
+  <div class="row">
+    {% if transactions_tree %}
+      {{ render_home_nodes(transactions_tree) }}
     {% else %}
       <p class="text-muted">Nenhuma transação disponível para o seu usuário ainda.</p>
-    {% endfor %}
+    {% endif %}
   </div>
 </section>
 {% endblock %}

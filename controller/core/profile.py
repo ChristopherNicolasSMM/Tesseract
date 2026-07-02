@@ -95,17 +95,17 @@ def change_password():
 @login_required
 def menu_preferences():
     """
-    Override PESSOAL de ordem/colapso de menu (skill 07) — não exige
-    permissão além de login, escopo é sempre o próprio usuário. Mesmo
-    molde da tela de admin (/admin/menu-settings), mas grava em
-    tesseract_user_menu_preference em vez do padrão global.
+    Override PESSOAL de ordem/colapso de menu (skill 07 + árvore
+    skill 10) — não exige permissão além de login, escopo é sempre o
+    próprio usuário. Mesmo molde da tela de admin
+    (/admin/menu-settings), mas grava em tesseract_user_menu_preference
+    em vez do padrão global.
     """
-    all_groups = menu_svc.list_available_groups()
-    state = menu_svc.resolve_menu_state(current_user.id, all_groups)
+    state = menu_svc.resolve_menu_state(current_user.id)
     return render_template(
         "core/profile_menu_preferences.html",
-        ordered_groups=state["ordered_groups"],
-        collapsed_groups=state["collapsed_groups"],
+        tree=menu_svc.list_full_transaction_tree(),
+        collapsed_nodes=state["collapsed_nodes"],
         sidebar_collapsed=state["sidebar_collapsed"],
     )
 
@@ -113,14 +113,21 @@ def menu_preferences():
 @profile_bp.route("/menu-preferencias", methods=["POST"])
 @login_required
 def save_menu_preferences():
-    group_order = request.form.getlist("group_order")
-    collapsed_groups = request.form.getlist("collapsed_groups")
+    import json
+
+    try:
+        order_overrides = json.loads(request.form.get("order_overrides_json") or "{}")
+        collapsed_nodes = json.loads(request.form.get("collapsed_nodes_json") or "[]")
+    except json.JSONDecodeError:
+        flash("Dados de ordenação inválidos — tente novamente.", "error")
+        return redirect(url_for("profile.menu_preferences"))
+
     sidebar_collapsed = bool(request.form.get("sidebar_collapsed"))
 
     menu_svc.save_user_preference(
         current_user.id,
-        group_order=group_order,
-        collapsed_groups=collapsed_groups,
+        order_overrides=order_overrides,
+        collapsed_nodes=collapsed_nodes,
         sidebar_collapsed=sidebar_collapsed,
     )
     flash("Suas preferências de menu foram salvas.", "success")

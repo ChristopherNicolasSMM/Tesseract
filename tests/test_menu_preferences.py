@@ -1,17 +1,17 @@
 """
 tests/test_menu_preferences.py
 
-Cobre a skill 07: resolução de ordem/colapso (usuário > global >
-ordem original), persistência via API, e a tela admin de padrão
-global.
+Cobre a skill 07 + árvore (skill 10): resolução de ordem/colapso
+(usuário > global > ordem original de order_index), persistência via
+API, e as telas admin/pessoal de padrão global.
 """
 import pytest
 
 from core.app_factory import create_app
 from core.db import db
 from model.core.user import User
-from model.core.role import Role
 from model.core.permission import Permission
+from model.core.transaction import Transaction
 from services.core import menu_preference_service as svc
 
 
@@ -39,59 +39,76 @@ def _login_admin(app, client):
     return user_id
 
 
+def _admin_group_code(app) -> str:
+    with app.app_context():
+        return Transaction.query.filter_by(code="TX_GROUP_ADMIN").first().code
+
+
 # ── Resolução de estado ──────────────────────────────────────────────────
 
-def test_sem_nenhuma_preferencia_usa_ordem_original(app):
+def test_sem_nenhuma_preferencia_usa_dict_vazio(app):
     with app.app_context():
-        state = svc.resolve_menu_state(None, ["Ferramentas de Desenvolvimento", "Admin"])
-        assert state["ordered_groups"] == ["Ferramentas de Desenvolvimento", "Admin"]
-        assert state["collapsed_groups"] == set()
+        state = svc.resolve_menu_state(None)
+        assert state["order_overrides"] == {}
+        assert state["collapsed_nodes"] == set()
         assert state["sidebar_collapsed"] is False
 
 
-def test_padrao_global_sobrepoe_ordem_original(app):
+def test_padrao_global_e_aplicado(app):
     with app.app_context():
         svc.set_global_defaults(
-            group_order=["Admin", "Ferramentas de Desenvolvimento"],
-            default_collapsed_groups=["Admin"],
+            order_overrides={"__root__": ["TX_GROUP_FERRAMENTAS_DE_DESENVOLVIMENTO", "TX_GROUP_ADMIN"]},
+            collapsed_nodes=["TX_GROUP_ADMIN"],
             default_sidebar_collapsed=True,
         )
-        state = svc.resolve_menu_state(None, ["Ferramentas de Desenvolvimento", "Admin"])
-        assert state["ordered_groups"] == ["Admin", "Ferramentas de Desenvolvimento"]
-        assert state["collapsed_groups"] == {"Admin"}
+        state = svc.resolve_menu_state(None)
+        assert state["order_overrides"]["__root__"] == ["TX_GROUP_FERRAMENTAS_DE_DESENVOLVIMENTO", "TX_GROUP_ADMIN"]
+        assert state["collapsed_nodes"] == {"TX_GROUP_ADMIN"}
         assert state["sidebar_collapsed"] is True
 
 
 def test_override_do_usuario_sobrepoe_padrao_global(app):
     with app.app_context():
-        admin = User(username="menu_user", email="menu_user@test.local", nome="Menu",
-                     nome_completo="Menu User", celular="0", is_active=True)
-        admin.set_password("x")
-        db.session.add(admin)
+        user = User(username="menu_user", email="menu_user@test.local", nome="Menu",
+                    nome_completo="Menu User", celular="0", is_active=True)
+        user.set_password("x")
+        db.session.add(user)
         db.session.commit()
-        user_id = admin.id
+        user_id = user.id
 
-        svc.set_global_defaults(
-            group_order=["Admin", "Ferramentas de Desenvolvimento"],
-            default_sidebar_collapsed=True,
-        )
+        svc.set_global_defaults(default_sidebar_collapsed=True)
         svc.save_user_preference(
             user_id,
-            group_order=["Ferramentas de Desenvolvimento", "Admin"],
+            order_overrides={"__root__": ["TX_GROUP_ADMIN"]},
             sidebar_collapsed=False,
         )
 
-        state = svc.resolve_menu_state(user_id, ["Ferramentas de Desenvolvimento", "Admin"])
-        assert state["ordered_groups"] == ["Ferramentas de Desenvolvimento", "Admin"]
+        state = svc.resolve_menu_state(user_id)
+        assert state["order_overrides"]["__root__"] == ["TX_GROUP_ADMIN"]
         assert state["sidebar_collapsed"] is False  # override do usuário venceu
 
 
-def test_grupo_novo_sem_posicao_salva_vai_pro_fim(app):
+# ── Construção da árvore (pages.py) ──────────────────────────────────────
+
+def test_arvore_da_home_aplica_order_overrides(app, client):
     with app.app_context():
-        svc.set_global_defaults(group_order=["Admin"])
-        state = svc.resolve_menu_state(None, ["Admin", "Ferramentas de Desenvolvimento", "Grupo Novo"])
-        assert state["ordered_groups"][0] == "Admin"
-        assert set(state["ordered_groups"][1:]) == {"Ferramentas de Desenvolvimento", "Grupo Novo"}
+        svc.set_global_defaults(order_overrides={
+            "__root__": ["TX_GROUP_FERRAMENTAS_DE_DESENVOLVIMENTO", "TX_GROUP_ADMIN"],
+        })
+    _login_admin(app, client)
+    resp = client.get("/")
+    body = resp.data.decode()
+    # "Ferramentas de Desenvolvimento" deve aparecer ANTES de "Admin" no HTML.
+    assert body.index("Ferramentas de Desenvolvimento") < body.index('bi-gear-fill"></i> Admin</h5>')
+
+
+def test_grupo_core_nunca_aparece_no_menu(app, client):
+    _login_admin(app, client)
+    resp = client.get("/")
+    body = resp.data.decode()
+    # TX_HOME (filho de TX_GROUP_CORE) some no menu porque o próprio
+    # grupo Core é pulado — mas a rota / continua acessível via link fixo.
+    assert ">Core<" not in body
 
 
 # ── API de preferência do usuário ───────────────────────────────────────
@@ -101,7 +118,7 @@ def test_salvar_preferencia_via_api(app, client):
 
     resp = client.post(
         "/api/menu-preference",
-        json={"sidebar_collapsed": True, "collapsed_groups": ["Admin"]},
+        json={"sidebar_collapsed": True, "collapsed_nodes": ["TX_GROUP_ADMIN"]},
     )
     assert resp.status_code == 200
     assert resp.get_json()["success"] is True
@@ -110,7 +127,7 @@ def test_salvar_preferencia_via_api(app, client):
         from model.core.user_menu_preference import UserMenuPreference
         pref = UserMenuPreference.query.filter_by(user_id=user_id).first()
         assert pref.sidebar_collapsed is True
-        assert pref.collapsed_groups_json == ["Admin"]
+        assert pref.collapsed_nodes_json == ["TX_GROUP_ADMIN"]
 
 
 def test_api_de_preferencia_exige_login(client):
@@ -141,20 +158,32 @@ def test_tela_menu_settings_bloqueada_sem_permissao(app, client):
 
 def test_salvar_padrao_global_via_form(app, client):
     _login_admin(app, client)
+    import json
     resp = client.post(
         "/admin/menu-settings/",
         data={
-            "group_order": ["Admin", "Ferramentas de Desenvolvimento"],
-            "default_collapsed_groups": ["Ferramentas de Desenvolvimento"],
+            "order_overrides_json": json.dumps({"__root__": ["TX_GROUP_ADMIN", "TX_GROUP_FERRAMENTAS_DE_DESENVOLVIMENTO"]}),
+            "collapsed_nodes_json": json.dumps(["TX_GROUP_FERRAMENTAS_DE_DESENVOLVIMENTO"]),
         },
         follow_redirects=True,
     )
     assert resp.status_code == 200
 
     with app.app_context():
-        assert svc.get_global_group_order() == ["Admin", "Ferramentas de Desenvolvimento"]
-        assert svc.get_global_default_collapsed_groups() == ["Ferramentas de Desenvolvimento"]
+        assert svc.get_global_order_overrides()["__root__"] == ["TX_GROUP_ADMIN", "TX_GROUP_FERRAMENTAS_DE_DESENVOLVIMENTO"]
+        assert svc.get_global_collapsed_nodes() == ["TX_GROUP_FERRAMENTAS_DE_DESENVOLVIMENTO"]
         assert svc.get_global_default_sidebar_collapsed() is False
+
+
+def test_salvar_padrao_global_com_json_invalido_falha_sem_quebrar(app, client):
+    _login_admin(app, client)
+    resp = client.post(
+        "/admin/menu-settings/",
+        data={"order_overrides_json": "{invalido"},
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert "invalido".encode() not in resp.data or b"inv\xc3\xa1lidos" in resp.data
 
 
 # ── Tela pessoal de preferências (perfil) ───────────────────────────────
@@ -184,11 +213,12 @@ def test_salvar_preferencia_pessoal_via_form_nao_afeta_padrao_global(app, client
     client.post("/api/auth/login", json={"username": "usuario_menu", "password": "x"})
 
     with app.app_context():
-        svc.set_global_defaults(group_order=["Admin", "Ferramentas de Desenvolvimento"])
+        svc.set_global_defaults(order_overrides={"__root__": ["TX_GROUP_ADMIN"]})
 
+    import json
     resp = client.post(
         "/perfil/menu-preferencias",
-        data={"group_order": ["Ferramentas de Desenvolvimento", "Admin"]},
+        data={"order_overrides_json": json.dumps({"__root__": ["TX_GROUP_FERRAMENTAS_DE_DESENVOLVIMENTO", "TX_GROUP_ADMIN"]})},
         follow_redirects=True,
     )
     assert resp.status_code == 200
@@ -196,9 +226,9 @@ def test_salvar_preferencia_pessoal_via_form_nao_afeta_padrao_global(app, client
     with app.app_context():
         from model.core.user_menu_preference import UserMenuPreference
         pref = UserMenuPreference.query.filter_by(user_id=user_id).first()
-        assert pref.group_order_json == ["Ferramentas de Desenvolvimento", "Admin"]
+        assert pref.order_overrides_json["__root__"] == ["TX_GROUP_FERRAMENTAS_DE_DESENVOLVIMENTO", "TX_GROUP_ADMIN"]
         # Padrão global não foi tocado pelo salvamento pessoal.
-        assert svc.get_global_group_order() == ["Admin", "Ferramentas de Desenvolvimento"]
+        assert svc.get_global_order_overrides()["__root__"] == ["TX_GROUP_ADMIN"]
 
 
 # ── Permissão fixa seedada no boot ──────────────────────────────────────

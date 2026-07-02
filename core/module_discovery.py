@@ -22,6 +22,7 @@ from __future__ import annotations
 import importlib
 import logging
 import pkgutil
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -248,18 +249,29 @@ def find_route_for_endpoint(endpoint: str) -> str | None:
     return None
 
 
-def auto_transactions_from_models(models: list[type], *, group_label: str) -> list[dict]:
+def _slugify_code(name: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9]+", "_", name or "").strip("_").upper()
+    slug = re.sub(r"_+", "_", slug)
+    return slug or "MODULO"
+
+
+def auto_transactions_from_models(models: list[type], *, module_name: str, module_label: str) -> list[dict]:
     """
     Gera entradas de Transação a partir de models já descobertos —
-    convenção `code`/`group`/`icon` definida na skill 00 (adendo
-    skill 09): `code=TX_AUTO_<PLURAL>`, `group=<label do módulo dono>`,
-    `icon=@menu_icon ou "bi-app"`. Só inclui o model se a rota de
-    listagem (`{plural}.list`, convenção do CrudGen) realmente existir
-    — nunca um item de menu morto.
+    convenção definida na skill 00 (adendo skill 09) + skill 10
+    (árvore): cria (ou reaproveita, via sync idempotente) uma pasta
+    própria por módulo, código `TX_GROUP_AUTO_<MODULO>` — namespace
+    separado de `TX_GROUP_` (manual), pra nunca colidir sozinho com um
+    grupo curado à mão; quem quiser unificar sobrescreve
+    get_transactions() apontando parent_code pro grupo manual direto.
+
+    `code=TX_AUTO_<PLURAL>`, `icon=@menu_icon ou "bi-app"`. Só inclui
+    o model se a rota de listagem (`{plural}.list`, convenção do
+    CrudGen) realmente existir — nunca um item de menu morto.
     """
     from annotations import get_model_metadata
 
-    transactions = []
+    leaf_entries = []
     for model_cls in models:
         meta = get_model_metadata(model_cls)
         plural = meta.get("plural")
@@ -271,12 +283,26 @@ def auto_transactions_from_models(models: list[type], *, group_label: str) -> li
         if not route:
             continue
 
-        transactions.append({
+        leaf_entries.append({
             "code": f"TX_AUTO_{plural.upper()}",
             "label": label,
-            "group": group_label,
             "icon": meta.get("menu_icon") or "bi-app",
             "route": route,
             "permission_required": f"{plural}.list",
         })
-    return transactions
+
+    if not leaf_entries:
+        return []
+
+    folder_code = f"TX_GROUP_AUTO_{_slugify_code(module_name)}"
+    folder_entry = {
+        "code": folder_code,
+        "label": module_label,
+        "parent_code": None,
+        "route": None,
+        "icon": "bi-folder2",
+    }
+    for entry in leaf_entries:
+        entry["parent_code"] = folder_code
+
+    return [folder_entry] + leaf_entries

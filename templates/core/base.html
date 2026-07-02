@@ -110,7 +110,33 @@
     </nav>
   </header><!-- End Header -->
 
-  <!-- ======= Sidebar — populado a partir do catálogo de Transações, agrupado em submenus colapsáveis ======= -->
+  <!-- ======= Sidebar — populado a partir do catálogo de Transações, árvore de profundidade arbitrária (skill 10) ======= -->
+  {% macro render_menu_nodes(nodes) %}
+    {% for node in nodes %}
+      {% set tx = node.tx %}
+      {% if node.children %}
+        {% set is_collapsed = tx.code in menu_collapsed_nodes %}
+        <li class="nav-item" data-menu-node="{{ tx.code }}">
+          <a class="nav-link {% if is_collapsed %}collapsed{% endif %}"
+             data-bs-target="#node-{{ tx.code }}" data-bs-toggle="collapse" href="#">
+            <i class="{{ tx.icon or 'bi-folder2-open' }}"></i>
+            <span>{{ tx.label }}</span>
+            <i class="bi bi-chevron-down ms-auto"></i>
+          </a>
+          <ul id="node-{{ tx.code }}" class="nav-content collapse {% if not is_collapsed %}show{% endif %}" data-bs-parent="#sidebar-nav">
+            {{ render_menu_nodes(node.children) }}
+          </ul>
+        </li>
+      {% else %}
+        <li data-menu-node="{{ tx.code }}">
+          <a href="{{ tx.route }}">
+            <i class="{{ tx.icon or 'bi-app' }}"></i>
+            <span>{{ tx.label }}</span>
+          </a>
+        </li>
+      {% endif %}
+    {% endfor %}
+  {% endmacro %}
   <aside id="sidebar" class="sidebar">
     <ul class="sidebar-nav" id="sidebar-nav">
       <li class="nav-item">
@@ -119,29 +145,7 @@
           <span>Início</span>
         </a>
       </li>
-      {% for group_name, items in transactions_by_group.items() %}
-      {% if group_name != 'Core' %}
-      {% set is_collapsed = group_name in menu_collapsed_groups %}
-      <li class="nav-item" data-menu-group="{{ group_name }}">
-        <a class="nav-link {% if is_collapsed %}collapsed{% endif %}"
-           data-bs-target="#group-nav-{{ loop.index }}" data-bs-toggle="collapse" href="#">
-          <i class="bi bi-folder2-open"></i>
-          <span>{{ group_name }}</span>
-          <i class="bi bi-chevron-down ms-auto"></i>
-        </a>
-        <ul id="group-nav-{{ loop.index }}" class="nav-content collapse {% if not is_collapsed %}show{% endif %}" data-bs-parent="#sidebar-nav">
-          {% for tx in items %}
-          <li>
-            <a href="{{ tx.route }}">
-              <i class="{{ tx.icon or 'bi-app' }}"></i>
-              <span>{{ tx.label }}</span>
-            </a>
-          </li>
-          {% endfor %}
-        </ul>
-      </li>
-      {% endif %}
-      {% endfor %}
+      {{ render_menu_nodes(transactions_tree) }}
     </ul>
   </aside><!-- End Sidebar -->
 
@@ -248,21 +252,21 @@
       });
     }
 
-    // Colapso por grupo — eventos nativos do Bootstrap Collapse.
+    // Colapso de qualquer nó — eventos nativos do Bootstrap Collapse.
     document.querySelectorAll('#sidebar-nav .nav-content').forEach(function (el) {
-      el.addEventListener('shown.bs.collapse', persistCollapsedGroups);
-      el.addEventListener('hidden.bs.collapse', persistCollapsedGroups);
+      el.addEventListener('shown.bs.collapse', persistCollapsedNodes);
+      el.addEventListener('hidden.bs.collapse', persistCollapsedNodes);
     });
 
-    function persistCollapsedGroups() {
+    function persistCollapsedNodes() {
       var collapsed = [];
-      document.querySelectorAll('#sidebar-nav > li[data-menu-group]').forEach(function (li) {
-        var content = li.querySelector('.nav-content');
+      document.querySelectorAll('#sidebar-nav li[data-menu-node]').forEach(function (li) {
+        var content = li.querySelector(':scope > .nav-content');
         if (content && !content.classList.contains('show')) {
-          collapsed.push(li.getAttribute('data-menu-group'));
+          collapsed.push(li.getAttribute('data-menu-node'));
         }
       });
-      saveMenuPreference({ collapsed_groups: collapsed });
+      saveMenuPreference({ collapsed_nodes: collapsed });
     }
   })();
   </script>

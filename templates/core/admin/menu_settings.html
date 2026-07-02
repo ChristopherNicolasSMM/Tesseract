@@ -1,12 +1,40 @@
 {% extends "core/base.html" %}
 {% block title %}Configurações de Menu - Tesseract{% endblock %}
+
+{% macro render_tree_editor(nodes, parent_code, collapsed_nodes) %}
+<ul class="list-group mb-2 tree-list" data-parent-code="{{ parent_code or '__root__' }}">
+  {% for node in nodes %}
+  <li class="list-group-item" draggable="true" data-code="{{ node.code }}" style="cursor: move;">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-grip-vertical text-muted"></i>
+      <span>{{ node.label }}</span>
+      {% if node.is_folder %}
+        <span class="badge bg-secondary">pasta</span>
+        <div class="form-check ms-auto mb-0">
+          <input class="form-check-input node-collapsed-checkbox" type="checkbox" value="{{ node.code }}"
+                 id="collapsed_{{ node.code }}" {% if node.code in collapsed_nodes %}checked{% endif %}>
+          <label class="form-check-label small" for="collapsed_{{ node.code }}">colapsado por padrão</label>
+        </div>
+      {% endif %}
+    </div>
+    {% if node.children %}
+      <div class="ms-4 mt-2">
+        {{ render_tree_editor(node.children, node.code, collapsed_nodes) }}
+      </div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endmacro %}
+
 {% block content %}
 <div class="pagetitle">
   <h1>Configurações de Menu</h1>
   <p class="text-muted small mb-0">
-    Padrão global (skill 07) — vale para todo usuário que não tiver
-    feito seu próprio ajuste na sidebar (arrastar/colapsar lá sempre
-    vira preferência individual, sem afetar isto aqui).
+    Padrão global (skill 07 + árvore skill 10) — vale para todo usuário
+    que não tiver feito seu próprio ajuste em
+    <code>/perfil/menu-preferencias</code>. Arraste para reordenar
+    dentro do mesmo nível (não move item entre pastas diferentes).
   </p>
 </div>
 
@@ -17,36 +45,23 @@
 <section class="section">
   <div class="card">
     <div class="card-body">
-      <form method="post" action="{{ url_for('admin_menu_settings.save') }}">
-        <h5 class="card-title">Ordem dos grupos</h5>
-        <p class="small text-muted">Arraste para reordenar. Só reordena grupos inteiros (skill 07, v1).</p>
-        <ul class="list-group mb-4" id="groupOrderList">
-          {% for group in ordered_groups %}
-          <li class="list-group-item d-flex align-items-center gap-2" draggable="true" data-group="{{ group }}" style="cursor: move;">
-            <i class="bi bi-grip-vertical text-muted"></i>
-            <span>{{ group }}</span>
-            <input type="hidden" name="group_order" value="{{ group }}">
-          </li>
-          {% endfor %}
-        </ul>
+      <form method="post" action="{{ url_for('admin_menu_settings.save') }}" id="menuSettingsForm">
+        <h5 class="card-title">Árvore do menu</h5>
+        {% if tree %}
+          {{ render_tree_editor(tree, none, collapsed_nodes) }}
+        {% else %}
+          <p class="text-muted">Nenhuma Transação ativa ainda.</p>
+        {% endif %}
 
-        <h5 class="card-title">Grupos colapsados por padrão</h5>
-        <div class="mb-4">
-          {% for group in ordered_groups %}
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="default_collapsed_groups" value="{{ group }}"
-                   id="collapsed_{{ loop.index }}" {% if group in default_collapsed %}checked{% endif %}>
-            <label class="form-check-label" for="collapsed_{{ loop.index }}">{{ group }}</label>
-          </div>
-          {% endfor %}
-        </div>
-
-        <h5 class="card-title">Sidebar</h5>
-        <div class="form-check mb-4">
+        <h5 class="card-title mt-4">Sidebar</h5>
+        <div class="form-check mb-3">
           <input class="form-check-input" type="checkbox" name="default_sidebar_collapsed" id="defaultSidebarCollapsed"
                  value="1" {% if default_sidebar_collapsed %}checked{% endif %}>
           <label class="form-check-label" for="defaultSidebarCollapsed">Sidebar inicia fechada por padrão</label>
         </div>
+
+        <input type="hidden" name="order_overrides_json" id="orderOverridesInput">
+        <input type="hidden" name="collapsed_nodes_json" id="collapsedNodesInput">
 
         <button class="btn btn-primary" type="submit">Salvar padrão global</button>
       </form>
@@ -59,26 +74,12 @@
 <script>
 (function () {
   'use strict';
-  var list = document.getElementById('groupOrderList');
-  if (!list) return;
-  var dragEl = null;
 
-  list.querySelectorAll('[draggable="true"]').forEach(function (item) {
-    item.addEventListener('dragstart', function () {
-      dragEl = item;
-      item.classList.add('opacity-50');
-    });
-    item.addEventListener('dragend', function () {
-      item.classList.remove('opacity-50');
-      dragEl = null;
-    });
-  });
-
-  function elementAfterCursor(container, y) {
-    var candidates = Array.from(container.querySelectorAll('[draggable="true"]:not(.opacity-50)'));
-    return candidates.reduce(function (closest, child) {
-      var box = child.getBoundingClientRect();
-      var offset = y - box.top - box.height / 2;
+  function getDragAfterElement(container, y) {
+    const items = Array.from(container.querySelectorAll(':scope > li[draggable="true"]:not(.opacity-50)'));
+    return items.reduce(function (closest, child) {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
       if (offset < 0 && offset > closest.offset) {
         return { offset: offset, element: child };
       }
@@ -86,15 +87,47 @@
     }, { offset: -Infinity, element: null }).element;
   }
 
-  list.addEventListener('dragover', function (e) {
-    e.preventDefault();
-    if (!dragEl) return;
-    var after = elementAfterCursor(list, e.clientY);
-    if (after == null) {
-      list.appendChild(dragEl);
-    } else {
-      list.insertBefore(dragEl, after);
-    }
+  document.querySelectorAll('.tree-list').forEach(function (list) {
+    let dragEl = null;
+    list.querySelectorAll(':scope > li[draggable="true"]').forEach(function (item) {
+      item.addEventListener('dragstart', function (e) {
+        dragEl = item;
+        item.classList.add('opacity-50');
+        e.stopPropagation();
+      });
+      item.addEventListener('dragend', function () {
+        item.classList.remove('opacity-50');
+        dragEl = null;
+      });
+    });
+    list.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!dragEl || dragEl.parentElement !== list) return;
+      const after = getDragAfterElement(list, e.clientY);
+      if (after == null) {
+        list.appendChild(dragEl);
+      } else {
+        list.insertBefore(dragEl, after);
+      }
+    });
+  });
+
+  document.getElementById('menuSettingsForm').addEventListener('submit', function () {
+    const orderOverrides = {};
+    document.querySelectorAll('.tree-list').forEach(function (list) {
+      const parentCode = list.getAttribute('data-parent-code');
+      const codes = Array.from(list.querySelectorAll(':scope > li[data-code]')).map(function (li) {
+        return li.getAttribute('data-code');
+      });
+      orderOverrides[parentCode] = codes;
+    });
+    document.getElementById('orderOverridesInput').value = JSON.stringify(orderOverrides);
+
+    const collapsedNodes = Array.from(document.querySelectorAll('.node-collapsed-checkbox:checked')).map(function (cb) {
+      return cb.value;
+    });
+    document.getElementById('collapsedNodesInput').value = JSON.stringify(collapsedNodes);
   });
 })();
 </script>

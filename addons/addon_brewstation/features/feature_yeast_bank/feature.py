@@ -67,9 +67,16 @@ class FeatureYeastBank(FeatureBase):
     def get_transactions(self) -> list:
         return [
             {
+                "code": "TX_GROUP_YEAST_BANK",
+                "label": "Banco de Levedura",
+                "parent_code": None,
+                "route": None,
+                "icon": "bi-droplet-fill",
+            },
+            {
                 "code": "TX_YEAST_BANK",
                 "label": "Cepas de Levedura",
-                "group": "Banco de Levedura",
+                "parent_code": "TX_GROUP_YEAST_BANK",
                 "description": "Cadastro e acompanhamento de cepas de levedura.",
                 "icon": "bi-droplet-fill",
                 "route": "/brewstation/yeast-strains",
@@ -78,7 +85,7 @@ class FeatureYeastBank(FeatureBase):
             {
                 "code": "TX_YEAST_BANK_ITEMS",
                 "label": "Itens do Banco",
-                "group": "Banco de Levedura",
+                "parent_code": "TX_GROUP_YEAST_BANK",
                 "description": "Itens físicos do banco (slants, placas, salinas).",
                 "icon": "bi-box-seam",
                 "route": "/brewstation/yeast-bank-items",
@@ -87,7 +94,7 @@ class FeatureYeastBank(FeatureBase):
             {
                 "code": "TX_YEAST_STORAGE_DEVICES",
                 "label": "Dispositivos de Armazenamento",
-                "group": "Banco de Levedura",
+                "parent_code": "TX_GROUP_YEAST_BANK",
                 "description": "Freezers/geladeiras usados para guardar o banco.",
                 "icon": "bi-snow",
                 "route": "/brewstation/yeast-storage-devices",
@@ -96,7 +103,7 @@ class FeatureYeastBank(FeatureBase):
             {
                 "code": "TX_YEAST_STORAGE_READINGS",
                 "label": "Leituras de Temperatura",
-                "group": "Banco de Levedura",
+                "parent_code": "TX_GROUP_YEAST_BANK",
                 "description": "Histórico de temperatura dos dispositivos de armazenamento.",
                 "icon": "bi-thermometer-snow",
                 "route": "/brewstation/yeast-storage-readings",
@@ -105,7 +112,7 @@ class FeatureYeastBank(FeatureBase):
             {
                 "code": "TX_YEAST_STARTER_LOGS",
                 "label": "Starters",
-                "group": "Banco de Levedura",
+                "parent_code": "TX_GROUP_YEAST_BANK",
                 "description": "Propagação/starters realizados a partir de um item do banco.",
                 "icon": "bi-flask",
                 "route": "/brewstation/yeast-starter-logs",
@@ -114,7 +121,7 @@ class FeatureYeastBank(FeatureBase):
             {
                 "code": "TX_YEAST_CELL_COUNT_HISTORIES",
                 "label": "Contagens de Células",
-                "group": "Banco de Levedura",
+                "parent_code": "TX_GROUP_YEAST_BANK",
                 "description": "Histórico de contagem de células e viabilidade real/estimada.",
                 "icon": "bi-grid-3x3",
                 "route": "/brewstation/yeast-cell-count-histories",
@@ -123,7 +130,7 @@ class FeatureYeastBank(FeatureBase):
             {
                 "code": "TX_YEAST_BANK_EVENTS",
                 "label": "Eventos do Banco",
-                "group": "Banco de Levedura",
+                "parent_code": "TX_GROUP_YEAST_BANK",
                 "description": "Linha do tempo de eventos de um item do banco.",
                 "icon": "bi-calendar-event",
                 "route": "/brewstation/yeast-bank-events",
@@ -132,7 +139,7 @@ class FeatureYeastBank(FeatureBase):
             {
                 "code": "TX_YEAST_BANK_CONFIGS",
                 "label": "Configurações do Banco",
-                "group": "Banco de Levedura",
+                "parent_code": "TX_GROUP_YEAST_BANK",
                 "description": "Parâmetros gerais do banco de levedura.",
                 "icon": "bi-sliders",
                 "route": "/brewstation/yeast-bank-configs",
@@ -141,7 +148,7 @@ class FeatureYeastBank(FeatureBase):
             {
                 "code": "TX_YEAST_BANK_RECALC_VIABILITY",
                 "label": "Recalcular Viabilidade",
-                "group": "Banco de Levedura",
+                "parent_code": "TX_GROUP_YEAST_BANK",
                 "description": "Recalcula a viabilidade estimada de todos os itens do banco.",
                 "icon": "bi-arrow-repeat",
                 "route": "/brewstation/yeast-bank-tools/recalculate-viability",

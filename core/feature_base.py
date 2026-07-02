@@ -65,7 +65,7 @@ class FeatureBase(ABC):
         """
         from core.module_discovery import auto_transactions_from_models
 
-        return auto_transactions_from_models(self.register_models(), group_label=self.label)
+        return auto_transactions_from_models(self.register_models(), module_name=self.name, module_label=self.label)
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} name={self.name!r} v{self.version}>"

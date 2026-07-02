@@ -19,7 +19,12 @@ transactions_api_bp = Blueprint("transactions_api", __name__, url_prefix="/api/c
 @transactions_api_bp.route("/", methods=["GET"])
 @login_required
 def list_transactions():
-    all_tx = Transaction.query.filter_by(is_active=True).order_by(Transaction.group, Transaction.label).all()
+    all_tx = (
+        Transaction.query.filter_by(is_active=True)
+        .filter(Transaction.route.isnot(None))  # nó-pasta (skill 10) não é "transação navegável"
+        .order_by(Transaction.order_index, Transaction.label)
+        .all()
+    )
 
     visible = [
         tx for tx in all_tx

@@ -11,13 +11,48 @@ ainda (DS_ODATA, DS_BUILD — Fase 8 e além).
 Convenção de código: TX_<NOME>, paralela ao DS_*/NDS_* do original
 mas sem o prefixo "DS" (que no DEVStationFlask distinguia núcleo de
 plugin — aqui essa distinção já é o campo `is_standard`).
+
+Árvore (skill 10): "group" (string plana) foi substituído por
+`parent_code` — todo grupo é uma entrada própria do catálogo, sem
+`route` (nó-pasta). `order_index` é implícito pela posição na lista
+Python, salvo quando um item precisa forçar posição explícita (não
+usado ainda neste catálogo).
+
+TX_GROUP_CORE existe só pra manter o comportamento que já havia
+antes da skill 10 (grupo "Core" nunca aparecia na sidebar nem na home
+— ver core/base.html e templates/core/home.html, que pulam
+explicitamente o nó de código TX_GROUP_CORE).
 """
 
 CORE_TRANSACTIONS = [
     {
+        "code": "TX_GROUP_CORE",
+        "label": "Core",
+        "parent_code": None,
+        "route": None,
+        "icon": "bi-house-fill",
+        "is_standard": True,
+    },
+    {
+        "code": "TX_GROUP_ADMIN",
+        "label": "Admin",
+        "parent_code": None,
+        "route": None,
+        "icon": "bi-gear-fill",
+        "is_standard": True,
+    },
+    {
+        "code": "TX_GROUP_FERRAMENTAS_DE_DESENVOLVIMENTO",
+        "label": "Ferramentas de Desenvolvimento",
+        "parent_code": None,
+        "route": None,
+        "icon": "bi-tools",
+        "is_standard": True,
+    },
+    {
         "code": "TX_HOME",
         "label": "Início",
-        "group": "Core",
+        "parent_code": "TX_GROUP_CORE",
         "description": "Tela inicial.",
         "icon": "bi-house-fill",
         "route": "/",
@@ -27,7 +62,7 @@ CORE_TRANSACTIONS = [
     {
         "code": "TX_ADMIN_USERS",
         "label": "Gestão de Usuários",
-        "group": "Admin",
+        "parent_code": "TX_GROUP_ADMIN",
         "description": "Cadastro e configuração de usuários, papéis e permissões.",
         "icon": "bi-people-fill",
         "route": "/admin/users",
@@ -37,7 +72,7 @@ CORE_TRANSACTIONS = [
     {
         "code": "TX_ADMIN_ROLES",
         "label": "Papéis e Permissões",
-        "group": "Admin",
+        "parent_code": "TX_GROUP_ADMIN",
         "description": "Criação de Roles e associação de Permissions.",
         "icon": "bi-shield-lock-fill",
         "route": "/admin/roles",
@@ -47,7 +82,7 @@ CORE_TRANSACTIONS = [
     {
         "code": "TX_ADMIN_VERSIONING",
         "label": "Versionamento de Código",
-        "group": "Admin",
+        "parent_code": "TX_GROUP_ADMIN",
         "description": "Histórico de arquivos gerados/editados, diff e restauração.",
         "icon": "bi-clock-history",
         "route": "/admin/versioning",
@@ -57,7 +92,7 @@ CORE_TRANSACTIONS = [
     {
         "code": "TX_ADMIN_FIELD_RULES",
         "label": "Regras de Campo",
-        "group": "Admin",
+        "parent_code": "TX_GROUP_ADMIN",
         "description": "Validação client-side anexada a campos de qualquer entidade.",
         "icon": "bi-rulers",
         "route": "/admin/field-rules",
@@ -67,7 +102,7 @@ CORE_TRANSACTIONS = [
     {
         "code": "TX_ADMIN_ODATA",
         "label": "Conexões OData",
-        "group": "Admin",
+        "parent_code": "TX_GROUP_ADMIN",
         "description": "Conectar a servidores OData externos e navegar dados (somente leitura).",
         "icon": "bi-hdd-network",
         "route": "/admin/odata",
@@ -77,7 +112,7 @@ CORE_TRANSACTIONS = [
     {
         "code": "TX_ADMIN_DESIGNER",
         "label": "Designer Visual",
-        "group": "Admin",
+        "parent_code": "TX_GROUP_ADMIN",
         "description": "Montagem de telas por drag-and-drop, sem precisar do CrudGen.",
         "icon": "bi-easel2-fill",
         "route": "/admin/designer",
@@ -87,7 +122,7 @@ CORE_TRANSACTIONS = [
     {
         "code": "TX_ADMIN_TRANSACTIONS",
         "label": "Catálogo de Transações",
-        "group": "Admin",
+        "parent_code": "TX_GROUP_ADMIN",
         "description": "Itens do menu — ativar/desativar e criar transações manuais.",
         "icon": "bi-signpost-split-fill",
         "route": "/admin/transactions",
@@ -97,7 +132,7 @@ CORE_TRANSACTIONS = [
     {
         "code": "TX_ADMIN_TASKS",
         "label": "Monitor de Tarefas",
-        "group": "Admin",
+        "parent_code": "TX_GROUP_ADMIN",
         "description": "Tarefas agendadas/sob demanda, fila de mensagens e histórico de execução.",
         "icon": "bi-clock-history",
         "route": "/admin/tasks",
@@ -107,7 +142,7 @@ CORE_TRANSACTIONS = [
     {
         "code": "TX_ADMIN_MODEL_BUILDER",
         "label": "Model Builder",
-        "group": "Ferramentas de Desenvolvimento",
+        "parent_code": "TX_GROUP_FERRAMENTAS_DE_DESENVOLVIMENTO",
         "description": "Cria Model + Service/Controller/Routes/Templates (equivalente web ao CrudGen via CLI) — skill 06.",
         "icon": "bi-diagram-3-fill",
         "route": "/admin/model-builder",
@@ -117,7 +152,7 @@ CORE_TRANSACTIONS = [
     {
         "code": "TX_ADMIN_PLAYGROUND",
         "label": "API/SQL Playground",
-        "group": "Ferramentas de Desenvolvimento",
+        "parent_code": "TX_GROUP_FERRAMENTAS_DE_DESENVOLVIMENTO",
         "description": "Testa requisições HTTP e consultas SQL somente-leitura; ponte com o Model Builder — skill 06.",
         "icon": "bi-terminal-fill",
         "route": "/admin/playground",
@@ -127,7 +162,7 @@ CORE_TRANSACTIONS = [
     {
         "code": "TX_ADMIN_LOGS",
         "label": "Logs",
-        "group": "Admin",
+        "parent_code": "TX_GROUP_ADMIN",
         "description": "Log global do Core e logs de integração locais dos Addons — consulta e exclusão (skill 08).",
         "icon": "bi-file-text-fill",
         "route": "/admin/logs",
@@ -137,8 +172,8 @@ CORE_TRANSACTIONS = [
     {
         "code": "TX_ADMIN_MENU_SETTINGS",
         "label": "Configurações de Menu",
-        "group": "Admin",
-        "description": "Ordem e colapso padrão dos grupos de menu (skill 07).",
+        "parent_code": "TX_GROUP_ADMIN",
+        "description": "Ordem e árvore padrão do menu (skill 07 + skill 10).",
         "icon": "bi-list-nested",
         "route": "/admin/menu-settings",
         "permission_required": "system_config.menu_settings",

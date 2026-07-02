@@ -141,24 +141,23 @@ def create_app(env: str | None = None) -> Flask:
         """
         Disponível em TODO template que estenda core/base.html — sem
         isso, cada controller gerado pelo CrudGen precisaria passar
-        transactions_by_group manualmente em todo render_template().
-        Só roda para usuário autenticado (sidebar não existe na tela
-        de login, que estende base_no_login.html).
+        transactions_tree manualmente em todo render_template(). Só
+        roda para usuário autenticado (sidebar não existe na tela de
+        login, que estende base_no_login.html).
 
-        menu_collapsed_groups/menu_sidebar_collapsed (skill 07):
-        resolvidos uma vez aqui e usados em core/base.html — evita
-        chamar resolve_menu_state() duas vezes (uma para ordenar os
-        grupos, outra para saber o estado de colapso).
+        menu_collapsed_nodes/menu_sidebar_collapsed (skill 07 + árvore
+        skill 10): resolvidos uma vez aqui e usados em core/base.html —
+        evita chamar resolve_menu_state() duas vezes.
         """
         from flask_login import current_user
         if not current_user.is_authenticated:
             return {}
-        from controller.core.pages import _visible_transactions_grouped_and_state
+        from controller.core.pages import _visible_transactions_tree_and_state
 
-        grouped, state = _visible_transactions_grouped_and_state(current_user.id)
+        tree, state = _visible_transactions_tree_and_state(current_user.id)
         return {
-            "transactions_by_group": grouped,
-            "menu_collapsed_groups": state["collapsed_groups"],
+            "transactions_tree": tree,
+            "menu_collapsed_nodes": state["collapsed_nodes"],
             "menu_sidebar_collapsed": state["sidebar_collapsed"],
         }
 

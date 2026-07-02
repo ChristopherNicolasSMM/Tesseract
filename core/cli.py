@@ -85,15 +85,13 @@ def register_cli_commands(app) -> None:
         hardcoded no código (core/transactions_catalog.py +
         get_transactions() de cada Addon/Feature).
         """
-        from collections import OrderedDict
         from pathlib import Path
         from model.core.transaction import Transaction
 
-        transactions = Transaction.query.order_by(Transaction.group, Transaction.label).all()
-
-        grouped = OrderedDict()
+        transactions = Transaction.query.order_by(Transaction.order_index, Transaction.label).all()
+        children_by_parent: dict = {}
         for tx in transactions:
-            grouped.setdefault(tx.group, []).append(tx)
+            children_by_parent.setdefault(tx.parent_id, []).append(tx)
 
         lines = [
             "# 07 — Catálogo de Transações",
@@ -103,26 +101,38 @@ def register_cli_commands(app) -> None:
             "se perdem na próxima geração. Para mudar uma transação vinda "
             "do código, edite o `get_transactions()`/`transactions_catalog.py` "
             "correspondente. Para uma transação manual, use a tela "
-            "`/admin/transactions/`.",
+            "`/admin/transactions/`. Árvore de profundidade arbitrária "
+            "(skill 10) — cada nível vira uma seção aninhada.",
             "",
             f"Total: {len(transactions)} transação(ões), "
             f"{sum(1 for t in transactions if t.is_active)} ativa(s).",
             "",
         ]
 
-        for group_name, items in grouped.items():
-            lines.append(f"## {group_name}")
-            lines.append("")
-            lines.append("| Código | Label | Rota | Permissão | Origem | Status |")
-            lines.append("|---|---|---|---|---|---|")
-            for tx in items:
-                origin = "Manual" if tx.source_module == "manual" else (tx.source_module or "Core")
-                status = "Ativa" if tx.is_active else "Inativa"
-                perm = tx.permission_required or "—"
-                lines.append(
-                    f"| `{tx.code}` | {tx.label} | `{tx.route}` | `{perm}` | {origin} | {status} |"
-                )
-            lines.append("")
+        def render_folder(folder_id, depth):
+            children = children_by_parent.get(folder_id, [])
+            leaves = [c for c in children if c.route is not None]
+            folders = [c for c in children if c.route is None]
+
+            if leaves:
+                lines.append("| Código | Label | Rota | Permissão | Origem | Status |")
+                lines.append("|---|---|---|---|---|---|")
+                for tx in leaves:
+                    origin = "Manual" if tx.source_module == "manual" else (tx.source_module or "Core")
+                    status = "Ativa" if tx.is_active else "Inativa"
+                    perm = tx.permission_required or "—"
+                    lines.append(
+                        f"| `{tx.code}` | {tx.label} | `{tx.route}` | `{perm}` | {origin} | {status} |"
+                    )
+                lines.append("")
+
+            for folder_tx in folders:
+                heading_level = "#" * min(depth + 2, 6)
+                lines.append(f"{heading_level} {folder_tx.label}")
+                lines.append("")
+                render_folder(folder_tx.id, depth + 1)
+
+        render_folder(None, 0)
 
         output_path = Path("docs/technical/07-catalogo-de-transacoes.md")
         output_path.parent.mkdir(parents=True, exist_ok=True)

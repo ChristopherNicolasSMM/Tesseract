@@ -44,31 +44,39 @@ def _login_admin(app, client):
 
 def test_grupo_banco_de_levedura_tem_9_transacoes(app):
     with app.app_context():
-        count = Transaction.query.filter_by(group="Banco de Levedura").count()
+        folder = Transaction.query.filter_by(code="TX_GROUP_YEAST_BANK").first()
+        assert folder is not None
+        count = Transaction.query.filter_by(parent_id=folder.id).count()
         assert count == 9
 
 
 def test_grupo_controle_de_mostura_tem_12_transacoes(app):
     with app.app_context():
-        count = Transaction.query.filter_by(group="Controle de Mostura").count()
+        folder = Transaction.query.filter_by(code="TX_GROUP_MASH_CONTROL").first()
+        assert folder is not None
+        count = Transaction.query.filter_by(parent_id=folder.id).count()
         assert count == 12
 
 
 def test_grupo_dispositivos_iot_tem_4_transacoes(app):
     with app.app_context():
-        count = Transaction.query.filter_by(group="Dispositivos IoT").count()
+        folder = Transaction.query.filter_by(code="TX_GROUP_DEVICE_MANAGER").first()
+        assert folder is not None
+        count = Transaction.query.filter_by(parent_id=folder.id).count()
         assert count == 4
 
 
 def test_nao_existe_mais_grupo_brewstation_generico(app):
     with app.app_context():
-        count = Transaction.query.filter_by(group="BrewStation").count()
+        count = Transaction.query.filter_by(label="BrewStation").filter(Transaction.route.is_(None)).count()
         assert count == 0
 
 
 def test_nao_existe_mais_grupo_device_manager_antigo(app):
     with app.app_context():
-        count = Transaction.query.filter_by(group="Device Manager").count()
+        # O nó-pasta real hoje é "Dispositivos IoT" (TX_GROUP_DEVICE_MANAGER) —
+        # o nome antigo "Device Manager" nunca deveria existir como pasta.
+        count = Transaction.query.filter_by(label="Device Manager").filter(Transaction.route.is_(None)).count()
         assert count == 0
 
 
@@ -138,5 +146,7 @@ def test_grupo_core_nao_aparece_como_secao_na_home(app, client):
 def test_grupos_novos_aparecem_como_titulo_de_secao_na_home(app, client):
     _login_admin(app, client)
     resp = client.get("/")
+    body = resp.data.decode()
     for group in ("Banco de Levedura", "Controle de Mostura", "Dispositivos IoT"):
-        assert f'<h5 class="mt-3">{group}</h5>'.encode() in resp.data
+        assert f'<h5 class="mt-3">' in body
+        assert group in body

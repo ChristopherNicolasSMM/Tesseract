@@ -52,8 +52,8 @@ Transações, Migrations, `addon_device_manager`) seguiu essas regras.
 As skills 06, 07, 08 e 09 já foram **executadas** — ver o próprio
 arquivo de cada uma para o detalhe do que foi implementado e eventuais
 revisões em relação à proposta original (skill 08, seção 10; skill 06,
-Patches A/B/C). A skill 10 está em **fase de decisão** (schema e regra
-fechados, implementação ainda não autorizada).
+Patches A/B/C). A skill 10 (menu hierárquico, `parent_id`/`order_index`
+em Transaction) também já foi **executada**.
 
 Ainda não cobertos por uma skill própria (peças que ainda não foram
 construídas, ou que têm pouca regra formal além do próprio código):
