@@ -143,3 +143,23 @@ contribui as suas via `get_transactions()` (`ModuleBase`/
 usa `User.has_permission()` real — nenhum sistema de tier separado
 (decisão tomada ao adaptar o catálogo `DS_*`/`min_profile` do
 DEVStationFlask, que tinha um tier próprio redundante com o RBAC).
+
+## Adendo (skill 09): anotação `@menu_icon` e Transação auto-gerada
+
+Com a auto-descoberta de módulos (skill 09), `get_transactions()`
+ganhou uma implementação default que gera entradas de menu a partir
+dos models descobertos — sem exigir que o Addon/Feature escreva a
+lista à mão. Duas convenções novas, exclusivas desse caminho
+automático (Transação escrita manualmente continua livre desses
+campos, como já era):
+
+- **`@menu_icon("bi-...")`** — anotação nova de CrudGen, mesma família
+  de `@label`/`@plural` (autoria direta na classe do model, sem passar
+  por `translation_key` — ícone não é texto visível traduzível).
+  Opcional; sem ela, a Transação auto-gerada usa `bi-app` genérico.
+- **`group`** da Transação auto-gerada é sempre `module.label` (label
+  do Addon/Feature dono do model) — nunca inventa um grupo novo.
+- **`code`** da Transação auto-gerada segue `TX_AUTO_<PLURAL_MAIUSCULO>`
+  — prefixo `TX_AUTO_` reservado exclusivamente para esse caminho,
+  nunca usado em Transação escrita à mão (que usa `TX_<algo>` livre,
+  ver exemplos já existentes como `TX_DEVICE_FUNCTIONS`).
