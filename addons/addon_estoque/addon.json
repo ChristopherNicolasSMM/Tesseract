@@ -1,0 +1,16 @@
+{
+  "name": "estoque",
+  "label": "Estoque",
+  "version": "1.0.0",
+  "description": "Gestao generica de materiais estocaveis (materia-prima, embalagem, kits/composicoes) com movimentacao e saldo. Infraestrutura reutilizavel por qualquer Addon, sem conhecer nenhum dominio de negocio especifico.",
+  "author": "S2M Tech",
+  "type": "addon",
+  "table_prefix": "estoque",
+  "tesseract_min_version": "1.0.0",
+  "requires": [],
+  "provides": ["material_data", "stock_movement_data", "stock_balance_data"],
+  "features": [],
+  "env_keys": [],
+  "default_locale": "pt_BR",
+  "available_locales": ["pt_BR"]
+}

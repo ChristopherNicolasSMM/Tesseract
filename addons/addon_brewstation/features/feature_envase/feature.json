@@ -1,0 +1,11 @@
+{
+  "name": "feature_envase",
+  "label": "Envase",
+  "version": "1.0.0",
+  "description": "Evento de empacotamento de um Lote (BrewSession). Consome addon_estoque via chamada sincrona para dar baixa nos Materiais de embalagem usados.",
+  "table_prefix_suffix": "env",
+  "enabled": true,
+  "requires": [],
+  "provides": ["packaging_event_data"],
+  "settings": {}
+}

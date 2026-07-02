@@ -1,0 +1,11 @@
+{
+  "name": "feature_ingredientes",
+  "label": "Ingredientes",
+  "version": "1.0.0",
+  "description": "Especificacoes de cervejaria de Malte, Lupulo e Levedura - complementares ao Material generico de addon_estoque, referenciado fracamente via material_id (sem FK, cross-Addon).",
+  "table_prefix_suffix": "ingr",
+  "enabled": true,
+  "requires": [],
+  "provides": ["malt_data", "hop_data", "yeast_ingredient_data"],
+  "settings": {}
+}

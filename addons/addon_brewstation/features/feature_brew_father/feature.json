@@ -2,10 +2,10 @@
   "name": "feature_brew_father",
   "label": "Brew Father",
   "version": "1.0.0",
-  "description": "Gerenciamento de receitas e processos de cervejaria",
+  "description": "Sincronizacao com a API do BrewFather. Nao possui tabela de dominio propria - grava em MashRecipe/BrewSession (feature_mash_control) via ingredient_resolution_service, com origem_receita=BrewFather.",
   "table_prefix_suffix": "brewfather",
-  "enabled": true,
+  "enabled": false,
   "requires": [],
-  "provides": ["brewfather_lote", "brewfather_receita", "brewfather_ingrediente"],
+  "provides": ["brewfather_sync_data"],
   "settings": {}
 }

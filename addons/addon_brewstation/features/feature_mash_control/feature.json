@@ -5,7 +5,7 @@
   "description": "Receitas, plantas/equipamentos, sessões de brassagem, dashboards e regras de automação (escopo CRUD — sem motor de controle em tempo real nesta fase)",
   "table_prefix_suffix": "mashctrl",
   "enabled": true,
-  "requires": ["device_manager"],
+  "requires": ["device_manager", "estoque"],
   "provides": ["recipe_data", "session_data"],
   "settings": {}
 }

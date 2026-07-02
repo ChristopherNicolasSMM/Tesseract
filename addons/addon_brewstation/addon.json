@@ -7,7 +7,7 @@
   "type": "addon",
   "table_prefix": "brewstation",
   "tesseract_min_version": "1.0.0",
-  "requires": [],
+  "requires": ["device_manager", "estoque"],
   "provides": ["recipe_data", "inventory_data"],
   "features": [
     {
@@ -18,9 +18,30 @@
       "requires": []
     },
     {
-      "name": "feature_device_manager",
-      "label": "Device Manager",
-      "table_prefix_suffix": "dvm",
+      "name": "feature_mash_control",
+      "label": "Mash Control",
+      "table_prefix_suffix": "mashctrl",
+      "enabled_by_default": true,
+      "requires": ["device_manager", "estoque"]
+    },
+    {
+      "name": "feature_brew_father",
+      "label": "Brew Father",
+      "table_prefix_suffix": "brewfather",
+      "enabled_by_default": false,
+      "requires": []
+    },
+    {
+      "name": "feature_ingredientes",
+      "label": "Ingredientes",
+      "table_prefix_suffix": "ingr",
+      "enabled_by_default": true,
+      "requires": []
+    },
+    {
+      "name": "feature_envase",
+      "label": "Envase",
+      "table_prefix_suffix": "env",
       "enabled_by_default": true,
       "requires": []
     }
