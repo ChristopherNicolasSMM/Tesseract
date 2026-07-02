@@ -37,6 +37,9 @@ Ordem de leitura recomendada:
 10. **09-auto-descoberta-modulos.md** — descoberta automática de rotas/
     models/menu via `pkgutil.walk_packages`, escopada por Addon/Feature
     (adaptação do mecanismo real do PyTeca à arquitetura tri-nível).
+11. **10-menu-hierarquico.md** — menu em árvore de profundidade
+    arbitrária (`parent_id`/`order_index` em Transaction), substitui o
+    campo `group` plano; adendas nas skills 07 e 09.
 
 ## Status
 
@@ -49,7 +52,8 @@ Transações, Migrations, `addon_device_manager`) seguiu essas regras.
 As skills 06, 07, 08 e 09 já foram **executadas** — ver o próprio
 arquivo de cada uma para o detalhe do que foi implementado e eventuais
 revisões em relação à proposta original (skill 08, seção 10; skill 06,
-Patches A/B/C).
+Patches A/B/C). A skill 10 está em **fase de decisão** (schema e regra
+fechados, implementação ainda não autorizada).
 
 Ainda não cobertos por uma skill própria (peças que ainda não foram
 construídas, ou que têm pouca regra formal além do próprio código):

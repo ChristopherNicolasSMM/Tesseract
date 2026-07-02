@@ -15,7 +15,7 @@
 | **Module** | Termo genérico que engloba Addon e Plugin quando a regra se aplica aos dois igualmente (ex.: estado de ativação no banco). |
 | **Manifesto** | Arquivo JSON (`addon.json` ou `plugin.json`) que declara identidade, versão, dependências e (só para Addon) prefixo de tabela e features. |
 | **ModuleManager** | Componente do Core responsável por descoberta, instalação, ativação/desativação e registro de Addons e Plugins. |
-| **Transação** | Um ponto de entrada navegável (rota + label + ícone) exposto no menu/launcher. Todo Addon/Feature/Plugin pode declarar uma ou mais. |
+| **Transação** | Um ponto de entrada navegável (rota + label + ícone) exposto no menu/launcher, **ou** um nó-pasta puro (sem rota, skill 10) que agrupa outras Transações via `parent_id` — árvore de profundidade arbitrária. Todo Addon/Feature/Plugin pode declarar uma ou mais. |
 | **Hook** | Arquivo `_hooks.py` gerado uma única vez (nunca sobrescrito) onde o desenvolvedor customiza comportamento sem editar código gerado pelo CrudGen. |
 | **CrudGen** | Pipeline de geração de código a partir de um model anotado. Roda **apenas sobre Addons/Features** (nunca sobre Plugins, que não têm model). |
 | **Snapshot** | Registro no histórico de versionamento (`CodeSnapshot`) de um arquivo gerado ou editado. |
