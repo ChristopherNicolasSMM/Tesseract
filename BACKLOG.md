@@ -1046,7 +1046,40 @@ transações "representante", nunca uma por entidade.
       home e na sidebar, os 3 grupos novos aparecem como seção, nenhum
       "Início" duplicado
 
-## Pendências em aberto (não bloqueiam Fase 0, mas precisam de decisão)
+## Skill 09 — Auto-Descoberta de Módulos (pkgutil)
+
+- [x] `core/module_discovery.py`, `register_models()`/`register_routes()`/
+      `get_transactions()` deixam de ser `@abstractmethod` em
+      `ModuleBase`/`AddonBase`/`FeatureBase`, ganham default via
+      auto-descoberta escopada por módulo. `@menu_icon` nova em
+      `annotations/`. 5 testes novos (`tests/test_module_discovery.py`).
+      312/312 passando, zero regressão confirmada nos 3 módulos reais
+      (todos sobrescrevem os 3 métodos manualmente, continuam intocados).
+
+- [ ] **Pendente, opcional — migração dos módulos reais para o caminho
+      automático** (`addon_brewstation` núcleo, `feature_yeast_bank`,
+      `feature_mash_control`, `addon_device_manager`): removeria o
+      boilerplate manual de `register_models`/`register_routes`/
+      `get_transactions` nesses 4 arquivos.
+      **Achado ao investigar**: não é troca neutra — o `group` usado
+      hoje no `get_transactions()` manual é curado em PT-BR
+      (`"Banco de Levedura"`, `"Controle de Mostura"`,
+      `"Dispositivos IoT"`), enquanto o `label` do manifesto de cada um
+      está em inglês (`"Yeast Bank"`, `"Mash Control"`,
+      `"Device Manager"`) — a auto-descoberta usa `module.label` como
+      `group`, então migrar hoje trocaria o menu pro nome em inglês,
+      violando a skill 00 (labels visíveis sempre PT-BR). Duas saídas
+      possíveis, nenhuma decidida ainda:
+      1. Traduzir o `label` desses manifestos para PT-BR antes de
+         migrar (checar antes se `label` é usado em algum outro lugar
+         da UI de admin, pra não quebrar nada ali).
+      2. Estender a skill 09 com anotação `@menu_group("...")` por
+         model, pra sobrepor o `group` default sem depender do
+         `label` do manifesto.
+      Bloqueado até essa decisão ser tomada — não iniciar a migração
+      sem resolver isso primeiro.
+
+
 
 - [x] **Resolvido**: limite de 63 caracteres (Postgres `NAMEDATALEN`)
       incorporado à skill 02 (margem de segurança: máx. 55 caracteres),
