@@ -1,15 +1,21 @@
 """
 services/core/model_builder_service.py
 
-Orquestra o Model Builder Visual (skill 06). Patch A: só cobre
-target_scope "existing_addon"/"existing_feature" — "new_addon"/
-"new_feature" (scaffold completo de pastas+manifesto) fica para o
-Patch B (skill 06, seção 3.3).
+Orquestra o Model Builder Visual (skill 06). Patch A cobriu
+"existing_addon"/"existing_feature"; Patch B (esta versão) adiciona
+"new_addon"/"new_feature" — scaffold completo de pastas (skill 01) +
+manifesto (skill 03) + docs stub (skill 04) antes de gerar o Model.
 
 Reaproveita o pipeline já existente do CrudGen (core/crudgen/generator.py)
-para Service/Controller/Routes/Templates — este módulo só cuida da
-parte que o CLI não cobria: escrever o model.py a partir do rascunho
-salvo no banco, e disparar a migration.
+para Service/Controller/Routes/Templates — este módulo cuida da parte
+que o CLI não cobria: escrever o model.py (e, no Patch B, o próprio
+addon.py/feature.py e manifesto) a partir do rascunho salvo no banco,
+e disparar a migration.
+
+Wiring pós-skill-09: addon.py/feature.py gerados aqui não escrevem
+register_models()/register_routes()/get_transactions()/get_features()
+nenhum — a auto-descoberta (skill 09 + adenda) resolve tudo sozinha no
+próximo boot.
 """
 from __future__ import annotations
 
@@ -35,7 +41,7 @@ logger = logging.getLogger(__name__)
 _TEMPLATES_DIR = Path(__file__).parent.parent.parent / "core" / "crudgen" / "templates"
 _jinja_env = Environment(loader=FileSystemLoader(str(_TEMPLATES_DIR)), keep_trailing_newline=True)
 
-_NOT_IMPLEMENTED_SCOPES = (ModelDefinitionScope.NEW_ADDON, ModelDefinitionScope.NEW_FEATURE)
+_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 class ModelBuilderError(ValueError):
@@ -54,14 +60,28 @@ def _to_snake_case(name: str) -> str:
     return s2.lower()
 
 
+def _to_pascal_case(snake: str) -> str:
+    return "".join(part.capitalize() for part in snake.split("_") if part)
+
+
 # ── Rascunho (ModelDefinition + campos) ──────────────────────────────────────
 
 def create_draft(*, target_addon_name: str, target_feature_name: Optional[str],
-                  model_name: str, table_short_name: str, created_by_user_id: Optional[int]) -> ModelDefinition:
-    target_scope = (
-        ModelDefinitionScope.EXISTING_FEATURE if target_feature_name
-        else ModelDefinitionScope.EXISTING_ADDON
-    )
+                  model_name: str, table_short_name: str, created_by_user_id: Optional[int],
+                  is_new_addon: bool = False, is_new_feature: bool = False,
+                  manifest_draft: Optional[dict] = None) -> ModelDefinition:
+    if is_new_addon:
+        target_scope = ModelDefinitionScope.NEW_ADDON
+    elif is_new_feature:
+        target_scope = ModelDefinitionScope.NEW_FEATURE
+    elif target_feature_name:
+        target_scope = ModelDefinitionScope.EXISTING_FEATURE
+    else:
+        target_scope = ModelDefinitionScope.EXISTING_ADDON
+
+    if target_scope in (ModelDefinitionScope.NEW_ADDON, ModelDefinitionScope.NEW_FEATURE):
+        _validate_manifest_draft(target_scope, target_addon_name, target_feature_name, manifest_draft or {})
+
     definition = ModelDefinition(
         target_scope=target_scope,
         target_addon_name=target_addon_name,
@@ -70,6 +90,7 @@ def create_draft(*, target_addon_name: str, target_feature_name: Optional[str],
         table_short_name=table_short_name,
         status=ModelDefinitionStatus.DRAFT,
         created_by_user_id=created_by_user_id,
+        manifest_draft_json=manifest_draft or None,
     )
     db.session.add(definition)
     db.session.commit()
@@ -132,6 +153,219 @@ def fk_candidates(model_definition: ModelDefinition) -> list[dict]:
         if table_name.startswith(addon_prefix):
             result.append({"table_name": table_name, "label": table_name})
     return result
+
+
+# ── Patch B: validação + scaffold de Addon/Feature novo ─────────────────────
+
+def _validate_manifest_draft(target_scope: str, target_addon_name: str,
+                              target_feature_name: Optional[str], draft: dict) -> None:
+    if not _NAME_RE.match(target_addon_name or ""):
+        raise ModelBuilderError(
+            f"'{target_addon_name}' inválido — nome de Addon deve ser snake_case (skill 00)."
+        )
+    if not (draft.get("label") or "").strip():
+        raise ModelBuilderError("Label é obrigatório para criar Addon/Feature novo.")
+    if not (draft.get("description") or "").strip():
+        raise ModelBuilderError(
+            "Description é obrigatório — vira o stub de docs/technical e "
+            "docs/manual (skill 06 §3.3)."
+        )
+
+    if target_scope == ModelDefinitionScope.NEW_ADDON:
+        if not (draft.get("author") or "").strip():
+            raise ModelBuilderError("Author é obrigatório para criar Addon novo.")
+        if len(target_addon_name) > 15:
+            raise ModelBuilderError(
+                f"'{target_addon_name}' tem {len(target_addon_name)} caracteres — "
+                f"table_prefix de Addon recomendado no máximo 15 (skill 02)."
+            )
+    else:
+        if not _NAME_RE.match(target_feature_name or ""):
+            raise ModelBuilderError(
+                f"'{target_feature_name}' inválido — nome de Feature deve ser "
+                f"snake_case (skill 00)."
+            )
+        suffix = draft.get("table_prefix_suffix") or target_feature_name
+        if len(suffix) > 12:
+            raise ModelBuilderError(
+                f"table_prefix_suffix '{suffix}' tem {len(suffix)} caracteres — "
+                f"recomendado no máximo 12 (skill 02). Informe um "
+                f"table_prefix_suffix mais curto no rascunho."
+            )
+
+
+def _write_docs_stub(module_dir: Path, *, label: str, description: str) -> None:
+    """
+    Stub automático (skill 06 §3.3, decisão confirmada) — nasce
+    preenchido o suficiente para passar no checklist da skill 03 §6
+    ("docs/technical/ e docs/manual/ presentes, com pelo menos 01-*.md
+    preenchido"). Revisão/expansão do conteúdo continua manual depois.
+    """
+    tech_dir = module_dir / "docs" / "technical"
+    manual_dir = module_dir / "docs" / "manual"
+    tech_dir.mkdir(parents=True, exist_ok=True)
+    manual_dir.mkdir(parents=True, exist_ok=True)
+
+    (tech_dir / "01-visao-geral.md").write_text(
+        f"# 01 — Visão Geral: {label}\n\n"
+        f"{description}\n\n"
+        f"> Stub gerado automaticamente pelo Model Builder Visual (skill 06). "
+        f"Completar com dependências (`requires`), o que este módulo expõe "
+        f"(`provides`), e link para os demais documentos técnicos (skill 04).\n",
+        encoding="utf-8",
+    )
+    (manual_dir / "01-introducao.md").write_text(
+        f"# {label}\n\n"
+        f"{description}\n\n"
+        f"> Stub gerado automaticamente pelo Model Builder Visual (skill 06). "
+        f"Completar explicando para que serve este módulo na prática, sem "
+        f"mencionar termos de arquitetura (skill 04, regra de ouro).\n",
+        encoding="utf-8",
+    )
+
+
+def _mkdir_package(path: Path) -> None:
+    """Cria a pasta (se não existir) e o __init__.py dela (skill 01, adenda)."""
+    path.mkdir(parents=True, exist_ok=True)
+    init_file = path / "__init__.py"
+    if not init_file.exists():
+        init_file.write_text("", encoding="utf-8")
+
+
+def _scaffold_new_addon(definition: ModelDefinition, project_root: Path) -> Path:
+    draft = definition.manifest_draft_json or {}
+    addon_name = definition.target_addon_name
+    addon_dir = project_root / "addons" / f"addon_{addon_name}"
+    if addon_dir.exists():
+        raise ModelBuilderError(
+            f"addons/addon_{addon_name} já existe em disco — use "
+            f"target_scope=existing_addon em vez de new_addon."
+        )
+
+    class_name = f"Addon{_to_pascal_case(addon_name)}"
+    manifest = {
+        "name": addon_name,
+        "label": draft["label"],
+        "version": "1.0.0",
+        "description": draft["description"],
+        "author": draft["author"],
+        "type": "addon",
+        "table_prefix": addon_name,
+        "tesseract_min_version": "1.0.0",
+        "requires": [],
+        "provides": [],
+        "features": [],
+        "env_keys": draft.get("env_keys") or [],
+        "default_locale": "pt_BR",
+        "available_locales": ["pt_BR"],
+    }
+
+    _mkdir_package(addon_dir)
+    (addon_dir / "addon.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    (addon_dir / "addon.py").write_text(
+        f'"""\naddons/addon_{addon_name}/addon.py\n\n'
+        f"Gerado pelo Model Builder Visual (skill 06, Patch B) a partir de "
+        f"ModelDefinition #{definition.id}. Nenhum método sobrescrito de "
+        f"propósito — register_models/register_routes/get_transactions/"
+        f"get_features usam auto-descoberta (skill 09 + adenda); nada aqui "
+        f"precisa ser editado à mão pra um Model/Feature novo aparecer.\n\"\"\"\n"
+        f'__module__ = "{class_name}"\n\n'
+        f"from core.addon_base import AddonBase\n\n\n"
+        f"class {class_name}(AddonBase):\n"
+        f"    pass\n",
+        encoding="utf-8",
+    )
+
+    for sub in ("root", "root/model", "root/controller", "root/services", "root/api", "root/api/routes"):
+        _mkdir_package(addon_dir / sub)
+
+    _mkdir_package(addon_dir / "i18n")
+    (addon_dir / "i18n" / "pt_BR.json").write_text("{}\n", encoding="utf-8")
+    (addon_dir / "static").mkdir(parents=True, exist_ok=True)
+
+    _write_docs_stub(addon_dir, label=draft["label"], description=draft["description"])
+
+    return addon_dir
+
+
+def _scaffold_new_feature(definition: ModelDefinition, project_root: Path) -> Path:
+    draft = definition.manifest_draft_json or {}
+    addon_name = definition.target_addon_name
+    feature_name = definition.target_feature_name
+    addon_dir = project_root / "addons" / f"addon_{addon_name}"
+    addon_json_path = addon_dir / "addon.json"
+
+    if not addon_json_path.exists():
+        raise ModelBuilderError(
+            f"addons/addon_{addon_name}/addon.json não existe — crie o Addon "
+            f"primeiro (target_scope=new_addon) antes de adicionar uma Feature nele."
+        )
+
+    feature_dir = addon_dir / "features" / f"feature_{feature_name}"
+    if feature_dir.exists():
+        raise ModelBuilderError(
+            f"features/feature_{feature_name} já existe em disco — use "
+            f"target_scope=existing_feature em vez de new_feature."
+        )
+
+    suffix = draft.get("table_prefix_suffix") or feature_name
+    class_name = f"Feature{_to_pascal_case(feature_name)}"
+    manifest = {
+        "name": f"feature_{feature_name}",
+        "label": draft["label"],
+        "version": "1.0.0",
+        "description": draft["description"],
+        "table_prefix_suffix": suffix,
+        "enabled": True,
+        "requires": [],
+        "provides": [],
+        "settings": {},
+    }
+
+    _mkdir_package(feature_dir)
+    (feature_dir / "feature.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    (feature_dir / "feature.py").write_text(
+        f'"""\naddons/addon_{addon_name}/features/feature_{feature_name}/feature.py\n\n'
+        f"Gerado pelo Model Builder Visual (skill 06, Patch B) a partir de "
+        f"ModelDefinition #{definition.id}. Nenhum método sobrescrito de "
+        f"propósito — register_models/register_routes/get_transactions usam "
+        f"auto-descoberta (skill 09); nada aqui precisa ser editado à mão pra "
+        f"um Model novo aparecer.\n\"\"\"\n"
+        f'__module__ = "{class_name}"\n\n'
+        f"from core.feature_base import FeatureBase\n\n\n"
+        f"class {class_name}(FeatureBase):\n"
+        f"    pass\n",
+        encoding="utf-8",
+    )
+
+    for sub in ("model", "controller", "services", "api", "api/routes"):
+        _mkdir_package(feature_dir / sub)
+
+    _mkdir_package(feature_dir / "i18n")
+    (feature_dir / "i18n" / "pt_BR.json").write_text("{}\n", encoding="utf-8")
+
+    _write_docs_stub(feature_dir, label=draft["label"], description=draft["description"])
+
+    # Achado registrado no BACKLOG (skill 09): addon.json["features"] não é
+    # lido por nada operacionalmente hoje (get_features() usa auto-descoberta
+    # de pasta) — escrito mesmo assim por consistência com a skill 03.
+    addon_manifest = json.loads(addon_json_path.read_text(encoding="utf-8"))
+    addon_manifest.setdefault("features", []).append({
+        "name": f"feature_{feature_name}",
+        "label": draft["label"],
+        "table_prefix_suffix": suffix,
+        "enabled_by_default": True,
+        "requires": [],
+    })
+    addon_json_path.write_text(
+        json.dumps(addon_manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+
+    return feature_dir
 
 
 # ── Geração ───────────────────────────────────────────────────────────────
@@ -216,15 +450,16 @@ def generate(model_definition_id: int, *, project_root: Path, overwrite: bool = 
     if not definition:
         raise ModelBuilderError("ModelDefinition não encontrado.")
 
-    if definition.target_scope in _NOT_IMPLEMENTED_SCOPES:
-        raise ModelBuilderError(
-            f"target_scope='{definition.target_scope}' ainda não é suportado "
-            f"nesta versão do Model Builder (skill 06, Patch B — scaffold de "
-            f"Addon/Feature novo do zero). Use um Addon/Feature já existente."
-        )
-
     if not definition.fields:
         raise ModelBuilderError("Adicione pelo menos um campo antes de gerar.")
+
+    scaffolded_new_module = False
+    if definition.target_scope == ModelDefinitionScope.NEW_ADDON:
+        _scaffold_new_addon(definition, project_root)
+        scaffolded_new_module = True
+    elif definition.target_scope == ModelDefinitionScope.NEW_FEATURE:
+        _scaffold_new_feature(definition, project_root)
+        scaffolded_new_module = True
 
     addon = definition.target_addon_name
     feature = definition.target_feature_name
@@ -304,4 +539,5 @@ def generate(model_definition_id: int, *, project_root: Path, overwrite: bool = 
         "permissions": pipeline_result["permissions"],
         "i18n_keys_written": list(i18n_keys.keys()),
         "migration_message": migration_revision,
+        "scaffolded_new_module": scaffolded_new_module,
     }

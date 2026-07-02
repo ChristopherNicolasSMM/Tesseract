@@ -16,9 +16,17 @@
       <div class="card">
         <div class="card-body">
           <h5 class="card-title">Destino</h5>
-          <p class="mb-1"><strong>Addon:</strong> {{ definition.target_addon_name }}</p>
-          <p class="mb-1"><strong>Feature:</strong> {{ definition.target_feature_name or '— (núcleo do Addon)' }}</p>
+          <p class="mb-1"><strong>Addon:</strong> {{ definition.target_addon_name }}
+            {% if definition.target_scope == 'new_addon' %}<span class="badge bg-info">novo</span>{% endif %}
+          </p>
+          <p class="mb-1"><strong>Feature:</strong> {{ definition.target_feature_name or '— (núcleo do Addon)' }}
+            {% if definition.target_scope == 'new_feature' %}<span class="badge bg-info">nova</span>{% endif %}
+          </p>
           <p class="mb-1"><strong>Tabela curta:</strong> <code>{{ definition.table_short_name }}</code></p>
+          {% if definition.manifest_draft_json %}
+          <p class="mb-1"><strong>Label do módulo:</strong> {{ definition.manifest_draft_json.label }}</p>
+          <p class="mb-1"><strong>Description:</strong> {{ definition.manifest_draft_json.description }}</p>
+          {% endif %}
           <p class="mb-0"><strong>Status:</strong>
             {% if definition.status == 'generated' %}<span class="badge bg-success">Gerado</span>
             {% elif definition.status == 'error' %}<span class="badge bg-danger">Erro</span>
@@ -31,10 +39,17 @@
         <div class="card-body">
           <h5 class="card-title">Gerar</h5>
           <p class="small text-muted">
+            {% if definition.target_scope in ('new_addon', 'new_feature') %}
+            Cria a pasta do {{ 'Addon' if definition.target_scope == 'new_addon' else 'Feature' }} do zero
+            (manifesto + docs stub + i18n — skill 06 Patch B), escreve o model.py, roda o pipeline do CrudGen
+            (Service/Controller/Routes/Templates + hooks), sincroniza permissões, atualiza o i18n e sempre gera
+            uma migration via Flask-Migrate (nunca aplica sozinho — <code>flask db upgrade</code> continua manual).
+            {% else %}
             Escreve o model.py, roda o pipeline do CrudGen (Service/
             Controller/Routes/Templates + hooks), sincroniza permissões,
             atualiza o i18n e sempre gera uma migration via Flask-Migrate
             (nunca aplica sozinho — <code>flask db upgrade</code> continua manual).
+            {% endif %}
           </p>
           <form method="post" action="{{ url_for('model_builder.generate', definition_id=definition.id) }}"
                 onsubmit="return confirm('Gerar código a partir deste rascunho?');">

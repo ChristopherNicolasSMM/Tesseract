@@ -43,7 +43,17 @@ class AddonBase(ModuleBase):
     def get_features(self) -> list:
         """
         Retorna as Features ativas deste Addon (instâncias de
-        FeatureBase). Vazio por padrão — Addons sem Feature não
-        precisam sobrescrever.
+        FeatureBase). Default (adenda skill 09): auto-descoberta em
+        `features/feature_*/` — sobrescrever só quando precisar de
+        ordem específica, Feature condicional (ex.: ligada por env
+        var), ou quiser excluir alguma da descoberta automática.
         """
-        return []
+        from core.module_discovery import own_module_dir, dotted_from_path, discover_features
+
+        module_dir = own_module_dir(self)
+        if module_dir is None:
+            return []
+        dotted = dotted_from_path(module_dir)
+        if dotted is None:
+            return []
+        return discover_features(module_dir, dotted, self.table_prefix)

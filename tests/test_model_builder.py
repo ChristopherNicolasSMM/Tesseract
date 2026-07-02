@@ -147,20 +147,6 @@ def test_gerar_sem_campos_falha(app):
             svc.generate(definition.id, project_root=_PROJECT_ROOT)
 
 
-def test_gerar_com_scope_new_addon_ainda_nao_suportado(app):
-    with app.app_context():
-        definition = svc.create_draft(
-            target_addon_name="algo_novo", target_feature_name=None,
-            model_name="WidgetNovo", table_short_name="widget_novo", created_by_user_id=None,
-        )
-        definition.target_scope = ModelDefinitionScope.NEW_ADDON
-        db.session.commit()
-        svc.add_field(definition, field_name="name", field_type=ModelFieldType.STRING, label_text="Nome")
-
-        with pytest.raises(svc.ModelBuilderError, match="Patch B"):
-            svc.generate(definition.id, project_root=_PROJECT_ROOT)
-
-
 # ── Geração real de ponta a ponta (uma única vez por módulo) ────────────────
 
 @pytest.fixture(scope="module")

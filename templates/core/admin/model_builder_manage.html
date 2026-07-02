@@ -5,8 +5,8 @@
   <h1>Model Builder</h1>
   <p class="text-muted small mb-0">
     Equivalente web ao CrudGen via CLI (<code>python run.py generate --model</code>).
-    Nesta versão só cobre Model dentro de um Addon/Feature já existente —
-    criar Addon/Feature do zero pela tela é uma próxima etapa (skill 06).
+    Cria Model dentro de Addon/Feature já existente, ou Addon/Feature
+    novo do zero (scaffold completo + manifesto + docs stub — skill 06, Patch B).
   </p>
 </div>
 
@@ -22,22 +22,55 @@
       </button>
       <div class="collapse" id="novoModelForm">
         <form method="post" action="{{ url_for('model_builder.create') }}" class="row g-3 mb-3">
-          <div class="col-md-3">
-            <label class="form-label">Addon (sem prefixo "addon_")</label>
+
+          <div class="col-12">
+            <label class="form-label">Destino</label>
+            <select class="form-select" id="scopeChoice" name="scope_choice">
+              <option value="existing">Addon/Feature já existente</option>
+              <option value="new_addon">Addon novo (do zero)</option>
+              <option value="new_feature">Feature nova (dentro de um Addon já existente)</option>
+            </select>
+          </div>
+          <input type="hidden" name="is_new_addon" id="isNewAddon" value="">
+          <input type="hidden" name="is_new_feature" id="isNewFeature" value="">
+
+          <div class="col-md-4">
+            <label class="form-label" id="addonFieldLabel">Addon (sem prefixo "addon_")</label>
             <input type="text" name="target_addon_name" class="form-control" placeholder="ex.: brewstation" required>
           </div>
-          <div class="col-md-3">
-            <label class="form-label">Feature (opcional, sem prefixo "feature_")</label>
+          <div class="col-md-4" id="featureFieldWrapper">
+            <label class="form-label" id="featureFieldLabel">Feature (opcional, sem prefixo "feature_")</label>
             <input type="text" name="target_feature_name" class="form-control" placeholder="deixe em branco para núcleo do Addon">
           </div>
-          <div class="col-md-3">
+          <div class="col-md-4">
             <label class="form-label">Nome do Model (PascalCase)</label>
             <input type="text" name="model_name" class="form-control" placeholder="ex.: YeastStrain" required>
           </div>
-          <div class="col-md-3">
+          <div class="col-md-4">
             <label class="form-label">Nome curto da tabela (snake_case)</label>
             <input type="text" name="table_short_name" class="form-control" placeholder="ex.: yeast_strain" required>
           </div>
+
+          <div id="manifestFields" class="col-12 row g-3" style="display:none;">
+            <div class="col-md-4">
+              <label class="form-label">Label do módulo (PT-BR)</label>
+              <input type="text" name="manifest_label" class="form-control" placeholder="ex.: Banco de Levedura">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Description</label>
+              <input type="text" name="manifest_description" class="form-control" placeholder="usado no stub de docs/technical e docs/manual">
+            </div>
+            <div class="col-md-4" id="authorFieldWrapper" style="display:none;">
+              <label class="form-label">Author</label>
+              <input type="text" name="manifest_author" class="form-control" placeholder="ex.: S2M Tech">
+            </div>
+            <div class="col-md-4" id="suffixFieldWrapper" style="display:none;">
+              <label class="form-label">table_prefix_suffix (opcional, ≤12 caracteres)</label>
+              <input type="text" name="manifest_table_prefix_suffix" class="form-control" placeholder="deixe em branco para usar o nome da Feature">
+              <p class="small text-muted mb-0">Skill 02 — sigla curta se o nome da Feature for longo.</p>
+            </div>
+          </div>
+
           <div class="col-12">
             <button class="btn btn-primary" type="submit">Criar rascunho</button>
           </div>
@@ -50,7 +83,10 @@
           {% for d in definitions %}
           <tr>
             <td>{{ d.model_name }}</td>
-            <td>{{ d.target_addon_name }}{% if d.target_feature_name %} / {{ d.target_feature_name }}{% endif %}</td>
+            <td>
+              {{ d.target_addon_name }}{% if d.target_feature_name %} / {{ d.target_feature_name }}{% endif %}
+              {% if d.target_scope in ('new_addon', 'new_feature') %}<span class="badge bg-info">novo</span>{% endif %}
+            </td>
             <td><code>{{ d.table_short_name }}</code></td>
             <td>
               {% if d.status == 'generated' %}<span class="badge bg-success">Gerado</span>
@@ -69,4 +105,51 @@
     </div>
   </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  'use strict';
+  const scopeSelect = document.getElementById('scopeChoice');
+  const isNewAddon = document.getElementById('isNewAddon');
+  const isNewFeature = document.getElementById('isNewFeature');
+  const addonLabel = document.getElementById('addonFieldLabel');
+  const featureWrapper = document.getElementById('featureFieldWrapper');
+  const featureLabel = document.getElementById('featureFieldLabel');
+  const manifestFields = document.getElementById('manifestFields');
+  const authorWrapper = document.getElementById('authorFieldWrapper');
+  const suffixWrapper = document.getElementById('suffixFieldWrapper');
+  const featureInput = featureWrapper.querySelector('input[name="target_feature_name"]');
+
+  function sync() {
+    const scope = scopeSelect.value;
+    isNewAddon.value = scope === 'new_addon' ? '1' : '';
+    isNewFeature.value = scope === 'new_feature' ? '1' : '';
+
+    manifestFields.style.display = scope === 'existing' ? 'none' : '';
+    authorWrapper.style.display = scope === 'new_addon' ? '' : 'none';
+    suffixWrapper.style.display = scope === 'new_feature' ? '' : 'none';
+
+    if (scope === 'new_addon') {
+      addonLabel.textContent = 'Nome do Addon novo (sem prefixo "addon_")';
+      featureWrapper.style.display = 'none';
+      featureInput.required = false;
+    } else if (scope === 'new_feature') {
+      addonLabel.textContent = 'Addon já existente (dono da Feature nova)';
+      featureWrapper.style.display = '';
+      featureLabel.textContent = 'Nome da Feature nova (sem prefixo "feature_")';
+      featureInput.required = true;
+    } else {
+      addonLabel.textContent = 'Addon (sem prefixo "addon_")';
+      featureWrapper.style.display = '';
+      featureLabel.textContent = 'Feature (opcional, sem prefixo "feature_")';
+      featureInput.required = false;
+    }
+  }
+
+  scopeSelect.addEventListener('change', sync);
+  sync();
+})();
+</script>
 {% endblock %}

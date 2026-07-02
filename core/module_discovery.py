@@ -31,6 +31,39 @@ logger = logging.getLogger(__name__)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
+def own_module_dir(obj: Any) -> Path | None:
+    """
+    Pasta em disco onde `obj` (instância de Addon/Feature/Plugin) foi
+    definida — SEM descer para root/ (isso é feito por
+    `own_base_package`, que é o que model/controller/rotas usam;
+    `get_features()`, seção mais abaixo, precisa da pasta "crua",
+    porque features/ é irmã de root/, nunca filha dela).
+    """
+    module_name = type(obj).__module__
+    mod = sys.modules.get(module_name)
+    if not mod or not getattr(mod, "__file__", None):
+        logger.debug(
+            "own_module_dir: não foi possível resolver __file__ de %s "
+            "(module_name=%s) — auto-descoberta não vai encontrar nada "
+            "para esta instância.", obj, module_name,
+        )
+        return None
+    return Path(mod.__file__).resolve().parent
+
+
+def dotted_from_path(path: Path) -> str | None:
+    """Converte um caminho absoluto dentro do projeto em pacote pontuado."""
+    try:
+        rel = path.relative_to(_PROJECT_ROOT)
+    except ValueError:
+        logger.warning(
+            "dotted_from_path: %s está fora de %s — auto-descoberta pulada.",
+            path, _PROJECT_ROOT,
+        )
+        return None
+    return ".".join(rel.parts)
+
+
 def own_base_package(obj: Any) -> tuple[str, Path] | None:
     """
     Pacote-base (dotted) e pasta em disco de onde `obj` (instância de
@@ -44,29 +77,15 @@ def own_base_package(obj: Any) -> tuple[str, Path] | None:
     simplesmente não tem model/controller/api, então a descoberta
     retorna listas vazias, igual o `return []` manual que já existia.
     """
-    module_name = type(obj).__module__
-    mod = sys.modules.get(module_name)
-    if not mod or not getattr(mod, "__file__", None):
-        logger.debug(
-            "own_base_package: não foi possível resolver __file__ de %s "
-            "(module_name=%s) — auto-descoberta não vai encontrar nada "
-            "para esta instância.", obj, module_name,
-        )
+    module_dir = own_module_dir(obj)
+    if module_dir is None:
         return None
 
-    module_dir = Path(mod.__file__).resolve().parent
     base_dir = module_dir / "root" if (module_dir / "root").is_dir() else module_dir
-
-    try:
-        rel = base_dir.relative_to(_PROJECT_ROOT)
-    except ValueError:
-        logger.warning(
-            "own_base_package: %s está fora de %s — auto-descoberta pulada.",
-            base_dir, _PROJECT_ROOT,
-        )
+    dotted = dotted_from_path(base_dir)
+    if dotted is None:
         return None
-
-    return ".".join(rel.parts), base_dir
+    return dotted, base_dir
 
 
 def _walk_package_modules(dotted_package: str) -> list:
@@ -143,6 +162,73 @@ def discover_blueprints(base_package: str) -> list:
                     seen_ids.add(id(attr))
                     blueprints.append(attr)
     return blueprints
+
+
+def discover_features(addon_module_dir: Path, addon_dotted_package: str, addon_table_prefix: str) -> list:
+    """
+    Adenda skill 09 (achado durante a implementação do Patch B da
+    skill 06): `get_features()` também era 100% manual — mesmo
+    problema que `register_models()`/`register_routes()` tinham antes
+    desta skill, só que um nível acima. Mesmo mecanismo de
+    `ModuleManager.discover_and_register_addons()` (escaneia
+    `addon_*/addon.json`+`addon.py`), aplicado a `features/feature_*/
+    feature.json`+`feature.py` — cada Feature encontrada é importada e
+    instanciada, exatamente como um Addon.
+
+    Import feito via caminho pontuado normal (`addons.addon_X.features.
+    feature_Y.feature`), não via spec_from_file_location como
+    discover_and_register_addons faz para addon.py — porque aqui
+    `addon_dotted_package` já é sempre um pacote real, nunca o próprio
+    arquivo lido dinamicamente.
+    """
+    features_dir = addon_module_dir / "features"
+    if not features_dir.is_dir():
+        return []
+
+    discovered = []
+    for feature_dir in sorted(features_dir.glob("feature_*")):
+        manifest_path = feature_dir / "feature.json"
+        feature_py_path = feature_dir / "feature.py"
+        if not manifest_path.exists() or not feature_py_path.exists():
+            continue
+
+        try:
+            import json
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception:
+            logger.exception(
+                "Falha ao ler %s durante auto-descoberta de Features (skill 09) "
+                "— pulando esta Feature.", manifest_path,
+            )
+            continue
+
+        dotted_module = f"{addon_dotted_package}.features.{feature_dir.name}.feature"
+        try:
+            py_module = importlib.import_module(dotted_module)
+        except Exception:
+            logger.exception(
+                "Falha ao importar %s durante auto-descoberta de Features "
+                "(skill 09) — pulando esta Feature.", dotted_module,
+            )
+            continue
+
+        class_name = getattr(py_module, "__module__", None)
+        if not class_name or not hasattr(py_module, class_name):
+            logger.warning(
+                "%s: __module__ não declarado ou classe não encontrada — "
+                "ignorando na auto-descoberta de Features.", feature_dir.name,
+            )
+            continue
+
+        feature_class = getattr(py_module, class_name)
+        try:
+            discovered.append(feature_class(manifest, addon_table_prefix=addon_table_prefix))
+        except Exception:
+            logger.exception(
+                "Falha ao instanciar Feature de %s na auto-descoberta (skill 09).",
+                feature_dir.name,
+            )
+    return discovered
 
 
 def find_route_for_endpoint(endpoint: str) -> str | None:

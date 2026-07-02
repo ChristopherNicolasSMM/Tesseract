@@ -1,10 +1,10 @@
 """
 controller/core/model_builder.py
 
-Telas web do Model Builder Visual (skill 06). Patch A: só cobre
-target_scope "existing_addon"/"existing_feature" — ver
-services/core/model_builder_service.py para o detalhe do que ainda
-não está implementado (Patch B).
+Telas web do Model Builder Visual (skill 06). Patch A cobre
+"existing_addon"/"existing_feature"; Patch B (esta versão) adiciona
+"new_addon"/"new_feature" — scaffold completo de pastas+manifesto+docs
+antes de gerar o Model.
 """
 from pathlib import Path
 
@@ -41,17 +41,41 @@ def create():
     model_name = (request.form.get("model_name") or "").strip()
     table_short_name = (request.form.get("table_short_name") or "").strip()
 
+    is_new_addon = bool(request.form.get("is_new_addon"))
+    is_new_feature = bool(request.form.get("is_new_feature"))
+
     if not (target_addon_name and model_name and table_short_name):
         flash("Addon, nome do Model e nome curto da tabela são obrigatórios.", "error")
         return redirect(url_for("model_builder.manage"))
 
-    definition = svc.create_draft(
-        target_addon_name=target_addon_name,
-        target_feature_name=target_feature_name,
-        model_name=model_name,
-        table_short_name=table_short_name,
-        created_by_user_id=current_user.id if current_user.is_authenticated else None,
-    )
+    manifest_draft = None
+    if is_new_addon or is_new_feature:
+        manifest_draft = {
+            "label": (request.form.get("manifest_label") or "").strip(),
+            "description": (request.form.get("manifest_description") or "").strip(),
+        }
+        if is_new_addon:
+            manifest_draft["author"] = (request.form.get("manifest_author") or "").strip()
+        else:
+            suffix = (request.form.get("manifest_table_prefix_suffix") or "").strip()
+            if suffix:
+                manifest_draft["table_prefix_suffix"] = suffix
+
+    try:
+        definition = svc.create_draft(
+            target_addon_name=target_addon_name,
+            target_feature_name=target_feature_name,
+            model_name=model_name,
+            table_short_name=table_short_name,
+            created_by_user_id=current_user.id if current_user.is_authenticated else None,
+            is_new_addon=is_new_addon,
+            is_new_feature=is_new_feature,
+            manifest_draft=manifest_draft,
+        )
+    except svc.ModelBuilderError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("model_builder.manage"))
+
     flash(f"Rascunho '{model_name}' criado — adicione os campos.", "success")
     return redirect(url_for("model_builder.detail", definition_id=definition.id))
 
@@ -120,7 +144,8 @@ def generate(definition_id: int):
     try:
         result = svc.generate(definition_id, project_root=_project_root(), overwrite=overwrite)
         flash(
-            f"Gerado! Tabela: {result['table_name']}. "
+            ("Addon/Feature novo criado + " if result["scaffolded_new_module"] else "")
+            + f"Gerado! Tabela: {result['table_name']}. "
             f"{len(result['written'])} arquivo(s) escrito(s). "
             + (
                 f"Migration: {result['migration_message']}."
