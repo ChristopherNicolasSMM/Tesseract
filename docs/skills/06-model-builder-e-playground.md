@@ -1,16 +1,22 @@
 # 06 — Model Builder Visual + API/SQL Playground
 
-> **Status: SKILL FORMALIZADA (fase de decisão, 2026-07-01).** Nasceu de
-> uma conversa sobre a ausência de uma entrada de CrudGen no menu do
-> Tesseract. Análise do `BACKLOG.md` do PyTeca (seção "Model Builder
-> Visual") mostrou que o projeto original já resolvia isso — esta skill
-> herda o desenho, com três correções obrigatórias em relação à
-> arquitetura tri-nível do Tesseract (seção 3) que não existiam no
-> PyTeca (projeto monolítico, sem Core/Addon/Feature/Plugin).
+> **Status: EXECUTADA (2026-07-02).** Nasceu de uma conversa sobre a
+> ausência de uma entrada de CrudGen no menu do Tesseract. Análise do
+> `BACKLOG.md` do PyTeca (seção "Model Builder Visual") mostrou que o
+> projeto original já resolvia isso — esta skill herda o desenho, com
+> três correções obrigatórias em relação à arquitetura tri-nível do
+> Tesseract (seção 3) que não existiam no PyTeca (projeto monolítico,
+> sem Core/Addon/Feature/Plugin).
 >
-> Como toda skill nova, tem o mesmo peso normativo das skills 00–04:
-> qualquer implementação que divergir do que está aqui precisa ajustar
-> este documento antes (regra de ouro, skill 00).
+> **Patch A** (`existing_addon`/`existing_feature`), **Patch B**
+> (`new_addon`/`new_feature`, scaffold completo — dependeu da skill 09
+> pra não deixar `addon.py`/`feature.py` com wiring manual) e
+> **Patch C** (API/SQL Playground + ponte com o Model Builder) estão
+> todos implementados e testados (39 testes entre os três patches).
+>
+> Como toda skill formalizada, tem o mesmo peso normativo das skills
+> 00–04: qualquer implementação que divergir do que está aqui precisa
+> ajustar este documento antes (regra de ouro, skill 00).
 >
 > Convenção de status (igual skill 05): **[DECIDIDO]** fechado, pronto
 > para execução quando autorizado — **[ABERTO]** ainda sem decisão —

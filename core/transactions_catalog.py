@@ -115,6 +115,16 @@ CORE_TRANSACTIONS = [
         "is_standard": True,
     },
     {
+        "code": "TX_ADMIN_PLAYGROUND",
+        "label": "API/SQL Playground",
+        "group": "Ferramentas de Desenvolvimento",
+        "description": "Testa requisições HTTP e consultas SQL somente-leitura; ponte com o Model Builder — skill 06.",
+        "icon": "bi-terminal-fill",
+        "route": "/admin/playground",
+        "permission_required": "playground_requests.execute",
+        "is_standard": True,
+    },
+    {
         "code": "TX_ADMIN_LOGS",
         "label": "Logs",
         "group": "Admin",

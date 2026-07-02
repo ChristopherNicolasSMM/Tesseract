@@ -99,6 +99,7 @@ CORE_FIXED_PERMISSIONS = [
     ("model_definitions.generate", "Disparar geração de código a partir de um rascunho do Model Builder"),
     ("model_definitions.view", "Ver rascunhos do Model Builder"),
     ("system_config.menu_settings", "Editar o padrão global de ordem/colapso de menu (skill 07)"),
+    ("playground_requests.execute", "Executar requisição HTTP ou consulta SQL somente-leitura no Playground"),
 ]
 
 

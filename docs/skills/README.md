@@ -46,11 +46,10 @@ aqui (Core, RBAC, versionamento, CrudGen, `addon_brewstation` com 3
 Features/24 entidades, páginas HTML, Roles/Permissions, catálogo de
 Transações, Migrations, `addon_device_manager`) seguiu essas regras.
 
-As skills 06, 07 e 09 estão em **fase de decisão** (schema e regra
-fechados, implementação ainda não autorizada) — ver o próprio arquivo
-de cada uma para o detalhe do que está `[DECIDIDO]` vs. `[ABERTO]`. A
-skill 08 já foi **executada** (com duas revisões em relação à proposta
-original — ver seção 10 do próprio arquivo).
+As skills 06, 07, 08 e 09 já foram **executadas** — ver o próprio
+arquivo de cada uma para o detalhe do que foi implementado e eventuais
+revisões em relação à proposta original (skill 08, seção 10; skill 06,
+Patches A/B/C).
 
 Ainda não cobertos por uma skill própria (peças que ainda não foram
 construídas, ou que têm pouca regra formal além do próprio código):

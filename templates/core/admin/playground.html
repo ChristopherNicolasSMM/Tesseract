@@ -1,0 +1,152 @@
+{% extends "core/base.html" %}
+{% block title %}API/SQL Playground - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>API/SQL Playground</h1>
+  <p class="text-muted small mb-0">
+    Testa requisições HTTP e consultas SQL somente-leitura. Resposta de
+    uma requisição HTTP pode virar campos pré-preenchidos no Model Builder.
+  </p>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<ul class="nav nav-tabs mb-3" role="tablist">
+  <li class="nav-item">
+    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabHttp" type="button">API (HTTP)</button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabSql" type="button">SQL (somente leitura)</button>
+  </li>
+</ul>
+
+<div class="tab-content">
+  <div class="tab-pane fade show active" id="tabHttp">
+    <div class="card mb-3">
+      <div class="card-body">
+        <form method="post" action="{{ url_for('playground.execute_http') }}" class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label">Nome (opcional)</label>
+            <input type="text" name="name" class="form-control" placeholder="ex.: BrewFather - listar receitas">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Método</label>
+            <select name="http_method" class="form-select">
+              <option>GET</option><option>POST</option><option>PUT</option>
+              <option>PATCH</option><option>DELETE</option>
+            </select>
+          </div>
+          <div class="col-md-7">
+            <label class="form-label">URL</label>
+            <input type="text" name="url" class="form-control" placeholder="https://api.exemplo.com/recursos" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Headers (JSON)</label>
+            <textarea name="headers_json" class="form-control" rows="3" placeholder='{"Authorization": "Bearer ..."}'></textarea>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Body (JSON)</label>
+            <textarea name="body_json" class="form-control" rows="3" placeholder="{}"></textarea>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-play-fill"></i> Executar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {% for req in http_history %}
+    <div class="card mb-2" id="req-{{ req.id }}">
+      <div class="card-body">
+        <h6 class="card-title">
+          {{ req.http_method }} {{ req.url }}
+          {% if req.last_status_code %}<span class="badge bg-{{ 'success' if req.last_status_code < 400 else 'danger' }}">{{ req.last_status_code }}</span>{% endif %}
+          {% if req.last_error %}<span class="badge bg-danger">erro</span>{% endif %}
+        </h6>
+        {% if req.last_error %}
+        <p class="text-danger small mb-2">{{ req.last_error }}</p>
+        {% else %}
+        <pre class="small bg-light p-2" style="max-height:200px;overflow:auto;">{{ req.last_response_json | tojson(indent=2) }}</pre>
+
+        <form method="post" action="{{ url_for('playground.use_as_fields', request_id=req.id) }}" class="row g-2 mt-2">
+          <div class="col-md-3">
+            <input type="text" name="target_addon_name" class="form-control form-control-sm" placeholder="addon" required>
+          </div>
+          <div class="col-md-3">
+            <input type="text" name="target_feature_name" class="form-control form-control-sm" placeholder="feature (opcional)">
+          </div>
+          <div class="col-md-3">
+            <input type="text" name="model_name" class="form-control form-control-sm" placeholder="Nome do Model" required>
+          </div>
+          <div class="col-md-2">
+            <input type="text" name="table_short_name" class="form-control form-control-sm" placeholder="tabela" required>
+          </div>
+          <div class="col-md-1">
+            <button class="btn btn-sm btn-outline-primary" type="submit" title="Usar resposta como base de campos">
+              <i class="bi bi-magic"></i>
+            </button>
+          </div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <p class="text-muted">Nenhuma requisição ainda.</p>
+    {% endfor %}
+  </div>
+
+  <div class="tab-pane fade" id="tabSql">
+    <div class="card mb-3">
+      <div class="card-body">
+        <p class="small text-muted">
+          Só <code>SELECT</code> — validado por parser antes de executar
+          (skill 06 §6). Qualquer outra instrução é rejeitada, mesmo com a
+          permissão de acesso a esta tela.
+        </p>
+        <form method="post" action="{{ url_for('playground.execute_sql') }}" class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Nome (opcional)</label>
+            <input type="text" name="name" class="form-control">
+          </div>
+          <div class="col-12">
+            <label class="form-label">SQL</label>
+            <textarea name="sql_text" class="form-control" rows="4" placeholder="SELECT * FROM tesseract_user LIMIT 10" required></textarea>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-play-fill"></i> Executar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {% for req in sql_history %}
+    <div class="card mb-2" id="req-{{ req.id }}">
+      <div class="card-body">
+        <h6 class="card-title"><code>{{ req.sql_text }}</code></h6>
+        {% if req.last_error %}
+        <p class="text-danger small mb-0">{{ req.last_error }}</p>
+        {% elif req.last_response_json %}
+        <div class="table-responsive">
+          <table class="table table-sm table-striped">
+            <thead><tr>{% for c in req.last_response_json.columns %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+            <tbody>
+              {% for row in req.last_response_json.rows %}
+              <tr>{% for v in row %}<td>{{ v }}</td>{% endfor %}</tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if req.last_response_json.truncated %}
+        <p class="small text-muted">Resultado truncado em {{ req.last_response_json.rows | length }} linhas.</p>
+        {% endif %}
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <p class="text-muted">Nenhuma consulta ainda.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
