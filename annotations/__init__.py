@@ -25,6 +25,20 @@ def plural(value: str):
     return decorator
 
 
+def menu_icon(value: str):
+    """
+    Ícone (classe Bootstrap Icons, ex.: "bi-flask") usado quando a
+    Transação deste model é AUTO-gerada pela descoberta de módulos
+    (skill 09 + adenda skill 00). Opcional — sem ela, a Transação
+    auto-gerada usa "bi-app" genérico. Não afeta Transação escrita à
+    mão (essa já declara "icon" direto no dict).
+    """
+    def decorator(cls):
+        cls._menu_icon = value
+        return cls
+    return decorator
+
+
 def display_field(value: str):
     """Campo usado como nome de exibição do model (ex: 'username', 'titulo')."""
     def decorator(cls):
@@ -163,6 +177,7 @@ def get_model_metadata(cls) -> Dict[str, Any]:
         "ui_form": getattr(cls, '_ui_form', None),
         "validations": getattr(cls, '_validations', {}),
         "display_field": getattr(cls, '_display_field', 'id'),
+        "menu_icon": getattr(cls, '_menu_icon', None),
     }
 
 
