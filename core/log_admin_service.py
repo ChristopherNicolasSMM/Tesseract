@@ -63,7 +63,7 @@ class LogAdminService:
                 f"Log de integração — {manifest.get('label', name)}",
                 log_path,
             ))
-
+ 
         return sources
 
     @staticmethod

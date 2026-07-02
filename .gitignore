@@ -10,6 +10,9 @@ instance/
 .idea/
 docs/skills/.DS_Store
 *.patch
+/ignore_path/*
+/ignore_path
+ignore_path/
 
 # Logs de integração locais por Addon (skill 01/03 - Fase A)
 addons/*/logs/*.log*
