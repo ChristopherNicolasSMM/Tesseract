@@ -917,7 +917,7 @@ escritos à mão de propósito, skill 02), então ficaram de fora.
       `failsafe_value` String(50) nullable, `is_risk` Boolean default
       `false`) em vez de criar tabelas `Device`/`Sensor`/`Actuator`
       novas — `DeviceMetadata`/`DeviceActor`/`DeviceFunction` (Fase 6)
-      já cobriam o problema de forma mais madura que o desenho inicial
+      já cobriam o problema de forma mais madura que o desenho inicial 
       do documento de arquitetura (`actor_type` por porta já resolve
       "device com múltiplas portas mistas"). `mqtt_config`/
       `hardware_mapping` ficam dentro do `config_json` que `DeviceActor`
