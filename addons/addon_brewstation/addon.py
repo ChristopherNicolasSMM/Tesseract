@@ -19,6 +19,7 @@ class AddonBrewstation(AddonBase):
 
         from addons.addon_brewstation.features.feature_yeast_bank.feature import FeatureYeastBank
         from addons.addon_brewstation.features.feature_mash_control.feature import FeatureMashControl
+        from addons.addon_brewstation.features.feature_ingredientes.feature import FeatureIngredientes
 
         base = Path(__file__).parent / "features"
 
@@ -28,8 +29,12 @@ class AddonBrewstation(AddonBase):
         mash_control_manifest = json.loads(
             (base / "feature_mash_control" / "feature.json").read_text(encoding="utf-8")
         )
+        ingredientes_manifest = json.loads(
+            (base / "feature_ingredientes" / "feature.json").read_text(encoding="utf-8")
+        )
 
         return [
             FeatureYeastBank(yeast_bank_manifest, addon_table_prefix=self.table_prefix),
             FeatureMashControl(mash_control_manifest, addon_table_prefix=self.table_prefix),
+            FeatureIngredientes(ingredientes_manifest, addon_table_prefix=self.table_prefix),
         ]
