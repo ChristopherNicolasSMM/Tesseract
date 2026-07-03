@@ -214,12 +214,71 @@ existir) uma pasta própria por módulo:
 
 ---
 
+## 8.1 Adenda: indicador de nível + promover/rebaixar
+
+> Nasceu de feedback direto sobre a tela `/admin/menu-settings`
+> (ainda em uso, print real anexado à conversa): faltava indicador de
+> profundidade e forma de reorganizar sem depender só de arrastar
+> entre listas — pedido natural depois que a árvore ganhou
+> profundidade arbitrária (seção 0).
+
+**[DECIDIDO] Indicador de nível**: sem schema novo — profundidade é
+calculada na hora da renderização (a macro recursiva já sabe em que
+nível está, incrementa 1 a cada chamada). Puro dado derivado, nunca
+persistido.
+
+**[DECIDIDO] Promover/rebaixar existe nas DUAS telas (admin e
+pessoal), mas com efeito diferente por baixo — é a mesma decisão que
+já separava as duas desde a skill 07, só reafirmada aqui**:
+
+| Tela | O que "promover/rebaixar" faz de verdade |
+|---|---|
+| `/perfil/menu-preferencias` (pessoal) | Só a **exibição individual** — grava em `order_overrides_json` do próprio usuário (`tesseract_user_menu_preference`), exatamente como o drag-and-drop já fazia. Não toca `Transaction.parent_id`. Nenhuma permissão além de login (skill 07 §4, inalterado). |
+| `/admin/menu-settings` — parte de **exibição padrão** | Mesma coisa, só que grava no padrão global (`system_config`) em vez da preferência pessoal. Também não toca `parent_id`. |
+| `/admin/menu-settings` — parte de **estrutura real** (linhas de Transação manual) | Muda `Transaction.parent_id` de verdade, afeta todo mundo, permanente — submete pros mesmos endpoints novos do `admin_transactions.py` (abaixo). Só disponível pra transação manual (mesma trava de sempre). |
+
+**Regra de ouro desta adenda**: o mesmo rótulo de botão ("Promover"/
+"Rebaixar") aparece nas duas telas, mas o efeito por baixo depende de
+qual mecanismo está por trás — **nunca o mesmo endpoint**. A UI marca
+visualmente a diferença (cor/ícone distintos) pra não passar a
+impressão de que é a mesma ação.
+
+### Convenção de movimento (vale para os dois mecanismos — exibição e estrutura real)
+
+- **Promover** (sobe um nível, "outdent"): o item passa a ser irmão do
+  seu pai atual, inserido logo depois dele na lista de filhos do avô.
+  Item que já está na raiz (sem pai) não tem pra onde promover — botão
+  desabilitado.
+- **Rebaixar** (desce um nível, "indent"): o item passa a ser o último
+  filho do irmão imediatamente anterior a ele na lista atual. Item que
+  já é o primeiro da própria lista não tem irmão anterior — botão
+  desabilitado.
+
+### Endpoints novos em `admin_transactions.py` (estrutura real)
+
+**[DECIDIDO]** Dois endpoints novos, além do form de editar que a
+seção 8 já previa — mesma permissão (`admin`) e mesma trava de
+transação code-sourced que `update`/`delete` já aplicam:
+
+- `POST /admin/transactions/<id>/promote`
+- `POST /admin/transactions/<id>/demote`
+
+Reordenação dos irmãos afetados (pai antigo e pai novo) é
+renumerada por completo a cada chamada — mais simples e robusto que
+tentar encaixar um `order_index` fracionário no meio de uma lista já
+existente.
+
+---
+
 ## 9. Pendências desta skill
 
 - [ABERTO] Nenhuma pendência de arquitetura restante — as três
   decisões que estavam em aberto (remoção de `group`, escopo das duas
-  telas, profundidade ilimitada) foram todas fechadas nesta rodada.
+  telas, profundidade ilimitada) foram todas fechadas na rodada
+  inicial, e o indicador de nível + promover/rebaixar (seção 8.1)
+  foram fechados numa rodada seguinte.
 - Detalhe de implementação (não bloqueia): geração exata do slug do
   código de pasta migrado (seção 2) — usar uma função de slugify
   simples (maiúsculo, troca não-alfanumérico por `_`, colapsa
   `_` repetido) na hora do código, sem biblioteca nova.
+
