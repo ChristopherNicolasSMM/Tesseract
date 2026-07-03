@@ -24,7 +24,7 @@ erDiagram
         string origem_receita "BrewFather | BeerSmith | BeerXML | Manual"
         string origem_receita_id "nullable se Manual"
         int versao
-        boolean ativo
+        boolean is_active
         text description
         text equipment_mapping
         int created_by FK
@@ -39,12 +39,14 @@ erDiagram
         int tempo_adicao_min
         string etapa "mostura | fervura | fermentacao | ..."
         string status_resolucao "resolvido | pendente_depara"
+        boolean is_deleted
     }
     tesseract_brewstation_mashctrl_ingredient_mapping {
         int id PK
         string origem_receita
         string descricao_origem
         int material_id "SEM FK - addon_estoque"
+        boolean is_deleted
     }
     tesseract_brewstation_mashctrl_recipe_history {
         int id PK
@@ -53,6 +55,7 @@ erDiagram
         int alterado_por FK "tesseract_user.id"
         datetime alterado_em
         text observacao
+        boolean is_deleted
     }
     tesseract_brewstation_mashctrl_plant {
         int id PK
@@ -91,7 +94,7 @@ erDiagram
 | `..._ingredient_mapping` | (todas) | Cache — evita perguntar a mesma resolução em toda nova importação da mesma origem+descrição |
 | `..._recipe_history` | `snapshot_data` | JSON completo, não campo-a-campo — é arquivo de auditoria/comparação, não tela de operação, por isso JSON aqui não colide com a restrição de filtro tipado usada em `Material` |
 | `..._rule` | `sensor_function_id`/`actor_function_id` | **Correção desta rodada**: eram FK cross-Feature pra `DeviceFunction`; agora são referência fraca cross-Addon (`device_manager` foi promovido) — coluna não é mais FK de banco, é `Integer` solto resolvido via `device_function_lookup` |
-| (todas) | `is_deleted`/`deleted_at` | Soft-delete padrão (skill 02), exceto `recipe_history` (é ledger de auditoria, mesma lógica de `tesseract_estoque_movimentacao`) |
+| (todas) | `is_deleted`/`deleted_at` | Soft-delete padrão (skill 02) — inclusive `recipe_ingredient`/`ingredient_mapping`/`recipe_history`, corrigido do desenho original que as tinha excluído sem sinalizar a exceção (mesmo bug real já corrigido em `addon_estoque`, ver `fix(estoque)` no histórico) |
 
 ## FK entre módulos
 

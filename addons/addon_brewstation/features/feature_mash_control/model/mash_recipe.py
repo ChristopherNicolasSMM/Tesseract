@@ -1,30 +1,50 @@
 """
 addons/addon_brewstation/features/feature_mash_control/model/mash_recipe.py
 
-Receita de brassagem — armazena os dados da receita como JSON em
-`recipe_data` (igual ao original). `Recipe` (modelo legado/duplicado
-do BrewStation original) foi deliberadamente descartado — decisão
-registrada no BACKLOG.md.
+Receita de brassagem - canonica, multi-origem (origem_receita) e
+versionada (nome+versao unico, toda edicao salva cria uma nova
+versao/linha, imutavel apos criada).
+
+CORRECAO desta rodada: `recipe_data` (JSON) removido - ingredientes
+passam a ser normalizados em RecipeIngredient (mesma Feature),
+resolvidos contra addon_estoque via ingredient_resolution_service.
+`brewfather_recipe_id` (campo simples, uma unica origem possivel)
+generalizado para `origem_receita`/`origem_receita_id` (multiplas
+origens: BrewFather, BeerSmith, BeerXML, Manual).
+
+`Recipe` (modelo legado/duplicado do BrewStation original) foi
+deliberadamente descartado - decisao registrada no BACKLOG.md.
 """
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required
+from annotations import label, plural, required, choices
+
+
+ORIGENS_RECEITA = ("Manual", "BrewFather", "BeerSmith", "BeerXML")
 
 
 @label("Receita de Brassagem")
 @plural("mash_recipes")
+@choices("origem_receita", label="Origem")
 @required("name", message="Nome da receita é obrigatório")
+@required("origem_receita", message="Origem da receita é obrigatória")
 class MashRecipe(db.Model):
     __tablename__ = "recipe"  # nome curto — CrudGen/ModuleManager aplicam o prefixo
+    __table_args__ = (
+        db.UniqueConstraint("name", "versao", name="uq_recipe_name_versao"),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
 
     name = db.Column(db.String(100), nullable=False)
+    versao = db.Column(db.Integer, nullable=False, default=1)
     description = db.Column(db.Text, nullable=True)
-    recipe_data = db.Column(db.Text, nullable=True)  # JSON serializado
     equipment_mapping = db.Column(db.Text, nullable=True)
-    brewfather_recipe_id = db.Column(db.String(100), nullable=True)
+
+    origem_receita = db.Column(db.String(20), nullable=False, default="Manual")  # Manual, BrewFather, BeerSmith, BeerXML
+    origem_receita_id = db.Column(db.String(100), nullable=True)  # id externo, nulo se Manual
+
     created_by = db.Column(db.Integer, db.ForeignKey("tesseract_user.id"), nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
 
@@ -39,23 +59,15 @@ class MashRecipe(db.Model):
         nullable=False,
     )
 
-    def get_recipe_data(self) -> dict:
-        import json
-        if not self.recipe_data:
-            return {}
-        try:
-            return json.loads(self.recipe_data)
-        except (json.JSONDecodeError, TypeError):
-            return {}
-
     def to_dict(self) -> dict:
         return {
             "id": self.id,
             "name": self.name,
+            "versao": self.versao,
             "description": self.description,
-            "recipe_data": self.get_recipe_data(),
             "equipment_mapping": self.equipment_mapping,
-            "brewfather_recipe_id": self.brewfather_recipe_id,
+            "origem_receita": self.origem_receita,
+            "origem_receita_id": self.origem_receita_id,
             "created_by": self.created_by,
             "is_active": self.is_active,
             "is_deleted": self.is_deleted,
@@ -64,4 +76,4 @@ class MashRecipe(db.Model):
         }
 
     def __repr__(self) -> str:
-        return f"<MashRecipe {self.name}>"
+        return f"<MashRecipe {self.name} v{self.versao}>"

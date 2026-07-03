@@ -20,11 +20,15 @@ class FeatureMashControl(FeatureBase):
         from addons.addon_brewstation.features.feature_mash_control.model.dashboard_widget import DashboardWidget
         from addons.addon_brewstation.features.feature_mash_control.model.automation_rule import AutomationRule
         from addons.addon_brewstation.features.feature_mash_control.model.automation_rule_log import AutomationRuleLog
+        from addons.addon_brewstation.features.feature_mash_control.model.recipe_ingredient import RecipeIngredient
+        from addons.addon_brewstation.features.feature_mash_control.model.ingredient_mapping import IngredientMapping
+        from addons.addon_brewstation.features.feature_mash_control.model.recipe_history import RecipeHistory
 
         return [
             MashRecipe, BrewPlant, BrewPlantVessel, BrewPlantMapping,
             BrewSession, BrewSessionStep, BrewSessionLog, BrewSessionAlarm,
             DashboardLayout, DashboardWidget, AutomationRule, AutomationRuleLog,
+            RecipeIngredient, IngredientMapping, RecipeHistory,
         ]
 
     def register_routes(self, app) -> None:
@@ -32,6 +36,7 @@ class FeatureMashControl(FeatureBase):
             "mash_recipes", "brew_plants", "brew_plant_vessels", "brew_plant_mappings",
             "brew_sessions", "brew_session_steps", "brew_session_logs", "brew_session_alarms",
             "dashboard_layouts", "dashboard_widgets", "automation_rules", "automation_rule_logs",
+            "recipe_ingredients", "ingredient_mappings", "recipe_historys",
         ]
         base_controller = "addons.addon_brewstation.features.feature_mash_control.controller"
         base_routes = "addons.addon_brewstation.features.feature_mash_control.api.routes"
@@ -167,5 +172,32 @@ class FeatureMashControl(FeatureBase):
                 "icon": "bi-clock-history",
                 "route": "/brewstation/automation-rule-logs",
                 "permission_required": "automation_rule_logs.list",
+            },
+            {
+                "code": "TX_RECIPE_INGREDIENTS",
+                "label": "Ingredientes de Receita",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
+                "description": "Ingredientes normalizados de uma receita, resolvidos contra o estoque.",
+                "icon": "bi-basket",
+                "route": "/brewstation/recipe-ingredients",
+                "permission_required": "recipe_ingredients.list",
+            },
+            {
+                "code": "TX_INGREDIENT_MAPPINGS",
+                "label": "Mapeamento de Ingredientes (De-Para)",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
+                "description": "Cache de resolução: descrição de origem -> Material do estoque.",
+                "icon": "bi-arrow-left-right",
+                "route": "/brewstation/ingredient-mappings",
+                "permission_required": "ingredient_mappings.list",
+            },
+            {
+                "code": "TX_RECIPE_HISTORYS",
+                "label": "Histórico de Receitas",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
+                "description": "Snapshot de cada versão salva de uma receita.",
+                "icon": "bi-hourglass-split",
+                "route": "/brewstation/recipe-historys",
+                "permission_required": "recipe_historys.list",
             },
         ]
