@@ -1,0 +1,57 @@
+{% extends "core/base.html" %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Composição de Material #{{ item.id }}</h1>
+  <a href="{{ url_for('composicaos.manage') }}">&larr; Voltar para a lista</a>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <form method="post" action="{{ url_for('composicaos.update', id=item.id) }}" class="row g-3" id="editForm">
+        {% set data = item.to_dict() %}
+        {% for field in fields %}
+        <div class="col-md-4">
+          <label class="form-label">{{ field.replace('_', ' ').title() }}</label>
+          <input type="text" name="{{ field }}" class="form-control" value="{{ data.get(field) if data.get(field) is not none else '' }}"
+                 {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+        </div>
+        {% endfor %}
+        <div class="col-12">
+          <button class="btn btn-primary" type="submit">Salvar</button>
+        </div>
+      </form>
+
+      <hr>
+
+      <div class="d-flex gap-2">
+        {% if not data.get('is_deleted') %}
+        <form method="post" action="{{ url_for('composicaos.trash', id=item.id) }}" onsubmit="return confirm('Mover para a lixeira?');">
+          <button type="submit" class="btn btn-warning">Mover para lixeira</button>
+        </form>
+        {% else %}
+        <form method="post" action="{{ url_for('composicaos.restore', id=item.id) }}">
+          <button type="submit" class="btn btn-success">Restaurar</button>
+        </form>
+        <form method="post" action="{{ url_for('composicaos.delete_permanent', id=item.id) }}" onsubmit="return confirm('Excluir PERMANENTEMENTE? Esta ação não pode ser desfeita.');">
+          <button type="submit" class="btn btn-danger">Excluir permanentemente</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="{{ url_for('static', filename='js/rule_engine.js') }}"></script>
+<script>
+  document.getElementById('editForm').addEventListener('submit', function (e) {
+    if (!RuleEngine.validateForm(this)) {
+      e.preventDefault();
+    }
+  });
+</script>
+{% endblock %}
