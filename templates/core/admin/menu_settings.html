@@ -1,15 +1,20 @@
 {% extends "core/base.html" %}
 {% block title %}Configurações de Menu - Tesseract{% endblock %}
 
-{% macro render_tree_editor(nodes, parent_code, collapsed_nodes) %}
+{% macro render_tree_editor(nodes, parent_code, collapsed_nodes, depth) %}
 <ul class="list-group mb-2 tree-list" data-parent-code="{{ parent_code or '__root__' }}">
   {% for node in nodes %}
-  <li class="list-group-item" draggable="true" data-code="{{ node.code }}" style="cursor: move;">
+  <li class="list-group-item" draggable="true" data-code="{{ node.code }}" data-is-folder="{{ 'true' if node.is_folder else 'false' }}" style="cursor: move;">
     <div class="d-flex align-items-center gap-2">
       <i class="bi bi-grip-vertical text-muted"></i>
+      <span class="badge bg-dark level-badge">Nível {{ depth }}</span>
       <span>{{ node.label }}</span>
+      {% if node.is_folder %}<span class="badge bg-secondary">pasta</span>{% endif %}
+      <div class="btn-group btn-group-sm ms-2" role="group">
+        <button type="button" class="btn btn-outline-warning btn-promote" title="Promover (sobe um nível — só exibição)">↑</button>
+        <button type="button" class="btn btn-outline-warning btn-demote" title="Rebaixar (desce um nível — só exibição)">↓</button>
+      </div>
       {% if node.is_folder %}
-        <span class="badge bg-secondary">pasta</span>
         <div class="form-check ms-auto mb-0">
           <input class="form-check-input node-collapsed-checkbox" type="checkbox" value="{{ node.code }}"
                  id="collapsed_{{ node.code }}" {% if node.code in collapsed_nodes %}checked{% endif %}>
@@ -17,11 +22,9 @@
         </div>
       {% endif %}
     </div>
-    {% if node.children %}
-      <div class="ms-4 mt-2">
-        {{ render_tree_editor(node.children, node.code, collapsed_nodes) }}
-      </div>
-    {% endif %}
+    <div class="ms-4 mt-2 node-children-wrapper" {% if not node.children %}style="display:none;"{% endif %}>
+      {{ render_tree_editor(node.children, node.code, collapsed_nodes, depth + 1) }}
+    </div>
   </li>
   {% endfor %}
 </ul>
@@ -33,8 +36,10 @@
   <p class="text-muted small mb-0">
     Padrão global (skill 07 + árvore skill 10) — vale para todo usuário
     que não tiver feito seu próprio ajuste em
-    <code>/perfil/menu-preferencias</code>. Arraste para reordenar
-    dentro do mesmo nível (não move item entre pastas diferentes).
+    <code>/perfil/menu-preferencias</code>. Arrastar reordena dentro do
+    mesmo nível; <strong>↑/↓ mudam de nível</strong> (só a exibição —
+    não muda a estrutura real do catálogo, isso é feito em
+    <code>/admin/transactions</code>).
   </p>
 </div>
 
@@ -48,7 +53,7 @@
       <form method="post" action="{{ url_for('admin_menu_settings.save') }}" id="menuSettingsForm">
         <h5 class="card-title">Árvore do menu</h5>
         {% if tree %}
-          {{ render_tree_editor(tree, none, collapsed_nodes) }}
+          {{ render_tree_editor(tree, none, collapsed_nodes, 1) }}
         {% else %}
           <p class="text-muted">Nenhuma Transação ativa ainda.</p>
         {% endif %}
@@ -87,7 +92,7 @@
     }, { offset: -Infinity, element: null }).element;
   }
 
-  document.querySelectorAll('.tree-list').forEach(function (list) {
+  function attachDragHandlers(list) {
     let dragEl = null;
     list.querySelectorAll(':scope > li[draggable="true"]').forEach(function (item) {
       item.addEventListener('dragstart', function (e) {
@@ -111,6 +116,72 @@
         list.insertBefore(dragEl, after);
       }
     });
+  }
+
+  document.querySelectorAll('.tree-list').forEach(attachDragHandlers);
+
+  function computeDepth(li) {
+    let depth = 1;
+    let owner = li.parentElement.closest('li[data-code]');
+    while (owner) {
+      depth += 1;
+      owner = owner.parentElement.closest('li[data-code]');
+    }
+    return depth;
+  }
+
+  function refreshLevels() {
+    document.querySelectorAll('li[data-code]').forEach(function (li) {
+      const badge = li.querySelector('.level-badge');
+      if (badge) badge.textContent = 'Nível ' + computeDepth(li);
+    });
+  }
+
+  function ensureChildList(li) {
+    const wrapper = li.querySelector(':scope > .node-children-wrapper');
+    let list = wrapper.querySelector(':scope > .tree-list');
+    if (!list) {
+      list = document.createElement('ul');
+      list.className = 'list-group mb-2 tree-list';
+      list.setAttribute('data-parent-code', li.getAttribute('data-code'));
+      wrapper.appendChild(list);
+      attachDragHandlers(list);
+    }
+    wrapper.style.display = '';
+    return list;
+  }
+
+  document.addEventListener('click', function (e) {
+    const promoteBtn = e.target.closest('.btn-promote');
+    const demoteBtn = e.target.closest('.btn-demote');
+    if (!promoteBtn && !demoteBtn) return;
+
+    const li = e.target.closest('li[data-code]');
+    const currentList = li.closest('.tree-list');
+
+    if (promoteBtn) {
+      const parentLi = currentList.closest('li[data-code]');
+      if (!parentLi) return; // já na raiz — sem pra onde promover
+      const grandList = parentLi.closest('.tree-list');
+      if (parentLi.nextSibling) {
+        grandList.insertBefore(li, parentLi.nextSibling);
+      } else {
+        grandList.appendChild(li);
+      }
+    } else if (demoteBtn) {
+      const prevLi = li.previousElementSibling;
+      if (!prevLi || !prevLi.hasAttribute('data-code')) return; // sem irmão anterior
+      if (prevLi.getAttribute('data-is-folder') !== 'true') {
+        alert(
+          "O item anterior não é pasta (tem rota própria) — rebaixar " +
+          'pra dentro dele esconderia isso na navegação. Só é possível ' +
+          'rebaixar pra dentro de uma pasta.'
+        );
+        return;
+      }
+      ensureChildList(prevLi).appendChild(li);
+    }
+    refreshLevels();
   });
 
   document.getElementById('menuSettingsForm').addEventListener('submit', function () {

@@ -176,3 +176,144 @@ def test_tela_manage_carrega_com_breadcrumb(app, client):
     resp = client.get("/admin/transactions/?q=TX_ADMIN_ROLES")
     assert resp.status_code == 200
     assert "Admin &gt; Papéis e Permissões".encode() in resp.data
+
+
+# ── Estrutura real: promote/demote (skill 10 §8.1) ──────────────────────
+
+def _create_manual(client, code, label, parent_id=None, route=None):
+    data = {"code": code, "label": label}
+    if parent_id is not None:
+        data["parent_id"] = str(parent_id)
+    if route is not None:
+        data["route"] = route
+    client.post("/admin/transactions/", data=data, follow_redirects=True)
+
+
+def test_promote_transacao_manual_vira_irma_do_proprio_pai(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        admin_folder = Transaction.query.filter_by(code="TX_GROUP_ADMIN").first()
+        admin_id = admin_folder.id
+
+    _create_manual(client, "TX_PASTA_PROMOTE", "Pasta Promote", parent_id=admin_id)
+    with app.app_context():
+        pasta = Transaction.query.filter_by(code="TX_PASTA_PROMOTE").first()
+        pasta_id = pasta.id
+
+    _create_manual(client, "TX_FILHO_PROMOTE", "Filho Promote", parent_id=pasta_id, route="/filho-promote")
+    with app.app_context():
+        filho = Transaction.query.filter_by(code="TX_FILHO_PROMOTE").first()
+        filho_id = filho.id
+
+    resp = client.post(f"/admin/transactions/{filho_id}/promote", follow_redirects=True)
+    assert resp.status_code == 200
+    with app.app_context():
+        filho = Transaction.query.get(filho_id)
+        assert filho.parent_id == admin_id  # virou irmão da própria pasta-mãe
+
+
+def test_promote_item_na_raiz_falha(app, client):
+    _login_admin(app, client)
+    _create_manual(client, "TX_RAIZ_PROMOTE", "Raiz Promote", route="/raiz-promote")
+    with app.app_context():
+        tx = Transaction.query.filter_by(code="TX_RAIZ_PROMOTE").first()
+        tx_id = tx.id
+
+    resp = client.post(f"/admin/transactions/{tx_id}/promote", follow_redirects=True)
+    assert resp.status_code == 200
+    with app.app_context():
+        assert Transaction.query.get(tx_id).parent_id is None  # não mudou
+
+
+def test_demote_transacao_manual_vira_filha_do_irmao_anterior(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        admin_folder = Transaction.query.filter_by(code="TX_GROUP_ADMIN").first()
+        admin_id = admin_folder.id
+
+    # Dois itens manuais, sem rota (pastas), irmãos sob Admin.
+    _create_manual(client, "TX_PASTA_A", "Pasta A", parent_id=admin_id)
+    _create_manual(client, "TX_PASTA_B", "Pasta B", parent_id=admin_id)
+    with app.app_context():
+        pasta_a = Transaction.query.filter_by(code="TX_PASTA_A").first()
+        pasta_b = Transaction.query.filter_by(code="TX_PASTA_B").first()
+        pasta_a_id, pasta_b_id = pasta_a.id, pasta_b.id
+
+    resp = client.post(f"/admin/transactions/{pasta_b_id}/demote", follow_redirects=True)
+    assert resp.status_code == 200
+    with app.app_context():
+        pasta_b = Transaction.query.get(pasta_b_id)
+        assert pasta_b.parent_id == pasta_a_id
+
+
+def test_demote_para_dentro_de_item_com_rota_falha(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        admin_folder = Transaction.query.filter_by(code="TX_GROUP_ADMIN").first()
+        admin_id = admin_folder.id
+
+    _create_manual(client, "TX_COM_ROTA", "Com Rota", parent_id=admin_id, route="/com-rota")
+    _create_manual(client, "TX_DEPOIS_DA_ROTA", "Depois Da Rota", parent_id=admin_id, route="/depois-da-rota")
+    with app.app_context():
+        depois = Transaction.query.filter_by(code="TX_DEPOIS_DA_ROTA").first()
+        depois_id = depois.id
+        original_parent_id = depois.parent_id
+
+    resp = client.post(f"/admin/transactions/{depois_id}/demote", follow_redirects=True)
+    assert resp.status_code == 200
+    with app.app_context():
+        depois = Transaction.query.get(depois_id)
+        assert depois.parent_id == original_parent_id  # não mudou — irmão anterior não é pasta
+
+
+def test_demote_primeiro_item_da_lista_falha(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        admin_folder = Transaction.query.filter_by(code="TX_GROUP_ADMIN").first()
+        admin_id = admin_folder.id
+        siblings = Transaction.query.filter_by(parent_id=admin_id).order_by(Transaction.order_index).all()
+        first_id = siblings[0].id
+        original_parent_id = siblings[0].parent_id
+
+    resp = client.post(f"/admin/transactions/{first_id}/demote", follow_redirects=True)
+    assert resp.status_code == 200
+    with app.app_context():
+        assert Transaction.query.get(first_id).parent_id == original_parent_id
+
+
+def test_promote_demote_bloqueado_para_transacao_de_codigo(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        tx = Transaction.query.filter_by(code="TX_ADMIN_ROLES").first()
+        tx_id = tx.id
+        original_parent_id = tx.parent_id
+
+    client.post(f"/admin/transactions/{tx_id}/promote", follow_redirects=True)
+    client.post(f"/admin/transactions/{tx_id}/demote", follow_redirects=True)
+    with app.app_context():
+        assert Transaction.query.get(tx_id).parent_id == original_parent_id
+
+
+# ── Exibição: reparenting virtual via order_overrides (skill 10 §8.1) ──────
+
+def test_reparenting_virtual_nao_toca_parent_id_real(app, client):
+    """
+    order_overrides colocando um code sob outro pai muda só a ÁRVORE
+    EXIBIDA (controller/core/pages.py) — nunca Transaction.parent_id.
+    """
+    with app.app_context():
+        from services.core import menu_preference_service as svc
+        roles = Transaction.query.filter_by(code="TX_ADMIN_ROLES").first()
+        original_parent_id = roles.parent_id
+
+        svc.set_global_defaults(order_overrides={
+            "TX_GROUP_FERRAMENTAS_DE_DESENVOLVIMENTO": ["TX_ADMIN_ROLES"],
+        })
+
+    _login_admin(app, client)
+    resp = client.get("/")
+    assert resp.status_code == 200
+
+    with app.app_context():
+        # parent_id real não mudou.
+        assert Transaction.query.filter_by(code="TX_ADMIN_ROLES").first().parent_id == original_parent_id

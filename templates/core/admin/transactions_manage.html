@@ -92,6 +92,12 @@
                 <button type="submit" class="btn btn-sm btn-outline-secondary">{{ 'Desativar' if tx.is_active else 'Ativar' }}</button>
               </form>
               {% if not from_code %}
+              <form method="post" action="{{ url_for('admin_transactions.promote', tx_id=tx.id) }}" class="d-inline" title="Promover (sobe um nível)">
+                <button type="submit" class="btn btn-sm btn-outline-warning">↑</button>
+              </form>
+              <form method="post" action="{{ url_for('admin_transactions.demote', tx_id=tx.id) }}" class="d-inline" title="Rebaixar (desce um nível)">
+                <button type="submit" class="btn btn-sm btn-outline-warning">↓</button>
+              </form>
               <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#edit-{{ tx.id }}">Editar</button>
               <form method="post" action="{{ url_for('admin_transactions.delete', tx_id=tx.id) }}" class="d-inline" onsubmit="return confirm('Remover esta transação?');">
                 <button type="submit" class="btn btn-sm btn-outline-danger">Remover</button>

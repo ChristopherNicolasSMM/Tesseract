@@ -254,6 +254,16 @@ impressão de que é a mesma ação.
   já é o primeiro da própria lista não tem irmão anterior — botão
   desabilitado.
 
+**[EXECUTADO — achado na implementação]** Rebaixar pra dentro de um
+irmão que **tem rota própria** (não é pasta) é **rejeitado com
+mensagem**, nunca convertido silenciosamente em pasta. Motivo: um nó
+com `route` preenchido é tratado como folha pura na renderização
+(`controller/core/pages.py`) — se ganhasse filhos por baixo dos panos,
+esses filhos ficariam órfãos/invisíveis na sidebar, já que o
+código só recursiona em nós sem rota. Pra rebaixar algo pra dentro de
+um item hoje-folha, o usuário precisa primeiro editá-lo e deixar a
+rota em branco (vira pasta explicitamente), depois rebaixar.
+
 ### Endpoints novos em `admin_transactions.py` (estrutura real)
 
 **[DECIDIDO]** Dois endpoints novos, além do form de editar que a

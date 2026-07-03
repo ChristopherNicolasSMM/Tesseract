@@ -176,6 +176,111 @@ def update(tx_id: int):
     return redirect(url_for("admin_transactions.manage"))
 
 
+def _renumber_siblings(parent_id: int | None) -> None:
+    """Renumeração completa dos irmãos sob um pai — mais simples e
+    robusto que encaixar um order_index fracionário no meio de uma
+    lista já existente (skill 10 §8.1)."""
+    siblings = (
+        Transaction.query.filter_by(parent_id=parent_id)
+        .order_by(Transaction.order_index, Transaction.label)
+        .all()
+    )
+    for index, sibling in enumerate(siblings):
+        sibling.order_index = index
+
+
+@admin_transactions_bp.route("/<int:tx_id>/promote", methods=["POST"])
+@login_required
+@permission_required("admin")
+def promote(tx_id: int):
+    """
+    Estrutura real (skill 10 §8.1) — só transação manual. Item vira
+    irmão do próprio pai, inserido logo depois dele. Item já na raiz
+    não tem pra onde promover.
+    """
+    tx = Transaction.query.get(tx_id)
+    if not tx:
+        flash("Transação não encontrada.", "error")
+        return redirect(url_for("admin_transactions.manage"))
+    if _is_code_sourced(tx):
+        flash("Esta transação vem do código — não é possível mudar a estrutura aqui.", "error")
+        return redirect(url_for("admin_transactions.manage"))
+
+    old_parent = tx.parent
+    if old_parent is None:
+        flash(f"'{tx.label}' já está na raiz — não há pra onde promover.", "error")
+        return redirect(url_for("admin_transactions.manage"))
+
+    new_parent_id = old_parent.parent_id
+    tx.parent_id = new_parent_id
+    db.session.flush()
+
+    # Reordena os novos irmãos colocando o item logo depois do antigo pai.
+    siblings = (
+        Transaction.query.filter_by(parent_id=new_parent_id)
+        .order_by(Transaction.order_index, Transaction.label)
+        .all()
+    )
+    siblings = [s for s in siblings if s.id != tx.id]
+    insert_at = next((i for i, s in enumerate(siblings) if s.id == old_parent.id), len(siblings) - 1) + 1
+    siblings.insert(insert_at, tx)
+    for index, sibling in enumerate(siblings):
+        sibling.order_index = index
+
+    db.session.commit()
+    flash(f"'{tx.label}' promovida — agora irmã de '{old_parent.label}'.", "success")
+    return redirect(url_for("admin_transactions.manage"))
+
+
+@admin_transactions_bp.route("/<int:tx_id>/demote", methods=["POST"])
+@login_required
+@permission_required("admin")
+def demote(tx_id: int):
+    """
+    Estrutura real (skill 10 §8.1) — só transação manual. Item vira o
+    último filho do irmão imediatamente anterior. Item já é o primeiro
+    da própria lista não tem irmão anterior — não há pra onde rebaixar.
+    """
+    tx = Transaction.query.get(tx_id)
+    if not tx:
+        flash("Transação não encontrada.", "error")
+        return redirect(url_for("admin_transactions.manage"))
+    if _is_code_sourced(tx):
+        flash("Esta transação vem do código — não é possível mudar a estrutura aqui.", "error")
+        return redirect(url_for("admin_transactions.manage"))
+
+    siblings = (
+        Transaction.query.filter_by(parent_id=tx.parent_id)
+        .order_by(Transaction.order_index, Transaction.label)
+        .all()
+    )
+    position = next((i for i, s in enumerate(siblings) if s.id == tx.id), None)
+    if position is None or position == 0:
+        flash(f"'{tx.label}' já é o primeiro do nível — não há irmão anterior pra rebaixar.", "error")
+        return redirect(url_for("admin_transactions.manage"))
+
+    new_parent = siblings[position - 1]
+    if new_parent.route is not None:
+        flash(
+            f"'{new_parent.label}' tem rota própria (não é pasta) — rebaixar "
+            f"'{tx.label}' pra dentro dela esconderia os filhos na navegação. "
+            f"Edite '{new_parent.label}' e deixe a rota em branco pra virar "
+            f"pasta antes de rebaixar algo pra dentro dela.",
+            "error",
+        )
+        return redirect(url_for("admin_transactions.manage"))
+
+    old_parent_id = tx.parent_id
+    tx.parent_id = new_parent.id
+    db.session.flush()
+
+    _renumber_siblings(old_parent_id)
+    _renumber_siblings(new_parent.id)  # inclui o próprio tx, já reatribuído
+    db.session.commit()
+    flash(f"'{tx.label}' rebaixada — agora dentro de '{new_parent.label}'.", "success")
+    return redirect(url_for("admin_transactions.manage"))
+
+
 @admin_transactions_bp.route("/<int:tx_id>/toggle", methods=["POST"])
 @login_required
 @permission_required("admin")
