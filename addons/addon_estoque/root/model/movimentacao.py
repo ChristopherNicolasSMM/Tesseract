@@ -1,11 +1,19 @@
 """
 addons/addon_estoque/root/model/movimentacao.py
 
-Ledger de movimentacao de estoque - imutavel apos criado. Correcao de
-lancamento errado e sempre um NOVO registro (tipo_movimentacao="ajuste"),
-nunca UPDATE/DELETE de um lancamento existente. Por isso nao tem
-soft-delete (skill 02) como as demais tabelas do Addon - e ledger
-contabil, nao entidade de cadastro.
+Ledger de movimentacao de estoque - imutavel na pratica (correcao de
+lancamento errado e sempre um NOVO registro, tipo_movimentacao="ajuste",
+nunca UPDATE de quantidade/custo de um lancamento existente).
+
+CORRECAO (pos-bug real, ver commit): ganhou is_deleted/deleted_at
+seguindo a skill 02 ("padrao para qualquer entidade gerada pelo
+CrudGen") - a omissao original quebrava a tela de listagem (CrudGen
+gera .filter(Model.is_deleted...) incondicionalmente). A trash/restore
+gerada pelo CrudGen fica disponivel na UI, mas o uso pretendido
+continua sendo so para esconder um lancamento claramente errado da
+listagem - nunca para "consertar" um valor errado (isso e sempre um
+novo lancamento de ajuste). Se isso for um problema na pratica,
+avaliar esconder as acoes trash/restore via hook do controller.
 """
 from datetime import datetime, timezone
 
@@ -39,6 +47,9 @@ class Movimentacao(db.Model):
 
     observacoes = db.Column(db.Text, nullable=True)
 
+    is_deleted = db.Column(db.Boolean, default=False, nullable=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     def to_dict(self) -> dict:
@@ -54,6 +65,8 @@ class Movimentacao(db.Model):
             "data_movimentacao": self.data_movimentacao.isoformat() if self.data_movimentacao else None,
             "usuario_id": self.usuario_id,
             "observacoes": self.observacoes,
+            "is_deleted": self.is_deleted,
+            "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 

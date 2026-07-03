@@ -4,6 +4,11 @@ addons/addon_estoque/root/model/composicao.py
 Auto-relacionamento (BOM/kit): um Material pode ser composto por N
 outros Materiais (ex.: uma caixa composta de garrafas). FK real -
 mesmo Addon, mesma tabela em ambos os lados (skill 02 permite).
+
+CORRECAO: ganhou is_deleted/deleted_at seguindo a skill 02 ("padrao
+para qualquer entidade gerada pelo CrudGen") - a omissao original
+quebrava a tela de listagem gerada (CrudGen filtra por is_deleted
+incondicionalmente).
 """
 from datetime import datetime, timezone
 
@@ -35,6 +40,9 @@ class Composicao(db.Model):
 
     quantidade = db.Column(db.Float, nullable=False, default=1.0)
 
+    is_deleted = db.Column(db.Boolean, default=False, nullable=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     def to_dict(self) -> dict:
@@ -43,6 +51,8 @@ class Composicao(db.Model):
             "material_pai_id": self.material_pai_id,
             "material_componente_id": self.material_componente_id,
             "quantidade": self.quantidade,
+            "is_deleted": self.is_deleted,
+            "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 

@@ -9,6 +9,11 @@ ver addons/addon_estoque/docs/technical/01-visao-geral.md, pendencias).
 `status` e propriedade Python simples (nao hybrid_property - padrao
 nao usado em nenhum outro model do projeto ate aqui), calculada em
 memoria a partir de quantidade_atual/estoque_minimo/estoque_maximo.
+
+CORRECAO: ganhou is_deleted/deleted_at seguindo a skill 02 ("padrao
+para qualquer entidade gerada pelo CrudGen") - a omissao original
+quebrava a tela de listagem gerada (CrudGen filtra por is_deleted
+incondicionalmente).
 """
 from datetime import datetime, timezone
 
@@ -40,6 +45,9 @@ class Saldo(db.Model):
         nullable=False,
     )
 
+    is_deleted = db.Column(db.Boolean, default=False, nullable=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+
     @property
     def status(self) -> str:
         """Calculado em memória - não persistido. 'abaixo_minimo' /
@@ -64,6 +72,8 @@ class Saldo(db.Model):
             "estoque_maximo": self.estoque_maximo,
             "status": self.status,
             "ultima_atualizacao": self.ultima_atualizacao.isoformat() if self.ultima_atualizacao else None,
+            "is_deleted": self.is_deleted,
+            "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
         }
 
     def __repr__(self) -> str:

@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 
 from core.app_factory import create_app
 from core.db import db
+from model.core.user import User
 from addons.addon_estoque.root.model.material import Material
 from addons.addon_estoque.root.model.composicao import Composicao
 from addons.addon_estoque.root.model.saldo import Saldo
@@ -22,6 +23,40 @@ from addons.addon_estoque.root.services import material_lookup
 def app():
     app = create_app(env="testing")
     yield app
+
+
+@pytest.fixture
+def client(app):
+    return app.test_client()
+
+
+def _login_admin(app, client):
+    with app.app_context():
+        if not User.query.filter_by(username="admin").first():
+            admin = User(username="admin", email="admin@test.local", nome="Admin",
+                         nome_completo="Admin", celular="0", is_admin=True, is_active=True)
+            admin.set_password("admin123")
+            db.session.add(admin)
+            db.session.commit()
+    client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+
+
+# ── Regressão: as 4 telas de listagem não podem estourar AttributeError ──
+# (bug real reportado: is_deleted ausente em Composicao/Movimentacao/Saldo
+# quebrava a tela "manage" gerada pelo CrudGen, que filtra por is_deleted
+# incondicionalmente em toda entidade — skill 02, "padrão para qualquer
+# entidade gerada pelo CrudGen")
+
+@pytest.mark.parametrize("rota", [
+    "/estoque/materials",
+    "/estoque/composicaos",
+    "/estoque/movimentacaos",
+    "/estoque/saldos",
+])
+def test_telas_de_listagem_nao_estouram_erro(app, client, rota):
+    _login_admin(app, client)
+    resp = client.get(rota, follow_redirects=True)
+    assert resp.status_code == 200
 
 
 def _criar_material(nome="Malte Pilsen", categoria="materia_prima", **kwargs):

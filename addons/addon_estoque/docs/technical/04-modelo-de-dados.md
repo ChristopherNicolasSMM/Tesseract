@@ -68,9 +68,17 @@ erDiagram
 | `tesseract_estoque_movimentacao` | Ledger imutável — correção é lançamento de ajuste, nunca update/delete. |
 | `tesseract_estoque_saldo` | Cache materializado 1:1 com `material`. |
 
-**Soft-delete**: `material` segue padrão CrudGen (`is_deleted`/
-`deleted_at`). `movimentacao` **não tem soft-delete** — é ledger
-contábil.
+**Soft-delete**: **correção pós-bug real** — as quatro tabelas têm
+`is_deleted`/`deleted_at`, seguindo a skill 02 ("padrão para qualquer
+entidade gerada pelo CrudGen"). A intenção original era `movimentacao`
+não ter soft-delete (é ledger contábil, correção é sempre novo
+lançamento de ajuste, nunca edição) — mas isso divergia da skill sem
+ter sido sinalizado como exceção, e quebrou a tela de listagem gerada
+(CrudGen filtra por `is_deleted` incondicionalmente em toda entidade).
+A trash/restore gerada fica disponível na UI para `movimentacao`, mas
+o uso pretendido continua sendo só ocultar um lançamento claramente
+errado da listagem — nunca "consertar" um valor (isso é sempre um novo
+lançamento).
 
 ## Referenciado (fracamente) por outros Addons
 
