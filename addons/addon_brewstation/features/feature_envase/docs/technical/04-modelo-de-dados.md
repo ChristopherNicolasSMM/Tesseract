@@ -22,7 +22,7 @@ erDiagram
 ```
 
 Tabelas reais: `tesseract_brewstation_env_envase`,
-`tesseract_brewstation_env_item`.
+`tesseract_brewstation_env_item_envase`.
 
 `lote_id` é FK real porque `feature_mash_control` é do mesmo Addon
 (skill 02 permite FK cross-Feature). `material_id` é referência fraca

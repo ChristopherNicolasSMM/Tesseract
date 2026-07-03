@@ -8,7 +8,7 @@ sequenceDiagram
     participant UI as Tela Envase
     participant EnvSvc as envase_service
     participant Envase as tesseract_brewstation_env_envase
-    participant Item as tesseract_brewstation_env_item
+    participant Item as tesseract_brewstation_env_item_envase
     participant EstSvc as material_service (addon_estoque, service público)
     participant Saldo as tesseract_estoque_saldo
 
