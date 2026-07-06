@@ -31,18 +31,54 @@ MOCK_RECIPES = [
         "id": "bf-mock-001",
         "name": "Sangue de Druida",
         "ingredients": [
-            {"name": "Pale Malt 2-Row", "amount": 5.0, "unit": "kg", "time": None, "use": "mash"},
-            {"name": "Cascade", "amount": 50, "unit": "g", "time": 60, "use": "boil"},
-            {"name": "US-05", "amount": 1.0, "unit": "un", "time": None, "use": "fermentation"},
+            {
+                "tipo_ingrediente": "fermentavel",
+                "name": "Pale Malt 2-Row", "amount": 5.0, "unit": "kg",
+                "time": None, "use": "mostura", "uso_detalhado": None,
+                "cor_ebc": 3.0, "rendimento": 80.0, "alpha_acidos": None, "atenuacao": None,
+            },
+            {
+                "tipo_ingrediente": "lupulo",
+                "name": "Cascade", "amount": 50, "unit": "g",
+                "time": 60, "use": "fervura", "uso_detalhado": "boil",
+                "cor_ebc": None, "rendimento": None, "alpha_acidos": 5.5, "atenuacao": None,
+            },
+            {
+                "tipo_ingrediente": "levedura",
+                "name": "US-05", "amount": 1.0, "unit": "un",
+                "time": None, "use": "fermentacao", "uso_detalhado": None,
+                "cor_ebc": None, "rendimento": None, "alpha_acidos": None, "atenuacao": 75.0,
+            },
+        ],
+        "mash_steps": [
+            {"nome": "Sacarificação", "temperatura": 67.0, "tempo_min": 60, "ramp_time_min": 5, "tipo": "temperature", "ordem": 0},
+            {"nome": "Mash out", "temperatura": 75.0, "tempo_min": 10, "ramp_time_min": None, "tipo": "temperature", "ordem": 1},
+        ],
+        "fermentation_steps": [
+            {"nome": "Fermentação primária", "temperatura": 18.0, "tempo_dias": 14.0, "ordem": 0},
         ],
     },
     {
         "id": "bf-mock-002",
         "name": "Session IPA Tropical",
         "ingredients": [
-            {"name": "Pilsner Malt", "amount": 4.2, "unit": "kg", "time": None, "use": "mash"},
-            {"name": "Citra", "amount": 80, "unit": "g", "time": 15, "use": "boil"},
+            {
+                "tipo_ingrediente": "fermentavel",
+                "name": "Pilsner Malt", "amount": 4.2, "unit": "kg",
+                "time": None, "use": "mostura", "uso_detalhado": None,
+                "cor_ebc": 1.6, "rendimento": 83.0, "alpha_acidos": None, "atenuacao": None,
+            },
+            {
+                "tipo_ingrediente": "lupulo",
+                "name": "Citra", "amount": 80, "unit": "g",
+                "time": 15, "use": "fervura", "uso_detalhado": "boil",
+                "cor_ebc": None, "rendimento": None, "alpha_acidos": 12.0, "atenuacao": None,
+            },
         ],
+        "mash_steps": [
+            {"nome": "Sacarificação", "temperatura": 65.0, "tempo_min": 60, "ramp_time_min": None, "tipo": "temperature", "ordem": 0},
+        ],
+        "fermentation_steps": [],
     },
 ]
 
@@ -162,7 +198,7 @@ def test_sync_recipes_grava_log_de_sincronizacao(app, mock_client):
         assert log.finalizado_em is not None
 
 
-def test_etapa_traduzida_de_use_ingles_para_portugues(app, mock_client):
+def test_etapa_e_uso_detalhado_gravados_corretamente(app, mock_client):
     with app.app_context():
         sync_service.sync_recipes()
 
@@ -170,7 +206,51 @@ def test_etapa_traduzida_de_use_ingles_para_portugues(app, mock_client):
         lupulo = RecipeIngredient.query.filter_by(recipe_id=receita.id, descricao_origem="Cascade").first()
 
         assert lupulo.etapa == "fervura"
+        assert lupulo.uso_detalhado == "boil"
         assert lupulo.tempo_adicao_min == 60
+        assert lupulo.alpha_acidos == 5.5
+        assert lupulo.tipo_ingrediente == "lupulo"
+
+
+def test_mash_steps_gravados_na_sync(app, mock_client):
+    with app.app_context():
+        sync_service.sync_recipes()
+
+        receita = MashRecipe.query.filter_by(origem_receita_id="bf-mock-001").first()
+        from addons.addon_brewstation.features.feature_mash_control.model.mash_step import MashStep
+        steps = MashStep.query.filter_by(recipe_id=receita.id).order_by(MashStep.ordem).all()
+
+        assert len(steps) == 2
+        assert steps[0].temperatura == 67.0
+        assert steps[0].tempo_min == 60
+        assert steps[1].temperatura == 75.0
+
+
+def test_fermentation_steps_gravados_na_sync(app, mock_client):
+    with app.app_context():
+        sync_service.sync_recipes()
+
+        receita = MashRecipe.query.filter_by(origem_receita_id="bf-mock-001").first()
+        from addons.addon_brewstation.features.feature_mash_control.model.fermentation_step import FermentationStep
+        steps = FermentationStep.query.filter_by(recipe_id=receita.id).all()
+
+        assert len(steps) == 1
+        assert steps[0].temperatura == 18.0
+        assert steps[0].tempo_dias == 14.0
+
+
+def test_spec_fields_gravados_em_recipe_ingredient(app, mock_client):
+    with app.app_context():
+        sync_service.sync_recipes()
+
+        receita = MashRecipe.query.filter_by(origem_receita_id="bf-mock-001").first()
+        malte = RecipeIngredient.query.filter_by(
+            recipe_id=receita.id, tipo_ingrediente="fermentavel",
+        ).first()
+
+        assert malte.cor_ebc == 3.0
+        assert malte.rendimento == 80.0
+        assert malte.tipo_ingrediente == "fermentavel"
 
 
 def test_sync_quando_disabled_grava_log_com_status_erro(app):

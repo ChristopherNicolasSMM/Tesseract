@@ -122,3 +122,34 @@ def resolver_pendente():
         flash(f"Erro ao resolver mapeamento: {exc}", "error")
 
     return redirect(url_for("brewfather_syncs.pendentes"))
+
+
+@brewfather_syncs_bp.route("/pendentes/cadastrar-todos", methods=["POST"])
+@login_required
+@permission_required("brewfather_syncs.create")
+def cadastrar_todos_automaticamente():
+    """Botão 'Cadastrar todos automaticamente' — chama ingredient_autocreate_service."""
+    from addons.addon_brewstation.features.feature_brew_father.services import ingredient_autocreate_service
+
+    try:
+        resultado = ingredient_autocreate_service.cadastrar_todos_pendentes("BrewFather")
+        criados = resultado["criados"]
+        reaproveitados = resultado["reaproveitados"]
+        erros = resultado["erros"]
+
+        if not erros:
+            flash(
+                f"{criados} Material(is) criado(s), {reaproveitados} reaproveitado(s). "
+                "Todos os ingredientes pendentes foram resolvidos.",
+                "success",
+            )
+        else:
+            flash(
+                f"{criados} criado(s), {reaproveitados} reaproveitado(s). "
+                f"{len(erros)} erro(s): {'; '.join(erros[:3])}",
+                "warning",
+            )
+    except Exception as exc:  # noqa: BLE001
+        flash(f"Erro ao cadastrar automaticamente: {exc}", "error")
+
+    return redirect(url_for("brewfather_syncs.pendentes"))

@@ -49,6 +49,12 @@ def resolver_ingrediente(
     unidade_medida: str | None = None,
     tempo_adicao_min: int | None = None,
     etapa: str | None = None,
+    uso_detalhado: str | None = None,
+    tipo_ingrediente: str | None = None,
+    cor_ebc: float | None = None,
+    rendimento: float | None = None,
+    alpha_acidos: float | None = None,
+    atenuacao: float | None = None,
 ) -> dict:
     """
     Cria um RecipeIngredient para a receita, tentando resolver contra
@@ -81,6 +87,12 @@ def resolver_ingrediente(
         unidade_medida=unidade_medida,
         tempo_adicao_min=tempo_adicao_min,
         etapa=etapa,
+        uso_detalhado=uso_detalhado,
+        tipo_ingrediente=tipo_ingrediente,
+        cor_ebc=cor_ebc,
+        rendimento=rendimento,
+        alpha_acidos=alpha_acidos,
+        atenuacao=atenuacao,
         status_resolucao=status,
     )
     db.session.add(ingrediente)

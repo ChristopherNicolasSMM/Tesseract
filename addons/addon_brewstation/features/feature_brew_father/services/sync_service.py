@@ -1,17 +1,9 @@
 """
 addons/addon_brewstation/features/feature_brew_father/services/sync_service.py
 
-Orquestra a sincronização: busca receitas via brewfather_client
-(mock nesta rodada), grava em MashRecipe/RecipeIngredient
-(feature_mash_control) com origem_receita="BrewFather", delegando a
-resolução de ingrediente pra ingredient_resolution_service (nunca
-duplica essa lógica aqui — é reaproveitável por futuras integrações,
-ex.: feature_beersmith).
-
-Limitação desta rodada, registrada e não escondida: uma receita
-externa (mesmo origem_receita_id) só é importada UMA VEZ — sync
-repetido não cria nova versão nem detecta mudança no BrewFather. Ver
-docs/technical/03-fluxos.md, pendências.
+Orquestra a sincronização: busca receitas via brewfather_client e
+grava em MashRecipe/RecipeIngredient/MashStep/FermentationStep com
+origem_receita="BrewFather".
 """
 from __future__ import annotations
 
@@ -21,20 +13,22 @@ from core.db import db
 from addons.addon_brewstation.features.feature_brew_father.model.brew_father_sync import BrewFatherSync
 from addons.addon_brewstation.features.feature_brew_father.services import brewfather_client
 from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
+from addons.addon_brewstation.features.feature_mash_control.model.mash_step import MashStep
+from addons.addon_brewstation.features.feature_mash_control.model.fermentation_step import FermentationStep
 from addons.addon_brewstation.features.feature_mash_control.services import ingredient_resolution_service
 
 _USE_PARA_ETAPA = {
     "mash": "mostura",
     "boil": "fervura",
     "fermentation": "fermentacao",
+    "dry hop": "fermentacao",
+    "whirlpool": "fervura",
+    "flameout": "fervura",
+    "first wort": "fervura",
 }
 
 
 def sync_recipes() -> dict:
-    """
-    Sincroniza receitas do BrewFather. Retorna o BrewFatherSync
-    (dict) resultante, com status "sucesso" | "erro" | "parcial".
-    """
     log = BrewFatherSync(tipo_sync="recipes", status="em_andamento")
     db.session.add(log)
     db.session.commit()
@@ -63,7 +57,7 @@ def sync_recipes() -> dict:
         try:
             _importar_receita(receita_externa)
             processadas += 1
-        except Exception as exc:  # noqa: BLE001 - captura ampla proposital: erro em uma receita não pode derrubar a sincronização inteira
+        except Exception as exc:  # noqa: BLE001
             erros += 1
             log.mensagem_erro = f"{receita_externa.get('id')}: {exc}"
 
@@ -84,7 +78,7 @@ def _importar_receita(receita_externa: dict) -> MashRecipe:
         origem_receita="BrewFather", origem_receita_id=origem_id,
     ).first()
     if ja_existe is not None:
-        return ja_existe  # limitação desta rodada: não re-sincroniza, ver docstring do módulo
+        return ja_existe
 
     receita = MashRecipe(
         name=receita_externa["name"],
@@ -95,7 +89,12 @@ def _importar_receita(receita_externa: dict) -> MashRecipe:
     db.session.add(receita)
     db.session.commit()
 
+    # Ingredientes
     for ingrediente in receita_externa.get("ingredients", []):
+        etapa = _USE_PARA_ETAPA.get(
+            (ingrediente.get("use") or "").lower(),
+            ingrediente.get("use"),
+        )
         ingredient_resolution_service.resolver_ingrediente(
             receita.id,
             "BrewFather",
@@ -103,9 +102,40 @@ def _importar_receita(receita_externa: dict) -> MashRecipe:
             quantidade=ingrediente.get("amount"),
             unidade_medida=ingrediente.get("unit"),
             tempo_adicao_min=ingrediente.get("time"),
-            etapa=_USE_PARA_ETAPA.get(ingrediente.get("use"), ingrediente.get("use")),
+            etapa=etapa,
+            uso_detalhado=ingrediente.get("uso_detalhado"),
+            tipo_ingrediente=ingrediente.get("tipo_ingrediente"),
+            cor_ebc=ingrediente.get("cor_ebc"),
+            rendimento=ingrediente.get("rendimento"),
+            alpha_acidos=ingrediente.get("alpha_acidos"),
+            atenuacao=ingrediente.get("atenuacao"),
         )
 
+    # Passos de mostura
+    for step_data in receita_externa.get("mash_steps", []):
+        if step_data.get("temperatura") is None:
+            continue
+        db.session.add(MashStep(
+            recipe_id=receita.id,
+            nome=step_data.get("nome"),
+            temperatura=step_data["temperatura"],
+            tempo_min=step_data.get("tempo_min"),
+            ramp_time_min=step_data.get("ramp_time_min"),
+            tipo=step_data.get("tipo", "temperature"),
+            ordem=step_data.get("ordem", 0),
+        ))
+
+    # Etapas de fermentação
+    for step_data in receita_externa.get("fermentation_steps", []):
+        db.session.add(FermentationStep(
+            recipe_id=receita.id,
+            nome=step_data.get("nome"),
+            temperatura=step_data.get("temperatura"),
+            tempo_dias=step_data.get("tempo_dias"),
+            ordem=step_data.get("ordem", 0),
+        ))
+
+    db.session.commit()
     return receita
 
 

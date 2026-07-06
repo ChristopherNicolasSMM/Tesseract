@@ -16,6 +16,14 @@
       <i class="bi bi-arrow-left"></i> Voltar
     </a>
     <span class="text-muted small">{{ total_pendentes }} ingrediente(s) pendente(s) de resolução</span>
+    {% if grupos %}
+    <form method="post" action="{{ url_for('brewfather_syncs.cadastrar_todos_automaticamente') }}" class="ms-auto">
+      <button type="submit" class="btn btn-success btn-sm"
+              onclick="return confirm('Criar um Material no estoque para cada ingrediente pendente? Os dados de spec (EBC, alpha, etc.) do BrewFather serão usados.')">
+        <i class="bi bi-lightning-fill"></i> Cadastrar todos automaticamente
+      </button>
+    </form>
+    {% endif %}
   </div>
 
   {% if not grupos %}

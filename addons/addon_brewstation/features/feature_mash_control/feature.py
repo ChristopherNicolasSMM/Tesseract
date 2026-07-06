@@ -23,12 +23,15 @@ class FeatureMashControl(FeatureBase):
         from addons.addon_brewstation.features.feature_mash_control.model.recipe_ingredient import RecipeIngredient
         from addons.addon_brewstation.features.feature_mash_control.model.ingredient_mapping import IngredientMapping
         from addons.addon_brewstation.features.feature_mash_control.model.recipe_history import RecipeHistory
+        from addons.addon_brewstation.features.feature_mash_control.model.mash_step import MashStep
+        from addons.addon_brewstation.features.feature_mash_control.model.fermentation_step import FermentationStep
 
         return [
             MashRecipe, BrewPlant, BrewPlantVessel, BrewPlantMapping,
             BrewSession, BrewSessionStep, BrewSessionLog, BrewSessionAlarm,
             DashboardLayout, DashboardWidget, AutomationRule, AutomationRuleLog,
             RecipeIngredient, IngredientMapping, RecipeHistory,
+            MashStep, FermentationStep,
         ]
 
     def register_routes(self, app) -> None:
@@ -37,6 +40,7 @@ class FeatureMashControl(FeatureBase):
             "brew_sessions", "brew_session_steps", "brew_session_logs", "brew_session_alarms",
             "dashboard_layouts", "dashboard_widgets", "automation_rules", "automation_rule_logs",
             "recipe_ingredients", "ingredient_mappings", "recipe_historys",
+            "mash_steps", "fermentation_steps",
         ]
         base_controller = "addons.addon_brewstation.features.feature_mash_control.controller"
         base_routes = "addons.addon_brewstation.features.feature_mash_control.api.routes"
@@ -199,5 +203,23 @@ class FeatureMashControl(FeatureBase):
                 "icon": "bi-hourglass-split",
                 "route": "/brewstation/recipe-historys",
                 "permission_required": "recipe_historys.list",
+            },
+            {
+                "code": "TX_MASH_STEPS",
+                "label": "Passos de Mostura",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
+                "description": "Rampas de temperatura de mostura planejadas na receita.",
+                "icon": "bi-thermometer-half",
+                "route": "/brewstation/mash-steps",
+                "permission_required": "mash_steps.list",
+            },
+            {
+                "code": "TX_FERMENTATION_STEPS",
+                "label": "Etapas de Fermentação",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
+                "description": "Perfil de fermentação planejado na receita.",
+                "icon": "bi-droplet-half",
+                "route": "/brewstation/fermentation-steps",
+                "permission_required": "fermentation_steps.list",
             },
         ]
