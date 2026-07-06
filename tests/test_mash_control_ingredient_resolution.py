@@ -172,3 +172,40 @@ def test_criar_nova_versao_rejeita_campo_nao_editavel(app):
         receita_v1 = _criar_receita()
         with pytest.raises(ValueError):
             svc.criar_nova_versao(receita_v1.id, {"versao": 99})
+
+
+# ── Regressão: tela de detalhe (view/render real, não só status code) ──
+# Bug real: template usava 'record.xxx' mas o controller gerado pelo
+# CrudGen passa a variável como 'item' - só um teste que RENDERIZA a
+# página (não apenas GET no manage/list) pega isso.
+
+@pytest.fixture
+def client(app):
+    return app.test_client()
+
+
+def _login_admin(app, client):
+    from model.core.user import User
+    with app.app_context():
+        if not User.query.filter_by(username="admin").first():
+            admin = User(username="admin", email="admin@test.local", nome="Admin",
+                         nome_completo="Admin", celular="0", is_admin=True, is_active=True)
+            admin.set_password("admin123")
+            db.session.add(admin)
+            db.session.commit()
+    client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+
+
+def test_tela_de_detalhe_da_receita_renderiza_sem_erro(app, client):
+    with app.app_context():
+        receita = _criar_receita(nome="Receita para Teste de Detalhe")
+        svc.resolver_ingrediente(receita.id, "Manual", "Malte Pilsen", quantidade=5, etapa="mostura")
+        recipe_id = receita.id
+
+    _login_admin(app, client)
+    resp = client.get(f"/brewstation/mash-recipes/{recipe_id}", follow_redirects=True)
+
+    assert resp.status_code == 200
+    corpo = resp.data.decode("utf-8")
+    assert "Receita para Teste de Detalhe" in corpo
+    assert "Malte Pilsen" in corpo

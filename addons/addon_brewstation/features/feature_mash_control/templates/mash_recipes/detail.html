@@ -2,10 +2,10 @@
 {% block content %}
 <div class="pagetitle d-flex justify-content-between align-items-start">
   <div>
-    <h1>{{ record.name }} <small class="text-muted fs-6">v{{ record.versao }}</small></h1>
-    <span class="badge bg-secondary">{{ record.origem_receita }}</span>
-    {% if record.origem_receita_id %}
-      <span class="text-muted small ms-2">{{ record.origem_receita_id }}</span>
+    <h1>{{ item.name }} <small class="text-muted fs-6">v{{ item.versao }}</small></h1>
+    <span class="badge bg-secondary">{{ item.origem_receita }}</span>
+    {% if item.origem_receita_id %}
+      <span class="text-muted small ms-2">{{ item.origem_receita_id }}</span>
     {% endif %}
   </div>
   <div class="d-flex gap-2">
@@ -33,7 +33,7 @@
             ("Outros", None, ""),
         ] %}
         {% for label_grupo, tipo, row_class in grupos %}
-          {% set itens = record.ingredientes | selectattr("is_deleted", "equalto", false) | selectattr("tipo_ingrediente", "equalto", tipo) | list if tipo else record.ingredientes | selectattr("is_deleted", "equalto", false) | rejectattr("tipo_ingrediente", "in", ["fermentavel","lupulo","levedura"]) | list %}
+          {% set itens = item.ingredientes | selectattr("is_deleted", "equalto", false) | selectattr("tipo_ingrediente", "equalto", tipo) | list if tipo else item.ingredientes | selectattr("is_deleted", "equalto", false) | rejectattr("tipo_ingrediente", "in", ["fermentavel","lupulo","levedura"]) | list %}
           {% if itens %}
           <table class="table table-sm table-hover mb-0">
             <thead class="{{ row_class }}">
@@ -87,7 +87,7 @@
   </div>
 
   {# ── Rampas de Mostura ───────────────────────────────────────────── #}
-  {% if record.mash_steps %}
+  {% if item.mash_steps %}
   <div class="col-md-6">
     <div class="card h-100">
       <div class="card-header"><h5 class="mb-0"><i class="bi bi-thermometer-half me-2"></i>Rampas de Mostura</h5></div>
@@ -97,7 +97,7 @@
             <tr><th>#</th><th>Nome</th><th>°C</th><th>Tempo</th><th>Rampa</th><th>Tipo</th></tr>
           </thead>
           <tbody>
-            {% for step in record.mash_steps | sort(attribute="ordem") %}
+            {% for step in item.mash_steps | sort(attribute="ordem") %}
             {% if not step.is_deleted %}
             <tr>
               <td>{{ loop.index }}</td>
@@ -117,7 +117,7 @@
   {% endif %}
 
   {# ── Perfil de Fermentação ───────────────────────────────────────── #}
-  {% if record.fermentation_steps %}
+  {% if item.fermentation_steps %}
   <div class="col-md-6">
     <div class="card h-100">
       <div class="card-header"><h5 class="mb-0"><i class="bi bi-droplet-half me-2"></i>Perfil de Fermentação</h5></div>
@@ -127,7 +127,7 @@
             <tr><th>#</th><th>Nome</th><th>°C</th><th>Dias</th></tr>
           </thead>
           <tbody>
-            {% for step in record.fermentation_steps | sort(attribute="ordem") %}
+            {% for step in item.fermentation_steps | sort(attribute="ordem") %}
             {% if not step.is_deleted %}
             <tr>
               <td>{{ loop.index }}</td>
@@ -151,13 +151,13 @@
       <div class="card-body">
         <dl class="row mb-0">
           <dt class="col-sm-3">Descrição</dt>
-          <dd class="col-sm-9">{{ record.description or "—" }}</dd>
+          <dd class="col-sm-9">{{ item.description or "—" }}</dd>
           <dt class="col-sm-3">Origem</dt>
-          <dd class="col-sm-9">{{ record.origem_receita }}{% if record.origem_receita_id %} — {{ record.origem_receita_id }}{% endif %}</dd>
+          <dd class="col-sm-9">{{ item.origem_receita }}{% if item.origem_receita_id %} — {{ item.origem_receita_id }}{% endif %}</dd>
           <dt class="col-sm-3">Versão</dt>
-          <dd class="col-sm-9">{{ record.versao }}</dd>
+          <dd class="col-sm-9">{{ item.versao }}</dd>
           <dt class="col-sm-3">Criada em</dt>
-          <dd class="col-sm-9">{{ record.created_at.strftime("%d/%m/%Y %H:%M") if record.created_at else "—" }}</dd>
+          <dd class="col-sm-9">{{ item.created_at.strftime("%d/%m/%Y %H:%M") if item.created_at else "—" }}</dd>
         </dl>
       </div>
     </div>

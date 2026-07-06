@@ -24,6 +24,7 @@ from core.module_manager import ModuleManager
 from core.auth import init_auth
 from core.cli import register_cli_commands
 from core.seed_config import ensure_default_system_config
+from core.request_error_logging import register_request_error_logging
 
 
 def create_app(env: str | None = None) -> Flask:
@@ -178,5 +179,9 @@ def create_app(env: str | None = None) -> Flask:
     if not app.config.get("TESTING") and os.environ.get("MQTT_ENABLED", "false").lower() == "true":
         from addons.addon_device_manager.root.services import mqtt_client_service
         mqtt_client_service.start(app)
+
+    # Log estruturado de exceções não tratadas em requisições — tagged por
+    # blueprint/endpoint, complementa o traceback do console/debugger.
+    register_request_error_logging(app)
 
     return app
