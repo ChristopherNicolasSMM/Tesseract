@@ -23,6 +23,12 @@ Uso:
 import click
 from flask.cli import FlaskGroup
 
+# Carrega o .env da raiz do projeto (mesmo nível de run.py) antes de qualquer
+# os.environ.get() — as configurações de core/config.py continuam usando os
+# valores hardcoded como fallback se a chave não estiver no .env.
+from dotenv import load_dotenv as _load_dotenv
+_load_dotenv()
+
 from core.app_factory import create_app
 
 cli = FlaskGroup(
