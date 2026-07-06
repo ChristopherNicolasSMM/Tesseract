@@ -45,6 +45,12 @@ def sync_recipes() -> dict:
 
     try:
         receitas_externas = brewfather_client.get_recipes()
+    except brewfather_client.BrewFatherDisabledError as exc:
+        log.status = "erro"
+        log.mensagem_erro = str(exc)
+        log.finalizado_em = datetime.now(timezone.utc)
+        db.session.commit()
+        return log.to_dict()
     except brewfather_client.BrewFatherAPIError as exc:
         log.status = "erro"
         log.mensagem_erro = str(exc)
