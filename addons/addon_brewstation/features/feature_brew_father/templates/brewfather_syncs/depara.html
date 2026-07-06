@@ -1,0 +1,136 @@
+{% extends "core/base.html" %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Resolver Ingredientes Pendentes (De-Para)</h1>
+  <p class="text-muted">Ingredientes importados do BrewFather que ainda não foram associados a um Material do estoque.</p>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' if category == 'success' else 'warning' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+
+  <div class="d-flex align-items-center gap-3 mb-3">
+    <a href="{{ url_for('brewfather_syncs.manage') }}" class="btn btn-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Voltar
+    </a>
+    <span class="text-muted small">{{ total_pendentes }} ingrediente(s) pendente(s) de resolução</span>
+  </div>
+
+  {% if not grupos %}
+    <div class="card">
+      <div class="card-body text-center py-5">
+        <i class="bi bi-check-circle text-success" style="font-size: 2rem;"></i>
+        <p class="mt-2 mb-0">Nenhum ingrediente pendente. Tudo resolvido!</p>
+      </div>
+    </div>
+  {% else %}
+    {% for grupo in grupos %}
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <strong>{{ grupo.descricao_origem }}</strong>
+            <span class="badge bg-secondary ms-2">{{ grupo.quantidade_receitas }} receita(s)</span>
+          </div>
+        </div>
+
+        <form method="post" action="{{ url_for('brewfather_syncs.resolver_pendente') }}">
+          <input type="hidden" name="descricao_origem" value="{{ grupo.descricao_origem }}">
+
+          <div class="row g-2 align-items-end">
+            {# Busca material existente #}
+            <div class="col-md-5">
+              <label class="form-label small mb-1">Material existente no estoque</label>
+              <div class="input-group">
+                <input type="text" class="form-control form-control-sm material-search-input"
+                       placeholder="Buscar por nome..."
+                       data-target-id="material_id_{{ loop.index }}">
+                <input type="hidden" name="material_id" id="material_id_{{ loop.index }}">
+              </div>
+              <div class="material-search-results list-group mt-1" id="results_{{ loop.index }}" style="display:none; position:absolute; z-index:100; min-width:300px;"></div>
+            </div>
+
+            {# OU cadastrar novo #}
+            <div class="col-md-1 text-center">
+              <span class="text-muted small">ou</span>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small mb-1">Cadastrar novo Material</label>
+              <input type="text" name="novo_material_nome" class="form-control form-control-sm"
+                     placeholder="Nome do novo material">
+            </div>
+
+            <div class="col-md-2">
+              <button type="submit" class="btn btn-primary btn-sm w-100">
+                <i class="bi bi-check-lg"></i> Confirmar
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Autocomplete leve para busca de Material no addon_estoque.
+// Vanilla JS, sem dependência externa — consistente com o padrão do projeto.
+document.querySelectorAll(".material-search-input").forEach(function(input) {
+  var targetId = input.dataset.targetId;
+  var hiddenInput = document.getElementById(targetId);
+  var resultsIndex = targetId.replace("material_id_", "");
+  var resultsDiv = document.getElementById("results_" + resultsIndex);
+  var debounceTimer;
+
+  input.addEventListener("input", function() {
+    clearTimeout(debounceTimer);
+    var q = input.value.trim();
+    hiddenInput.value = "";
+
+    if (q.length < 2) {
+      resultsDiv.style.display = "none";
+      resultsDiv.innerHTML = "";
+      return;
+    }
+
+    debounceTimer = setTimeout(function() {
+      fetch("/api/brewstation/brewfather-syncs/buscar-materiais?q=" + encodeURIComponent(q))
+        .then(function(r) { return r.json(); })
+        .then(function(itens) {
+          resultsDiv.innerHTML = "";
+          if (itens.length === 0) {
+            resultsDiv.style.display = "none";
+            return;
+          }
+          itens.forEach(function(item) {
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "list-group-item list-group-item-action py-1 px-2";
+            btn.innerHTML = "<strong>" + item.nome + "</strong> <small class='text-muted'>(" + item.categoria + ")</small>";
+            btn.addEventListener("click", function() {
+              input.value = item.nome;
+              hiddenInput.value = item.id;
+              resultsDiv.style.display = "none";
+            });
+            resultsDiv.appendChild(btn);
+          });
+          resultsDiv.style.display = "block";
+        })
+        .catch(function() { resultsDiv.style.display = "none"; });
+    }, 300);
+  });
+
+  // Fecha os resultados ao clicar fora
+  document.addEventListener("click", function(e) {
+    if (!input.contains(e.target) && !resultsDiv.contains(e.target)) {
+      resultsDiv.style.display = "none";
+    }
+  });
+});
+</script>
+{% endblock %}

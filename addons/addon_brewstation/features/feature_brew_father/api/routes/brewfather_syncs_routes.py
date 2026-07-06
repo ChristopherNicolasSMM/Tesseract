@@ -92,3 +92,6 @@ def delete_permanent_item(id: int):
     if not result.success:
         return _err(result.error, result.code)
     return _ok()
+
+# Importa hooks (endpoints extras/customizações) — hooks.py nunca é sobrescrito pelo CrudGen.
+from addons.addon_brewstation.features.feature_brew_father.api.routes import brewfather_syncs_routes_hooks as _api_hooks  # noqa: F401, E402

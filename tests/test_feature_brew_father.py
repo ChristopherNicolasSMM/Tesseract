@@ -199,3 +199,57 @@ def test_tela_de_listagem_de_syncs_nao_estoura_erro(app, client):
     _login_admin(app, client)
     resp = client.get("/brewstation/brewfather-syncs", follow_redirects=True)
     assert resp.status_code == 200
+
+
+def test_botao_sincronizar_dispara_sync_e_redireciona(app, client, mock_client):
+    _login_admin(app, client)
+    resp = client.post("/brewstation/brewfather-syncs/sincronizar", follow_redirects=True)
+    assert resp.status_code == 200
+    assert "Sincronização concluída" in resp.data.decode("utf-8")
+
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
+        assert MashRecipe.query.filter_by(origem_receita="BrewFather").count() == 2
+
+
+def test_tela_pendentes_retorna_200(app, client, mock_client):
+    _login_admin(app, client)
+    # Sync first to create pending items
+    client.post("/brewstation/brewfather-syncs/sincronizar", follow_redirects=True)
+
+    resp = client.get("/brewstation/brewfather-syncs/pendentes", follow_redirects=True)
+    assert resp.status_code == 200
+    assert "De-Para" in resp.data.decode("utf-8") or "Pendentes" in resp.data.decode("utf-8")
+
+
+def test_resolver_pendente_cria_mapeamento(app, client, mock_client):
+    _login_admin(app, client)
+    # Sync first
+    client.post("/brewstation/brewfather-syncs/sincronizar", follow_redirects=True)
+
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_mash_control.model.recipe_ingredient import RecipeIngredient
+        pendente = RecipeIngredient.query.filter_by(status_resolucao="pendente_depara").first()
+        assert pendente is not None
+        descricao = pendente.descricao_origem
+
+    # Resolve via form: cria Material novo
+    resp = client.post("/brewstation/brewfather-syncs/pendentes/resolver",
+                       data={"descricao_origem": descricao, "novo_material_nome": f"Material {descricao}"},
+                       follow_redirects=True)
+    assert resp.status_code == 200
+    assert "resolvido" in resp.data.decode("utf-8").lower()
+
+
+def test_busca_materiais_api_retorna_resultados(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        from addons.addon_estoque.root.model.material import Material
+        from core.db import db
+        db.session.add(Material(nome="Malte Pilsen Teste", categoria="materia_prima"))
+        db.session.commit()
+
+    resp = client.get("/api/brewstation/brewfather-syncs/buscar-materiais?q=pilsen")
+    assert resp.status_code == 200
+    dados = resp.get_json()
+    assert any("Pilsen" in d["nome"] for d in dados)

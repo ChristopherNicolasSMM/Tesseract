@@ -5,15 +5,27 @@
 </div>
 
 {% for category, message in get_flashed_messages(with_categories=true) %}
-  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' if category == 'success' else 'warning' }}">{{ message }}</div>
 {% endfor %}
 
 <section class="section">
   <div class="card">
     <div class="card-body">
-      <button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#novoRegistroForm">
-        <i class="bi bi-plus-lg"></i> Novo registro
-      </button>
+
+      {# ── Ações principais ──────────────────────────────────────────── #}
+      <div class="d-flex gap-2 mb-3 flex-wrap">
+        <form method="post" action="{{ url_for('brewfather_syncs.sincronizar') }}" class="d-inline">
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-arrow-repeat"></i> Sincronizar Receitas
+          </button>
+        </form>
+        <a href="{{ url_for('brewfather_syncs.pendentes') }}" class="btn btn-warning">
+          <i class="bi bi-hourglass-split"></i> Resolver Pendentes (De-Para)
+        </a>
+        <button class="btn btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#novoRegistroForm">
+          <i class="bi bi-plus-lg"></i> Novo registro manual
+        </button>
+      </div>
       <div class="collapse" id="novoRegistroForm">
         <form method="post" action="{{ url_for('brewfather_syncs.create') }}" class="row g-3" id="createForm">
           {% for field in fields %}

@@ -287,3 +287,6 @@ def delete_permanent(id: int):
     if not result.success:
         flash(result.error, "error")
     return redirect(url_for("brewfather_syncs.manage"))
+
+# Importa hooks (rotas extras/customizações) — hooks.py nunca é sobrescrito pelo CrudGen.
+from addons.addon_brewstation.features.feature_brew_father.controller import brewfather_syncs_hooks as _controller_hooks  # noqa: F401, E402
