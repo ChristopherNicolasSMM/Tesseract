@@ -254,30 +254,37 @@ decisão de arquitetura).
 
 ---
 
-## 10. [NOVO] Bug real encontrado na execução — regeneração de entidade com `relationship()` real
+## 10. [CORRIGIDO em 2026-07-07] Bug encontrado na execução — regeneração de entidade com `relationship()` real
 
-Não é uma decisão desta skill, é um achado colateral registrado aqui
-(e em `BACKLOG.md`) pra não se perder: `python run.py generate
---model ... --overwrite` falha com `NoForeignKeysError` ao regenerar
-`ItemEnvase` e `RecipeIngredient` (ambas têm `relationship()` real
-pra outra tabela do mesmo Addon/Feature — `Envase`, `MashRecipe`).
+Não é uma decisão desta skill, é um achado colateral, corrigido numa
+sessão seguinte (registrado aqui e em `BACKLOG.md` pra manter o
+histórico): `python run.py generate --model ... --overwrite` falhava
+com `NoForeignKeysError` ao regenerar `ItemEnvase` e `RecipeIngredient`
+(ambas têm `relationship()` real pra outra tabela do mesmo
+Addon/Feature — `Envase`, `MashRecipe`).
 
-**Causa raiz**: `core/cli.py` (`generate_cmd`) recarrega o arquivo do
-model isoladamente via `importlib.util.spec_from_file_location`, à
+**Causa raiz**: `core/cli.py` (`generate_cmd`) recarregava o arquivo
+do model isoladamente via `importlib.util.spec_from_file_location`, à
 parte do processo normal de boot. Nessa mesma sessão de CLI, o boot
-completo (`create_app()`, disparado pelo `@with_appcontext`) já
-importou e **renomeou** a tabela real de `Envase` pra
+completo (`create_app()`, disparado pelo `@with_appcontext`) já tinha
+importado e **renomeado** a tabela real de `Envase` pra
 `tesseract_brewstation_envase` (aplicação do prefixo tri-nível, skill
-02). Quando o `generate_cmd` reimporta `item_envase.py` do zero, a
+02). Quando o `generate_cmd` reimportava `item_envase.py` do zero, a
 `ForeignKey("envase.id")` do código-fonte (nome curto, sem prefixo —
-correto, é assim que todo model é escrito) não encontra mais nenhuma
-tabela chamada literalmente `envase` na metadata compartilhada,
-porque ela já foi renomeada minutos antes na mesma sessão.
+correto, é assim que todo model é escrito) não encontrava mais
+nenhuma tabela chamada literalmente `envase` na metadata
+compartilhada, porque ela já tinha sido renomeada minutos antes na
+mesma sessão.
 
-**Não bloqueou esta rodada**: as duas entidades afetadas tiveram a
-mesma edição aplicada manualmente (mesmo diff que o gerador produziu
-nas outras 4 entidades, replicado à mão). **Fora do escopo desta
-skill corrigir** — registrado como achado, não como decisão de
-arquitetura nova. Qualquer regeneração futura de uma entidade com
-`relationship()` real (não `@weak_ref`) vai tropeçar no mesmo
-problema até isso ser corrigido.
+**Correção aplicada**: `generate_cmd` passa a reimportar o model pelo
+caminho de pacote real (dotted path via `importlib.import_module`) em
+vez de recarregar o arquivo isolado — reaproveita a mesma classe já
+mapeada corretamente pelo boot normal, sem duplicar a definição de
+tabela. Fallback pro carregamento isolado antigo mantido só pro caso
+raro de o arquivo ainda não ser membro de pacote importável.
+
+**Cobertura de teste**: `test_phase4_crudgen.py` só testava a função
+`generate()` chamada direto com a classe já em memória — nunca o
+carregamento via CLI, que é onde o bug vivia. 3 testes novos em
+`tests/test_crudgen_cli_generate_relationship_bug.py` fecham essa
+lacuna, invocando o comando real via `app.test_cli_runner()`.

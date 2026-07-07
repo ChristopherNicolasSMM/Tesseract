@@ -159,9 +159,34 @@ def register_cli_commands(app) -> None:
         # instanciado em core/app_factory.py) — a raiz do projeto é o pai dela.
         project_root = Path(app.root_path).parent.resolve()
 
-        spec = importlib.util.spec_from_file_location(full_path.stem, full_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        # Preferir reimportar pelo caminho de pacote real (dotted path) em
+        # vez de carregar o arquivo isolado. Motivo (bug real encontrado
+        # na skill 11, ver docs/skills/11-referencia-fraca-e-display-field.md
+        # seção 10 e BACKLOG.md): o boot normal da app (@with_appcontext
+        # acima já disparou create_app()) importa TODOS os models de TODOS
+        # os Addons/Features via register_models() e já aplicou o prefixo
+        # tri-nível de tabela (skill 02) nesse processo. Carregar o arquivo
+        # de novo via spec_from_file_location cria uma SEGUNDA definição da
+        # mesma classe/tabela — se o model tiver relationship() real pra
+        # outra tabela do mesmo Addon/Feature, a ForeignKey(nome curto, sem
+        # prefixo) declarada no código-fonte não acha mais nenhuma tabela
+        # com esse nome literal na metadata (já renomeada pro nome
+        # prefixado minutos antes, na mesma sessão) — NoForeignKeysError.
+        # Reimportar pelo dotted path reaproveita a MESMA classe já
+        # mapeada corretamente, evitando o problema por completo.
+        relative_path = full_path.relative_to(project_root).with_suffix("")
+        dotted_module_path = ".".join(relative_path.parts)
+        try:
+            module = importlib.import_module(dotted_module_path)
+        except ImportError:
+            # Fallback: arquivo ainda não é membro de um pacote importável
+            # (ex.: pasta recém-criada sem __init__.py) — carrega isolado,
+            # comportamento original. Só serve pra model sem relationship()
+            # real pra outra tabela (o caso que este fallback não resolve
+            # continua exigindo os __init__.py no lugar antes de gerar).
+            spec = importlib.util.spec_from_file_location(full_path.stem, full_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
 
         candidates = [
             obj for _, obj in inspect.getmembers(module, inspect.isclass)
