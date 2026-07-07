@@ -1368,3 +1368,20 @@ nada, silenciosamente. Sem filtro ativo, o comportamento atual (tail
 
 Nenhum arquivo tocado ainda — esta rodada foi só decisão. Pendente de
 autorização explícita pra implementar.
+
+## Item (e) — Manual de de-para do BrewFather — CONCLUÍDO
+
+`addons/addon_brewstation/features/feature_brew_father/docs/technical/06-manutencao-e-expansao.md`
+criado (não existia): visão prática do fluxo de-para (onde cada passo
+mora no código real, complementando o diagrama de sequência já
+existente em `feature_mash_control/docs/technical/03-fluxos.md`, sem
+duplicar), como o autocreate resolve os campos obrigatórios de
+`Material`, e checklist prático de "como adicionar um campo novo
+importado do BrewFather" (mesmo caminho que o item (c) — adjuntos/água
+— vai seguir quando for implementado).
+
+**Achado durante a escrita**: `docs/technical/01-visao-geral.md` e
+`04-modelo-de-dados.md` desta Feature estavam desatualizados —
+diziam "`sync_service.py`/`BrewFatherSync` ainda não implementado",
+quando já estavam implementados há sessões. Corrigido nesta rodada
+(pequeno, cirúrgico — não reescrita completa).

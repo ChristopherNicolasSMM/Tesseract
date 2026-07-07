@@ -18,13 +18,19 @@ Features do mesmo Addon são sempre carregadas juntas).
 ## Fora de escopo
 
 Tabela própria de `BrewFatherRecipe`/`BrewFatherBatch` — **eliminada**
-por decisão desta rodada (duplicava `MashRecipe`/`BrewSession`).
+por decisão de sessão anterior (duplicava `MashRecipe`/`BrewSession`).
 
-## Pendências
+## Status real (corrigido nesta rodada — doc estava desatualizado)
 
-- `sync_service.py` (parse da API BrewFather, chamada ao
-  `ingredient_resolution_service`) — não implementado, só desenhado
-  no nível de fluxo (`features/feature_mash_control/docs/technical/03-fluxos.md`).
-- Log de sincronização (`BrewFatherSync` — status, erro, raw_data) —
-  desenhado, não implementado.
+`sync_service.py`, `brewfather_client.py`, `ingredient_autocreate_service.py`
+e o model `BrewFatherSync` (log de sincronização) **já estão
+implementados** — a versão anterior deste documento dizia o oposto
+("não implementado, só desenhado"), o que não reflete mais o código
+real. Ver `docs/technical/06-manutencao-e-expansao.md` (nova) para o
+funcionamento prático completo.
+
+## Pendências reais
+
+- Item (c) do `BACKLOG.md` — adjuntos (`miscs[]`) e água (`water`) da
+  API BrewFather, decidido mas não implementado.
 - `docs/manual/`, `i18n/pt_BR.json` — não escritos.
