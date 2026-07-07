@@ -1,15 +1,18 @@
 # 11 — Referência Fraca: `@display_field` + `@weak_ref` + `/api/options`
 
-> **Status: [DECIDIDO], pendente de implementação.** Nasceu da
-> retomada do item de backlog "tela de insumos não mostra o nome do
-> Material" — investigação inicial (sem olhar o PyTeca) desenhou uma
-> solução por hook manual em 6 arquivos; a pedido, essa solução foi
-> descartada em favor de investigar diretamente o código real do
+> **Status: EXECUTADA (2026-07-07).** Nasceu da retomada do item de
+> backlog "tela de insumos não mostra o nome do Material" —
+> investigação inicial (sem olhar o PyTeca) desenhou uma solução por
+> hook manual em 6 arquivos; a pedido, essa solução foi descartada em
+> favor de investigar diretamente o código real do
 > `ChristopherNicolasSMM/PyTeca`, que já resolvia um problema
-> parecido (lá, sempre com FK real). O resultado é este documento.
+> parecido (lá, sempre com FK real). O desenho abaixo foi
+> implementado como estava documentado, sem desvios de arquitetura —
+> ver seção 10 para o único achado real durante a execução (bug de
+> regeneração do CrudGen, não relacionado à decisão em si).
 >
 > Convenção de status (igual skill 05, 09, 10): **[DECIDIDO]** /
-> **[ABERTO]** / **[PENDENTE-SKILL]**.
+> **[EXECUTADO]** / **[ABERTO]** / **[PENDENTE-SKILL]**.
 
 ---
 
@@ -163,15 +166,24 @@ ganham a anotação e regeneram via `python run.py generate --overwrite`.
 
 ---
 
-## 6. `/api/options/<table_name>` — combo de busca genérico
+## 6. `/api/options/<plural>` — combo de busca genérico
 
-**[DECIDIDO]** Novo endpoint em Core, mesmo formato de resposta do
+**[EXECUTADO]** Novo endpoint em Core, mesmo formato de resposta do
 PyTeca (compatível com Select2 sem JS novo de parsing):
 
 ```
-GET /api/options/<table_name>?search=xxx&page=1
+GET /api/options/<plural>?search=xxx&page=1
 → { "results": [{"id": ..., "text": ...}], "pagination": {"more": bool} }
 ```
+
+**Ajuste em relação à proposta inicial**: a URL usa `<plural>` (o
+mesmo valor de `@plural` do model alvo — `"materials"` pra `Material`),
+não o nome real da tabela (`tesseract_estoque_material`). Motivo:
+`plural` já é a chave estável usada em toda rota gerada pelo CrudGen —
+reaproveitar evita introduzir uma segunda convenção de identificador
+só pra isto. `@weak_ref` ganhou o parâmetro `options` (o `plural` do
+alvo) pra fazer essa ligação — sem ele, o campo não ganha combo, só
+o texto de apoio (seção 5).
 
 **Diferenças em relação ao PyTeca** (Tesseract tem RBAC, o PyTeca não
 tinha essa preocupação no endpoint):
@@ -188,28 +200,27 @@ tinha essa preocupação no endpoint):
   mas não há caso de uso real ainda que justifique a complexidade
   extra aqui).
 
-**[ABERTO] Dependência não resolvida**: Select2 (JS/CSS) **não está**
-nos assets estáticos do projeto hoje (`static/`, herdados do Nice
-Admin — Bootstrap/ApexCharts/Boxicons/Quill/TinyMCE/ECharts, sem
-Select2). Duas saídas, nenhuma decidida:
-1. Vendorizar Select2 (baixar e versionar os arquivos, mesmo padrão
-   dos demais assets do Nice Admin).
-2. Usar uma alternativa mais leve (ex.: `<datalist>` nativo do HTML5,
-   sem paginação/busca assíncrona real — mais simples, mas sem busca
-   server-side pra tabelas grandes).
-Decidir antes de implementar a seção 6 — a seção 2-5 (exibição
-read-only) não depende dessa decisão e pode ser implementada primeiro.
+**[EXECUTADO] Dependência resolvida**: decisão tomada na implementação
+— **vanilla JS**, sem Select2/jQuery (`static/js/weak_ref_combo.js`).
+O projeto não tinha nenhum dos dois nos assets estáticos (herdados do
+Nice Admin), e vendorizar uma lib nova só pra isto não se justificava.
+O endpoint devolve o formato de resposta nativo do Select2 de
+propósito — se o projeto adotar a lib por outro motivo no futuro, só
+trocar o JS consumidor, o backend não muda.
 
 ---
 
 ## 7. Onde isso muda a UI de fato
 
-`templates/.../detail.html`, campo com `@weak_ref`: deixa de ser
-`<input type="text">` puro digitando id cru — vira um combo de busca
-assíncrona (uma vez resolvida a pendência da seção 6), mostrando o
-nome ao digitar, persistindo o id no submit. Resolve exibição e edição
-ao mesmo tempo — hoje o usuário digita o id na mão pra trocar o
-material vinculado a um `Malte`, por exemplo.
+`templates/.../detail.html`, campo com `@weak_ref(..., options=...)`:
+deixa de ser `<input type="text">` puro digitando id cru — vira um
+combo de busca assíncrona (`.weakref-combo`, `static/js/weak_ref_combo.js`),
+mostrando o nome ao digitar, persistindo o id (`<input type="hidden">`)
+no submit. Campo com `@weak_ref` mas sem `options` mostra só o nome
+resolvido como texto de apoio ao lado do `<input>` de id cru — sem
+combo. Resolve exibição e edição ao mesmo tempo — antes o usuário
+digitava o id na mão pra trocar o material vinculado a um `Malte`,
+por exemplo.
 
 ---
 
@@ -236,8 +247,37 @@ com os mesmos parâmetros, `@display_field("nome")` uma vez só em
 
 ## 9. Pendências desta skill
 
-- [ABERTO] Seção 6 — vendorizar Select2 vs. alternativa mais leve
-  (`<datalist>`), decidir antes de implementar o combo de busca.
-- Nenhuma outra pendência de arquitetura — seções 1–5 e 7–8 estão
-  fechadas, aguardando autorização explícita pra implementar (fase de
-  documentação apenas até aqui).
+Nenhuma — todas as seções (1–8) foram executadas sem desvio da
+decisão original. Ver seção 10 para o único achado real durante a
+execução (bug pré-existente do CrudGen, não relacionado a esta
+decisão de arquitetura).
+
+---
+
+## 10. [NOVO] Bug real encontrado na execução — regeneração de entidade com `relationship()` real
+
+Não é uma decisão desta skill, é um achado colateral registrado aqui
+(e em `BACKLOG.md`) pra não se perder: `python run.py generate
+--model ... --overwrite` falha com `NoForeignKeysError` ao regenerar
+`ItemEnvase` e `RecipeIngredient` (ambas têm `relationship()` real
+pra outra tabela do mesmo Addon/Feature — `Envase`, `MashRecipe`).
+
+**Causa raiz**: `core/cli.py` (`generate_cmd`) recarrega o arquivo do
+model isoladamente via `importlib.util.spec_from_file_location`, à
+parte do processo normal de boot. Nessa mesma sessão de CLI, o boot
+completo (`create_app()`, disparado pelo `@with_appcontext`) já
+importou e **renomeou** a tabela real de `Envase` pra
+`tesseract_brewstation_envase` (aplicação do prefixo tri-nível, skill
+02). Quando o `generate_cmd` reimporta `item_envase.py` do zero, a
+`ForeignKey("envase.id")` do código-fonte (nome curto, sem prefixo —
+correto, é assim que todo model é escrito) não encontra mais nenhuma
+tabela chamada literalmente `envase` na metadata compartilhada,
+porque ela já foi renomeada minutos antes na mesma sessão.
+
+**Não bloqueou esta rodada**: as duas entidades afetadas tiveram a
+mesma edição aplicada manualmente (mesmo diff que o gerador produziu
+nas outras 4 entidades, replicado à mão). **Fora do escopo desta
+skill corrigir** — registrado como achado, não como decisão de
+arquitetura nova. Qualquer regeneração futura de uma entidade com
+`relationship()` real (não `@weak_ref`) vai tropeçar no mesmo
+problema até isso ser corrigido.

@@ -8,11 +8,14 @@ Nome curto "item_envase", nao so "item" - skill 02 lista "item" entre
 os nomes genericos de risco de colisao dentro do mesmo Addon.
 """
 from core.db import db
-from annotations import label, plural, required, min_value
+from annotations import label, plural, required, min_value, weak_ref
+
+_MATERIAL_RESOLVER = "addons.addon_estoque.root.services.material_lookup.get_material"
 
 
 @label("Item de Envase")
 @plural("item_envases")
+@weak_ref("material_id", resolver=_MATERIAL_RESOLVER, options="materials")
 @required("envase_id", message="Envase é obrigatório")
 @required("material_id", message="Material é obrigatório")
 @min_value("quantidade", 0, message="Quantidade não pode ser negativa")

@@ -1194,3 +1194,51 @@ Resumo da mudança de rumo (detalhe completo na skill 11):
   ainda não tomada (ver skill 11, seção 4).
 - Ainda pendente de implementação — esta rodada continua sendo só
   decisão/documentação.
+
+## Skill 11 — EXECUTADA (2026-07-07)
+
+Implementação autorizada e concluída — sem desvio do desenho
+documentado. Detalhe completo em
+`docs/skills/11-referencia-fraca-e-display-field.md`.
+
+- [x] `@display_field`/`@weak_ref` em `annotations/__init__.py`
+      (`get_weak_refs()` novo, mesma convenção de `get_choices_fields()`).
+- [x] `Material` ganha `@display_field("nome")`; `material_lookup.get_material()`
+      enriquecido com a chave `"display"`.
+- [x] `@weak_ref("material_id", resolver=..., options="materials")`
+      aplicado nas 6 entidades identificadas (`Malte`, `Lupulo`,
+      `Levedura`, `ItemEnvase`, `RecipeIngredient`, `IngredientMapping`).
+- [x] `core/crudgen/generator.py` (templates `controller.py.j2`,
+      `manage.html.j2`, `detail.html.j2`) gera a resolução
+      automaticamente pra qualquer entidade com `@weak_ref` — não é
+      mais trabalho manual repetido.
+- [x] `/api/options/<plural>` implementado (`api/routes/core/options_routes.py`)
+      — decisão de implementação: **vanilla JS** (`static/js/weak_ref_combo.js`),
+      não Select2 — resolve a pendência em aberto da skill 11 §6 (o
+      projeto não tinha Select2/jQuery nos assets; vendorizar uma lib
+      nova só pra isto não se justificava). Endpoint já devolve o
+      formato de resposta nativo do Select2 — se o projeto adotar a
+      lib por outro motivo no futuro, só trocar o JS consumidor.
+- [x] 11 testes novos (`tests/test_weak_ref_display_field.py`) — 434 + 11
+      novos + 2 do item Material (sessão anterior) passando, nenhuma
+      regressão nos 37 arquivos de teste.
+
+**[NOVO] Bug real encontrado na execução, não relacionado à decisão
+da skill 11**: `python run.py generate --model ... --overwrite` falha
+com `NoForeignKeysError` ao regenerar uma entidade que tem
+`relationship()` real pra outra tabela do mesmo Addon/Feature já
+prefixada (`ItemEnvase.envase`, `RecipeIngredient.recipe`) — o CLI
+recarrega o arquivo do model isoladamente via
+`importlib.util.spec_from_file_location` (`core/cli.py`,
+`generate_cmd`), fora do processo normal de boot que aplica o prefixo
+de tabela; a `ForeignKey("envase.id")` declarada no código-fonte
+(nome curto, sem prefixo) não encontra mais nenhuma tabela chamada
+literalmente `envase` na metadata nesse ponto, porque o boot da mesma
+sessão CLI já renomeou a tabela real pra `tesseract_brewstation_envase`
+antes de chegar ali. **Não bloqueou esta rodada** — as 2 entidades
+afetadas (`ItemEnvase`, `RecipeIngredient`) tiveram a mesma edição
+aplicada manualmente, replicando exatamente o diff que o gerador
+produziu nas outras 4. Registrado aqui pra não se perder — regenerar
+qualquer entidade com relationship() real após a criação inicial vai
+tropeçar no mesmo problema até isso ser corrigido (fora do escopo
+desta skill).

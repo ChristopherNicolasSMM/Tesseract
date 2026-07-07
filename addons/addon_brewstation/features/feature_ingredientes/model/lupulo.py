@@ -6,12 +6,15 @@ generico de addon_estoque. `material_id` e referencia fraca (SEM FK -
 cross-Addon, skill 02).
 """
 from core.db import db
-from annotations import label, plural, required, choices, min_value
+from annotations import label, plural, required, choices, min_value, weak_ref
+
+_MATERIAL_RESOLVER = "addons.addon_estoque.root.services.material_lookup.get_material"
 
 
 @label("Lúpulo")
 @plural("lupulos")
 @choices("formato", label="Formato")
+@weak_ref("material_id", resolver=_MATERIAL_RESOLVER, options="materials")
 @required("material_id", message="Material é obrigatório")
 @min_value("alpha_acidos", 0, message="Alfa ácidos não pode ser negativo")
 class Lupulo(db.Model):

@@ -17,7 +17,9 @@ uso_detalhado (campo `use` bruto do BrewFather, mais granular que
 `etapa`).
 """
 from core.db import db
-from annotations import label, plural, required, choices, min_value
+from annotations import label, plural, required, choices, min_value, weak_ref
+
+_MATERIAL_RESOLVER = "addons.addon_estoque.root.services.material_lookup.get_material"
 
 
 @label("Ingrediente de Receita")
@@ -25,6 +27,7 @@ from annotations import label, plural, required, choices, min_value
 @choices("etapa", label="Etapa")
 @choices("tipo_ingrediente", label="Tipo")
 @choices("status_resolucao", label="Status")
+@weak_ref("material_id", resolver=_MATERIAL_RESOLVER, options="materials")
 @required("recipe_id", message="Receita é obrigatória")
 @min_value("quantidade", 0, message="Quantidade não pode ser negativa")
 class RecipeIngredient(db.Model):

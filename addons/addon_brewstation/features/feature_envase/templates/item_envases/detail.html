@@ -17,8 +17,21 @@
         {% for field in fields %}
         <div class="col-md-4">
           <label class="form-label">{{ field.replace('_', ' ').title() }}</label>
+          {% if field in weak_ref_fields and weak_ref_options.get(field) %}
+          <div class="weakref-combo" data-weakref-source="{{ weak_ref_options[field] }}">
+            <input type="hidden" name="{{ field }}" class="weakref-combo-value" value="{{ data.get(field) if data.get(field) is not none else '' }}">
+            <input type="text" class="form-control weakref-combo-search" autocomplete="off"
+                   value="{{ weak_ref_display.get(field, data.get(field) or '') }}" placeholder="Buscar...">
+            <ul class="list-group weakref-combo-results"></ul>
+          </div>
+          {% elif field in weak_ref_fields %}
           <input type="text" name="{{ field }}" class="form-control" value="{{ data.get(field) if data.get(field) is not none else '' }}"
                  {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+          {% if weak_ref_display.get(field) %}<small class="text-muted">{{ weak_ref_display[field] }}</small>{% endif %}
+          {% else %}
+          <input type="text" name="{{ field }}" class="form-control" value="{{ data.get(field) if data.get(field) is not none else '' }}"
+                 {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+          {% endif %}
         </div>
         {% endfor %}
         <div class="col-12">
@@ -47,6 +60,7 @@
 </section>
 
 <script src="{{ url_for('static', filename='js/rule_engine.js') }}"></script>
+<script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>
 <script>
   document.getElementById('editForm').addEventListener('submit', function (e) {
     if (!RuleEngine.validateForm(this)) {

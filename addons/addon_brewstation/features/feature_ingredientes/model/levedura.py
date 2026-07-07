@@ -12,13 +12,16 @@ resolvida nesta rodada (ver docs/technical/01-visao-geral.md desta
 Feature).
 """
 from core.db import db
-from annotations import label, plural, required, choices
+from annotations import label, plural, required, choices, weak_ref
+
+_MATERIAL_RESOLVER = "addons.addon_estoque.root.services.material_lookup.get_material"
 
 
 @label("Levedura")
 @plural("leveduras")
 @choices("floculacao", label="Floculação")
 @choices("formato", label="Formato")
+@weak_ref("material_id", resolver=_MATERIAL_RESOLVER, options="materials")
 @required("material_id", message="Material é obrigatório")
 class Levedura(db.Model):
     __tablename__ = "levedura"

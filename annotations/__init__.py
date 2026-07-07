@@ -47,6 +47,44 @@ def display_field(value: str):
     return decorator
 
 
+def weak_ref(field: str, resolver: str, options: str | None = None):
+    """
+    Marca `field` como referência fraca (skill 02 — sem FK real,
+    cross-Addon) resolvida em runtime por `resolver`.
+
+    `resolver` é um caminho pontuado até uma função `(id) -> dict | None`
+    que devolve, no mínimo, a chave "display" (calculada no lado de
+    quem possui o model alvo, a partir do @display_field dele — nunca
+    hardcoded aqui). Ver docs/skills/11-referencia-fraca-e-display-field.md.
+
+    `options` (opcional): o @plural do model alvo — habilita o combo
+    de busca assíncrono (`/api/options/<options>`) no formulário de
+    detalhe gerado, no lugar do `<input>` de id cru. Sem isso, o campo
+    mostra só o nome resolvido como texto de apoio ao lado do input.
+
+    Uso no model:
+        @weak_ref("material_id",
+                   resolver="addons.addon_estoque.root.services.material_lookup.get_material",
+                   options="materials")
+        class Malte(db.Model):
+            material_id = db.Column(db.Integer, nullable=False, index=True)  # SEM FK
+
+    Múltiplas @weak_ref podem ser empilhadas se o model tiver mais de
+    um campo de referência fraca.
+    """
+    def decorator(cls):
+        if not hasattr(cls, '_weak_refs'):
+            cls._weak_refs = []
+        cls._weak_refs.append({"field": field, "resolver": resolver, "options": options})
+        return cls
+    return decorator
+
+
+def get_weak_refs(cls) -> list[dict]:
+    """Retorna a lista de {"field", "resolver"} de @weak_ref declaradas no model."""
+    return getattr(cls, '_weak_refs', [])
+
+
 # ---- Decorators de UI (SmartList) ----
 class Column:
     def __init__(self, name: str, label: Optional[str] = None, width: Optional[str] = None,
@@ -178,6 +216,7 @@ def get_model_metadata(cls) -> Dict[str, Any]:
         "validations": getattr(cls, '_validations', {}),
         "display_field": getattr(cls, '_display_field', 'id'),
         "menu_icon": getattr(cls, '_menu_icon', None),
+        "weak_refs": getattr(cls, '_weak_refs', []),
     }
 
 

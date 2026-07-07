@@ -704,3 +704,31 @@ textarea:focus {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* =====================
+   WEAK REF COMBO (skill 11 - referencia fraca em formulario)
+   ===================== */
+.weakref-combo {
+  position: relative;
+}
+
+.weakref-combo-results {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 2px 0 0;
+  padding: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md, 6px);
+  box-shadow: 0 4px 12px var(--shadow-color);
+}
+
+.weakref-combo-results.show {
+  display: block;
+}

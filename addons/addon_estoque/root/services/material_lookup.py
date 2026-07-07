@@ -23,11 +23,25 @@ from addons.addon_estoque.root.model.saldo import Saldo
 
 
 def get_material(material_id: int | None) -> dict | None:
-    """Resolve um Material pelo id interno. Retorna dict (nunca ORM)."""
+    """
+    Resolve um Material pelo id interno. Retorna dict (nunca ORM).
+
+    Ganha a chave "display" (skill 11 — @display_field/@weak_ref):
+    calculada a partir de `Material._display_field` em vez de
+    hardcoded aqui, para que quem consome (ex.: geração de
+    controller/template via @weak_ref) nunca precise saber qual
+    campo de Material representa o "nome" — se isso mudar um dia,
+    só este arquivo muda.
+    """
     if not material_id:
         return None
     obj = Material.query.filter_by(id=material_id, is_deleted=False).first()
-    return obj.to_dict() if obj else None
+    if not obj:
+        return None
+    data = obj.to_dict()
+    display_attr = getattr(Material, "_display_field", "id")
+    data["display"] = getattr(obj, display_attr, None) or f"Material #{obj.id}"
+    return data
 
 
 def get_material_by_nome(nome: str | None) -> dict | None:

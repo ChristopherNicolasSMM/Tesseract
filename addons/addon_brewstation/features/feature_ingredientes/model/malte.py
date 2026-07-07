@@ -7,12 +7,15 @@ cross-Addon, skill 02), resolvida via
 addon_estoque.root.services.material_lookup.
 """
 from core.db import db
-from annotations import label, plural, required, choices, min_value
+from annotations import label, plural, required, choices, min_value, weak_ref
+
+_MATERIAL_RESOLVER = "addons.addon_estoque.root.services.material_lookup.get_material"
 
 
 @label("Malte")
 @plural("maltes")
 @choices("tipo", label="Tipo")
+@weak_ref("material_id", resolver=_MATERIAL_RESOLVER, options="materials")
 @required("material_id", message="Material é obrigatório")
 @min_value("cor_ebc", 0, message="Cor EBC não pode ser negativa")
 class Malte(db.Model):

@@ -10,12 +10,15 @@ origem+descricao resolvem automatico, sem perguntar de novo.
 mesma regra de RecipeIngredient.
 """
 from core.db import db
-from annotations import label, plural, required, choices
+from annotations import label, plural, required, choices, weak_ref
+
+_MATERIAL_RESOLVER = "addons.addon_estoque.root.services.material_lookup.get_material"
 
 
 @label("Mapeamento de Ingrediente")
 @plural("ingredient_mappings")
 @choices("origem_receita", label="Origem")
+@weak_ref("material_id", resolver=_MATERIAL_RESOLVER, options="materials")
 @required("origem_receita", message="Origem é obrigatória")
 @required("descricao_origem", message="Descrição de origem é obrigatória")
 @required("material_id", message="Material é obrigatório")

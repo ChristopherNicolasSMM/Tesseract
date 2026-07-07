@@ -103,6 +103,7 @@ def create_app(env: str | None = None) -> Flask:
     from api.routes.core.transactions import transactions_api_bp
     from api.routes.core.theme import theme_api_bp
     from api.routes.core.menu_preferences import menu_preferences_api_bp
+    from api.routes.core.options_routes import options_bp
     from controller.core.pages import core_pages_bp
     from controller.core.admin_users import admin_users_bp
     from controller.core.admin_roles import admin_roles_bp
@@ -123,6 +124,7 @@ def create_app(env: str | None = None) -> Flask:
     app.register_blueprint(transactions_api_bp)
     app.register_blueprint(theme_api_bp)
     app.register_blueprint(menu_preferences_api_bp)
+    app.register_blueprint(options_bp)
     app.register_blueprint(core_pages_bp)
     app.register_blueprint(admin_users_bp)
     app.register_blueprint(admin_roles_bp)

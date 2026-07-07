@@ -107,7 +107,7 @@
             {% set data = item.to_dict() %}
             <tr>
               <td>{{ item.id }}</td>
-              {% for col in visible_columns %}<td>{{ data.get(col) }}</td>{% endfor %}
+              {% for col in visible_columns %}<td>{% if col in weak_ref_fields %}{{ weak_ref_display.get(item.id, {}).get(col) or data.get(col) }}{% else %}{{ data.get(col) }}{% endif %}</td>{% endfor %}
               <td>
                 <a href="{{ url_for('ingredient_mappings.detail', id=item.id) }}" class="btn btn-sm btn-outline-primary">Ver / Editar</a>
                 <form method="post" action="{{ url_for('ingredient_mappings.trash', id=item.id) }}" class="d-inline" onsubmit="return confirm('Mover para a lixeira?');">

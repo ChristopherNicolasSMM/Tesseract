@@ -31,11 +31,12 @@ sempre editavel depois.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length
+from annotations import label, plural, required, max_length, display_field
 
 
 @label("Material")
 @plural("materials")
+@display_field("nome")
 @required("nome", message="Nome do material é obrigatório")
 @required("sku", message="SKU do material é obrigatório")
 @required("origem_id", message="Origem é obrigatória")
