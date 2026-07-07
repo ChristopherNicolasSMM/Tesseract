@@ -1,10 +1,10 @@
 # 10 — Menu Hierárquico (N níveis)
 
-> **Status: EXECUTADA (2026-07-02).** Nasceu de um pedido direto de
-> navegação em árvore (`addon > sub item > sub item do sub item`,
-> profundidade arbitrária), motivado por preocupação real de escala —
-> sem isso, o menu ficaria grande demais pra navegar conforme mais
-> Addons/Features forem entrando.
+> **Status: EXECUTADA (2026-07-02), com revisão em 2026-07-07.** Nasceu
+> de um pedido direto de navegação em árvore (`addon > sub item > sub
+> item do sub item`, profundidade arbitrária), motivado por
+> preocupação real de escala — sem isso, o menu ficaria grande demais
+> pra navegar conforme mais Addons/Features forem entrando.
 >
 > Investigação no código real (`model/core/transaction.py`,
 > `core/transactions_sync.py`, `controller/core/admin_transactions.py`)
@@ -15,6 +15,16 @@
 > `controller/core/admin_transactions.py` (tela CRUD completa, com
 > campo de texto livre "grupo"), `services/core/menu_preference_service.py`,
 > `core/cli.py`, `core/transactions_sync.py`.
+>
+> **Revisão de 2026-07-07** (retomada de um item de backlog de sessão
+> anterior — "`Transaction.parent_manually_set`"): investigação no
+> código real de `admin_transactions.py` mostrou que essa proposta
+> ficou **obsoleta** — a implementação real já resolveu o problema de
+> um jeito mais simples (§9). Nessa mesma revisão, três achados novos
+> ganharam decisão: hierarquia Addon→Feature ainda flat nos catálogos
+> reais (§7.1), bug real confirmado no accordion aninhado (§5.1), e
+> `core.menu.icon_max_depth` (§5.2) — todos **[DECIDIDO], ainda não
+> implementados** nesta revisão (fase de documentação apenas).
 >
 > Mesmo peso normativo das demais skills. Convenção de status (igual
 > skill 05-09): **[DECIDIDO]** / **[ABERTO]** / **[PENDENTE-SKILL]**.
@@ -155,6 +165,57 @@ recursive %}` é suporte nativo do Jinja2 pra árvore, sem lib nova.
 Cada nível ganha seu próprio `collapse` do Bootstrap aninhado dentro
 do pai.
 
+**Nota de divergência encontrada na revisão de 2026-07-07**: o código
+real (`templates/core/base.html`) implementa a recursão como macro
+nomeada chamando a si mesma (`render_menu_nodes`), não com o
+modificador nativo `recursive` do Jinja2 — equivalente na prática,
+sem impacto. Mas a segunda parte da frase acima ("cada nível ganha seu
+próprio collapse... aninhado dentro do pai") **não é verdade no código
+real** — ver §5.1.
+
+### 5.1 [DECIDIDO — pendente de implementação] Bug real: accordion não aninha por nível
+
+**Causa raiz confirmada** (`templates/core/base.html`, dentro da macro
+`render_menu_nodes`): todo `<ul class="nav-content collapse">`, em
+**qualquer** profundidade de recursão, usa o mesmo
+`data-bs-parent="#sidebar-nav"` fixo. O plugin de collapse do
+Bootstrap trata todo elemento que compartilha o mesmo `data-bs-parent`
+como pertencente ao **mesmo** accordion — então abrir um nó em
+qualquer profundidade fecha qualquer outro nó aberto em **qualquer**
+outro lugar da árvore, não só os irmãos do mesmo nível/mesmo pai. Isso
+confirma (não é mais suspeita) o comportamento relatado: mexer num
+nível 2 colapsa o nível 1.
+
+**Decisão**: `data-bs-parent` de cada `<ul>` deve apontar pro **id do
+`<ul>` do nível imediatamente acima**, não pro `#sidebar-nav` global.
+Isso exige passar o id do container pai como parâmetro na chamada
+recursiva da macro (hoje `render_menu_nodes(nodes)` só recebe a lista
+de nós — passa a receber também `parent_container_id`, com
+`"sidebar-nav"` como valor inicial na primeira chamada, e
+`"node-" ~ tx.code` do nível atual em cada chamada recursiva
+subsequente).
+
+### 5.2 [DECIDIDO — pendente de implementação] `core.menu.icon_max_depth`
+
+**Semântica decidida**: a partir do nível `N` (inclusive), o item
+renderiza **sem ícone** — só o texto do label. Níveis `0` até `N-1`
+continuam mostrando ícone normalmente. Reaproveita o mesmo contador de
+profundidade que a macro recursiva já calcula pra outros fins (§8.1,
+"Indicador de nível" — dado derivado, nunca persistido, incrementado a
+cada chamada recursiva).
+
+| Campo | Valor |
+|---|---|
+| Chave (`system_config`, skill 03) | `core.menu.icon_max_depth` |
+| Tipo | `int` |
+| **Default proposto** | `-1` (sentinela explícito = "sem corte", todo nível mostra ícone — preserva o comportamento visual atual até um admin configurar um valor real; skill 03 exige valor-padrão explícito, nunca `None` silencioso, e `-1` cumpre isso sem mudar nada visualmente por padrão) |
+| Nível raiz | `0` (mesma convenção do indicador de nível, §8.1) |
+
+Se este default (`-1` = sem corte) não for o que você tinha em mente,
+sinalizar antes da implementação — é a única peça desta decisão que
+não veio de um pedido explícito seu, foi inferida pra manter
+compatibilidade visual por padrão.
+
 ---
 
 ## 6. Adenda skill 07 (menu personalizado) — schema muda de lista pra árvore
@@ -195,6 +256,42 @@ existir) uma pasta própria por módulo:
   na primeira vez que algum model daquele módulo é auto-descoberto,
   com `label=module.label` (mesma convenção já usada pro `group`
   antes desta skill).
+
+### 7.1 [DECIDIDO — pendente de implementação] Catálogos manuais ainda flat — falta o nível Addon
+
+**Achado da revisão de 2026-07-07**: a adenda acima cobre só o caminho
+de auto-descoberta (skill 09). Os catálogos **manuais** (`get_transactions()`
+escrito à mão, caso de toda Feature de `addon_brewstation` hoje) não
+seguem a mesma regra — cada uma declara `"parent_code": None` pro
+próprio grupo raiz, e `AddonBrewstation` não declara `get_transactions()`
+nenhum. Resultado real confirmado no código: as 5 Features
+(`mash_control`, `yeast_bank`, `envase`, `ingredientes`, `brew_father`)
+aparecem como 5 itens soltos na raiz do menu — nenhuma pasta
+"BrewStation" as agrupa, mesmo todas pertencendo ao mesmo Addon.
+
+**Decisão**: `AddonBrewstation.get_transactions()` passa a declarar um
+único nó-pasta raiz:
+
+```python
+{"code": "TX_GROUP_BREWSTATION", "label": "BrewStation", "parent_code": None, "route": None, "icon": "..."}
+```
+
+e cada uma das 5 Features troca `"parent_code": None` pelo próprio
+grupo raiz por `"parent_code": "TX_GROUP_BREWSTATION"` — sem mudar
+mais nada na estrutura interna de cada Feature (suas próprias
+sub-transações continuam apontando pro grupo da Feature, não
+diretamente pro grupo do Addon). Mecanismo de resolução já suporta
+isso sem mudança (§4 — duas passadas, independente de ordem de
+declaração, já pensado justamente pra permitir um módulo apontar
+`parent_code` pra grupo declarado por outro).
+
+**Escopo da correção**: só `addon_brewstation`, único Addon com mais
+de uma Feature hoje. `addon_estoque`/`addon_device_manager` não têm
+esse problema — Addon sem Feature própria não precisa de wrapper
+extra (adicionar um nível "Estoque > Estoque" seria redundante, não
+resolve nada). Regra geral pra manifestos futuros: Addon com Feature
+própria declara seu grupo raiz; Addon sem Feature usa o grupo raiz que
+já teria de qualquer forma como o nível 1 real.
 
 ---
 
@@ -282,13 +379,58 @@ existente.
 
 ## 9. Pendências desta skill
 
-- [ABERTO] Nenhuma pendência de arquitetura restante — as três
-  decisões que estavam em aberto (remoção de `group`, escopo das duas
-  telas, profundidade ilimitada) foram todas fechadas na rodada
-  inicial, e o indicador de nível + promover/rebaixar (seção 8.1)
-  foram fechados numa rodada seguinte.
+- [ABERTO] Nenhuma pendência de **arquitetura da árvore em si**
+  restante — as três decisões que estavam em aberto (remoção de
+  `group`, escopo das duas telas, profundidade ilimitada) foram todas
+  fechadas na rodada inicial, e o indicador de nível + promover/
+  rebaixar (seção 8.1) foram fechados numa rodada seguinte.
 - Detalhe de implementação (não bloqueia): geração exata do slug do
   código de pasta migrado (seção 2) — usar uma função de slugify
   simples (maiúsculo, troca não-alfanumérico por `_`, colapsa
   `_` repetido) na hora do código, sem biblioteca nova.
+
+### `Transaction.parent_manually_set` — proposta de sessão anterior, obsoleta
+
+Um item de backlog de sessão anterior a esta (ainda não implementado
+na época) propunha um campo `Transaction.parent_manually_set`
+(Boolean) pra fazer `resolve_transaction_parents()` pular transações
+com override manual de estrutura, evitando que o boot sobrescrevesse
+uma reorganização feita pelo admin.
+
+**Achado na revisão de 2026-07-07**: essa proposta não se aplica mais
+— quando a árvore foi implementada de fato (seções 0–8 acima), o
+problema foi resolvido de um jeito estruturalmente mais simples e sem
+nenhuma flag nova: `admin_transactions.py` (`_is_code_sourced()`)
+**bloqueia por completo** qualquer edição de `parent_id` (e de
+label/rota/ícone) em transação vinda do código, tanto no formulário de
+editar quanto em `promote()`/`demote()`, com mensagem de erro
+explícita ao usuário. Só transação `source_module="manual"` pode ter
+a própria estrutura alterada — e essa nunca é tocada por
+`sync_transaction()`/`resolve_transaction_parents()`, que só
+processam o que está literalmente presente no catálogo Python. Não
+existe, portanto, o cenário que a proposta original tentava resolver
+("admin editou a estrutura, boot sobrescreveu") — porque editar
+estrutura de item vindo do código nunca foi permitido, e a checagem já
+é feita antes da escrita chegar ao banco, não depois. **Não implementar
+o campo `parent_manually_set`** — item fechado por obsolescência, não
+por implementação.
+
+### Itens novos desta revisão — [DECIDIDO], pendentes de implementação
+
+Três achados confirmados no código real nesta revisão (2026-07-07),
+com decisão já tomada, aguardando autorização explícita pra
+implementar (fase de documentação apenas até aqui):
+
+1. **§5.1** — bug real do accordion (`data-bs-parent` fixo em
+   `#sidebar-nav` em todo nível) — mexer num nível 2 colapsa o nível
+   1. Fix: `data-bs-parent` aponta pro `<ul>` do nível imediatamente
+   acima, não pro `#sidebar-nav` global.
+2. **§7.1** — catálogos manuais de Feature ainda flat (`parent_code:
+   None` em todas as 5 Features de `addon_brewstation`, sem grupo
+   Addon-pai). Fix: `TX_GROUP_BREWSTATION` novo em
+   `AddonBrewstation.get_transactions()`, 5 Features apontam
+   `parent_code` pra ele.
+3. **§5.2** — `core.menu.icon_max_depth` (`system_config`, int,
+   default proposto `-1` = sem corte) — a partir do nível `N`, item
+   renderiza sem ícone.
 

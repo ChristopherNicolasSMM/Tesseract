@@ -1130,3 +1130,34 @@ código — ver `addons/addon_estoque/docs/technical/06-manutencao-e-expansao.md
 - [ ] Sistema de Compras — escopo não definido (pedido, cotação,
       recebimento, vínculo com `Movimentacao`). Provável candidato a
       Addon novo, não decidido.
+
+## Skill 10 — revisão (menu hierárquico): 3 itens decididos, pendentes de implementação
+
+Retomada do item de backlog "`Transaction.parent_manually_set`" de
+sessão anterior — investigação no código real levou a resultado
+diferente do esperado. Ver `docs/skills/10-menu-hierarquico.md`,
+seção 9, para o detalhe completo de cada item abaixo.
+
+- [x] **Achado**: `parent_manually_set` está **obsoleto** — o problema
+      que motivou a proposta já não existe na implementação real
+      (`admin_transactions.py` bloqueia por completo edição de
+      estrutura em transação code-sourced, não precisa de flag pra
+      "pular no sync"). Não implementar.
+- [ ] **[DECIDIDO]** Bug real confirmado: `data-bs-parent` fixo em
+      `#sidebar-nav` em toda profundidade da árvore do menu
+      (`templates/core/base.html`, macro `render_menu_nodes`) — abrir
+      um nó em qualquer nível fecha nós abertos em qualquer outro
+      lugar da árvore. Fix: passar o id do container pai na recursão
+      da macro.
+- [ ] **[DECIDIDO]** Catálogos manuais de Feature de `addon_brewstation`
+      ainda flat (`parent_code: None` nas 5 Features, sem grupo
+      Addon-pai) — `TX_GROUP_BREWSTATION` novo em
+      `AddonBrewstation.get_transactions()`, 5 Features apontando pra
+      ele. Escopo só `addon_brewstation` (único Addon com mais de uma
+      Feature hoje).
+- [ ] **[DECIDIDO]** `core.menu.icon_max_depth` (`system_config`, int,
+      default `-1` = sem corte) — a partir do nível N, item renderiza
+      sem ícone (só texto).
+
+Todos os três aguardando autorização explícita pra implementar — esta
+rodada foi só decisão/documentação.
