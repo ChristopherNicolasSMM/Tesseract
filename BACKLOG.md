@@ -1325,7 +1325,7 @@ byte a byte contra uma resposta real da API — os nomes de campo de
 Calculator (que discute os 5 conceitos separadamente) e deve ser
 validada contra uma resposta real na hora de escrever o parser.
 
-## Item (b) — Tela de Logs (admin): filtro por hora + cor por nível — decisão fechada, pendente de implementação
+## Item (b) — Tela de Logs (admin): filtro por hora + cor por nível — EXECUTADO
 
 Investigação em `core/log_admin_service.py` / `controller/core/admin_logs.py`
 / `templates/core/admin/logs_detail.html`: hoje é dump de texto cru
@@ -1368,6 +1368,24 @@ nada, silenciosamente. Sem filtro ativo, o comportamento atual (tail
 
 Nenhum arquivo tocado ainda — esta rodada foi só decisão. Pendente de
 autorização explícita pra implementar.
+
+**[EXECUTADO em 2026-07-07, sessão seguinte]** — implementado exatamente
+como decidido, sem desvio:
+- `core/log_admin_service.py`: `_parse_lines()` novo (regex sobre o
+  formato de linha real, linha de continuação anexada à mensagem
+  anterior). `read_content()` ganha `desde`/`ate` — sem filtro,
+  comportamento antigo (tail `max_lines`); com filtro, varre o arquivo
+  inteiro e ignora `max_lines`.
+- `controller/core/admin_logs.py`: `view()` lê `desde`/`ate` da
+  querystring (`datetime-local` do HTML5).
+- `templates/core/admin/logs_detail.html`: formulário de filtro +
+  linhas coloridas por nível (`.log-level-*`, CSS novo em
+  `components.css` reaproveitando as vars do tema
+  `--color-info/success/warning/danger`, light e dark).
+- 6 testes novos em `tests/test_logging_admin.py` — parsing,
+  continuação de traceback, filtro ignorando `max_lines`, filtro sem
+  correspondência, cor renderizada na tela, filtro via querystring.
+- Suíte completa: 38 arquivos, 460 testes, zero regressão.
 
 ## Item (e) — Manual de de-para do BrewFather — CONCLUÍDO
 

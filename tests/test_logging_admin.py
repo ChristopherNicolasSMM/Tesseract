@@ -8,6 +8,7 @@ Cobre a skill 08 (Logging, Observabilidade e Administração de Logs):
   Core (decisão revisada: sem divisão logs.view/logs.delete).
 """
 import logging
+from datetime import datetime
 
 import pytest
 
@@ -184,3 +185,112 @@ def test_tx_admin_logs_aponta_para_rota_html(app):
         assert tx is not None
         assert tx.route == "/admin/logs"
         assert tx.permission_required == "admin"
+
+
+# ── Item (b): parsing de linha + filtro de data/hora + cor por nível ──
+
+def _criar_log_de_teste(tmp_path, monkeypatch, conteudo: str):
+    logs_dir = tmp_path / "logs"
+    logs_dir.mkdir()
+    fake_log = logs_dir / "core.log"
+    fake_log.write_text(conteudo, encoding="utf-8")
+
+    import core.log_admin_service as mod
+    monkeypatch.setattr(mod, "_project_root", lambda: tmp_path)
+    return fake_log
+
+
+def test_parse_lines_extrai_timestamp_nivel_logger_mensagem(app, tmp_path, monkeypatch):
+    conteudo = (
+        "2026-07-07 10:00:00 | INFO     | core.module_manager | Boot concluído\n"
+        "2026-07-07 10:00:05 | ERROR    | core.some_module | Falha ao conectar\n"
+    )
+    _criar_log_de_teste(tmp_path, monkeypatch, conteudo)
+
+    with app.app_context():
+        result = LogAdminService.read_content("core")
+
+    assert result["error"] is None
+    assert len(result["records"]) == 2
+    assert result["records"][0]["level"] == "INFO"
+    assert result["records"][0]["logger"] == "core.module_manager"
+    assert result["records"][0]["message"] == "Boot concluído"
+    assert result["records"][1]["level"] == "ERROR"
+
+
+def test_parse_lines_linha_de_continuacao_anexa_a_mensagem_anterior(app, tmp_path, monkeypatch):
+    """Traceback multi-linha (sem o prefixo padrão) não vira registro novo sem nível."""
+    conteudo = (
+        "2026-07-07 10:00:00 | ERROR    | core.request_error_logging | Exceção não tratada\n"
+        "Traceback (most recent call last):\n"
+        '  File "app.py", line 10, in <module>\n'
+        "ValueError: algo deu errado\n"
+    )
+    _criar_log_de_teste(tmp_path, monkeypatch, conteudo)
+
+    with app.app_context():
+        result = LogAdminService.read_content("core")
+
+    assert len(result["records"]) == 1
+    assert "Traceback" in result["records"][0]["message"]
+    assert "ValueError" in result["records"][0]["message"]
+
+
+def test_filtro_desde_ate_ignora_limite_de_max_lines(app, tmp_path, monkeypatch):
+    """Filtro ativo varre o arquivo inteiro, mesmo além do tail padrão."""
+    linhas = [f"2026-07-07 10:{i:02d}:00 | INFO     | core.x | linha {i}\n" for i in range(5)]
+    _criar_log_de_teste(tmp_path, monkeypatch, "".join(linhas))
+
+    with app.app_context():
+        # max_lines=2 forçaria tail sem filtro - com filtro, ignora isso.
+        result = LogAdminService.read_content(
+            "core", max_lines=2,
+            desde=datetime(2026, 7, 7, 10, 1, 0),
+            ate=datetime(2026, 7, 7, 10, 3, 0),
+        )
+
+    assert result["error"] is None
+    assert [r["message"] for r in result["records"]] == ["linha 1", "linha 2", "linha 3"]
+
+
+def test_filtro_sem_correspondencia_devolve_lista_vazia(app, tmp_path, monkeypatch):
+    conteudo = "2026-07-07 10:00:00 | INFO     | core.x | linha 0\n"
+    _criar_log_de_teste(tmp_path, monkeypatch, conteudo)
+
+    with app.app_context():
+        result = LogAdminService.read_content(
+            "core", desde=datetime(2026, 7, 8, 0, 0, 0),
+        )
+
+    assert result["error"] is None
+    assert result["records"] == []
+
+
+def test_tela_de_detalhe_renderiza_cor_por_nivel(app, client, tmp_path, monkeypatch):
+    conteudo = (
+        "2026-07-07 10:00:00 | INFO     | core.x | mensagem info\n"
+        "2026-07-07 10:00:01 | ERROR    | core.x | mensagem erro\n"
+    )
+    _criar_log_de_teste(tmp_path, monkeypatch, conteudo)
+    _login_admin(app, client)
+
+    resp = client.get("/admin/logs/view/core")
+    assert resp.status_code == 200
+    html = resp.data.decode("utf-8")
+    assert "log-level-info" in html
+    assert "log-level-error" in html
+
+
+def test_tela_de_detalhe_aceita_filtro_via_querystring(app, client, tmp_path, monkeypatch):
+    conteudo = (
+        "2026-07-07 10:00:00 | INFO     | core.x | fora do filtro\n"
+        "2026-07-07 12:00:00 | INFO     | core.x | dentro do filtro\n"
+    )
+    _criar_log_de_teste(tmp_path, monkeypatch, conteudo)
+    _login_admin(app, client)
+
+    resp = client.get("/admin/logs/view/core?desde=2026-07-07T11:00&ate=2026-07-07T13:00")
+    assert resp.status_code == 200
+    html = resp.data.decode("utf-8")
+    assert "dentro do filtro" in html
+    assert "fora do filtro" not in html

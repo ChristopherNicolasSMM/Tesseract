@@ -5,16 +5,41 @@
   <h1>Conteúdo do Log</h1>
   <p class="text-muted small">
     <a href="{{ url_for('admin_logs.manage') }}">&larr; Voltar</a>
-    {% if truncated %} — mostrando só as últimas {{ lines|length }} linhas.{% endif %}
+    {% if truncated %} — mostrando só as últimas {{ records|length }} linhas.{% endif %}
+    {% if filtro_ativo %} — filtro ativo (varre o arquivo inteiro, ignora o limite de linhas).{% endif %}
   </p>
 </div>
 
 <section class="section">
   <div class="card">
     <div class="card-body">
-      {% if lines %}
-      <pre class="bg-dark text-light p-3" style="max-height: 70vh; overflow-y: auto; font-size: 0.85rem; white-space: pre-wrap;">{% for line in lines %}{{ line }}
-{% endfor %}</pre>
+      <form method="get" class="row g-2 align-items-end mb-3">
+        <div class="col-auto">
+          <label class="form-label small mb-0" for="desde">De</label>
+          <input type="datetime-local" class="form-control form-control-sm" id="desde" name="desde" value="{{ desde }}">
+        </div>
+        <div class="col-auto">
+          <label class="form-label small mb-0" for="ate">Até</label>
+          <input type="datetime-local" class="form-control form-control-sm" id="ate" name="ate" value="{{ ate }}">
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+          {% if filtro_ativo %}
+          <a href="{{ url_for('admin_logs.view', source_id=source_id) }}" class="btn btn-outline-secondary btn-sm">Limpar</a>
+          {% endif %}
+        </div>
+      </form>
+
+      {% if records %}
+      <div class="log-viewer p-3" style="max-height: 70vh; overflow-y: auto; font-size: 0.85rem;">
+        {% for r in records %}
+        <div class="log-line log-level-{{ (r.level or 'none')|lower }}">
+          {% if r.timestamp %}<span class="log-timestamp">{{ r.timestamp }}</span> <span class="log-level-badge">{{ r.level }}</span> <span class="log-logger">{{ r.logger }}</span> <span class="log-sep">|</span> {% endif %}<span class="log-message">{{ r.message }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% elif filtro_ativo %}
+      <p class="text-muted">Nenhuma linha encontrada nesse intervalo.</p>
       {% else %}
       <p class="text-muted">Arquivo vazio.</p>
       {% endif %}

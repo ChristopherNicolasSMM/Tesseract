@@ -732,3 +732,61 @@ textarea:focus {
 .weakref-combo-results.show {
   display: block;
 }
+
+/* =====================
+   LOG VIEWER (item b - filtro/cor na tela de logs admin)
+   ===================== */
+.log-viewer {
+  background: #1e1e1e;
+  color: #e0e0e0;
+  font-family: var(--font-monospace, monospace);
+  border-radius: var(--border-radius-md, 6px);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.log-line {
+  padding: 1px 0;
+  line-height: 1.4;
+}
+
+.log-timestamp {
+  color: #888;
+}
+
+.log-logger {
+  color: #aaaaaa;
+}
+
+.log-sep {
+  color: #555;
+}
+
+.log-level-badge {
+  font-weight: 700;
+}
+
+.log-level-debug .log-level-badge {
+  color: var(--color-info);
+}
+
+.log-level-info .log-level-badge {
+  color: var(--color-success);
+}
+
+.log-level-warning .log-level-badge {
+  color: var(--color-warning);
+}
+
+.log-level-error .log-level-badge {
+  color: var(--color-danger);
+}
+
+.log-level-critical .log-level-badge {
+  color: var(--color-danger);
+  font-weight: 900;
+}
+
+.log-level-critical {
+  background: rgba(220, 53, 69, 0.12);
+}
