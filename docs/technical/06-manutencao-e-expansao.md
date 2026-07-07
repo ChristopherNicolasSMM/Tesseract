@@ -2,23 +2,142 @@
 
 ## Como adicionar um campo a um model existente
 
-1. Editar a coluna em `model/<entidade>.py` (Addon/Feature) ou em
-   `model/core/*.py` (Core).
-2. Se a entidade passa pelo CrudGen: `python run.py generate --model ... --addon ... [--feature ...] --overwrite`
-   (nunca sobrescreve `*_hooks.py`).
-3. **Sempre, independente de CrudGen**: se a tabela já existia no
-   banco, rodar:
+Checklist completo — **arquivos que precisam de atenção**, não só o
+model (a parte que mais causa esquecimento é o "resto" além do
+`model/`, já que o CrudGen só regenera automaticamente o que ele
+próprio gerou):
+
+1. **`model/<entidade>.py`** (Addon/Feature) ou `model/core/*.py`
+   (Core) — adicionar a coluna. Se o campo é obrigatório, também
+   anotar `@required("<campo>", message="...")` no topo da classe
+   (skill 03 — mensagem de validação do formulário gerado).
+2. **Regenerar via CrudGen** (opcional — só necessário se quiser que
+   o CrudGen re-detecte a anotação nova para telas/rotas; a maioria
+   das telas geradas neste projeto já é genérica o bastante — lista
+   de campos via `__table__.columns` em runtime — para funcionar sem
+   regenerar, ver nota "Quando NÃO é preciso regenerar" abaixo):
    ```
-   python run.py db migrate -m "descrição da mudança"
-   python run.py db upgrade
+   python run.py generate --model <caminho/model.py> --addon <nome> [--feature <nome>] --overwrite
    ```
-   `db.create_all()` (chamado todo boot) nunca faz `ALTER TABLE` — só
-   cria tabela nova. Esquecer este passo é a causa nº 1 de
-   `OperationalError: no such column` em produção. Atenção: coluna com
-   `default=` no SQLAlchemy aplica o valor padrão no INSERT mesmo se
-   `None` for passado explicitamente no construtor — só fica `None`
-   de fato após um UPDATE separado (comportamento do SQLAlchemy, não
-   bug do Tesseract).
+   `*_hooks.py` **nunca** é sobrescrito, mesmo com `--overwrite`.
+3. **Migration** (sempre que a tabela já existe em algum banco com
+   dado real — ver bloco de migration mais abaixo). Ambiente novo
+   (`db.create_all()` do zero) não precisa disso.
+4. **`to_dict()` do model**, se a entidade tiver um método manual
+   (nem todo model tem — ver o próprio arquivo) — campo novo não
+   aparece em resposta de API/JSON sem isso.
+5. **Ripple effect nos testes**: toda instanciação direta do model em
+   `tests/*.py` (`Entidade(...)` fora de fixture) que passar a violar
+   uma constraint nova (`nullable=False`, `unique=True`) precisa ser
+   atualizada — grep por `NomeDaClasse(` em `tests/` antes de
+   considerar a mudança concluída, não só rodar a suíte e esperar
+   falha apontar o caminho.
+6. **Qualquer service que já construía a entidade manualmente** (fora
+   do fluxo genérico de formulário) — ex.: um `*_autocreate_service.py`
+   ou hook de controller que faz `Entidade(campo=...)` direto — precisa
+   decidir um valor (ou resolver via lookup/seed) para o campo novo,
+   senão quebra em runtime assim que o campo for `nullable=False`.
+7. **Docs técnicos**: `docs/technical/04-modelo-de-dados.md` da escala
+   certa (Addon/Feature) — adicionar a coluna no diagrama `erDiagram`
+   e, se o campo tiver alguma regra de negócio não óbvia, uma linha na
+   tabela de descrição logo abaixo do diagrama.
+8. **Checklist de manifesto** (skill 03, item de `i18n/pt_BR.json`) —
+   só relevante se o campo novo tiver `@label(...)` explícito e o
+   CrudGen for rodado com `--overwrite`; nesse caso confirmar que a
+   chave nova foi extraída para o arquivo de tradução.
+
+### Quando NÃO é preciso regenerar
+
+Os módulos deste projeto que seguem o padrão "controller genérico"
+(lista de campos editáveis derivada de `Entidade.__table__.columns`
+em runtime, ver `addons/addon_estoque/root/controller/materials.py`
+como referência) **não precisam** do passo 2 acima — a tela de
+listagem/formulário já reflete a coluna nova automaticamente no
+próximo boot, sem regenerar nada. Isso cobre a maioria dos CRUDs
+simples deste projeto (Material e os lookups de `addon_estoque`, por
+exemplo). Regenerar continua sendo necessário só se o controller for
+do tipo mais antigo (campos hardcoded a partir da anotação, não
+introspecção de `__table__`) — checar o controller da entidade
+específica antes de assumir um caminho ou outro.
+
+### Migration (quando a tabela já existe com dado real)
+
+```
+python run.py db migrate -m "descrição da mudança"
+python run.py db upgrade
+```
+
+`db.create_all()` (chamado todo boot) nunca faz `ALTER TABLE` — só
+cria tabela nova. Esquecer este passo é a causa nº 1 de
+`OperationalError: no such column` em produção. Atenção: coluna com
+`default=` no SQLAlchemy aplica o valor padrão no INSERT mesmo se
+`None` for passado explicitamente no construtor — só fica `None`
+de fato após um UPDATE separado (comportamento do SQLAlchemy, não
+bug do Tesseract).
+
+Se o campo novo for `nullable=False` numa tabela com linhas
+existentes, a migration precisa de um valor de backfill explícito
+(não dá pra rodar `upgrade` direto com `NOT NULL` sem default contra
+dado existente) — decidir esse valor é uma decisão de arquitetura
+antes de escrever a migration, não um detalhe técnico a resolver na
+hora (ver exemplo real: a ampliação de `Material` em `addon_estoque`
+resolveu isso com registros seed — "A definir"/"Insumo" — em vez de
+valor fixo hardcoded; ver
+`addons/addon_estoque/docs/technical/04-modelo-de-dados.md`).
+
+## Como criar uma nova entidade (do zero) via CrudGen
+
+Diferente de adicionar campo a algo que já existe — aqui o objetivo é
+uma tabela nova inteira, com tela de listagem/formulário/API geradas
+automaticamente. Passo a passo real (mesmo fluxo usado para criar os
+lookups `Fabricante`/`Origem`/`TipoProduto`/`Categoria` de
+`addon_estoque` nesta sessão — ver
+`addons/addon_estoque/docs/technical/04-modelo-de-dados.md`):
+
+1. **Escrever o model anotado** em `addons/addon_x/root/model/<entidade>.py`
+   (núcleo do Addon) ou `.../features/feature_y/model/<entidade>.py`
+   (dentro de uma Feature). Mínimo obrigatório (skill 02): `id`
+   (Integer PK), `is_deleted`/`deleted_at`, `created_at`/`updated_at`.
+   Anotações mínimas (skill 00/03): `@label(...)`, `@plural(...)`, e
+   `@required(...)`/`@max_length(...)` para cada campo com regra.
+   `__tablename__` é o nome **curto**, sem prefixo — o CrudGen aplica
+   o prefixo tri-nível (skill 02) no registro, não no arquivo.
+2. **Rodar o generate**:
+   ```
+   python run.py generate --model <caminho/model.py> --addon <nome> [--feature <nome>]
+   ```
+   Isso cria, a partir do model: `services/<entidade>_service.py` +
+   `_service_hooks.py`, `controller/<entidades>.py` + `_hooks.py`,
+   `api/routes/<entidades>_routes.py` + `_routes_hooks.py`,
+   `templates/<entidades>/manage.html` + `detail.html`. Os `_hooks.py`
+   nascem vazios/mínimos — é onde customização futura entra sem tocar
+   no que foi gerado.
+3. **Registrar no `addon.py`/`feature.py`**: adicionar a classe em
+   `register_models()` (lista de models) e os blueprints novos
+   (`<entidade>_bp`, `<entidade>_api_bp`) em `register_routes()`. Sem
+   este passo o CrudGen gera os arquivos mas o módulo não sobe as
+   rotas nem cria a tabela no boot.
+4. **Transação de menu (opcional, mas usual)**: adicionar uma entrada
+   em `get_transactions()` (ver seção "Como adicionar uma transação
+   navegável" acima) apontando pra rota gerada, se a entidade deve
+   aparecer no menu/launcher.
+5. **Rodar a suíte de testes** e adicionar cobertura nova pra entidade
+   (mínimo: criação, unicidade de campo `unique=True` se houver, e
+   qualquer regra de negócio específica).
+6. **Docs técnicos**: adicionar a entidade no diagrama `erDiagram` de
+   `docs/technical/04-modelo-de-dados.md` da escala certa, e uma linha
+   na tabela de descrição de tabelas.
+
+### Lookup simples vs. entidade completa
+
+Para lookups simples (só `id` + `nome` único, sem regra de negócio
+própria — ex.: `Fabricante`/`Origem`/`TipoProduto`/`Categoria` de
+`addon_estoque`), os passos acima bastam sem nenhuma customização de
+`_hooks.py`. Para entidade com regra de negócio real (cálculo,
+validação cross-campo, efeito colateral em outra tabela), a lógica
+entra no `_service_hooks.py`/`_routes_hooks.py` gerados no passo 2 —
+nunca no arquivo gerado, que pode ser sobrescrito num `--overwrite`
+futuro.
 
 ## Como adicionar uma nova Feature a um Addon existente
 

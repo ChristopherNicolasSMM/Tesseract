@@ -1094,3 +1094,39 @@ transações "representante", nunca uma por entidade.
 - [x] **Respondido**: SQLite em dev/test, Postgres obrigatório em
       produção (`TESSERACT_ENV`) — implementado desde a Fase 1
       (`core/config.py`)
+
+## Documentação — manuais de manutenção/expansão (concluída)
+
+- [x] `docs/technical/06-manutencao-e-expansao.md` (sistema): seção
+      "Como adicionar um campo a um model existente" expandida em
+      checklist completo (model, regenerar via CrudGen quando
+      necessário, migration, `to_dict()`, ripple effect em testes,
+      services que constroem a entidade manualmente, docs) + nota de
+      quando NÃO é preciso regenerar (controllers genéricos por
+      introspecção de `__table__`, caso da maioria dos CRUDs deste
+      projeto).
+- [x] `docs/technical/06-manutencao-e-expansao.md` (sistema): seção
+      nova "Como criar uma nova entidade (do zero) via CrudGen" —
+      passo a passo completo (model anotado → `generate` →
+      registrar em `register_models()`/`register_routes()` →
+      transação de menu opcional → testes → docs), usando a criação
+      real de `Fabricante`/`Origem`/`TipoProduto`/`Categoria`
+      (`addon_estoque`, sessão anterior) como exemplo concreto.
+- [x] `addons/addon_estoque/docs/technical/06-manutencao-e-expansao.md`
+      criado (não existia) — aponta pro doc de sistema acima e
+      registra os itens de expansão futura abaixo.
+
+## `addon_estoque` — expansão cadastral futura (planejado, não iniciado)
+
+Registrado nesta sessão a pedido do Christopher — **documentação
+apenas, nenhum model/schema decidido ainda**. Retomar seguindo o
+mesmo processo desta sessão (decisão estruturada antes de qualquer
+código — ver `addons/addon_estoque/docs/technical/06-manutencao-e-expansao.md`).
+
+- [ ] Mais campos em `Fabricante` (hoje só `nome`) — quais campos,
+      não decidido.
+- [ ] Cadastro de Fornecedores — em aberto se é entidade dentro de
+      `addon_estoque` ou Addon novo (`addon_compras`).
+- [ ] Sistema de Compras — escopo não definido (pedido, cotação,
+      recebimento, vínculo com `Movimentacao`). Provável candidato a
+      Addon novo, não decidido.
