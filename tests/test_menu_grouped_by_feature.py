@@ -67,10 +67,32 @@ def test_grupo_dispositivos_iot_tem_4_transacoes(app):
         assert count == 4
 
 
-def test_nao_existe_mais_grupo_brewstation_generico(app):
+def test_grupo_brewstation_generico_agora_e_a_pasta_raiz_do_addon(app):
+    """
+    [ATUALIZADO 2026-07-07, skill 10 seção 7.1] Este teste antes
+    afirmava o oposto: que NENHUMA pasta "BrewStation" deveria existir
+    (`route IS NULL` = pasta). Isso era correto na época em que foi
+    escrito — `Transaction.group` ainda era string plana (skill 10 não
+    existia), e havia um bucket genérico "BrewStation" duplicando as
+    transações que também apareciam soltas, sem nenhuma sub-pasta por
+    Feature. A correção da época foi remover esse bucket genérico em
+    favor de uma pasta por Feature (`TX_GROUP_YEAST_BANK`, etc.).
+
+    Com a árvore de profundidade arbitrária (skill 10, `parent_id`),
+    esse dilema "genérico OU por Feature" deixou de existir — agora é
+    "genérico E por Feature", em hierarquia: uma única pasta raiz
+    `TX_GROUP_BREWSTATION` (label "BrewStation") contendo as 5 pastas
+    de Feature como filhas, resolvendo o problema original (nenhuma
+    Feature solta na raiz do menu) sem reintroduzir a duplicação
+    original (cada transação aparece uma vez só, no lugar certo da
+    árvore). Ver `tests/test_menu_hierarquico.py::test_tx_group_brewstation_agrupa_as_5_features`
+    para a cobertura completa da hierarquia.
+    """
     with app.app_context():
-        count = Transaction.query.filter_by(label="BrewStation").filter(Transaction.route.is_(None)).count()
-        assert count == 0
+        pastas_brewstation = Transaction.query.filter_by(label="BrewStation").filter(Transaction.route.is_(None)).all()
+        assert len(pastas_brewstation) == 1  # exatamente uma - a raiz, não mais nem menos
+        assert pastas_brewstation[0].code == "TX_GROUP_BREWSTATION"
+        assert pastas_brewstation[0].parent_id is None
 
 
 def test_nao_existe_mais_grupo_device_manager_antigo(app):

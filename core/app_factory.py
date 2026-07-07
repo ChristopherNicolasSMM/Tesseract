@@ -165,12 +165,17 @@ def create_app(env: str | None = None) -> Flask:
         if not current_user.is_authenticated:
             return {}
         from controller.core.pages import _visible_transactions_tree_and_state
+        from model.core.system_config import SystemConfig
 
         tree, state = _visible_transactions_tree_and_state(current_user.id)
         return {
             "transactions_tree": tree,
             "menu_collapsed_nodes": state["collapsed_nodes"],
             "menu_sidebar_collapsed": state["sidebar_collapsed"],
+            # skill 10 secao 5.2 (revisao 2026-07-07) - default -1 = sem
+            # corte (todo nivel mostra icone), sentinela explicito por
+            # skill 03 (nunca None silencioso).
+            "menu_icon_max_depth": SystemConfig.get("core.menu.icon_max_depth", default=-1),
         }
 
     @app.route("/health")

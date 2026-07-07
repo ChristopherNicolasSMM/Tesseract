@@ -69,7 +69,7 @@ class FeatureYeastBank(FeatureBase):
             {
                 "code": "TX_GROUP_YEAST_BANK",
                 "label": "Banco de Levedura",
-                "parent_code": None,
+                "parent_code": "TX_GROUP_BREWSTATION",  # skill 10 secao 7.1 - agrupa sob o Addon pai
                 "route": None,
                 "icon": "bi-droplet-fill",
             },

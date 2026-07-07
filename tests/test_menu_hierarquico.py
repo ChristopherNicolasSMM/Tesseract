@@ -317,3 +317,85 @@ def test_reparenting_virtual_nao_toca_parent_id_real(app, client):
     with app.app_context():
         # parent_id real não mudou.
         assert Transaction.query.filter_by(code="TX_ADMIN_ROLES").first().parent_id == original_parent_id
+
+
+# ── Revisão 2026-07-07 (skill 10, seções 5.1/5.2/7.1) ──────────────────────
+
+def test_tx_group_brewstation_agrupa_as_5_features(app):
+    """
+    Antes desta correção, as 5 Features de addon_brewstation
+    declaravam parent_code=None e apareciam soltas na raiz do menu.
+    """
+    with app.app_context():
+        grupo = Transaction.query.filter_by(code="TX_GROUP_BREWSTATION").first()
+        assert grupo is not None
+        assert grupo.parent_id is None
+
+        for code in [
+            "TX_GROUP_YEAST_BANK", "TX_GROUP_MASH_CONTROL", "TX_GROUP_INGREDIENTES",
+            "TX_GROUP_ENVASE", "TX_GROUP_BREW_FATHER",
+        ]:
+            feature_group = Transaction.query.filter_by(code=code).first()
+            assert feature_group.parent_id == grupo.id, f"{code} não aponta pro grupo do Addon"
+
+
+def test_accordion_data_bs_parent_aponta_pro_container_imediato(app, client):
+    """
+    Bug real confirmado (não hipótese): antes da correção, TODO <ul>
+    aninhado usava data-bs-parent="#sidebar-nav" fixo, fazendo o
+    Bootstrap tratar a árvore inteira como um único accordion — abrir
+    um nó em qualquer profundidade fechava qualquer outro nó aberto em
+    qualquer outro lugar da árvore.
+
+    TX_GROUP_BREWSTATION (nível 0) > TX_GROUP_YEAST_BANK (nível 1) é o
+    cenário exato que expõe o bug: o node de nível 1 precisa apontar
+    pro node de nível 0 ("#node-TX_GROUP_BREWSTATION"), não pro
+    #sidebar-nav global.
+    """
+    _login_admin(app, client)
+    resp = client.get("/")
+    html = resp.data.decode("utf-8")
+
+    # Nível 0 (filho direto do sidebar) - correto apontar pro sidebar-nav.
+    assert (
+        'id="node-TX_GROUP_BREWSTATION"' in html
+        and 'data-bs-parent="#sidebar-nav"' in html
+    )
+    # Nível 1 (filho de TX_GROUP_BREWSTATION) - deve apontar pro pai
+    # imediato, NUNCA pro #sidebar-nav global (bug corrigido).
+    import re
+    m = re.search(r'<ul id="node-TX_GROUP_YEAST_BANK"[^>]*data-bs-parent="([^"]+)"', html)
+    assert m is not None
+    assert m.group(1) == "#node-TX_GROUP_BREWSTATION"
+
+
+def test_icon_max_depth_default_mostra_icone_em_todo_nivel(app, client):
+    """Default (-1, sem system_config setado) = sem corte, comportamento visual inalterado."""
+    _login_admin(app, client)
+    resp = client.get("/")
+    html = resp.data.decode("utf-8")
+
+    idx = html.find('data-menu-node="TX_GROUP_YEAST_BANK"')
+    trecho = html[idx:idx + 300]
+    assert "<i class=" in trecho  # ícone presente por padrão
+
+
+def test_icon_max_depth_configurado_esconde_icone_a_partir_do_nivel(app, client):
+    """core.menu.icon_max_depth=1: nível 0 mostra ícone, nível 1+ não."""
+    with app.app_context():
+        from core.db import db
+        from model.core.system_config import SystemConfig
+        db.session.add(SystemConfig(key="core.menu.icon_max_depth", value="1", value_type="int"))
+        db.session.commit()
+
+    _login_admin(app, client)
+    resp = client.get("/")
+    html = resp.data.decode("utf-8")
+
+    idx0 = html.find('data-menu-node="TX_GROUP_BREWSTATION"')
+    trecho0 = html[idx0:idx0 + 300]
+    assert "<i class=" in trecho0  # nível 0 continua com ícone
+
+    idx1 = html.find('data-menu-node="TX_GROUP_YEAST_BANK"')
+    trecho1_ate_span = html[idx1:html.find("<span>", idx1)]
+    assert "<i class=" not in trecho1_ate_span  # nível 1 sem ícone (só o chevron depois do label)

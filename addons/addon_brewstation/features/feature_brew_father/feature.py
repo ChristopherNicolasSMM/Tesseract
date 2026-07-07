@@ -29,7 +29,7 @@ class FeatureBrewFather(FeatureBase):
             {
                 "code": "TX_GROUP_BREW_FATHER",
                 "label": "Integração BrewFather",
-                "parent_code": None,
+                "parent_code": "TX_GROUP_BREWSTATION",  # skill 10 secao 7.1 - agrupa sob o Addon pai
                 "route": None,
                 "icon": "bi-cloud-arrow-down",
             },

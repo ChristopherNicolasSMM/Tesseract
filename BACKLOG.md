@@ -1131,36 +1131,49 @@ código — ver `addons/addon_estoque/docs/technical/06-manutencao-e-expansao.md
       recebimento, vínculo com `Movimentacao`). Provável candidato a
       Addon novo, não decidido.
 
-## Skill 10 — revisão (menu hierárquico): 3 itens decididos, pendentes de implementação
+## Skill 10 — revisão (menu hierárquico): EXECUTADA (2026-07-07)
 
 Retomada do item de backlog "`Transaction.parent_manually_set`" de
 sessão anterior — investigação no código real levou a resultado
-diferente do esperado. Ver `docs/skills/10-menu-hierarquico.md`,
-seção 9, para o detalhe completo de cada item abaixo.
+diferente do esperado, e os 3 achados novos foram implementados na
+sequência (mesma sessão, autorização explícita — ordem "5,4,2,1,3",
+item 4). Ver `docs/skills/10-menu-hierarquico.md`, seção 9, para o
+detalhe completo de cada item abaixo.
 
 - [x] **Achado**: `parent_manually_set` está **obsoleto** — o problema
       que motivou a proposta já não existe na implementação real
       (`admin_transactions.py` bloqueia por completo edição de
       estrutura em transação code-sourced, não precisa de flag pra
-      "pular no sync"). Não implementar.
-- [ ] **[DECIDIDO]** Bug real confirmado: `data-bs-parent` fixo em
-      `#sidebar-nav` em toda profundidade da árvore do menu
+      "pular no sync"). Não implementado (decisão de não fazer).
+- [x] **[EXECUTADO]** Bug real do accordion corrigido: `data-bs-parent`
+      fixo em `#sidebar-nav` em toda profundidade da árvore do menu
       (`templates/core/base.html`, macro `render_menu_nodes`) — abrir
-      um nó em qualquer nível fecha nós abertos em qualquer outro
-      lugar da árvore. Fix: passar o id do container pai na recursão
-      da macro.
-- [ ] **[DECIDIDO]** Catálogos manuais de Feature de `addon_brewstation`
-      ainda flat (`parent_code: None` nas 5 Features, sem grupo
+      um nó em qualquer nível fechava nós abertos em qualquer outro
+      lugar da árvore. Fix: macro ganhou parâmetro
+      `parent_container_id`, passado como `'node-' ~ tx.code` na
+      recursão.
+- [x] **[EXECUTADO]** Catálogos manuais de Feature de `addon_brewstation`
+      estavam flat (`parent_code: None` nas 5 Features, sem grupo
       Addon-pai) — `TX_GROUP_BREWSTATION` novo em
       `AddonBrewstation.get_transactions()`, 5 Features apontando pra
       ele. Escopo só `addon_brewstation` (único Addon com mais de uma
       Feature hoje).
-- [ ] **[DECIDIDO]** `core.menu.icon_max_depth` (`system_config`, int,
+- [x] **[EXECUTADO]** `core.menu.icon_max_depth` (`system_config`, int,
       default `-1` = sem corte) — a partir do nível N, item renderiza
-      sem ícone (só texto).
+      sem ícone (só texto). Lido via `SystemConfig.get()` direto no
+      `context_processor`, sem seed row obrigatória.
 
-Todos os três aguardando autorização explícita pra implementar — esta
-rodada foi só decisão/documentação.
+**Conflito real encontrado e resolvido**: `tests/test_menu_grouped_by_feature.py`
+tinha um teste (`test_nao_existe_mais_grupo_brewstation_generico`)
+afirmando o oposto do item de `TX_GROUP_BREWSTATION` acima — de uma
+fase anterior à árvore `parent_id`, quando "BrewStation" genérico
+duplicava transações por Feature (sem hierarquia real disponível pra
+ter as duas coisas). Com `parent_id`, o dilema não existe mais — teste
+atualizado pra afirmar a invariante nova (existe exatamente uma pasta
+"BrewStation", e é a raiz).
+
+Validado: suíte completa (37 arquivos, 453 testes) passando, incluindo
+4 testes novos em `test_menu_hierarquico.py` cobrindo os 3 itens.
 
 ## Item (d) — `material_id` não resolvido na exibição — REVISADO (ver skill 11)
 

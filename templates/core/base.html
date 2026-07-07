@@ -111,26 +111,37 @@
   </header><!-- End Header -->
 
   <!-- ======= Sidebar — populado a partir do catálogo de Transações, árvore de profundidade arbitrária (skill 10) ======= -->
-  {% macro render_menu_nodes(nodes) %}
+  {% macro render_menu_nodes(nodes, parent_container_id='sidebar-nav', depth=0) %}
     {% for node in nodes %}
       {% set tx = node.tx %}
+      {# skill 10 secao 5.2 (revisao 2026-07-07) - core.menu.icon_max_depth
+         (system_config, int, default -1 = sem corte). A partir do nivel
+         N (0-indexed, mesma convencao do indicador de nivel), o item
+         renderiza sem icone - so o texto do label. #}
+      {% set show_icon = menu_icon_max_depth == -1 or depth < menu_icon_max_depth %}
       {% if node.children %}
         {% set is_collapsed = tx.code in menu_collapsed_nodes %}
         <li class="nav-item" data-menu-node="{{ tx.code }}">
           <a class="nav-link {% if is_collapsed %}collapsed{% endif %}"
              data-bs-target="#node-{{ tx.code }}" data-bs-toggle="collapse" href="#">
-            <i class="{{ tx.icon or 'bi-folder2-open' }}"></i>
+            {% if show_icon %}<i class="{{ tx.icon or 'bi-folder2-open' }}"></i>{% endif %}
             <span>{{ tx.label }}</span>
             <i class="bi bi-chevron-down ms-auto"></i>
           </a>
-          <ul id="node-{{ tx.code }}" class="nav-content collapse {% if not is_collapsed %}show{% endif %}" data-bs-parent="#sidebar-nav">
-            {{ render_menu_nodes(node.children) }}
+          {# skill 10 secao 5.1 (revisao 2026-07-07) - data-bs-parent aponta pro
+             container IMEDIATAMENTE acima, nao pro #sidebar-nav global. Antes
+             disso, todo collapse da arvore inteira era tratado como um unico
+             accordion pelo Bootstrap - abrir um no em qualquer profundidade
+             fechava qualquer outro no aberto em qualquer outro lugar da arvore,
+             nao so os irmaos do mesmo nivel/mesmo pai. #}
+          <ul id="node-{{ tx.code }}" class="nav-content collapse {% if not is_collapsed %}show{% endif %}" data-bs-parent="#{{ parent_container_id }}">
+            {{ render_menu_nodes(node.children, 'node-' ~ tx.code, depth + 1) }}
           </ul>
         </li>
       {% else %}
         <li data-menu-node="{{ tx.code }}">
           <a href="{{ tx.route }}">
-            <i class="{{ tx.icon or 'bi-app' }}"></i>
+            {% if show_icon %}<i class="{{ tx.icon or 'bi-app' }}"></i>{% endif %}
             <span>{{ tx.label }}</span>
           </a>
         </li>

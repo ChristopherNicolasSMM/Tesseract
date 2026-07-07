@@ -13,6 +13,24 @@ class AddonBrewstation(AddonBase):
     def register_models(self) -> list:
         return []  # núcleo do addon ainda não tem model próprio nesta fase
 
+    def get_transactions(self) -> list:
+        """
+        Grupo raiz do Addon (skill 10, seção 7.1 — revisão 2026-07-07).
+        Antes desta correção, as 5 Features declaravam
+        "parent_code": None e apareciam soltas na raiz do menu, sem
+        nenhuma pasta "BrewStation" agrupando — cada Feature agora
+        aponta parent_code pra este grupo.
+        """
+        return [
+            {
+                "code": "TX_GROUP_BREWSTATION",
+                "label": "BrewStation",
+                "parent_code": None,
+                "route": None,
+                "icon": "bi-cup-straw",
+            },
+        ]
+
     def get_features(self) -> list:
         import json
         from pathlib import Path

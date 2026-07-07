@@ -31,7 +31,7 @@ class FeatureIngredientes(FeatureBase):
             {
                 "code": "TX_GROUP_INGREDIENTES",
                 "label": "Ingredientes",
-                "parent_code": None,
+                "parent_code": "TX_GROUP_BREWSTATION",  # skill 10 secao 7.1 - agrupa sob o Addon pai
                 "route": None,
                 "icon": "bi-basket2",
             },

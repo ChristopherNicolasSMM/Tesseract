@@ -23,11 +23,15 @@
 > um jeito mais simples (§9). Nessa mesma revisão, três achados novos
 > ganharam decisão: hierarquia Addon→Feature ainda flat nos catálogos
 > reais (§7.1), bug real confirmado no accordion aninhado (§5.1), e
-> `core.menu.icon_max_depth` (§5.2) — todos **[DECIDIDO], ainda não
-> implementados** nesta revisão (fase de documentação apenas).
+> `core.menu.icon_max_depth` (§5.2) — todos **[EXECUTADO]** numa
+> sessão seguinte (2026-07-07, mesma data — implementação autorizada
+> logo após a decisão). Ver §9 para o detalhe de cada um e um conflito
+> real encontrado/resolvido durante a implementação (teste antigo que
+> assumia o oposto de §7.1, de uma fase anterior à árvore `parent_id`).
 >
 > Mesmo peso normativo das demais skills. Convenção de status (igual
-> skill 05-09): **[DECIDIDO]** / **[ABERTO]** / **[PENDENTE-SKILL]**.
+> skill 05-09): **[DECIDIDO]** / **[EXECUTADO]** / **[ABERTO]** /
+> **[PENDENTE-SKILL]**.
 
 ---
 
@@ -415,22 +419,44 @@ estrutura de item vindo do código nunca foi permitido, e a checagem já
 o campo `parent_manually_set`** — item fechado por obsolescência, não
 por implementação.
 
-### Itens novos desta revisão — [DECIDIDO], pendentes de implementação
+### Itens desta revisão — [EXECUTADO em 2026-07-07]
 
-Três achados confirmados no código real nesta revisão (2026-07-07),
-com decisão já tomada, aguardando autorização explícita pra
-implementar (fase de documentação apenas até aqui):
+Três achados confirmados no código real na revisão de 2026-07-07,
+implementados numa sessão seguinte (autorização explícita — "5,4,2,1,3",
+item 4 da ordem):
 
-1. **§5.1** — bug real do accordion (`data-bs-parent` fixo em
-   `#sidebar-nav` em todo nível) — mexer num nível 2 colapsa o nível
-   1. Fix: `data-bs-parent` aponta pro `<ul>` do nível imediatamente
-   acima, não pro `#sidebar-nav` global.
-2. **§7.1** — catálogos manuais de Feature ainda flat (`parent_code:
-   None` em todas as 5 Features de `addon_brewstation`, sem grupo
-   Addon-pai). Fix: `TX_GROUP_BREWSTATION` novo em
-   `AddonBrewstation.get_transactions()`, 5 Features apontam
-   `parent_code` pra ele.
-3. **§5.2** — `core.menu.icon_max_depth` (`system_config`, int,
-   default proposto `-1` = sem corte) — a partir do nível `N`, item
-   renderiza sem ícone.
+1. **§5.1, EXECUTADO** — bug real do accordion (`data-bs-parent` fixo em
+   `#sidebar-nav` em todo nível) — mexer num nível 2 colapsava o nível
+   1. Fix aplicado: `render_menu_nodes` (`templates/core/base.html`)
+   ganhou parâmetro `parent_container_id`, passado como `'node-' ~
+   tx.code` na recursão — cada `<ul>` aponta pro container
+   imediatamente acima, não mais pro `#sidebar-nav` global.
+2. **§7.1, EXECUTADO** — catálogos manuais de Feature estavam flat
+   (`parent_code: None` em todas as 5 Features de `addon_brewstation`,
+   sem grupo Addon-pai). Fix aplicado: `TX_GROUP_BREWSTATION` novo em
+   `AddonBrewstation.get_transactions()`, as 5 Features passaram
+   `parent_code` pra apontar pra ele.
+3. **§5.2, EXECUTADO** — `core.menu.icon_max_depth` (`system_config`,
+   int, default `-1` = sem corte) — a partir do nível `N`, item
+   renderiza sem ícone. Lido via `SystemConfig.get(...)` direto no
+   `context_processor` (`core/app_factory.py`) — sem seed row
+   obrigatória, mesmo padrão já usado por `logging.level.default`
+   (nem todo parâmetro documentado em `system_config` precisa de linha
+   seedada, só um default inline no ponto de leitura).
+
+**Conflito real encontrado e resolvido durante a implementação**:
+`tests/test_menu_grouped_by_feature.py` tinha um teste
+(`test_nao_existe_mais_grupo_brewstation_generico`) afirmando o
+**oposto** do item 2 acima — que nenhuma pasta "BrewStation" deveria
+existir. Investigação confirmou que esse teste é de uma fase anterior
+à árvore `parent_id` desta skill: na época, `Transaction.group` era
+string plana, e havia um bucket genérico "BrewStation" **duplicando**
+transações que também apareciam soltas por Feature — a correção certa
+na época foi remover o genérico em favor do específico por Feature,
+sem hierarquia real disponível pra ter as duas coisas ao mesmo tempo.
+Com `parent_id` (esta skill), esse dilema não existe mais — dá pra ter
+uma pasta raiz `TX_GROUP_BREWSTATION` contendo as 5 pastas de Feature
+como filhas, sem duplicar nada. Teste atualizado pra afirmar a
+invariante nova (existe exatamente uma pasta "BrewStation", e é a
+raiz) em vez da invariante antiga (não existe nenhuma).
 
