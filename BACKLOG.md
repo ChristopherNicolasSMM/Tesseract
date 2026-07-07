@@ -1324,3 +1324,47 @@ byte a byte contra uma resposta real da API — os nomes de campo de
 (source/target/mash/sparge/total) é inferida da documentação do Water
 Calculator (que discute os 5 conceitos separadamente) e deve ser
 validada contra uma resposta real na hora de escrever o parser.
+
+## Item (b) — Tela de Logs (admin): filtro por hora + cor por nível — decisão fechada, pendente de implementação
+
+Investigação em `core/log_admin_service.py` / `controller/core/admin_logs.py`
+/ `templates/core/admin/logs_detail.html`: hoje é dump de texto cru
+num `<pre>`, sem parsing, sem filtro, sem cor nenhuma.
+
+**Achados que viabilizam o pedido sem mudança de schema**:
+- Formato de linha do arquivo já é parseável — `core/logging_config.py`
+  grava `%(asctime)s | %(levelname)-8s | %(name)s | %(message)s`,
+  timestamp completo (`YYYY-MM-DD HH:MM:SS`). Regex simples extrai
+  data/hora/nível/logger/mensagem.
+- **Ressalva real**: tracebacks multi-linha (exceção não tratada, ver
+  `core/request_error_logging.py`) não seguem esse formato nas linhas
+  de continuação — o parser precisa tratar linha sem timestamp como
+  continuação da mensagem da linha anterior, não como registro novo
+  sem nível.
+- Mapeamento de cor já existe semanticamente em `_LEVEL_COLORS`
+  (`core/logging_config.py`, hoje só ANSI pra terminal) e bate 1:1 com
+  as CSS vars que o tema já define (light e dark):
+  `DEBUG→--color-info`, `INFO→--color-success`,
+  `WARNING→--color-warning`, `ERROR`/`CRITICAL→--color-danger`.
+
+**Decidido**:
+- "Filtro por hora" = **intervalo de data/hora explícito** (`desde`/
+  `até`, inputs `datetime-local` do HTML5) — não é "hora do dia"
+  (ex.: só 14h–15h ignorando data) nem um atalho de "últimas N horas".
+- Cor por nível = **só os defaults do tema** (CSS vars já existentes)
+  nesta rodada. `logging.ui.color.*` via `system_config` (pedido
+  original) **fica fora do escopo desta rodada** — decisão explícita
+  de não fazer agora, não esquecimento. Revisitar se surgir pedido
+  real de customização.
+
+**Detalhe de design que não estava no pedido original, decidido por
+consequência direta da investigação**: `LogAdminService.read_content()`
+hoje só lê as últimas 1000 linhas do arquivo (tail). Quando um filtro
+de `desde`/`até` for aplicado, a leitura precisa ignorar esse limite
+de 1000 e varrer o arquivo inteiro — senão um filtro pra uma janela de
+tempo mais antiga que as últimas 1000 linhas simplesmente não acha
+nada, silenciosamente. Sem filtro ativo, o comportamento atual (tail
+1000) continua valendo.
+
+Nenhum arquivo tocado ainda — esta rodada foi só decisão. Pendente de
+autorização explícita pra implementar.
