@@ -94,14 +94,38 @@ def resolver_pendente():
 
     try:
         if novo_material_nome:
-            # Cadastra Material novo em addon_estoque antes de mapear
+            # Cadastra Material novo em addon_estoque antes de mapear.
+            # Mesma resolução de sku/origem_id/tipo_produto_id/categoria_id
+            # do autocreate (ingredient_autocreate_service.py) — este é
+            # um cadastro rápido pela tela de-para, sem formulário
+            # completo, então os campos obrigatórios novos (ampliação de
+            # Material, ver BACKLOG.md) também caem no mesmo caminho de
+            # sentinela + pendente_revisao=True.
             from addons.addon_estoque.root.model.material import Material
+            from addons.addon_estoque.root.services.estoque_seed import (
+                get_or_create_origem_a_definir,
+                get_or_create_tipo_produto_insumo,
+            )
+            from addons.addon_brewstation.features.feature_brew_father.services.ingredient_autocreate_service import (
+                _gerar_sku,
+                _get_ou_criar_categoria,
+            )
             from core.db import db
             material_existente = Material.query.filter_by(nome=novo_material_nome, is_deleted=False).first()
             if material_existente:
                 mid = material_existente.id
             else:
-                novo = Material(nome=novo_material_nome, categoria="materia_prima")
+                origem = get_or_create_origem_a_definir()
+                tipo_produto = get_or_create_tipo_produto_insumo()
+                categoria_obj = _get_ou_criar_categoria("materia_prima")
+                novo = Material(
+                    nome=novo_material_nome,
+                    sku=_gerar_sku(novo_material_nome, ""),
+                    origem_id=origem.id,
+                    tipo_produto_id=tipo_produto.id,
+                    categoria_id=categoria_obj.id,
+                    pendente_revisao=True,
+                )
                 db.session.add(novo)
                 db.session.commit()
                 mid = novo.id

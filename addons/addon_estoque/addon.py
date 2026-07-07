@@ -17,8 +17,15 @@ class AddonEstoque(AddonBase):
         from addons.addon_estoque.root.model.composicao import Composicao
         from addons.addon_estoque.root.model.movimentacao import Movimentacao
         from addons.addon_estoque.root.model.saldo import Saldo
+        from addons.addon_estoque.root.model.fabricante import Fabricante
+        from addons.addon_estoque.root.model.origem import Origem
+        from addons.addon_estoque.root.model.tipo_produto import TipoProduto
+        from addons.addon_estoque.root.model.categoria import Categoria
 
-        return [Material, Composicao, Movimentacao, Saldo]
+        # Lookups (Fabricante/Origem/TipoProduto/Categoria) primeiro só
+        # por legibilidade - create_all resolve ordem de FK via
+        # metadata do SQLAlchemy, não pela ordem desta lista.
+        return [Fabricante, Origem, TipoProduto, Categoria, Material, Composicao, Movimentacao, Saldo]
 
     def register_routes(self, app) -> None:
         from addons.addon_estoque.root.controller.materials import materials_bp
@@ -29,12 +36,24 @@ class AddonEstoque(AddonBase):
         from addons.addon_estoque.root.api.routes.movimentacaos_routes import movimentacaos_api_bp
         from addons.addon_estoque.root.controller.saldos import saldos_bp
         from addons.addon_estoque.root.api.routes.saldos_routes import saldos_api_bp
+        from addons.addon_estoque.root.controller.fabricantes import fabricantes_bp
+        from addons.addon_estoque.root.api.routes.fabricantes_routes import fabricantes_api_bp
+        from addons.addon_estoque.root.controller.origems import origems_bp
+        from addons.addon_estoque.root.api.routes.origems_routes import origems_api_bp
+        from addons.addon_estoque.root.controller.tipo_produtos import tipo_produtos_bp
+        from addons.addon_estoque.root.api.routes.tipo_produtos_routes import tipo_produtos_api_bp
+        from addons.addon_estoque.root.controller.categorias import categorias_bp
+        from addons.addon_estoque.root.api.routes.categorias_routes import categorias_api_bp
 
         for bp in [
             materials_bp, materials_api_bp,
             composicaos_bp, composicaos_api_bp,
             movimentacaos_bp, movimentacaos_api_bp,
             saldos_bp, saldos_api_bp,
+            fabricantes_bp, fabricantes_api_bp,
+            origems_bp, origems_api_bp,
+            tipo_produtos_bp, tipo_produtos_api_bp,
+            categorias_bp, categorias_api_bp,
         ]:
             app.register_blueprint(bp)
 
@@ -82,5 +101,41 @@ class AddonEstoque(AddonBase):
                 "icon": "bi-diagram-3",
                 "route": "/estoque/composicaos",
                 "permission_required": "composicaos.list",
+            },
+            {
+                "code": "TX_FABRICANTES",
+                "label": "Fabricantes",
+                "parent_code": "TX_GROUP_ESTOQUE",
+                "description": "Cadastro de fabricantes/marcas de materiais.",
+                "icon": "bi-building",
+                "route": "/estoque/fabricantes",
+                "permission_required": "fabricantes.list",
+            },
+            {
+                "code": "TX_ORIGEMS",
+                "label": "Origens",
+                "parent_code": "TX_GROUP_ESTOQUE",
+                "description": "Cadastro de origens de material (nacional/importado/etc.).",
+                "icon": "bi-globe",
+                "route": "/estoque/origems",
+                "permission_required": "origems.list",
+            },
+            {
+                "code": "TX_TIPO_PRODUTOS",
+                "label": "Tipos de Produto",
+                "parent_code": "TX_GROUP_ESTOQUE",
+                "description": "Classificação de materiais (insumo, embalagem, etc.).",
+                "icon": "bi-tags",
+                "route": "/estoque/tipo-produtos",
+                "permission_required": "tipo_produtos.list",
+            },
+            {
+                "code": "TX_CATEGORIAS",
+                "label": "Categorias",
+                "parent_code": "TX_GROUP_ESTOQUE",
+                "description": "Categorias de material (substitui o antigo campo livre).",
+                "icon": "bi-bookmark",
+                "route": "/estoque/categorias",
+                "permission_required": "categorias.list",
             },
         ]

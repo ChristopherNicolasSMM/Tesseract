@@ -11,6 +11,9 @@ from sqlalchemy.exc import IntegrityError
 from core.app_factory import create_app
 from core.db import db
 from addons.addon_estoque.root.model.material import Material
+from addons.addon_estoque.root.model.categoria import Categoria
+from addons.addon_estoque.root.model.origem import Origem, SEED_NOME_A_DEFINIR
+from addons.addon_estoque.root.model.tipo_produto import TipoProduto, SEED_NOME_INSUMO
 from addons.addon_brewstation.features.feature_ingredientes.model.malte import Malte
 from addons.addon_brewstation.features.feature_ingredientes.model.lupulo import Lupulo
 from addons.addon_brewstation.features.feature_ingredientes.model.levedura import Levedura
@@ -28,7 +31,18 @@ def client(app):
 
 
 def _criar_material(nome="Malte Pilsen"):
-    material = Material(nome=nome, categoria="materia_prima", unidade_medida="kg")
+    origem = Origem.query.filter_by(nome=SEED_NOME_A_DEFINIR).first()
+    tipo_produto = TipoProduto.query.filter_by(nome=SEED_NOME_INSUMO).first()
+    categoria = Categoria.query.filter_by(nome="materia_prima").first()
+    if not categoria:
+        categoria = Categoria(nome="materia_prima")
+        db.session.add(categoria)
+        db.session.flush()
+
+    material = Material(
+        nome=nome, sku=nome.upper().replace(" ", "-"), unidade_medida="kg",
+        origem_id=origem.id, tipo_produto_id=tipo_produto.id, categoria_id=categoria.id,
+    )
     db.session.add(material)
     db.session.commit()
     return material

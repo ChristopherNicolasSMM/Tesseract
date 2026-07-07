@@ -88,6 +88,15 @@ def create_app(env: str | None = None) -> Flask:
         ensure_default_system_config()
         apply_logging_level_overrides()
 
+        # Lookups padrão de addon_estoque (Origem "A definir" / TipoProduto
+        # "Insumo") - usados pela resolução automática do autocreate de
+        # feature_brew_father. Import local porque é específico do Addon
+        # (skill 00 - core não conhece regra de domínio), mesmo padrão do
+        # cliente MQTT de addon_device_manager mais abaixo.
+        if "estoque" in app.module_manager.active_modules:
+            from addons.addon_estoque.root.services.estoque_seed import ensure_default_estoque_lookups
+            ensure_default_estoque_lookups()
+
     from api.routes.core.auth import auth_api_bp
     from api.routes.core.admin.users import users_api_bp
     from api.routes.core.admin.tasks import tasks_api_bp

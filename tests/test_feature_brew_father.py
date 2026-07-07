@@ -18,6 +18,9 @@ import pytest
 from core.app_factory import create_app
 from core.db import db
 from addons.addon_estoque.root.model.material import Material
+from addons.addon_estoque.root.model.categoria import Categoria
+from addons.addon_estoque.root.model.origem import Origem, SEED_NOME_A_DEFINIR
+from addons.addon_estoque.root.model.tipo_produto import TipoProduto, SEED_NOME_INSUMO
 from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
 from addons.addon_brewstation.features.feature_mash_control.model.recipe_ingredient import RecipeIngredient
 from addons.addon_brewstation.features.feature_mash_control.model.ingredient_mapping import IngredientMapping
@@ -81,6 +84,28 @@ MOCK_RECIPES = [
         "fermentation_steps": [],
     },
 ]
+
+
+def _criar_material_de_estoque(nome: str, categoria_nome: str = "materia_prima") -> Material:
+    """
+    Resolve os campos obrigatórios novos de Material (sku/origem_id/
+    tipo_produto_id/categoria_id, ampliação desta sessão — ver
+    BACKLOG.md) para uso direto nos testes desta suíte. origem_id/
+    tipo_produto_id vêm do seed do boot (ensure_default_estoque_lookups,
+    core/app_factory.py); categoria_id é get_or_create por nome.
+    """
+    origem = Origem.query.filter_by(nome=SEED_NOME_A_DEFINIR).first()
+    tipo_produto = TipoProduto.query.filter_by(nome=SEED_NOME_INSUMO).first()
+    categoria = Categoria.query.filter_by(nome=categoria_nome).first()
+    if not categoria:
+        categoria = Categoria(nome=categoria_nome)
+        db.session.add(categoria)
+        db.session.flush()
+
+    return Material(
+        nome=nome, sku=nome.upper().replace(" ", "-")[:60],
+        origem_id=origem.id, tipo_produto_id=tipo_produto.id, categoria_id=categoria.id,
+    )
 
 
 @pytest.fixture
@@ -159,7 +184,7 @@ def test_sync_recipes_cria_ingredientes_pendentes_sem_mapeamento(app, mock_clien
 
 def test_sync_recipes_resolve_ingrediente_com_mapeamento_previo(app, mock_client):
     with app.app_context():
-        material = Material(nome="Pale Malt 2-Row (estoque)", categoria="materia_prima")
+        material = _criar_material_de_estoque("Pale Malt 2-Row (estoque)")
         db.session.add(material)
         db.session.commit()
 
@@ -324,12 +349,84 @@ def test_resolver_pendente_cria_mapeamento(app, client, mock_client):
 def test_busca_materiais_api_retorna_resultados(app, client):
     _login_admin(app, client)
     with app.app_context():
-        from addons.addon_estoque.root.model.material import Material
-        from core.db import db
-        db.session.add(Material(nome="Malte Pilsen Teste", categoria="materia_prima"))
+        db.session.add(_criar_material_de_estoque("Malte Pilsen Teste"))
         db.session.commit()
 
     resp = client.get("/api/brewstation/brewfather-syncs/buscar-materiais?q=pilsen")
     assert resp.status_code == 200
     dados = resp.get_json()
     assert any("Pilsen" in d["nome"] for d in dados)
+
+
+# ── Autocreate: resolução de sku/origem_id/tipo_produto_id/pendente_revisao ──
+# (ampliação de Material desta sessão, ver BACKLOG.md — Origem/TipoProduto
+# não vêm da API do BrewFather, então o autocreate resolve via seed fixo)
+
+def test_cadastrar_todos_pendentes_resolve_campos_obrigatorios_novos(app):
+    from addons.addon_brewstation.features.feature_brew_father.services import ingredient_autocreate_service
+    from addons.addon_estoque.root.model.origem import SEED_NOME_A_DEFINIR
+    from addons.addon_estoque.root.model.tipo_produto import SEED_NOME_INSUMO
+
+    with app.app_context():
+        receita = MashRecipe(name="Receita BF", versao=1, origem_receita="BrewFather")
+        db.session.add(receita)
+        db.session.commit()
+
+        db.session.add(RecipeIngredient(
+            recipe_id=receita.id, descricao_origem="Pale Malt 2-Row",
+            tipo_ingrediente="fermentavel", status_resolucao="pendente_depara",
+        ))
+        db.session.add(RecipeIngredient(
+            recipe_id=receita.id, descricao_origem="Cascade",
+            tipo_ingrediente="lupulo", status_resolucao="pendente_depara",
+        ))
+        db.session.commit()
+
+        resultado = ingredient_autocreate_service.cadastrar_todos_pendentes("BrewFather")
+        assert resultado["erros"] == []
+        # Nota: "criados" x "reaproveitados" tem uma inconsistência
+        # pré-existente (material_exists()+is_modified() após flush já
+        # conta como reaproveitado) não relacionada a esta ampliação —
+        # o que importa aqui é que os 2 Materiais foram de fato criados
+        # com os campos obrigatórios novos resolvidos corretamente.
+        assert Material.query.filter(Material.nome.in_(["Pale Malt 2-Row", "Cascade"])).count() == 2
+
+        malte = Material.query.filter_by(nome="Pale Malt 2-Row").first()
+        assert malte.sku == "MALTE-PALEMALT2R"
+        assert malte.pendente_revisao is True
+        assert malte.origem.nome == SEED_NOME_A_DEFINIR
+        assert malte.tipo_produto.nome == SEED_NOME_INSUMO
+
+        lupulo = Material.query.filter_by(nome="Cascade").first()
+        assert lupulo.sku == "LUPULO-CASCADE"
+        assert lupulo.pendente_revisao is True
+
+
+def test_cadastrar_todos_pendentes_gera_sku_sem_colisao(app):
+    from addons.addon_brewstation.features.feature_brew_father.services import ingredient_autocreate_service
+
+    with app.app_context():
+        receita = MashRecipe(name="Receita BF 2", versao=1, origem_receita="BrewFather")
+        db.session.add(receita)
+        db.session.commit()
+
+        # Duas descrições diferentes que truncam pro mesmo prefixo de 10
+        # caracteres — o SKU precisa de sufixo sequencial pra não colidir
+        # (unique=True em Material.sku).
+        db.session.add(RecipeIngredient(
+            recipe_id=receita.id, descricao_origem="Malte Pilsen Alemao",
+            tipo_ingrediente="fermentavel", status_resolucao="pendente_depara",
+        ))
+        db.session.add(RecipeIngredient(
+            recipe_id=receita.id, descricao_origem="Malte Pilsen Belga",
+            tipo_ingrediente="fermentavel", status_resolucao="pendente_depara",
+        ))
+        db.session.commit()
+
+        resultado = ingredient_autocreate_service.cadastrar_todos_pendentes("BrewFather")
+        assert resultado["erros"] == []
+
+        skus = sorted(m.sku for m in Material.query.filter(
+            Material.nome.in_(["Malte Pilsen Alemao", "Malte Pilsen Belga"])
+        ).all())
+        assert skus == ["MALTE-MALTEPILSE", "MALTE-MALTEPILSE-2"]

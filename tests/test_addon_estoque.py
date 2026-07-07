@@ -15,8 +15,33 @@ from model.core.user import User
 from addons.addon_estoque.root.model.material import Material
 from addons.addon_estoque.root.model.composicao import Composicao
 from addons.addon_estoque.root.model.saldo import Saldo
+from addons.addon_estoque.root.model.categoria import Categoria
+from addons.addon_estoque.root.model.origem import Origem, SEED_NOME_A_DEFINIR
+from addons.addon_estoque.root.model.tipo_produto import TipoProduto, SEED_NOME_INSUMO
 from addons.addon_estoque.root.services import estoque_service
 from addons.addon_estoque.root.services import material_lookup
+
+
+def _ids_lookup_padrao(categoria_nome: str = "materia_prima") -> dict:
+    """
+    Resolve origem_id/tipo_produto_id (seeds já criados no boot via
+    ensure_default_estoque_lookups, ver core/app_factory.py) e
+    categoria_id (get_or_create por nome) — os 3 campos obrigatórios
+    novos de Material (ampliação desta sessão, ver BACKLOG.md) que os
+    testes desta suíte não testam diretamente.
+    """
+    origem = Origem.query.filter_by(nome=SEED_NOME_A_DEFINIR).first()
+    tipo_produto = TipoProduto.query.filter_by(nome=SEED_NOME_INSUMO).first()
+    categoria = Categoria.query.filter_by(nome=categoria_nome).first()
+    if not categoria:
+        categoria = Categoria(nome=categoria_nome)
+        db.session.add(categoria)
+        db.session.flush()
+    return {
+        "origem_id": origem.id,
+        "tipo_produto_id": tipo_produto.id,
+        "categoria_id": categoria.id,
+    }
 
 
 @pytest.fixture
@@ -60,7 +85,9 @@ def test_telas_de_listagem_nao_estouram_erro(app, client, rota):
 
 
 def _criar_material(nome="Malte Pilsen", categoria="materia_prima", **kwargs):
-    material = Material(nome=nome, categoria=categoria, unidade_medida="kg", **kwargs)
+    ids = _ids_lookup_padrao(categoria)
+    sku = kwargs.pop("sku", None) or nome.upper().replace(" ", "-")
+    material = Material(nome=nome, sku=sku, unidade_medida="kg", **ids, **kwargs)
     db.session.add(material)
     db.session.commit()
     return material
@@ -83,7 +110,8 @@ def test_cria_material_com_campos_basicos(app):
 def test_nome_de_material_e_unico(app):
     with app.app_context():
         _criar_material(nome="Lupulo Cascade")
-        duplicado = Material(nome="Lupulo Cascade", categoria="materia_prima")
+        ids = _ids_lookup_padrao()
+        duplicado = Material(nome="Lupulo Cascade", sku="LUPULO-CASCADE-2", **ids)
         db.session.add(duplicado)
         with pytest.raises(IntegrityError):
             db.session.commit()

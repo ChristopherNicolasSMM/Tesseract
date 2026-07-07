@@ -16,6 +16,9 @@ from addons.addon_brewstation.features.feature_mash_control.model.ingredient_map
 from addons.addon_brewstation.features.feature_mash_control.model.recipe_history import RecipeHistory
 from addons.addon_brewstation.features.feature_mash_control.services import ingredient_resolution_service as svc
 from addons.addon_estoque.root.model.material import Material
+from addons.addon_estoque.root.model.categoria import Categoria
+from addons.addon_estoque.root.model.origem import Origem, SEED_NOME_A_DEFINIR
+from addons.addon_estoque.root.model.tipo_produto import TipoProduto, SEED_NOME_INSUMO
 
 
 @pytest.fixture
@@ -32,7 +35,18 @@ def _criar_receita(nome="Sangue de Druida", origem="Manual", versao=1):
 
 
 def _criar_material(nome="Malte Pilsen"):
-    material = Material(nome=nome, categoria="materia_prima", unidade_medida="kg")
+    origem_lookup = Origem.query.filter_by(nome=SEED_NOME_A_DEFINIR).first()
+    tipo_produto = TipoProduto.query.filter_by(nome=SEED_NOME_INSUMO).first()
+    categoria = Categoria.query.filter_by(nome="materia_prima").first()
+    if not categoria:
+        categoria = Categoria(nome="materia_prima")
+        db.session.add(categoria)
+        db.session.flush()
+
+    material = Material(
+        nome=nome, sku=nome.upper().replace(" ", "-"), unidade_medida="kg",
+        origem_id=origem_lookup.id, tipo_produto_id=tipo_produto.id, categoria_id=categoria.id,
+    )
     db.session.add(material)
     db.session.commit()
     return material

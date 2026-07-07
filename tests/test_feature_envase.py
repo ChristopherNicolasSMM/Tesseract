@@ -10,6 +10,9 @@ import pytest
 from core.app_factory import create_app
 from core.db import db
 from addons.addon_estoque.root.model.material import Material
+from addons.addon_estoque.root.model.categoria import Categoria
+from addons.addon_estoque.root.model.origem import Origem, SEED_NOME_A_DEFINIR
+from addons.addon_estoque.root.model.tipo_produto import TipoProduto, SEED_NOME_INSUMO
 from addons.addon_estoque.root.services import estoque_service as material_movement_service
 from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
@@ -41,7 +44,18 @@ def _criar_lote(nome="IPA Tropical"):
 
 
 def _criar_material_com_estoque(nome="Garrafa 600ml", quantidade_inicial=100):
-    material = Material(nome=nome, categoria="embalagem", unidade_medida="un")
+    origem = Origem.query.filter_by(nome=SEED_NOME_A_DEFINIR).first()
+    tipo_produto = TipoProduto.query.filter_by(nome=SEED_NOME_INSUMO).first()
+    categoria = Categoria.query.filter_by(nome="embalagem").first()
+    if not categoria:
+        categoria = Categoria(nome="embalagem")
+        db.session.add(categoria)
+        db.session.flush()
+
+    material = Material(
+        nome=nome, sku=nome.upper().replace(" ", "-"), unidade_medida="un",
+        origem_id=origem.id, tipo_produto_id=tipo_produto.id, categoria_id=categoria.id,
+    )
     db.session.add(material)
     db.session.commit()
     material_movement_service.registrar_movimentacao(material.id, "entrada", quantidade_inicial, custo_unitario=1.5)
