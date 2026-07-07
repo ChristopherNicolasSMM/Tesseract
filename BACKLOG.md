@@ -1161,3 +1161,36 @@ seção 9, para o detalhe completo de cada item abaixo.
 
 Todos os três aguardando autorização explícita pra implementar — esta
 rodada foi só decisão/documentação.
+
+## Item (d) — `material_id` não resolvido na exibição — REVISADO (ver skill 11)
+
+**Superado pela investigação de continuidade abaixo** — o desenho
+original desta seção (hook `resolve_display_value` manual por
+entidade, 6 arquivos-conjunto editados à mão, sem tocar o gerador) foi
+**substituído** depois de investigar o `ChristopherNicolasSMM/PyTeca`
+real e achar que o Tesseract já tem metade do mecanismo portado
+(`@display_field`) e nunca usado. Decisão nova, mais próxima do
+padrão PyTeca e generalizada via CrudGen: ver
+`docs/skills/11-referencia-fraca-e-display-field.md` (skill nova,
+mesmo peso normativo das demais).
+
+Resumo da mudança de rumo (detalhe completo na skill 11):
+- Em vez de hook manual por entidade, duas anotações novas resolvem
+  isso de forma genérica e automática via gerador: `@display_field`
+  (já existia, nunca usada) no model **alvo** (`Material`), e
+  `@weak_ref` (nova) no model **que tem** a referência fraca
+  (`Malte.material_id`, etc.), apontando pra função de resolução
+  (`material_lookup.get_material`).
+- `core/crudgen/generator.py` passa a gerar a resolução
+  automaticamente pra qualquer entidade com `@weak_ref` — não é mais
+  trabalho manual repetido nas 6 entidades, e entidades futuras já
+  nascem cobertas.
+- Escopo ampliado nesta revisão: também portar `/api/options/<table>`
+  (combo de busca assíncrono, formato Select2) — troca o `<input>`
+  de texto puro por um campo de busca com nome, mantendo o id
+  persistido no submit. Dependência em aberto: **Select2 não está
+  nos assets estáticos do projeto hoje** (`static/`, herdados do Nice
+  Admin) — precisa vendorizar ou usar alternativa mais leve, decisão
+  ainda não tomada (ver skill 11, seção 4).
+- Ainda pendente de implementação — esta rodada continua sendo só
+  decisão/documentação.

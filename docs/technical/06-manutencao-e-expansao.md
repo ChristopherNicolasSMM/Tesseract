@@ -253,6 +253,15 @@ Ainda não há rotina automatizada. Hoje significa:
   funções JS (Visibilidade/Cálculo).
 - **`DesignerComponent.rules`** — qualquer regra do catálogo pode ser
   anexada, mesmo as ainda sem motor (fica catalogada, sem efeito).
+- **`@display_field`/`@weak_ref`** (skill nova —
+  `docs/skills/11-referencia-fraca-e-display-field.md`) — anotações
+  pra resolver campo de referência fraca (skill 02, ex.: `material_id`
+  sem FK real) num nome legível na tela de listagem/detalhe gerada e
+  num combo de busca (`/api/options/<table>`), sem tocar schema.
+  `@display_field` no model alvo (o que É referenciado), `@weak_ref`
+  no model que TEM a referência — `core/crudgen/generator.py` resolve
+  automaticamente a partir das duas anotações, para qualquer entidade
+  nova, não só as 6 identificadas na revisão que motivou a skill.
 
 ## Erros conhecidos e como resolver
 

@@ -40,6 +40,10 @@ Ordem de leitura recomendada:
 11. **10-menu-hierarquico.md** — menu em árvore de profundidade
     arbitrária (`parent_id`/`order_index` em Transaction), substitui o
     campo `group` plano; adendas nas skills 07 e 09.
+12. **11-referencia-fraca-e-display-field.md** — resolução de campo de
+    referência fraca (skill 02) em nome legível na tela gerada e em
+    combo de busca, via `@display_field`/`@weak_ref` + geração
+    automática pelo CrudGen + `/api/options/<table>`.
 
 ## Status
 
@@ -66,6 +70,13 @@ construídas, ou que têm pouca regra formal além do próprio código):
   DEVStationFlask) — Fase 7b, não iniciada
 - **Designer visual drag-and-drop** — Fase 7c, não iniciada
 - **OData/Screen Generator** — Fase 8, não iniciada
+
+A skill 11 (referência fraca / `@display_field` / `@weak_ref`) está em
+**[DECIDIDO], pendente de implementação** — investigação direta no
+`ChristopherNicolasSMM/PyTeca` real confirmou que `@display_field` já
+tinha sido portado (Fase 4) mas nunca usado nem consumido; `@weak_ref`
+é anotação nova, sem equivalente no PyTeca (que não tem o conceito de
+referência fraca — lá toda relação é FK real).
 
 Cada novo documento deve seguir o mesmo padrão: sem código de implementação,
 só regra, schema e exemplo — pronto para ser citado por uma IA ou
