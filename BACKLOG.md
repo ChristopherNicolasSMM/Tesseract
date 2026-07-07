@@ -1265,3 +1265,62 @@ deveria ter produzido desde o início). 3 testes de regressão novos em
 comando real via `app.test_cli_runner()` (a lacuna de cobertura que
 permitiu esse bug passar despercebido — `test_phase4_crudgen.py`
 testa só a função `generate()` direto, nunca o carregamento via CLI).
+
+## Item (c) — Receita: adjuntos + água (`WaterProfile`) — decisão fechada, pendente de implementação
+
+Escopo já vinha "CONFIRMADO como amplo" de sessão anterior a esta;
+esta rodada verificou os detalhes contra a **API real do BrewFather**
+(busca externa, não assumido de memória) e fechou 2 decisões que
+faltavam. Nada implementado ainda — só decisão/schema.
+
+**Confirmado sem conflito contra a API real**:
+- `miscs[].type` tem exatamente os valores já assumidos: `Water
+  Agent`, `Fining`, `Spice`, `Herb`, `Flavor`, `Other`. Mapeamento:
+  `Water Agent` → `tipo_ingrediente="agua_agente"`; os outros 5 →
+  `"adjunto"`.
+- Objeto `water` da API tem exatamente os campos já assumidos:
+  `calcium`, `magnesium`, `sodium`, `chloride`, `sulfate`,
+  `bicarbonate` (todos em ppm), `ph` (0–14). Bate 1:1 com o schema já
+  decidido pra `WaterProfile` (calcio/magnesio/sodio/cloreto/sulfato/
+  bicarbonato/ph).
+- `RecipeIngredient.tipo_ingrediente` já aceita qualquer string livre
+  (sem enum/constraint — `@choices` é só filtro de UI) — os dois
+  valores novos não exigem migração de schema, só popular dado novo.
+
+**Achado nesta rodada, não coberto pela decisão original**: `miscs[].use`
+(equivalente ao `etapa`/timing) tem 7 valores reais confirmados —
+`Mash, Sparge, Boil, Flameout, Primary, Secondary, Bottling`.
+`RecipeIngredient.etapa` só cobre 3 (`mostura`/`fervura`/`fermentacao`)
+e o `_USE_PARA_ETAPA` existente (`sync_service.py`) não tinha entrada
+pra `sparge` nem `bottling`.
+
+**Decidido**:
+- `sparge` → conta como `"mostura"` (mesmo estágio de lauter, sem
+  etapa nova).
+- `bottling` → **não mapeado por agora** — cai no fallback já
+  existente do código (`_USE_PARA_ETAPA.get(..., valor_bruto)`), vira
+  `etapa="Bottling"` (string bruta do BrewFather, não traduzida) em
+  vez de forçar em uma das 3 etapas existentes. Preservado pra
+  granularidade futura, sem criar etapa nova agora (opção "criar
+  etapa envase" foi considerada e descartada nesta rodada).
+- Precisa também de entradas novas em `_USE_PARA_ETAPA` pra `primary`/
+  `secondary` → `"fermentacao"` (miscs usam esses valores; o dict
+  hoje só tem a chave `"fermentation"`, que vem de outro contexto).
+
+**Schema `WaterProfile` (fechado, sem mudança em relação à sessão
+anterior)**: tabela nova em `feature_mash_control` — `recipe_id` FK
+(mesmo Addon, skill 02), `contexto` (`source`/`target`/`mash`/
+`sparge`/`total`), `calcio`/`magnesio`/`sodio`/`cloreto`/`sulfato`/
+`bicarbonato` (float, ppm), `ph` (float), `UniqueConstraint(recipe_id,
+contexto)`. Segue o mesmo padrão de `MashStep`/`FermentationStep`
+(FK real pra `MashRecipe`, mesmo Addon).
+
+**Pendente de verificação em tempo de implementação** (não bloqueia a
+decisão, mas fica registrado): a estrutura exata de aninhamento do
+objeto `water` dentro do JSON de receita (`recipe.water.source` vs.
+`recipe.water.mash` vs. um único objeto plano) não foi confirmada
+byte a byte contra uma resposta real da API — os nomes de campo de
+íon foram confirmados via documentação, a estrutura de contexto
+(source/target/mash/sparge/total) é inferida da documentação do Water
+Calculator (que discute os 5 conceitos separadamente) e deve ser
+validada contra uma resposta real na hora de escrever o parser.
