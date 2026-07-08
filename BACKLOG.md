@@ -1480,3 +1480,30 @@ customização, HTML5+badge no HTML gerado, `--only templates` escreve
 só 2 arquivos, erro claro sem `--overwrite`, erro claro com valor
 inválido) + 2 em `tests/test_crudgen_cli_generate_relationship_bug.py`
 (mesmo via CLI real). Suíte completa: 38 arquivos, todos passando.
+
+## Documentação de excelência do CrudGen (skill 13) — CONCLUÍDA
+
+`docs/skills/13-crudgen-guia-operacional.md` — companheiro prático da
+skill 12. Cobre exatamente os 4 pontos pedidos: fluxo de objetos,
+hooks antes/depois, pontos de manutenção, como incluir campos.
+
+**Achado central, investigado a fundo no código real antes de
+escrever**: hooks de lifecycle "antes/depois de qualquer método" são
+mais restritos do que o nome sugere — só existem 2
+(`pbo_apply_fields`/`pai_apply_fields`), só ao redor de
+`_apply_fields()` no Service, usado só por `create()`/`update()`. Não
+existe hook de lifecycle em `list()`/`get_by_id()`/`trash()`/
+`restore()`/`delete_permanent()`, nem em nenhum ponto do Controller ou
+das Rotas API — nesses lugares, `*_hooks.py` serve só pra adicionar
+rota nova (extensão por adição), não pra interceptar o fluxo existente
+(extensão por interceptação). Documentado com o contrato exato de
+cada hook (quando roda, parâmetros, o que o retorno faz) e como
+distinguir create de update dentro do hook (`obj.id is None`).
+
+**Segundo achado**: a tela de lista (`manage()`, caminho Web) **não
+passa pelo `Service.list()`** — monta a query direto no controller.
+`Service.list()` só é usado pelo caminho API. Quem for customizar
+busca/filtro da lista precisa saber que a lógica mora no controller
+(`_apply_filters()`), não no Service.
+
+Sem mudança de código — só documentação, conforme pedido.

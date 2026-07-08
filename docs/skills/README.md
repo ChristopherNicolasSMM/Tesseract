@@ -51,6 +51,14 @@ Ordem de leitura recomendada:
     `@menu_icon`/`@permission`), semântica de hooks/`--overwrite`/
     `--only templates`, e a migração de 3 módulos reais pro caminho
     de auto-descoberta (skill 09).
+14. **13-crudgen-guia-operacional.md** — companheiro da skill 12:
+    fluxo de objetos completo (request→controller→service→model→DB,
+    Web e API, com a assimetria real de `manage()` não passar pelo
+    `Service.list()`), os únicos 2 pontos reais de hook de lifecycle
+    (`pbo_apply_fields`/`pai_apply_fields`, só em create/update — não
+    existe em trash/restore/delete_permanent nem em controller/rotas),
+    checklist completo de "como adicionar um campo", e cookbook de
+    manutenções comuns.
 
 ## Status
 
