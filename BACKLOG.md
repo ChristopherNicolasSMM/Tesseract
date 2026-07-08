@@ -1507,3 +1507,35 @@ busca/filtro da lista precisa saber que a lógica mora no controller
 (`_apply_filters()`), não no Service.
 
 Sem mudança de código — só documentação, conforme pedido.
+
+## Cobertura de documentação do "resto do sistema" — 2 itens concluídos
+
+Retomada da pergunta "já temos documentação completa, incluindo o
+resto do sistema?" — levantamento real mostrou 2 gaps concretos,
+priorizados pelo Christopher (itens 1 e 3 de uma lista de 4):
+
+- [x] **`docs/manual/` dos 4 módulos que estavam zerados**
+      (`addon_estoque`, `feature_brew_father`, `feature_envase`,
+      `feature_ingredientes`) — 16 arquivos novos (4 cada), seguindo
+      o padrão já estabelecido nos módulos que já tinham (tom direto,
+      sem jargão de arquitetura, exemplos com nome de botão/tela real
+      conferido no HTML — não inventado). `docs/technical/` já estava
+      completo nos 8 módulos antes desta rodada, só `docs/manual/`
+      tinha o gap.
+- [x] **Skill 14 (EventBus)** — convenção de nome de evento e
+      contrato de payload, formalizando o que já estava em uso (2
+      pares publisher/subscriber reais: `core.module.activated`,
+      `device_manager.actor.value_changed`). 2 achados de manutenção
+      registrados como `[ABERTO]`, não resolvidos nesta rodada (não é
+      documentação, seria mudança de código): nome de evento
+      duplicado como string literal em publisher e subscriber (risco
+      de deriva silenciosa se um lado for renomeado sem o outro);
+      docstring desatualizada em `register_example_listener()` que já
+      deveria ter sido removida segundo seu próprio comentário.
+
+**Ainda pendente, não priorizado nesta rodada** (itens 2 e 4 da lista
+original): `i18n/pt_BR.json` zerado em 7 dos 8 módulos; motor de
+regras (Fase 7b) só com Validação implementada; Designer visual (Fase
+7c) e OData Screen Generator (Fase 8) não iniciados.
+
+Sem mudança de código — só documentação.

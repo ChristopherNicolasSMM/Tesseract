@@ -59,6 +59,11 @@ Ordem de leitura recomendada:
     existe em trash/restore/delete_permanent nem em controller/rotas),
     checklist completo de "como adicionar um campo", e cookbook de
     manutenções comuns.
+15. **14-eventbus-convencao.md** — convenção de nome de evento e
+    contrato de payload do EventBus (`core/event_bus.py`), catálogo
+    real dos 2 eventos em uso hoje, e 2 achados de manutenção (nome de
+    evento duplicado como string literal em publisher/subscriber;
+    docstring desatualizada em `register_example_listener()`).
 
 ## Status
 
@@ -77,10 +82,6 @@ em Transaction) também já foi **executada**.
 Ainda não cobertos por uma skill própria (peças que ainda não foram
 construídas, ou que têm pouca regra formal além do próprio código):
 
-- **EventBus** — convenção de nomes de evento e contrato de payload (hoje
-  só `core.module.activated` existe; código já segue namespace por ponto,
-  reaproveitado pela skill 08 para nome de logger — mas o EventBus em si
-  ainda não tem skill dedicada)
 - **Motor de regras** (validação/visibilidade/cálculo, herdado do
   DEVStationFlask) — Fase 7b, não iniciada
 - **Designer visual drag-and-drop** — Fase 7c, não iniciada
