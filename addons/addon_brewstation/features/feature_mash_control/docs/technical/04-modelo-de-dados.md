@@ -93,6 +93,7 @@ erDiagram
 | `..._recipe_ingredient` | `status_resolucao` | Controla se o ingrediente já foi casado com um Material ou ainda está pendente de intervenção do usuário |
 | `..._ingredient_mapping` | (todas) | Cache — evita perguntar a mesma resolução em toda nova importação da mesma origem+descrição |
 | `..._recipe_history` | `snapshot_data` | JSON completo, não campo-a-campo — é arquivo de auditoria/comparação, não tela de operação, por isso JSON aqui não colide com a restrição de filtro tipado usada em `Material` |
+| `..._water_profile` | `contexto` | **Novo (item (c) do BACKLOG)** — distingue os 5 momentos do cálculo de água do BrewFather (`source`/`target`/`mash`/`sparge`/`total`). `unique(recipe_id, contexto)` — no máximo um registro por contexto por receita. Íons (`calcio`/`magnesio`/`sodio`/`cloreto`/`sulfato`/`bicarbonato`) em ppm, `ph` 0–14, todos nullable (gravado só o que a receita importada tiver) |
 | `..._rule` | `sensor_function_id`/`actor_function_id` | **Correção desta rodada**: eram FK cross-Feature pra `DeviceFunction`; agora são referência fraca cross-Addon (`device_manager` foi promovido) — coluna não é mais FK de banco, é `Integer` solto resolvido via `device_function_lookup` |
 | (todas) | `is_deleted`/`deleted_at` | Soft-delete padrão (skill 02) — inclusive `recipe_ingredient`/`ingredient_mapping`/`recipe_history`, corrigido do desenho original que as tinha excluído sem sinalizar a exceção (mesmo bug real já corrigido em `addon_estoque`, ver `fix(estoque)` no histórico) |
 
@@ -102,6 +103,7 @@ erDiagram
 `recipe_ingredient.recipe_id` → `recipe.id`;
 `recipe_history.recipe_id` → `recipe.id`;
 `session.recipe_id` → `recipe.id`;
+`water_profile.recipe_id` → `recipe.id` (item (c) do BACKLOG);
 `feature_envase.envase.lote_id` → `session.id` (Feature externa a
 este documento, ver `features/feature_envase/docs/technical/04-modelo-de-dados.md`).
 

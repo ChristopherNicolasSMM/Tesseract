@@ -1266,7 +1266,7 @@ comando real via `app.test_cli_runner()` (a lacuna de cobertura que
 permitiu esse bug passar despercebido — `test_phase4_crudgen.py`
 testa só a função `generate()` direto, nunca o carregamento via CLI).
 
-## Item (c) — Receita: adjuntos + água (`WaterProfile`) — decisão fechada, pendente de implementação
+## Item (c) — Receita: adjuntos + água (`WaterProfile`) — EXECUTADO
 
 Escopo já vinha "CONFIRMADO como amplo" de sessão anterior a esta;
 esta rodada verificou os detalhes contra a **API real do BrewFather**
@@ -1324,6 +1324,41 @@ byte a byte contra uma resposta real da API — os nomes de campo de
 (source/target/mash/sparge/total) é inferida da documentação do Water
 Calculator (que discute os 5 conceitos separadamente) e deve ser
 validada contra uma resposta real na hora de escrever o parser.
+
+**[EXECUTADO em 2026-07-07, sessão seguinte]** — implementado como
+decidido:
+- `WaterProfile` novo (`feature_mash_control`, CrudGen real —
+  tabela `tesseract_brewstation_mashctrl_water_profile`, 43 chars,
+  dentro do limite de 55 da skill 02), registrado em
+  `register_models()`/`register_routes()` + transação de menu
+  `TX_WATER_PROFILES`.
+- `brewfather_client.py`: `_normalizar_ingredientes` ganha o loop de
+  `miscs[]` (`Water Agent` → `agua_agente`, os outros 5 tipos →
+  `adjunto`; `use` mapeado via `_MISC_USE_PARA_ETAPA` com as decisões
+  fechadas — sparge→mostura, primary/secondary→fermentacao, bottling
+  sem mapear). `_normalizar_water_profiles` novo — **parser defensivo**
+  por causa da pendência registrada (estrutura de aninhamento não
+  confirmada byte a byte): aceita tanto `water` aninhado por contexto
+  quanto objeto plano (tratado como contexto `total`); contexto sem
+  nenhum valor é ignorado.
+- `sync_service.py`: `_USE_PARA_ETAPA` ganha sparge/primary/secondary;
+  `_importar_receita` grava `WaterProfile` direto (sem de-para, mesmo
+  padrão de `MashStep`/`FermentationStep`).
+- `ingredient_autocreate_service.py`: prefixos de SKU novos
+  (`ADJUNTO-`/`AGUA-`) e categoria pros 2 tipos novos.
+- **Nota sobre a variante do bug do CLI**: gerar um model NOVO com
+  `relationship()` real exige registrá-lo em `register_models()`
+  **antes** de rodar `python run.py generate` — a correção anterior do
+  CLI (dotted path) cobre regenerar model já registrado; pra model
+  novo, o registro prévio é o que faz o boot importar a classe na
+  ordem certa (FK resolvida antes do prefixo). Sequência correta:
+  model → registrar em feature.py → generate.
+- 6 testes novos (mock atualizado com miscs + water_profiles; parser
+  real do client testado contra formato bruto da API incluindo os 6
+  tipos e 7 uses; unique(recipe_id, contexto); SKU com prefixos
+  novos). 2 testes de contagem existentes atualizados (3→5
+  ingredientes no mock; 17→18 transações no grupo Mash Control).
+- Suíte completa (38 arquivos) passando, zero regressão real.
 
 ## Item (b) — Tela de Logs (admin): filtro por hora + cor por nível — EXECUTADO
 

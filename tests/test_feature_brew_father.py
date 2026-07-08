@@ -52,6 +52,21 @@ MOCK_RECIPES = [
                 "time": None, "use": "fermentacao", "uso_detalhado": None,
                 "cor_ebc": None, "rendimento": None, "alpha_acidos": None, "atenuacao": 75.0,
             },
+            # Item (c): adjunto (misc type=Spice) e agente de água
+            # (misc type=Water Agent) — formato pós-normalização do
+            # client (o mock injeta o formato que get_recipes devolve).
+            {
+                "tipo_ingrediente": "adjunto",
+                "name": "Casca de Laranja", "amount": 20, "unit": "g",
+                "time": 5, "use": "fervura", "uso_detalhado": "Boil",
+                "cor_ebc": None, "rendimento": None, "alpha_acidos": None, "atenuacao": None,
+            },
+            {
+                "tipo_ingrediente": "agua_agente",
+                "name": "Gipsita (CaSO4)", "amount": 5, "unit": "g",
+                "time": None, "use": "mostura", "uso_detalhado": "Mash",
+                "cor_ebc": None, "rendimento": None, "alpha_acidos": None, "atenuacao": None,
+            },
         ],
         "mash_steps": [
             {"nome": "Sacarificação", "temperatura": 67.0, "tempo_min": 60, "ramp_time_min": 5, "tipo": "temperature", "ordem": 0},
@@ -59,6 +74,12 @@ MOCK_RECIPES = [
         ],
         "fermentation_steps": [
             {"nome": "Fermentação primária", "temperatura": 18.0, "tempo_dias": 14.0, "ordem": 0},
+        ],
+        "water_profiles": [
+            {"contexto": "source", "calcio": 12.0, "magnesio": 3.0, "sodio": 10.0,
+             "cloreto": 15.0, "sulfato": 20.0, "bicarbonato": 40.0, "ph": 7.2},
+            {"contexto": "total", "calcio": 80.0, "magnesio": 5.0, "sodio": 12.0,
+             "cloreto": 60.0, "sulfato": 120.0, "bicarbonato": 45.0, "ph": 5.4},
         ],
     },
     {
@@ -177,7 +198,9 @@ def test_sync_recipes_cria_ingredientes_pendentes_sem_mapeamento(app, mock_clien
         receita = MashRecipe.query.filter_by(origem_receita_id="bf-mock-001").first()
         ingredientes = RecipeIngredient.query.filter_by(recipe_id=receita.id).all()
 
-        assert len(ingredientes) == 3
+        # 5 = fermentavel + lupulo + levedura + adjunto + agua_agente
+        # (os 2 últimos entraram no mock com o item (c) — miscs[]).
+        assert len(ingredientes) == 5
         assert all(i.status_resolucao == "pendente_depara" for i in ingredientes)
         assert all(i.material_id is None for i in ingredientes)
 
@@ -430,3 +453,128 @@ def test_cadastrar_todos_pendentes_gera_sku_sem_colisao(app):
             Material.nome.in_(["Malte Pilsen Alemao", "Malte Pilsen Belga"])
         ).all())
         assert skus == ["MALTE-MALTEPILSE", "MALTE-MALTEPILSE-2"]
+
+
+# ── Item (c): adjuntos (miscs[]) + água (WaterProfile) ───────────────
+
+def test_sync_importa_adjunto_e_agua_agente_como_recipe_ingredient(app, mock_client):
+    from addons.addon_brewstation.features.feature_brew_father.services import sync_service
+
+    with app.app_context():
+        sync_service.sync_recipes()
+
+        adjunto = RecipeIngredient.query.filter_by(descricao_origem="Casca de Laranja").first()
+        assert adjunto is not None
+        assert adjunto.tipo_ingrediente == "adjunto"
+        assert adjunto.etapa == "fervura"
+
+        agente = RecipeIngredient.query.filter_by(descricao_origem="Gipsita (CaSO4)").first()
+        assert agente is not None
+        assert agente.tipo_ingrediente == "agua_agente"
+        assert agente.etapa == "mostura"
+
+
+def test_sync_importa_water_profiles_por_contexto(app, mock_client):
+    from addons.addon_brewstation.features.feature_brew_father.services import sync_service
+    from addons.addon_brewstation.features.feature_mash_control.model.water_profile import WaterProfile
+
+    with app.app_context():
+        sync_service.sync_recipes()
+
+        receita = MashRecipe.query.filter_by(origem_receita_id="bf-mock-001").first()
+        perfis = WaterProfile.query.filter_by(recipe_id=receita.id).order_by(WaterProfile.contexto).all()
+        assert [p.contexto for p in perfis] == ["source", "total"]
+
+        total = next(p for p in perfis if p.contexto == "total")
+        assert total.calcio == 80.0
+        assert total.sulfato == 120.0
+        assert total.ph == 5.4
+
+
+def test_water_profile_unique_por_recipe_e_contexto(app):
+    from sqlalchemy.exc import IntegrityError
+    from addons.addon_brewstation.features.feature_mash_control.model.water_profile import WaterProfile
+
+    with app.app_context():
+        receita = MashRecipe(name="Receita WP", versao=1, origem_receita="Manual")
+        db.session.add(receita)
+        db.session.commit()
+
+        db.session.add(WaterProfile(recipe_id=receita.id, contexto="mash", calcio=50.0))
+        db.session.commit()
+
+        db.session.add(WaterProfile(recipe_id=receita.id, contexto="mash", calcio=60.0))
+        import pytest as _pytest
+        with _pytest.raises(IntegrityError):
+            db.session.commit()
+
+
+def test_normalizar_miscs_mapeia_tipo_e_use_reais_da_api(app):
+    """Testa o parser real do client (não o mock) contra o formato bruto da API."""
+    from addons.addon_brewstation.features.feature_brew_father.services.brewfather_client import (
+        _normalizar_ingredientes,
+    )
+
+    recipe_raw = {
+        "miscs": [
+            {"name": "Gypsum", "type": "Water Agent", "use": "Mash", "amount": 5, "unit": "g", "time": None},
+            {"name": "Coentro", "type": "Spice", "use": "Boil", "amount": 15, "unit": "g", "time": 5},
+            {"name": "Irish Moss", "type": "Fining", "use": "Sparge", "amount": 2, "unit": "g", "time": None},
+            {"name": "Carvalho", "type": "Flavor", "use": "Secondary", "amount": 30, "unit": "g", "time": None},
+            {"name": "Prime", "type": "Other", "use": "Bottling", "amount": 100, "unit": "g", "time": None},
+        ],
+    }
+    resultado = _normalizar_ingredientes(recipe_raw)
+
+    por_nome = {r["name"]: r for r in resultado}
+    assert por_nome["Gypsum"]["tipo_ingrediente"] == "agua_agente"
+    assert por_nome["Gypsum"]["use"] == "mostura"
+    assert por_nome["Coentro"]["tipo_ingrediente"] == "adjunto"
+    assert por_nome["Coentro"]["use"] == "fervura"
+    # Sparge conta como mostura (decisão fechada).
+    assert por_nome["Irish Moss"]["use"] == "mostura"
+    # Secondary é fermentação.
+    assert por_nome["Carvalho"]["use"] == "fermentacao"
+    # Bottling NÃO é mapeado — cai como valor bruto (decisão fechada).
+    assert por_nome["Prime"]["use"] == "Bottling"
+
+
+def test_normalizar_water_aceita_formato_aninhado_e_plano(app):
+    from addons.addon_brewstation.features.feature_brew_father.services.brewfather_client import (
+        _normalizar_water_profiles,
+    )
+
+    # Formato aninhado por contexto
+    aninhado = {"water": {
+        "source": {"calcium": 12, "ph": 7.2},
+        "mash": {"calcium": 80, "sulfate": 100},
+        "target": {},  # vazio - ignorado
+    }}
+    perfis = _normalizar_water_profiles(aninhado)
+    contextos = sorted(p["contexto"] for p in perfis)
+    assert contextos == ["mash", "source"]
+
+    # Formato plano - vira contexto "total"
+    plano = {"water": {"calcium": 50, "chloride": 40, "ph": 5.6}}
+    perfis_plano = _normalizar_water_profiles(plano)
+    assert len(perfis_plano) == 1
+    assert perfis_plano[0]["contexto"] == "total"
+    assert perfis_plano[0]["calcio"] == 50.0
+    assert perfis_plano[0]["cloreto"] == 40.0
+
+
+def test_autocreate_gera_sku_com_prefixo_de_adjunto_e_agua(app, mock_client):
+    from addons.addon_brewstation.features.feature_brew_father.services import sync_service, ingredient_autocreate_service
+
+    with app.app_context():
+        sync_service.sync_recipes()
+        resultado = ingredient_autocreate_service.cadastrar_todos_pendentes("BrewFather")
+        assert resultado["erros"] == []
+
+        adjunto = Material.query.filter_by(nome="Casca de Laranja").first()
+        assert adjunto is not None
+        assert adjunto.sku.startswith("ADJUNTO-")
+
+        agente = Material.query.filter_by(nome="Gipsita (CaSO4)").first()
+        assert agente is not None
+        assert agente.sku.startswith("AGUA-")

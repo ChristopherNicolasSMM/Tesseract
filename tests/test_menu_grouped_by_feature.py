@@ -50,13 +50,13 @@ def test_grupo_banco_de_levedura_tem_9_transacoes(app):
         assert count == 9
 
 
-def test_grupo_controle_de_mostura_tem_17_transacoes(app):
+def test_grupo_controle_de_mostura_tem_18_transacoes(app):
     with app.app_context():
         folder = Transaction.query.filter_by(code="TX_GROUP_MASH_CONTROL").first()
         assert folder is not None
         count = Transaction.query.filter_by(parent_id=folder.id).count()
-        # 15 anteriores + MashStep + FermentationStep (esta rodada)
-        assert count == 17
+        # 15 anteriores + MashStep + FermentationStep + WaterProfile (item c)
+        assert count == 18
 
 
 def test_grupo_dispositivos_iot_tem_4_transacoes(app):

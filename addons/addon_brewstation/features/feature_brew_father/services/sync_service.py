@@ -15,12 +15,20 @@ from addons.addon_brewstation.features.feature_brew_father.services import brewf
 from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
 from addons.addon_brewstation.features.feature_mash_control.model.mash_step import MashStep
 from addons.addon_brewstation.features.feature_mash_control.model.fermentation_step import FermentationStep
+from addons.addon_brewstation.features.feature_mash_control.model.water_profile import WaterProfile
 from addons.addon_brewstation.features.feature_mash_control.services import ingredient_resolution_service
 
+# Item (c) do BACKLOG.md (decisão fechada): sparge conta como mostura;
+# primary/secondary (valores reais de miscs[].use) são fermentação;
+# bottling NÃO é mapeado de propósito — ausente daqui, cai no fallback
+# (valor bruto da API) em vez de forçado numa etapa que não é.
 _USE_PARA_ETAPA = {
     "mash": "mostura",
+    "sparge": "mostura",
     "boil": "fervura",
     "fermentation": "fermentacao",
+    "primary": "fermentacao",
+    "secondary": "fermentacao",
     "dry hop": "fermentacao",
     "whirlpool": "fervura",
     "flameout": "fervura",
@@ -133,6 +141,23 @@ def _importar_receita(receita_externa: dict) -> MashRecipe:
             temperatura=step_data.get("temperatura"),
             tempo_dias=step_data.get("tempo_dias"),
             ordem=step_data.get("ordem", 0),
+        ))
+
+    # Perfis de água (item (c) do BACKLOG.md) — direto, sem de-para
+    # (de-para só existe pra ingrediente, que referencia Material).
+    # unique(recipe_id, contexto) garantido pelo schema; o client já
+    # deduplica por contexto na normalização.
+    for perfil in receita_externa.get("water_profiles", []):
+        db.session.add(WaterProfile(
+            recipe_id=receita.id,
+            contexto=perfil["contexto"],
+            calcio=perfil.get("calcio"),
+            magnesio=perfil.get("magnesio"),
+            sodio=perfil.get("sodio"),
+            cloreto=perfil.get("cloreto"),
+            sulfato=perfil.get("sulfato"),
+            bicarbonato=perfil.get("bicarbonato"),
+            ph=perfil.get("ph"),
         ))
 
     db.session.commit()

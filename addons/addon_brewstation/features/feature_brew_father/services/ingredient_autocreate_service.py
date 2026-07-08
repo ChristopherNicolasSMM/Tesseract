@@ -59,6 +59,8 @@ _TIPO_PARA_SKU_PREFIXO = {
     "fermentavel": "MALTE",
     "lupulo": "LUPULO",
     "levedura": "LEVEDURA",
+    "adjunto": "ADJUNTO",
+    "agua_agente": "AGUA",
 }
 _SKU_PREFIXO_FALLBACK = "INSUMO"
 
@@ -156,6 +158,8 @@ _TIPO_PARA_CATEGORIA = {
     "fermentavel": "materia_prima",
     "lupulo": "materia_prima",
     "levedura": "materia_prima",
+    "adjunto": "materia_prima",
+    "agua_agente": "materia_prima",
 }
 
 

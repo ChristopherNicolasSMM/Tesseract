@@ -122,7 +122,106 @@ def _normalizar_ingredientes(recipe_raw: dict) -> list[dict]:
             "atenuacao": levedura.get("attenuation"),
         })
 
+    # miscs[] — adjuntos e agentes de água (item (c) do BACKLOG.md).
+    # type real da API: Water Agent, Fining, Spice, Herb, Flavor, Other.
+    # use real da API: Mash, Sparge, Boil, Flameout, Primary, Secondary,
+    # Bottling — mapeado pra etapa via _MISC_USE_PARA_ETAPA (decisão
+    # fechada: sparge conta como mostura; bottling fica sem mapear e
+    # cai como valor bruto, preservado pra granularidade futura).
+    for misc in recipe_raw.get("miscs", []) or []:
+        tipo_bf = (misc.get("type") or "").strip().lower()
+        tipo_ingrediente = "agua_agente" if tipo_bf == "water agent" else "adjunto"
+        uso_bf = (misc.get("use") or "").strip().lower()
+        etapa = _MISC_USE_PARA_ETAPA.get(uso_bf, misc.get("use"))
+        ingredientes.append({
+            "tipo_ingrediente": tipo_ingrediente,
+            "name": misc.get("name", ""),
+            "amount": misc.get("amount", 0),
+            "unit": misc.get("unit", "g"),
+            "time": misc.get("time"),
+            "use": etapa,
+            "uso_detalhado": misc.get("use"),
+            "cor_ebc": None,
+            "rendimento": None,
+            "alpha_acidos": None,
+            "atenuacao": None,
+        })
+
     return ingredientes
+
+
+# miscs[].use (BrewFather) -> RecipeIngredient.etapa. Decisões fechadas
+# (BACKLOG.md, item (c)): sparge conta como mostura (mesmo estágio de
+# lauter); primary/secondary são fermentação; bottling NÃO é mapeado —
+# ausente deste dict, cai no fallback (valor bruto da API), preservado
+# pra granularidade futura em vez de forçado numa etapa que não é.
+_MISC_USE_PARA_ETAPA = {
+    "mash": "mostura",
+    "sparge": "mostura",
+    "boil": "fervura",
+    "flameout": "fervura",
+    "primary": "fermentacao",
+    "secondary": "fermentacao",
+}
+
+
+# Campos de íon do objeto water da API (nomes confirmados contra a
+# documentação real) -> colunas de WaterProfile.
+_WATER_ION_MAP = {
+    "calcium": "calcio",
+    "magnesium": "magnesio",
+    "sodium": "sodio",
+    "chloride": "cloreto",
+    "sulfate": "sulfato",
+    "bicarbonate": "bicarbonato",
+}
+
+# Contextos aceitos (mesma lista de model/water_profile.py — cópia
+# consciente: este client não importa model de outra Feature).
+_WATER_CONTEXTOS = ("source", "target", "mash", "sparge", "total")
+
+
+def _normalizar_water_profiles(recipe_raw: dict) -> list[dict]:
+    """
+    Objeto water da receita — a estrutura de aninhamento exata não foi
+    confirmada byte a byte contra resposta real da API (registrado no
+    BACKLOG.md, item (c)), então este parser é defensivo: aceita tanto
+    water aninhado por contexto ({"water": {"mash": {...}, "total":
+    {...}}}) quanto um objeto plano ({"water": {"calcium": ...}}),
+    tratado como contexto "total". Contexto sem nenhum íon/ph presente
+    é ignorado (não grava registro vazio).
+    """
+    water = recipe_raw.get("water") or {}
+    if not isinstance(water, dict):
+        return []
+
+    perfis: list[dict] = []
+
+    def _extrair(contexto: str, dados: dict) -> None:
+        if not isinstance(dados, dict):
+            return
+        perfil = {"contexto": contexto}
+        tem_valor = False
+        for campo_api, coluna in _WATER_ION_MAP.items():
+            valor = dados.get(campo_api)
+            perfil[coluna] = float(valor) if valor is not None else None
+            if valor is not None:
+                tem_valor = True
+        ph = dados.get("ph")
+        perfil["ph"] = float(ph) if ph is not None else None
+        if ph is not None:
+            tem_valor = True
+        if tem_valor:
+            perfis.append(perfil)
+
+    algum_contexto_aninhado = any(k in water for k in _WATER_CONTEXTOS)
+    if algum_contexto_aninhado:
+        for contexto in _WATER_CONTEXTOS:
+            _extrair(contexto, water.get(contexto) or {})
+    else:
+        _extrair("total", water)
+
+    return perfis
 
 
 def _normalizar_mash_steps(recipe_raw: dict) -> list[dict]:
@@ -200,5 +299,6 @@ def get_recipes(limit: int = _DEFAULT_LIMIT) -> list[dict]:
             "ingredients": _normalizar_ingredientes(r_full),
             "mash_steps": _normalizar_mash_steps(r_full),
             "fermentation_steps": _normalizar_fermentation_steps(r_full),
+            "water_profiles": _normalizar_water_profiles(r_full),
         })
     return result
