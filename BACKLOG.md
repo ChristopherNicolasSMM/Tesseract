@@ -1539,3 +1539,52 @@ regras (Fase 7b) só com Validação implementada; Designer visual (Fase
 7c) e OData Screen Generator (Fase 8) não iniciados.
 
 Sem mudança de código — só documentação.
+
+## Bugs de OData (Fase 8) + Skill 06 adenda (Playground v2): DOCUMENTADO (pendente implementação)
+
+Uso real de duas ferramentas de admin (Conexões OData e API/SQL
+Playground) revelou 2 bugs concretos e 1 gap de capacidade, todos
+diagnosticados no código real antes de decidir a correção — nenhum
+código escrito ainda, fica para depois do addon em andamento.
+
+**Bugs de OData (`core/odata/connection_manager.py`,
+`controller/core/admin_odata.py`)** — sem mudança de convenção, não
+precisa de skill própria, só registro aqui:
+- [ ] **Descoberta de `$metadata`** (`_discover_and_fetch_metadata`,
+      linhas 68-84): quando `base_url` cadastrada já é a própria URL
+      de `$metadata` (em vez da raiz do serviço), o código concatena
+      sufixos em cima dela (`.../$metadata/$metadata.json`) e sempre
+      dá 404. Correção: tentar `base_url` crua primeiro
+      (`accept="auto"`, já suportado por `_parse_response`) antes da
+      cadeia de candidatos derivados.
+- [ ] **Browse usando `EntityType.Name` em vez de `EntitySet.Name`**
+      (`admin_odata.py` linha 158 + `_parse_xml`/`_normalize_json`):
+      para servidores OData EDMX reais, a URL de coleção é o nome do
+      `EntitySet` (plural, ex. `Products`), não o `EntityType` (ex.
+      `Product`) — hoje só o segundo é lido. Correção: ler
+      `EntityContainer/EntitySet` (XML e EDMX-JSON) e usar
+      `EntitySet.Name` como identificador de rota.
+- [ ] **Nova coluna `entity_route_overrides`** (JSON, nullable) em
+      `tesseract_odata_connection` — para o formato customizado
+      "S2MOdataPy" (sem `EntityContainer`, sem como derivar o nome
+      real da rota do metadata sozinho): `query()` tenta o nome
+      declarado, se 404 tenta uma pluralização heurística simples
+      (`y→ies`, `s/x/z/ch/sh→+es`, senão `+s`) e persiste o que
+      funcionou; tela "Ver entidades" ganha campo editável por
+      entidade para corrigir manualmente se a heurística errar —
+      decisão tomada em conversa (2026-07-08), evita depender só de
+      adivinhação.
+
+**Skill 06 adenda — Playground v2** (texto já escrito em
+`docs/skills/06-model-builder-e-playground.md`, seção 8): Auth
+dedicada (`bearer`/`basic`/`api_key`), Query Params estruturados
+(`params_json` — resolve a causa raiz de um 404 que parecia falha de
+autenticação, ver skill 06 §8.0), cookie jar por usuário
+(`tesseract_playground_cookie_jar`) e pastas em árvore N-níveis
+(`tesseract_playground_folder`) com arquivar separado de apagar. Duas
+tabelas novas + colunas novas em `tesseract_playground_request` —
+schema completo na skill 06, nenhuma permissão RBAC nova (reaproveita
+`playground_requests.execute`).
+
+Nenhuma migration gerada, nenhum arquivo `.py` tocado — fica para
+quando esta frente for retomada, depois do addon atual.

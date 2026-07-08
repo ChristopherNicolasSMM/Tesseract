@@ -14,6 +14,17 @@
 > **Patch C** (API/SQL Playground + ponte com o Model Builder) estão
 > todos implementados e testados (39 testes entre os três patches).
 >
+> **Adenda registrada em 2026-07-08 (Playground v2), status
+> [DECIDIDO] — implementação pendente (Patch D, ainda não
+> autorizado).** Uso real do Playground para consumir APIs externas
+> (não só a própria API do Tesseract) expôs que o schema do Patch C
+> era insuficiente: sem Query Params estruturados, uma URL
+> montada à mão errava encoding e a API externa respondia 404 —
+> sintoma que parecia "falha de autenticação" mas não era. Isso, mais
+> pedidos novos de uso real (Auth dedicada, histórico organizável),
+> vira a seção 8 desta skill. Ver `BACKLOG.md` para o registro da
+> decisão.
+>
 > Como toda skill formalizada, tem o mesmo peso normativo das skills
 > 00–04: qualquer implementação que divergir do que está aqui precisa
 > ajustar este documento antes (regra de ouro, skill 00).
@@ -99,19 +110,49 @@ FK interna Core→Core (`model_definition_id` → `tesseract_model_definition.id
 | `is_listview_column` / `is_form_field` | Boolean | Alimentam `@listview`/`@form` |
 | `order_index` | Integer | Ordem de exibição |
 
-### 2.3 `tesseract_playground_request`
+### 2.3 `tesseract_playground_request` [REVISADO — Playground v2, seção 8]
 
 | Coluna | Tipo | Observação |
 |---|---|---|
 | `id` | Integer, PK | |
 | `name` | String | |
 | `http_method` | String | |
-| `url` | String | |
-| `headers_json` / `body_json` | JSON | |
+| `url` | String | **Passa a guardar só a URL base, sem query string** — a query final é montada a partir de `params_json` na hora de executar (seção 8) |
+| `headers_json` / `body_json` | JSON | `headers_json` continua existindo como complemento livre — deixa de ser o único jeito de autenticar (ver `auth_type`/`auth_config` abaixo) |
+| `params_json` | JSON, nullable | **Novo.** Lista `[{"key": "...", "value": "...", "enabled": true}, ...]` — só relevante para `kind=http` |
+| `auth_type` | String(20), nullable, default `"none"` | **Novo.** `none` / `bearer` / `basic` / `api_key` — só relevante para `kind=http` |
+| `auth_config` | JSON, nullable | **Novo.** Formato por tipo: `{"token": "..."}` (bearer) / `{"username": "...", "password": "..."}` (basic) / `{"header_name": "...", "value": "..."}` (api_key) |
+| `folder_id` | Integer, FK → `tesseract_playground_folder.id`, nullable | **Novo.** `NULL` = fica na raiz, fora de qualquer pasta |
+| `is_archived` | Boolean, default `false` | **Novo.** Oculta da lista principal, recuperável — ação **separada** de apagar (que continua sendo DELETE físico da linha, sem `is_deleted`/`deleted_at` — este model não segue soft-delete porque não é entidade CrudGen, mesma categoria de `CodeSnapshot`, skill 00 Adendo Fase 7a) |
 | `last_response_json` | JSON, nullable | Base para o bridge da seção 5 |
 | `last_status_code` | Integer, nullable | |
 | `created_by_user_id` | Integer, FK → `tesseract_user.id` | |
 | `created_at` / `updated_at` | DateTime | |
+
+### 2.4 `tesseract_playground_folder` [NOVO — Playground v2, seção 8]
+
+Core, FK auto-referenciada — permitida sem restrição pela skill 02 (FK interna à mesma tabela/módulo Core).
+
+| Coluna | Tipo | Observação |
+|---|---|---|
+| `id` | Integer, PK | |
+| `name` | String | Nome da pasta |
+| `parent_id` | Integer, FK → `tesseract_playground_folder.id`, nullable | Auto-referência — N níveis (estilo Collections/Folders do Postman) |
+| `created_by_user_id` | Integer, FK → `tesseract_user.id`, nullable | |
+| `created_at` / `updated_at` | DateTime | |
+
+Regra de exclusão: apagar uma pasta com filhos (sub-pastas ou requisições dentro) é **bloqueado** até que os filhos sejam movidos ou apagados primeiro — sem cascade automático.
+
+### 2.5 `tesseract_playground_cookie_jar` [NOVO — Playground v2, seção 8]
+
+Um jar por usuário, escopo global (não por pasta/coleção).
+
+| Coluna | Tipo | Observação |
+|---|---|---|
+| `id` | Integer, PK | |
+| `user_id` | Integer, FK → `tesseract_user.id`, unique | |
+| `cookies_json` | JSON | Snapshot de `requests.Session().cookies`, serializado |
+| `updated_at` | DateTime | Atualizado a cada execução HTTP que retornar `Set-Cookie` |
 
 ---
 
@@ -212,3 +253,92 @@ usuário tenha a permissão `playground_requests.execute`.
 - [ABERTO] Nome de exibição definitivo do grupo de menu no `menu_config.json`
   do Core para estas duas Transações (não bloqueia o schema, só a
   label visível).
+
+---
+
+## 8. Playground v2 — Auth, Params, Pastas e Cookie Jar [DECIDIDO — adenda 2026-07-08]
+
+### 8.0 Motivação (achado real, não hipotético)
+
+O Playground do Patch C nasceu pensado para exercitar a própria API do
+Tesseract. Em uso real para consumir **APIs externas de terceiros**,
+apareceu um caso onde uma chamada autenticada retornava **404** no
+Playground enquanto o mesmo teste, com as mesmas credenciais, funcionava
+no Postman. Causa raiz: `tesseract_playground_request` só tinha `url`
+(string única) — todo parâmetro de query (incluindo, em várias APIs,
+o próprio token/key de autenticação) precisava ser colado à mão dentro
+da URL, sem encoding automático. Um erro de `&`/espaço/encoding vira
+URL malformada, e várias APIs externas respondem 404 genérico em vez
+de 400/401 para isso — sintoma que parecia "autenticação rejeitada"
+mas era, na real, "requisição montada errada antes de sair". A adenda
+abaixo resolve isso estruturalmente (Query Params dedicados) e cobre,
+junto, os demais pedidos de uso real (Auth dedicada, cookie/sessão
+persistente, histórico organizável).
+
+### 8.1 Fluxo de execução HTTP [DECIDIDO — substitui o fluxo simples do Patch C]
+
+Textual (sem código nesta fase):
+
+1. Monta a URL final concatenando a `url` base salva com os pares de
+   `params_json` que estiverem `enabled=true`, com encoding correto
+   (isso sozinho já elimina a causa raiz da seção 8.0).
+2. Monta os headers finais combinando `headers_json` (livre, como já
+   era) com o header derivado de `auth_type`/`auth_config`:
+   - `bearer` → `Authorization: Bearer {token}`
+   - `basic` → `Authorization: Basic {base64(username:password)}`
+   - `api_key` → header cujo nome é `auth_config.header_name`, valor
+     `auth_config.value`
+   - `none` → nada é adicionado
+3. Abre um `requests.Session()` (em vez de `requests.request()` avulso,
+   como era no Patch C) e pré-carrega os cookies do
+   `tesseract_playground_cookie_jar` do usuário logado, se existir.
+4. Executa a requisição na sessão.
+5. Persiste de volta o estado de cookies da sessão no jar do usuário
+   (`cookies_json`, `updated_at`) — toda execução seguinte do mesmo
+   usuário já parte com a sessão anterior, resolvendo o caso de "login
+   funciona isolado, mas a próxima chamada perde a sessão".
+
+### 8.2 Pastas (árvore) [DECIDIDO]
+
+`tesseract_playground_folder` — árvore de N níveis (seção 2.4). A tela
+de histórico do Playground passa a agrupar `tesseract_playground_request`
+por `folder_id`, com requisições sem pasta (`folder_id IS NULL`)
+listadas à parte, na raiz. Mover uma requisição de pasta é só um
+UPDATE de `folder_id` — sem regra especial.
+
+### 8.3 Apagar vs. Arquivar [DECIDIDO]
+
+Duas ações independentes, nunca a mesma:
+- **Arquivar** → `is_archived = true`. Some da lista principal, mas
+  continua no banco, recuperável (desarquivar = `is_archived = false`).
+- **Apagar** → DELETE físico da linha. Sem confirmação em duas etapas
+  além do modal de confirmação padrão já usado nas demais telas do
+  Core — não é entidade CrudGen, não segue soft-delete (skill 00,
+  Adendo Fase 7a, mesma categoria de `CodeSnapshot`).
+
+### 8.4 RBAC [DECIDIDO]
+
+Nenhuma permissão nova. Reaproveita `playground_requests.execute` (já
+existente, seção 4) para todas as ações novas (criar/mover pasta,
+arquivar, apagar) — mesmo padrão já adotado na skill 08 para as telas
+de admin do Core (permissão flat `admin`, sem fatiar por ação).
+
+### 8.5 Segurança de `auth_config` [DECIDIDO — aceito como está, revisitar se necessário]
+
+Token/senha em `auth_config` fica gravado em texto puro no histórico,
+igual ao tratamento que `env_keys` de manifesto já recebe hoje (skill
+03). Ferramenta de uso interno/admin, não exposta a usuário final —
+suficiente para esta fase; só revisitar se virar exigência de
+segurança mais adiante (ex.: mascarar no `to_dict()`/tela).
+
+---
+
+## 9. Pendências desta adenda (Playground v2)
+
+- [ABERTO] Ordenação de requisições/sub-pastas dentro de uma pasta —
+  por ora, ordena por `created_at`/nome; só adicionar `order_index` se
+  o uso real pedir (mesmo princípio da skill 05 §2.2: "cresce só
+  quando um caso real exigir").
+- [ABERTO] Nome de exibição definitivo das novas ações na tela
+  (rótulos de botão "Arquivar"/"Mover para pasta") — não bloqueia o
+  schema, só a label visível (i18n, skill 00).
