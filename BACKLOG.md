@@ -1438,3 +1438,45 @@ importado do BrewFather" (mesmo caminho que o item (c) — adjuntos/água
 diziam "`sync_service.py`/`BrewFatherSync` ainda não implementado",
 quando já estavam implementados há sessões. Corrigido nesta rodada
 (pequeno, cirúrgico — não reescrita completa).
+
+## Fechamento do CrudGen (skill 12) — EXECUTADO
+
+Retomada da conversa sobre anotações/referência fraca/combobox — 3
+decisões fechadas e implementadas na mesma sessão. Detalhe completo em
+`docs/skills/12-crudgen-referencia-completa.md`.
+
+- [x] `@required`/`@max_length`/`@min_length`/`@min_value` ligadas a
+      algo real: HTML5 nativo (`required`/`maxlength`/`minlength`/
+      `min` + badge `*` no label) em `manage.html.j2`/`detail.html.j2`,
+      e seed de `FieldRule` (create-only, nunca sobrescreve depois —
+      mesmo espírito de hook) usando o `rule_id` que já existia em
+      `core/rules_catalog.py` (nenhum `rule_id` novo inventado).
+- [x] `--only templates` implementado (`core/crudgen/generator.py` +
+      `core/cli.py`) — regenera só `manage.html`/`detail.html`, exige
+      `--overwrite` junto (erro claro se faltar).
+- [x] Migração pro caminho de auto-descoberta (skill 09):
+      `register_models()`/`register_routes()` de `feature_yeast_bank`,
+      `feature_mash_control`, `addon_device_manager` migrados.
+      `get_transactions()` mantido manual em todo módulo (decisão
+      confirmada — automático perderia hierarquia/descrição/ícone
+      curados e mudaria códigos `TX_` referenciados por 3 arquivos de
+      teste). Achado real: 2 dos 3 módulos tinham efeito colateral em
+      `register_routes()` além de registrar Blueprint (EventBus,
+      TASK_REGISTRY) — preservados explicitamente, só o loop mecânico
+      de registro de Blueprint foi trocado por `discover_blueprints()`.
+- [x] `docs/skills/12-crudgen-referencia-completa.md`: catálogo de
+      anotações atualizado (validações deixaram de ser vestigiais),
+      guia de uso detalhado de cada anotação com exemplo, argumentos
+      de geração completos (`--only` incluso).
+
+**Não resolvido, fora do escopo desta rodada**: `@listview`/`@form`/
+`Column`/`Filter`/`Group` continuam sem consumidor — não fizeram
+parte do pedido. `@max_value` não existe (só `min_value`) — catálogo
+de regras já tem `max_valor` pronto, falta só a anotação.
+
+Testes novos: 6 em `tests/test_phase4_crudgen.py` (FieldRule semeada
+com os valores certos, create-only não duplica nem sobrescreve
+customização, HTML5+badge no HTML gerado, `--only templates` escreve
+só 2 arquivos, erro claro sem `--overwrite`, erro claro com valor
+inválido) + 2 em `tests/test_crudgen_cli_generate_relationship_bug.py`
+(mesmo via CLI real). Suíte completa: 38 arquivos, todos passando.

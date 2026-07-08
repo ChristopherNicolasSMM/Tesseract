@@ -17,9 +17,14 @@
       <div class="collapse" id="novoRegistroForm">
         <form method="post" action="{{ url_for('item_envases.create') }}" class="row g-3" id="createForm">
           {% for field in fields %}
+          {% set fv = field_html_validations.get(field, {}) %}
           <div class="col-md-4">
-            <label class="form-label">{{ field.replace('_', ' ').title() }}</label>
-            <input type="text" name="{{ field }}" class="form-control"
+            <label class="form-label">{{ field.replace('_', ' ').title() }}{% if fv.get('required') %} <span class="text-danger">*</span>{% endif %}</label>
+            <input type="{{ 'number' if fv.get('min_value') is not none else 'text' }}" name="{{ field }}" class="form-control"
+                   {% if fv.get('required') %}required{% endif %}
+                   {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
+                   {% if fv.get('minlength') %}minlength="{{ fv['minlength'] }}"{% endif %}
+                   {% if fv.get('min_value') is not none %}min="{{ fv['min_value'] }}"{% endif %}
                    {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
           </div>
           {% endfor %}

@@ -44,6 +44,13 @@ Ordem de leitura recomendada:
     referência fraca (skill 02) em nome legível na tela gerada e em
     combo de busca, via `@display_field`/`@weak_ref` + geração
     automática pelo CrudGen + `/api/options/<table>`.
+13. **12-crudgen-referencia-completa.md** — referência completa do
+    CrudGen: pipeline model→CLI→arquivos, guia de uso de cada
+    anotação (`@label`/`@plural`/`@choices`/`@required`/`@max_length`/
+    `@min_length`/`@min_value`/`@display_field`/`@weak_ref`/
+    `@menu_icon`/`@permission`), semântica de hooks/`--overwrite`/
+    `--only templates`, e a migração de 3 módulos reais pro caminho
+    de auto-descoberta (skill 09).
 
 ## Status
 

@@ -7,51 +7,23 @@ from core.feature_base import FeatureBase
 
 
 class FeatureMashControl(FeatureBase):
-    def register_models(self) -> list:
-        from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
-        from addons.addon_brewstation.features.feature_mash_control.model.brew_plant import BrewPlant
-        from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_vessel import BrewPlantVessel
-        from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_mapping import BrewPlantMapping
-        from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
-        from addons.addon_brewstation.features.feature_mash_control.model.brew_session_step import BrewSessionStep
-        from addons.addon_brewstation.features.feature_mash_control.model.brew_session_log import BrewSessionLog
-        from addons.addon_brewstation.features.feature_mash_control.model.brew_session_alarm import BrewSessionAlarm
-        from addons.addon_brewstation.features.feature_mash_control.model.dashboard_layout import DashboardLayout
-        from addons.addon_brewstation.features.feature_mash_control.model.dashboard_widget import DashboardWidget
-        from addons.addon_brewstation.features.feature_mash_control.model.automation_rule import AutomationRule
-        from addons.addon_brewstation.features.feature_mash_control.model.automation_rule_log import AutomationRuleLog
-        from addons.addon_brewstation.features.feature_mash_control.model.recipe_ingredient import RecipeIngredient
-        from addons.addon_brewstation.features.feature_mash_control.model.ingredient_mapping import IngredientMapping
-        from addons.addon_brewstation.features.feature_mash_control.model.recipe_history import RecipeHistory
-        from addons.addon_brewstation.features.feature_mash_control.model.mash_step import MashStep
-        from addons.addon_brewstation.features.feature_mash_control.model.fermentation_step import FermentationStep
-        from addons.addon_brewstation.features.feature_mash_control.model.water_profile import WaterProfile
-
-        return [
-            MashRecipe, BrewPlant, BrewPlantVessel, BrewPlantMapping,
-            BrewSession, BrewSessionStep, BrewSessionLog, BrewSessionAlarm,
-            DashboardLayout, DashboardWidget, AutomationRule, AutomationRuleLog,
-            RecipeIngredient, IngredientMapping, RecipeHistory,
-            MashStep, FermentationStep, WaterProfile,
-        ]
+    # register_models() migrado pro caminho de auto-descoberta (skill
+    # 09) nesta sessão — o default de FeatureBase cobre os 18 models
+    # de model/ (conferido 1:1 antes da migração).
 
     def register_routes(self, app) -> None:
-        names = [
-            "mash_recipes", "brew_plants", "brew_plant_vessels", "brew_plant_mappings",
-            "brew_sessions", "brew_session_steps", "brew_session_logs", "brew_session_alarms",
-            "dashboard_layouts", "dashboard_widgets", "automation_rules", "automation_rule_logs",
-            "recipe_ingredients", "ingredient_mappings", "recipe_historys",
-            "mash_steps", "fermentation_steps", "water_profiles",
-        ]
-        base_controller = "addons.addon_brewstation.features.feature_mash_control.controller"
-        base_routes = "addons.addon_brewstation.features.feature_mash_control.api.routes"
+        # Blueprints via auto-descoberta (skill 09) — cobre os 18
+        # pares controller/api.routes já mecânicos que estavam
+        # listados à mão aqui. O que NÃO é mecânico (inscrição no
+        # EventBus do motor de automação) continua explícito abaixo,
+        # não faz parte do default de nenhuma auto-descoberta.
+        from core.module_discovery import own_base_package, discover_blueprints
 
-        import importlib
-        for name in names:
-            controller_mod = importlib.import_module(f"{base_controller}.{name}")
-            routes_mod = importlib.import_module(f"{base_routes}.{name}_routes")
-            app.register_blueprint(getattr(controller_mod, f"{name}_bp"))
-            app.register_blueprint(getattr(routes_mod, f"{name}_api_bp"))
+        info = own_base_package(self)
+        if info:
+            base_package, _ = info
+            for blueprint in discover_blueprints(base_package):
+                app.register_blueprint(blueprint)
 
         # Motor de automação reativo (Fase E, Opção 1) — inscreve-se
         # uma única vez no EventBus do Core (core/event_bus.py,

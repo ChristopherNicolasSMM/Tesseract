@@ -15,21 +15,30 @@
       <form method="post" action="{{ url_for('@@plural@@.update', id=item.id) }}" class="row g-3" id="editForm">
         {% set data = item.to_dict() %}
         {% for field in fields %}
+        {% set fv = field_html_validations.get(field, {}) %}
         <div class="col-md-4">
-          <label class="form-label">{{ field.replace('_', ' ').title() }}</label>
+          <label class="form-label">{{ field.replace('_', ' ').title() }}{% if fv.get('required') %} <span class="text-danger">*</span>{% endif %}</label>
           {% if field in weak_ref_fields and weak_ref_options.get(field) %}
           <div class="weakref-combo" data-weakref-source="{{ weak_ref_options[field] }}">
             <input type="hidden" name="{{ field }}" class="weakref-combo-value" value="{{ data.get(field) if data.get(field) is not none else '' }}">
             <input type="text" class="form-control weakref-combo-search" autocomplete="off"
+                   {% if fv.get('required') %}required{% endif %}
                    value="{{ weak_ref_display.get(field, data.get(field) or '') }}" placeholder="Buscar...">
             <ul class="list-group weakref-combo-results"></ul>
           </div>
           {% elif field in weak_ref_fields %}
           <input type="text" name="{{ field }}" class="form-control" value="{{ data.get(field) if data.get(field) is not none else '' }}"
+                 {% if fv.get('required') %}required{% endif %}
+                 {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
+                 {% if fv.get('minlength') %}minlength="{{ fv['minlength'] }}"{% endif %}
                  {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
           {% if weak_ref_display.get(field) %}<small class="text-muted">{{ weak_ref_display[field] }}</small>{% endif %}
           {% else %}
-          <input type="text" name="{{ field }}" class="form-control" value="{{ data.get(field) if data.get(field) is not none else '' }}"
+          <input type="{{ 'number' if fv.get('min_value') is not none else 'text' }}" name="{{ field }}" class="form-control" value="{{ data.get(field) if data.get(field) is not none else '' }}"
+                 {% if fv.get('required') %}required{% endif %}
+                 {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
+                 {% if fv.get('minlength') %}minlength="{{ fv['minlength'] }}"{% endif %}
+                 {% if fv.get('min_value') is not none %}min="{{ fv['min_value'] }}"{% endif %}
                  {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
           {% endif %}
         </div>

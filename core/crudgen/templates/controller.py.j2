@@ -13,7 +13,7 @@ from flask_login import login_required, current_user
 
 from core.db import db
 from core.permissions import permission_required
-from annotations import get_choices_fields, get_weak_refs
+from annotations import get_choices_fields, get_weak_refs, get_model_metadata
 from {{ service_import_path }} import {{ class_name }}Service
 from {{ model_import_path }} import {{ class_name }}
 
@@ -54,6 +54,28 @@ _CHOICES_FIELDS = [f["field"] for f in get_choices_fields({{ class_name }}) if f
 # pra decidir se substitui a célula pelo valor resolvido.
 _WEAK_REFS = [wr for wr in get_weak_refs({{ class_name }}) if wr["field"] in _EDITABLE_FIELDS]
 _WEAK_REF_FIELDS = [wr["field"] for wr in _WEAK_REFS]
+
+# Tradução de @required/@max_length/@min_length/@min_value em
+# atributos HTML5 nativos + badge visual (skill 12 — decisão desta
+# sessão de ligar essas anotações a algo real; eram só decorativas
+# antes). Camada complementar ao rule_engine.js (skill 07b) — validação
+# nativa do browser, roda antes de qualquer JS, sem servidor envolvido.
+_FIELD_HTML_VALIDATIONS: dict = {}
+for _field, _rules in get_model_metadata({{ class_name }}).get("validations", {}).items():
+    if _field not in _EDITABLE_FIELDS:
+        continue
+    _attrs: dict = {}
+    for _rule in _rules:
+        if _rule["type"] == "required":
+            _attrs["required"] = True
+        elif _rule["type"] == "max_length":
+            _attrs["maxlength"] = _rule.get("max")
+        elif _rule["type"] == "min_length":
+            _attrs["minlength"] = _rule.get("min")
+        elif _rule["type"] == "min_value":
+            _attrs["min_value"] = _rule.get("min")
+    if _attrs:
+        _FIELD_HTML_VALIDATIONS[_field] = _attrs
 
 _LIST_KEY = "{{ plural }}"
 
@@ -182,6 +204,7 @@ def manage():
         field_rules=_get_field_rules(),
         weak_ref_fields=_WEAK_REF_FIELDS,
         weak_ref_display={item.id: _resolve_weak_ref_display(item) for item in items},
+        field_html_validations=_FIELD_HTML_VALIDATIONS,
     )
 
 
@@ -270,6 +293,7 @@ def detail(id: int):
         weak_ref_fields=_WEAK_REF_FIELDS,
         weak_ref_display=_resolve_weak_ref_display(item),
         weak_ref_options={wr["field"]: wr["options"] for wr in _WEAK_REFS if wr["options"]},
+        field_html_validations=_FIELD_HTML_VALIDATIONS,
     )
 
 

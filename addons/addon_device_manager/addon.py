@@ -11,31 +11,21 @@ from core.addon_base import AddonBase
 
 
 class AddonDeviceManager(AddonBase):
-    def register_models(self) -> list:
-        from addons.addon_device_manager.root.model.device_function import DeviceFunction
-        from addons.addon_device_manager.root.model.device_metadata import DeviceMetadata
-        from addons.addon_device_manager.root.model.device_actor import DeviceActor
-        from addons.addon_device_manager.root.model.emulated_device import EmulatedDevice
-
-        return [DeviceFunction, DeviceMetadata, DeviceActor, EmulatedDevice]
+    # register_models() migrado pro caminho de auto-descoberta (skill
+    # 09) nesta sessão — o default de AddonBase cobre os 4 models de
+    # root/model/ (conferido 1:1 antes da migração).
 
     def register_routes(self, app) -> None:
-        from addons.addon_device_manager.root.controller.device_functions import device_functions_bp
-        from addons.addon_device_manager.root.api.routes.device_functions_routes import device_functions_api_bp
-        from addons.addon_device_manager.root.controller.device_metadatas import device_metadatas_bp
-        from addons.addon_device_manager.root.api.routes.device_metadatas_routes import device_metadatas_api_bp
-        from addons.addon_device_manager.root.controller.device_actors import device_actors_bp
-        from addons.addon_device_manager.root.api.routes.device_actors_routes import device_actors_api_bp
-        from addons.addon_device_manager.root.controller.emulated_devices import emulated_devices_bp
-        from addons.addon_device_manager.root.api.routes.emulated_devices_routes import emulated_devices_api_bp
+        # Blueprints via auto-descoberta (skill 09). O que NÃO é
+        # mecânico (registro do target de reconexão MQTT no
+        # TASK_REGISTRY em memória) continua explícito abaixo.
+        from core.module_discovery import own_base_package, discover_blueprints
 
-        for bp in [
-            device_functions_bp, device_functions_api_bp,
-            device_metadatas_bp, device_metadatas_api_bp,
-            device_actors_bp, device_actors_api_bp,
-            emulated_devices_bp, emulated_devices_api_bp,
-        ]:
-            app.register_blueprint(bp)
+        info = own_base_package(self)
+        if info:
+            base_package, _ = info
+            for blueprint in discover_blueprints(base_package):
+                app.register_blueprint(blueprint)
 
         # Registro em memória (TASK_REGISTRY) — não grava nada no banco
         # aqui (tabelas de task ainda não existem neste ponto do boot,

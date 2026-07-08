@@ -74,3 +74,41 @@ def test_generate_cli_regenera_model_sem_relationship_continua_funcionando():
     ])
 
     assert result.exit_code == 0, result.output
+
+
+def test_generate_cli_only_templates_via_flag_real():
+    """
+    Skill 12 — --only templates via CLI real (não só a função generate()
+    direto). Regenera Malte só nos templates, exige --overwrite junto.
+    """
+    app = create_app(env="testing")
+    runner = app.test_cli_runner()
+
+    result = runner.invoke(args=[
+        "generate",
+        "--model", "addons/addon_brewstation/features/feature_ingredientes/model/malte.py",
+        "--addon", "brewstation",
+        "--feature", "ingredientes",
+        "--overwrite",
+        "--only", "templates",
+    ])
+
+    assert result.exit_code == 0, result.output
+    assert "Arquivos escritos: 2" in result.output
+
+
+def test_generate_cli_only_sem_overwrite_mostra_erro_amigavel():
+    app = create_app(env="testing")
+    runner = app.test_cli_runner()
+
+    result = runner.invoke(args=[
+        "generate",
+        "--model", "addons/addon_brewstation/features/feature_ingredientes/model/malte.py",
+        "--addon", "brewstation",
+        "--feature", "ingredientes",
+        "--only", "templates",
+    ])
+
+    assert result.exit_code == 0  # comando não crasha, só mostra a mensagem
+    assert "Erro:" in result.output
+    assert "overwrite" in result.output

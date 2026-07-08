@@ -145,8 +145,10 @@ def register_cli_commands(app) -> None:
     @click.option("--addon", required=True)
     @click.option("--feature", default=None)
     @click.option("--overwrite", is_flag=True, default=False)
+    @click.option("--only", "only_scope", default=None, type=click.Choice(["templates"]),
+                  help="Regenera só um subconjunto de arquivos (hoje: 'templates' = manage.html+detail.html). Exige --overwrite junto.")
     @with_appcontext
-    def generate_cmd(model_path, class_name, addon, feature, overwrite):
+    def generate_cmd(model_path, class_name, addon, feature, overwrite, only_scope):
         from pathlib import Path
         import importlib.util
         import inspect
@@ -203,15 +205,21 @@ def register_cli_commands(app) -> None:
             return
 
         model_class = candidates[0]
-        result = generate(
-            model_class,
-            project_root=project_root,
-            addon=addon,
-            feature=feature,
-            overwrite=overwrite,
-        )
+        try:
+            result = generate(
+                model_class,
+                project_root=project_root,
+                addon=addon,
+                feature=feature,
+                overwrite=overwrite,
+                only=only_scope,
+            )
+        except ValueError as exc:
+            click.echo(f"Erro: {exc}")
+            return
         click.echo(f"Tabela: {result['table_name']}")
         click.echo(f"Arquivos escritos: {len(result['written'])}")
         click.echo(f"Arquivos existentes preservados: {len(result['skipped_existing'])}")
         click.echo(f"Hooks preservados: {len(result['skipped_hooks'])}")
         click.echo(f"Permissões novas: {result['permissions']['created']}")
+        click.echo(f"FieldRules semeadas: {result['field_rules_created']}")

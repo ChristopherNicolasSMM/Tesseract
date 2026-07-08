@@ -22,7 +22,7 @@ import pytest
 
 from core.app_factory import create_app
 from core.db import db
-from annotations import label, plural, permission
+from annotations import label, plural, permission, required, max_length
 from core.crudgen.generator import generate
 from model.core.permission import Permission
 
@@ -48,6 +48,8 @@ def _cleanup_tmp_dir():
 @label("Item de Teste")
 @plural("smoketest_items")
 @permission("approve", role_required="tester", description="Aprovar item de teste")
+@required("name", message="Nome do item é obrigatório")
+@max_length("name", 50, message="Nome deve ter no máximo 50 caracteres")
 class SmoketestItem(db.Model):
     __tablename__ = "item"  # nome curto — CrudGen aplica o prefixo (skill 02)
     id = db.Column(db.Integer, primary_key=True)
@@ -166,3 +168,82 @@ def test_permissao_camada_2_cria_role_automaticamente(app, generated):
         assert role is not None
         perm_names = {p.name for p in role.permissions}
         assert "smoketest_items.approve" in perm_names
+
+
+# ── Skill 12: HTML5 nativo + badge, seed de FieldRule, --only templates ────
+
+def test_field_rule_semeada_a_partir_de_required_e_max_length(app, generated):
+    from model.core.field_rule import FieldRule
+
+    with app.app_context():
+        regras = FieldRule.query.filter_by(entity_key="smoketest_items", field_name="name").all()
+        rule_ids = {r.rule_id for r in regras}
+        assert "obrigatorio" in rule_ids
+        assert "max_length" in rule_ids
+
+        obrigatoria = next(r for r in regras if r.rule_id == "obrigatorio")
+        assert obrigatoria.params_json.get("message") == "Nome do item é obrigatório"
+
+        max_len = next(r for r in regras if r.rule_id == "max_length")
+        assert max_len.params_json.get("max") == 50
+
+
+def test_field_rule_seed_e_create_only_nao_duplica_nem_sobrescreve_customizacao(app):
+    from model.core.field_rule import FieldRule
+
+    with app.app_context():
+        # Regenerar (overwrite=True) não deve criar duplicata da FieldRule
+        # já semeada pelo fixture `generated`.
+        generate(SmoketestItem, project_root=_PROJECT_ROOT, addon="smoketest", overwrite=True)
+        count_antes = FieldRule.query.filter_by(entity_key="smoketest_items", field_name="name", rule_id="obrigatorio").count()
+        assert count_antes == 1
+
+        # Simula customização manual via tela admin.
+        regra = FieldRule.query.filter_by(entity_key="smoketest_items", field_name="name", rule_id="obrigatorio").first()
+        regra.params_json = {"message": "Mensagem customizada pelo admin"}
+        db.session.commit()
+
+        # Regenerar de novo não pode reverter a customização (create-only,
+        # mesmo espírito de hook — skill 12).
+        generate(SmoketestItem, project_root=_PROJECT_ROOT, addon="smoketest", overwrite=True)
+        regra_depois = FieldRule.query.filter_by(entity_key="smoketest_items", field_name="name", rule_id="obrigatorio").first()
+        assert regra_depois.params_json.get("message") == "Mensagem customizada pelo admin"
+        count_depois = FieldRule.query.filter_by(entity_key="smoketest_items", field_name="name", rule_id="obrigatorio").count()
+        assert count_depois == 1
+
+
+def test_html_gerado_tem_required_maxlength_e_badge(app):
+    with app.app_context():
+        generate(SmoketestItem, project_root=_PROJECT_ROOT, addon="smoketest", overwrite=True)
+
+    manage_html = (_PROJECT_ROOT / "addons/addon_smoketest/root/templates/smoketest_items/manage.html").read_text(encoding="utf-8")
+    detail_html = (_PROJECT_ROOT / "addons/addon_smoketest/root/templates/smoketest_items/detail.html").read_text(encoding="utf-8")
+
+    for html in (manage_html, detail_html):
+        assert "fv.get('required')" in html
+        assert "fv.get('maxlength')" in html
+        assert 'text-danger">*' in html
+
+
+def test_only_templates_regenera_so_os_2_htmls(app):
+    with app.app_context():
+        resultado = generate(
+            SmoketestItem, project_root=_PROJECT_ROOT, addon="smoketest",
+            overwrite=True, only="templates",
+        )
+    assert len(resultado["written"]) == 2
+    nomes = {Path(p).name for p in resultado["written"]}
+    assert nomes == {"manage.html", "detail.html"}
+    assert resultado["field_rules_created"] == []  # only=templates não roda o seed
+
+
+def test_only_sem_overwrite_levanta_erro(app):
+    with app.app_context():
+        with pytest.raises(ValueError, match="overwrite"):
+            generate(SmoketestItem, project_root=_PROJECT_ROOT, addon="smoketest", overwrite=False, only="templates")
+
+
+def test_only_com_valor_invalido_levanta_erro(app):
+    with app.app_context():
+        with pytest.raises(ValueError, match="only"):
+            generate(SmoketestItem, project_root=_PROJECT_ROOT, addon="smoketest", overwrite=True, only="bogus")
