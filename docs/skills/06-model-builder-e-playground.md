@@ -15,9 +15,11 @@
 > todos implementados e testados (39 testes entre os três patches).
 >
 > **Adenda registrada em 2026-07-08 (Playground v2), status
-> [DECIDIDO] — implementação pendente (Patch D, ainda não
-> autorizado).** Uso real do Playground para consumir APIs externas
-> (não só a própria API do Tesseract) expôs que o schema do Patch C
+> [EXECUTADO] — Patch D implementado e testado (`tests/test_playground.py`
+> + `tests/test_playground_v2.py`, 40 casos entre os dois arquivos;
+> suíte completa do projeto 498/498 passando).** Uso real do Playground
+> para consumir APIs externas (não só a própria API do Tesseract) expôs
+> que o schema do Patch C
 > era insuficiente: sem Query Params estruturados, uma URL
 > montada à mão errava encoding e a API externa respondia 404 —
 > sintoma que parecia "falha de autenticação" mas não era. Isso, mais

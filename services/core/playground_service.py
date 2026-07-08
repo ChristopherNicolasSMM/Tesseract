@@ -1,8 +1,8 @@
 """
 services/core/playground_service.py
 
-API/SQL Playground (skill 06, Patch C). Duas responsabilidades bem
-separadas:
+API/SQL Playground (skill 06, Patch C + adenda "Playground v2", §8).
+Duas responsabilidades bem separadas:
 - HTTP: dispara requisição real via `requests`, guarda resposta.
 - SQL: só SELECT, validado por `sqlparse` ANTES de tocar no banco
   (skill 06 §6) — nunca depende só da permissão RBAC
@@ -14,6 +14,7 @@ JSON de resposta e pré-preenche um ModelDefinition novo.
 """
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import re
@@ -25,7 +26,9 @@ import sqlparse
 from flask import current_app
 
 from core.db import db
-from model.core.playground_request import PlaygroundRequest, PlaygroundRequestKind
+from model.core.playground_request import PlaygroundRequest, PlaygroundRequestKind, PlaygroundAuthType
+from model.core.playground_folder import PlaygroundFolder
+from model.core.playground_cookie_jar import PlaygroundCookieJar
 from model.core.model_field_definition import ModelFieldType
 from services.core import model_builder_service as model_builder_svc
 
@@ -45,14 +48,72 @@ class PlaygroundError(ValueError):
     pass
 
 
+# ── Playground v2 (skill 06 §8) — Auth / Params / Cookie Jar ────────────────
+
+def _auth_headers_for(auth_type: Optional[str], auth_config: Optional[dict]) -> dict:
+    """Monta o header derivado de auth_type/auth_config (skill 06 §8.1).
+    Nunca substitui headers_json — é combinado com ele."""
+    auth_config = auth_config or {}
+    if auth_type == PlaygroundAuthType.BEARER and auth_config.get("token"):
+        return {"Authorization": f"Bearer {auth_config['token']}"}
+    if auth_type == PlaygroundAuthType.BASIC and (auth_config.get("username") or auth_config.get("password")):
+        creds = f"{auth_config.get('username', '')}:{auth_config.get('password', '')}"
+        encoded = base64.b64encode(creds.encode()).decode()
+        return {"Authorization": f"Basic {encoded}"}
+    if auth_type == PlaygroundAuthType.API_KEY and auth_config.get("header_name"):
+        return {auth_config["header_name"]: auth_config.get("value", "")}
+    return {}
+
+
+def _build_query_params(params_json: Optional[list]) -> dict:
+    """`params_json`: [{"key": "...", "value": "...", "enabled": true}, ...]."""
+    if not params_json:
+        return {}
+    return {
+        p["key"]: p.get("value", "")
+        for p in params_json
+        if p.get("enabled", True) and p.get("key")
+    }
+
+
+def _load_cookie_jar(user_id: Optional[int]) -> dict:
+    if not user_id:
+        return {}
+    jar = PlaygroundCookieJar.query.filter_by(user_id=user_id).first()
+    return (jar.cookies_json or {}) if jar else {}
+
+
+def _save_cookie_jar(user_id: Optional[int], session: "requests.Session") -> None:
+    if not user_id:
+        return
+    cookies_dict = session.cookies.get_dict()
+    if not cookies_dict:
+        return
+    jar = PlaygroundCookieJar.query.filter_by(user_id=user_id).first()
+    if not jar:
+        jar = PlaygroundCookieJar(user_id=user_id, cookies_json=cookies_dict)
+        db.session.add(jar)
+    else:
+        jar.cookies_json = cookies_dict
+    db.session.commit()
+
+
 # ── HTTP ──────────────────────────────────────────────────────────────────
 
 def execute_http_request(*, name: Optional[str], method: str, url: str,
                           headers: Optional[dict] = None, body: Optional[dict] = None,
+                          params: Optional[list] = None, auth_type: Optional[str] = None,
+                          auth_config: Optional[dict] = None, folder_id: Optional[int] = None,
                           created_by_user_id: Optional[int] = None) -> PlaygroundRequest:
+    """Skill 06 §8.1 — fluxo v2: monta URL final com `params` (query
+    string estruturada), combina `headers` livre com o header derivado
+    de `auth_type`/`auth_config`, executa numa `requests.Session()`
+    pré-carregada com o cookie jar do usuário, e persiste a sessão de
+    volta no jar ao final."""
     method = (method or "GET").upper()
     if not url:
         raise PlaygroundError("URL é obrigatória.")
+    auth_type = auth_type or PlaygroundAuthType.NONE
 
     record = PlaygroundRequest(
         kind=PlaygroundRequestKind.HTTP,
@@ -61,13 +122,24 @@ def execute_http_request(*, name: Optional[str], method: str, url: str,
         url=url,
         headers_json=headers or {},
         body_json=body or {},
+        params_json=params or [],
+        auth_type=auth_type,
+        auth_config=auth_config or {},
+        folder_id=folder_id,
         created_by_user_id=created_by_user_id,
     )
 
+    final_headers = dict(headers or {})
+    final_headers.update(_auth_headers_for(auth_type, auth_config))
+    query_params = _build_query_params(params)
+
+    session = requests.Session()
+    session.cookies.update(_load_cookie_jar(created_by_user_id))
+
     try:
-        response = requests.request(
-            method, url, headers=headers or {}, json=body or None,
-            timeout=_HTTP_TIMEOUT_SECONDS,
+        response = session.request(
+            method, url, headers=final_headers, params=query_params or None,
+            json=body or None, timeout=_HTTP_TIMEOUT_SECONDS,
         )
         record.last_status_code = response.status_code
         try:
@@ -77,6 +149,7 @@ def execute_http_request(*, name: Optional[str], method: str, url: str,
             # pra não quebrar a coluna JSON nem perder a informação.
             record.last_response_json = {"_raw_text": response.text[:5000]}
         record.last_error = None
+        _save_cookie_jar(created_by_user_id, session)
     except requests.RequestException as exc:
         record.last_status_code = None
         record.last_response_json = None
@@ -86,6 +159,82 @@ def execute_http_request(*, name: Optional[str], method: str, url: str,
     db.session.add(record)
     db.session.commit()
     return record
+
+
+# ── Pastas (skill 06 §8.2) ───────────────────────────────────────────────
+
+def create_folder(*, name: str, parent_id: Optional[int] = None,
+                   created_by_user_id: Optional[int] = None) -> PlaygroundFolder:
+    if not name:
+        raise PlaygroundError("Nome da pasta é obrigatório.")
+    folder = PlaygroundFolder(name=name, parent_id=parent_id or None, created_by_user_id=created_by_user_id)
+    db.session.add(folder)
+    db.session.commit()
+    return folder
+
+
+def delete_folder(folder_id: int) -> None:
+    """Bloqueado se a pasta tiver filhos (sub-pasta ou requisição) —
+    sem cascade automático (skill 06 §8.2)."""
+    folder = PlaygroundFolder.query.get(folder_id)
+    if not folder:
+        raise PlaygroundError("Pasta não encontrada.")
+    has_subfolder = PlaygroundFolder.query.filter_by(parent_id=folder_id).first() is not None
+    has_request = PlaygroundRequest.query.filter_by(folder_id=folder_id).first() is not None
+    if has_subfolder or has_request:
+        raise PlaygroundError("Pasta não está vazia — mova ou apague o conteúdo antes de remover.")
+    db.session.delete(folder)
+    db.session.commit()
+
+
+def list_folder_tree() -> list[dict]:
+    """Lista achatada em ordem de árvore (pai antes dos filhos), com
+    `depth` pra indentação na UI."""
+    folders = PlaygroundFolder.query.order_by(PlaygroundFolder.name).all()
+    by_parent: dict = {}
+    for f in folders:
+        by_parent.setdefault(f.parent_id, []).append(f)
+
+    result: list[dict] = []
+
+    def _walk(parent_id, depth):
+        for f in by_parent.get(parent_id, []):
+            result.append({"id": f.id, "name": f.name, "parent_id": f.parent_id, "depth": depth})
+            _walk(f.id, depth + 1)
+
+    _walk(None, 0)
+    return result
+
+
+def move_request_to_folder(request_id: int, folder_id: Optional[int]) -> PlaygroundRequest:
+    record = PlaygroundRequest.query.get(request_id)
+    if not record:
+        raise PlaygroundError("Requisição não encontrada.")
+    record.folder_id = folder_id or None
+    db.session.commit()
+    return record
+
+
+# ── Arquivar / Apagar (skill 06 §8.3 — ações separadas) ─────────────────────
+
+def set_archived(request_id: int, archived: bool) -> PlaygroundRequest:
+    record = PlaygroundRequest.query.get(request_id)
+    if not record:
+        raise PlaygroundError("Requisição não encontrada.")
+    record.is_archived = archived
+    db.session.commit()
+    return record
+
+
+def delete_request(request_id: int) -> None:
+    """DELETE físico — este model não segue soft-delete (skill 00,
+    Adendo Fase 7a); 'apagar' é sempre definitivo, diferente de
+    'arquivar'."""
+    record = PlaygroundRequest.query.get(request_id)
+    if not record:
+        raise PlaygroundError("Requisição não encontrada.")
+    db.session.delete(record)
+    db.session.commit()
 
 
 # ── SQL (somente leitura) ────────────────────────────────────────────────

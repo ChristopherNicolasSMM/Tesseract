@@ -92,7 +92,7 @@ def test_http_get_bem_sucedido(app):
     fake_response.json.return_value = {"nome": "Cerveja Teste", "abv": 5.2}
 
     with app.app_context():
-        with patch("services.core.playground_service.requests.request", return_value=fake_response) as mocked:
+        with patch("services.core.playground_service.requests.Session.request", return_value=fake_response) as mocked:
             record = svc.execute_http_request(
                 name="teste", method="get", url="https://api.exemplo.local/receita",
             )
@@ -107,7 +107,7 @@ def test_http_falha_de_rede_fica_registrada_sem_derrubar(app):
 
     with app.app_context():
         with patch(
-            "services.core.playground_service.requests.request",
+            "services.core.playground_service.requests.Session.request",
             side_effect=requests_module.ConnectionError("falha simulada"),
         ):
             record = svc.execute_http_request(name=None, method="GET", url="https://indisponivel.local/x")
@@ -145,7 +145,7 @@ def test_bridge_cria_rascunho_com_campos_inferidos(app):
     with app.app_context():
         fake_response = Mock(status_code=200)
         fake_response.json.return_value = {"titulo": "X", "quantidade": 3}
-        with patch("services.core.playground_service.requests.request", return_value=fake_response):
+        with patch("services.core.playground_service.requests.Session.request", return_value=fake_response):
             record = svc.execute_http_request(name=None, method="GET", url="https://api.exemplo.local/x")
 
         definition = svc.create_model_definition_from_playground(

@@ -13,6 +13,59 @@
   <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
 {% endfor %}
 
+<div class="row mb-3">
+  <div class="col-md-8">
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <span class="small text-muted">Pasta:</span>
+      <a href="{{ url_for('playground.manage', show_archived='1' if show_archived else None) }}"
+         class="badge text-decoration-none {{ 'bg-primary' if not current_folder_id else 'bg-light text-dark' }}">Raiz</a>
+      {% for f in folders %}
+      <a href="{{ url_for('playground.manage', folder_id=f.id, show_archived='1' if show_archived else None) }}"
+         class="badge text-decoration-none {{ 'bg-primary' if current_folder_id == f.id else 'bg-light text-dark' }}">
+        {{ '—' * f.depth }} {{ f.name }}
+      </a>
+      {% endfor %}
+      {% if current_folder_id %}
+      <form method="post" action="{{ url_for('playground.delete_folder', folder_id=current_folder_id) }}"
+            onsubmit="return confirm('Apagar esta pasta? Só funciona se estiver vazia.');" class="d-inline">
+        <button class="btn btn-sm btn-outline-danger" type="submit" title="Apagar pasta atual (só se vazia)">
+          <i class="bi bi-trash"></i> pasta
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-md-4 text-md-end">
+    <a href="{{ url_for('playground.manage', folder_id=current_folder_id, show_archived=None if show_archived else '1') }}"
+       class="small">
+      {{ 'Ocultar arquivadas' if show_archived else 'Mostrar arquivadas' }}
+    </a>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <form method="post" action="{{ url_for('playground.create_folder') }}" class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label small mb-0">Nova pasta</label>
+        <input type="text" name="name" class="form-control form-control-sm" placeholder="Nome da pasta" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small mb-0">Pasta pai (opcional)</label>
+        <select name="parent_id" class="form-select form-select-sm">
+          <option value="">Raiz</option>
+          {% for f in folders %}
+          <option value="{{ f.id }}">{{ '—' * f.depth }} {{ f.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-folder-plus"></i> Criar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <ul class="nav nav-tabs mb-3" role="tablist">
   <li class="nav-item">
     <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabHttp" type="button">API (HTTP)</button>
@@ -26,7 +79,7 @@
   <div class="tab-pane fade show active" id="tabHttp">
     <div class="card mb-3">
       <div class="card-body">
-        <form method="post" action="{{ url_for('playground.execute_http') }}" class="row g-3">
+        <form method="post" action="{{ url_for('playground.execute_http') }}" class="row g-3" id="httpForm">
           <div class="col-md-3">
             <label class="form-label">Nome (opcional)</label>
             <input type="text" name="name" class="form-control" placeholder="ex.: BrewFather - listar receitas">
@@ -38,32 +91,88 @@
               <option>PATCH</option><option>DELETE</option>
             </select>
           </div>
-          <div class="col-md-7">
+          <div class="col-md-4">
             <label class="form-label">URL</label>
             <input type="text" name="url" class="form-control" placeholder="https://api.exemplo.com/recursos" required>
           </div>
+          <div class="col-md-3">
+            <label class="form-label">Pasta (opcional)</label>
+            <select name="folder_id" class="form-select">
+              <option value="">Raiz</option>
+              {% for f in folders %}
+              <option value="{{ f.id }}" {{ 'selected' if current_folder_id == f.id else '' }}>{{ '—' * f.depth }} {{ f.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
           <div class="col-md-6">
-            <label class="form-label">Headers (JSON)</label>
-            <textarea name="headers_json" class="form-control" rows="3" placeholder='{"Authorization": "Bearer ..."}'></textarea>
+            <label class="form-label">Headers (JSON livre — complementa a Auth abaixo)</label>
+            <textarea name="headers_json" class="form-control" rows="2" placeholder='{"Accept": "application/json"}'></textarea>
           </div>
           <div class="col-md-6">
             <label class="form-label">Body (JSON)</label>
-            <textarea name="body_json" class="form-control" rows="3" placeholder="{}"></textarea>
+            <textarea name="body_json" class="form-control" rows="2" placeholder="{}"></textarea>
           </div>
+
+          <div class="col-12"><hr class="my-1"></div>
+
+          <div class="col-md-3">
+            <label class="form-label">Autenticação</label>
+            <select name="auth_type" class="form-select" id="authTypeSelect" onchange="pgToggleAuth()">
+              <option value="none">Nenhuma</option>
+              <option value="bearer">Bearer Token</option>
+              <option value="basic">Basic Auth</option>
+              <option value="api_key">API Key (header)</option>
+            </select>
+          </div>
+          <div class="col-md-9" id="authFieldsBearer" style="display:none;">
+            <label class="form-label">Token</label>
+            <input type="text" name="auth_bearer_token" class="form-control" placeholder="token sem o prefixo Bearer">
+          </div>
+          <div class="col-md-4" id="authFieldsBasicUser" style="display:none;">
+            <label class="form-label">Usuário</label>
+            <input type="text" name="auth_basic_username" class="form-control">
+          </div>
+          <div class="col-md-5" id="authFieldsBasicPass" style="display:none;">
+            <label class="form-label">Senha</label>
+            <input type="password" name="auth_basic_password" class="form-control">
+          </div>
+          <div class="col-md-4" id="authFieldsApiKeyName" style="display:none;">
+            <label class="form-label">Nome do header</label>
+            <input type="text" name="auth_apikey_header_name" class="form-control" placeholder="X-Api-Key">
+          </div>
+          <div class="col-md-5" id="authFieldsApiKeyValue" style="display:none;">
+            <label class="form-label">Valor</label>
+            <input type="text" name="auth_apikey_value" class="form-control">
+          </div>
+
+          <div class="col-12"><hr class="my-1"></div>
+
           <div class="col-12">
-            <button class="btn btn-primary" type="submit"><i class="bi bi-play-fill"></i> Executar</button>
+            <label class="form-label mb-1">Query Params</label>
+            <div id="paramsRows"></div>
+            <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="pgAddParamRow()">
+              <i class="bi bi-plus"></i> Adicionar parâmetro
+            </button>
+            <input type="hidden" name="params_json" id="paramsJsonField">
+          </div>
+
+          <div class="col-12">
+            <button class="btn btn-primary" type="submit" onclick="pgSerializeParams()"><i class="bi bi-play-fill"></i> Executar</button>
           </div>
         </form>
       </div>
     </div>
 
     {% for req in http_history %}
-    <div class="card mb-2" id="req-{{ req.id }}">
+    <div class="card mb-2 {{ 'border-secondary' if req.is_archived else '' }}" id="req-{{ req.id }}">
       <div class="card-body">
         <h6 class="card-title">
           {{ req.http_method }} {{ req.url }}
           {% if req.last_status_code %}<span class="badge bg-{{ 'success' if req.last_status_code < 400 else 'danger' }}">{{ req.last_status_code }}</span>{% endif %}
           {% if req.last_error %}<span class="badge bg-danger">erro</span>{% endif %}
+          {% if req.auth_type and req.auth_type != 'none' %}<span class="badge bg-info text-dark">{{ req.auth_type }}</span>{% endif %}
+          {% if req.is_archived %}<span class="badge bg-secondary">arquivada</span>{% endif %}
         </h6>
         {% if req.last_error %}
         <p class="text-danger small mb-2">{{ req.last_error }}</p>
@@ -90,6 +199,30 @@
           </div>
         </form>
         {% endif %}
+
+        <div class="d-flex gap-2 mt-2">
+          <form method="post" action="{{ url_for('playground.move_request', request_id=req.id) }}" class="d-flex gap-1">
+            <select name="folder_id" class="form-select form-select-sm">
+              <option value="">Raiz</option>
+              {% for f in folders %}
+              <option value="{{ f.id }}" {{ 'selected' if req.folder_id == f.id else '' }}>{{ '—' * f.depth }} {{ f.name }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn btn-sm btn-outline-secondary" type="submit" title="Mover para pasta"><i class="bi bi-folder-symlink"></i></button>
+          </form>
+          {% if req.is_archived %}
+          <form method="post" action="{{ url_for('playground.unarchive_request', request_id=req.id) }}">
+            <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-box-arrow-up"></i> Desarquivar</button>
+          </form>
+          {% else %}
+          <form method="post" action="{{ url_for('playground.archive_request', request_id=req.id) }}">
+            <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-archive"></i> Arquivar</button>
+          </form>
+          {% endif %}
+          <form method="post" action="{{ url_for('playground.delete_request', request_id=req.id) }}" onsubmit="return confirm('Apagar esta requisição definitivamente?');">
+            <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash"></i> Apagar</button>
+          </form>
+        </div>
       </div>
     </div>
     {% else %}
@@ -122,9 +255,12 @@
     </div>
 
     {% for req in sql_history %}
-    <div class="card mb-2" id="req-{{ req.id }}">
+    <div class="card mb-2 {{ 'border-secondary' if req.is_archived else '' }}" id="req-{{ req.id }}">
       <div class="card-body">
-        <h6 class="card-title"><code>{{ req.sql_text }}</code></h6>
+        <h6 class="card-title">
+          <code>{{ req.sql_text }}</code>
+          {% if req.is_archived %}<span class="badge bg-secondary">arquivada</span>{% endif %}
+        </h6>
         {% if req.last_error %}
         <p class="text-danger small mb-0">{{ req.last_error }}</p>
         {% elif req.last_response_json %}
@@ -142,6 +278,21 @@
         <p class="small text-muted">Resultado truncado em {{ req.last_response_json.rows | length }} linhas.</p>
         {% endif %}
         {% endif %}
+
+        <div class="d-flex gap-2 mt-2">
+          {% if req.is_archived %}
+          <form method="post" action="{{ url_for('playground.unarchive_request', request_id=req.id) }}">
+            <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-box-arrow-up"></i> Desarquivar</button>
+          </form>
+          {% else %}
+          <form method="post" action="{{ url_for('playground.archive_request', request_id=req.id) }}">
+            <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-archive"></i> Arquivar</button>
+          </form>
+          {% endif %}
+          <form method="post" action="{{ url_for('playground.delete_request', request_id=req.id) }}" onsubmit="return confirm('Apagar esta consulta definitivamente?');">
+            <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash"></i> Apagar</button>
+          </form>
+        </div>
       </div>
     </div>
     {% else %}
@@ -149,4 +300,42 @@
     {% endfor %}
   </div>
 </div>
+
+<script>
+function pgToggleAuth() {
+  const type = document.getElementById('authTypeSelect').value;
+  document.getElementById('authFieldsBearer').style.display = (type === 'bearer') ? '' : 'none';
+  document.getElementById('authFieldsBasicUser').style.display = (type === 'basic') ? '' : 'none';
+  document.getElementById('authFieldsBasicPass').style.display = (type === 'basic') ? '' : 'none';
+  document.getElementById('authFieldsApiKeyName').style.display = (type === 'api_key') ? '' : 'none';
+  document.getElementById('authFieldsApiKeyValue').style.display = (type === 'api_key') ? '' : 'none';
+}
+
+function pgAddParamRow(key, value) {
+  const wrap = document.getElementById('paramsRows');
+  const row = document.createElement('div');
+  row.className = 'row g-2 mb-1 pg-param-row';
+  row.innerHTML =
+    '<div class="col-md-1 d-flex align-items-center"><input type="checkbox" class="form-check-input pg-param-enabled" checked></div>' +
+    '<div class="col-md-5"><input type="text" class="form-control form-control-sm pg-param-key" placeholder="chave" value="' + (key || '') + '"></div>' +
+    '<div class="col-md-5"><input type="text" class="form-control form-control-sm pg-param-value" placeholder="valor" value="' + (value || '') + '"></div>' +
+    '<div class="col-md-1"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'.pg-param-row\').remove()"><i class="bi bi-x"></i></button></div>';
+  wrap.appendChild(row);
+}
+
+function pgSerializeParams() {
+  const rows = document.querySelectorAll('.pg-param-row');
+  const params = [];
+  rows.forEach(function (row) {
+    const key = row.querySelector('.pg-param-key').value.trim();
+    if (!key) return;
+    params.push({
+      key: key,
+      value: row.querySelector('.pg-param-value').value,
+      enabled: row.querySelector('.pg-param-enabled').checked,
+    });
+  });
+  document.getElementById('paramsJsonField').value = JSON.stringify(params);
+}
+</script>
 {% endblock %}

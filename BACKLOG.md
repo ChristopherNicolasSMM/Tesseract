@@ -1587,15 +1587,47 @@ aqui como novo achado para investigar depois, fora do escopo desta
 correção.
 
 **Skill 06 adenda — Playground v2** (texto já escrito em
-`docs/skills/06-model-builder-e-playground.md`, seção 8): Auth
-dedicada (`bearer`/`basic`/`api_key`), Query Params estruturados
-(`params_json` — resolve a causa raiz de um 404 que parecia falha de
-autenticação, ver skill 06 §8.0), cookie jar por usuário
-(`tesseract_playground_cookie_jar`) e pastas em árvore N-níveis
-(`tesseract_playground_folder`) com arquivar separado de apagar. Duas
-tabelas novas + colunas novas em `tesseract_playground_request` —
-schema completo na skill 06, nenhuma permissão RBAC nova (reaproveita
-`playground_requests.execute`).
+`docs/skills/06-model-builder-e-playground.md`, seção 8) —
+[x] **EXECUTADO (Patch D)**: Auth dedicada (`bearer`/`basic`/`api_key`,
+`_auth_headers_for()`), Query Params estruturados (`params_json` +
+`_build_query_params()` — resolve a causa raiz de um 404 que parecia
+falha de autenticação, ver skill 06 §8.0), cookie jar por usuário
+(`tesseract_playground_cookie_jar`, `_load_cookie_jar()`/
+`_save_cookie_jar()`) e pastas em árvore N-níveis
+(`tesseract_playground_folder`, `list_folder_tree()`) com arquivar
+(`set_archived()`) separado de apagar (`delete_request()`, DELETE
+físico). Migration `b2d8a04f6c17` — 2 tabelas novas + 5 colunas em
+`tesseract_playground_request`. Nenhuma permissão RBAC nova (reaproveita
+`playground_requests.execute`, confirmado). `execute_http_request()`
+passou a usar `requests.Session()` em vez de `requests.request()`
+avulso — os 2 testes antigos que mockavam a chamada HTTP foram
+atualizados para o novo ponto de mock (`requests.Session.request`),
+sem mudança de comportamento esperado.
 
-**[ABERTO]** Implementação da Skill 06 adenda ainda não iniciada —
-fica para quando esta frente for retomada, depois do addon atual.
+Achado durante a implementação, não previsto na skill: os models novos
+(`PlaygroundFolder`/`PlaygroundCookieJar`) precisam ser importados
+explicitamente em `core/app_factory.py` (mesmo padrão já usado pra
+`playground_request`) — sem isso, `PlaygroundRequest.folder_id`
+(FK pra uma tabela cujo model nunca foi importado) quebra
+`db.create_all()` em qualquer teste/boot que não passe pelo controller
+do Playground primeiro. Corrigido junto neste patch.
+
+Confirmado (mesma causa já registrada acima, não é bug novo): rodar
+`flask db upgrade` do zero segue exigindo o contorno de isolar
+`ModuleManager.create_all_pending_tables()` pra validar uma migration
+nova sem o `db.create_all()` do boot "adiantar" a criação da tabela —
+mesmo comportamento já visto na migration de OData. Migration
+`b2d8a04f6c17` validada isoladamente (upgrade cria as 2 tabelas + 5
+colunas; downgrade remove tudo de volta). No caminho, a primeira
+versão da migration também tinha um bug próprio, sem relação com esse
+achado: `batch_alter_table` no SQLite exige nome explícito de
+constraint pra Foreign Key — `add_column` com `ForeignKey` inline
+falhava; corrigido com `batch_op.create_foreign_key(...)` nomeado
+separado do `add_column`.
+
+Testes: `tests/test_playground_v2.py` (19 casos novos — auth por tipo,
+params habilitados/desabilitados, cookie jar persistindo entre
+chamadas, pastas/subpastas, bloqueio de apagar pasta não-vazia, mover
+requisição, arquivar/desarquivar, apagar definitivo, rotas web) +
+`tests/test_playground.py` (pré-existentes, 2 com mock atualizado).
+Suíte completa do projeto: 498/498 passando.

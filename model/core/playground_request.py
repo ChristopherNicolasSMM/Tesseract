@@ -2,9 +2,9 @@
 model/core/playground_request.py
 
 tesseract_playground_request — histórico de requisições testadas no
-API/SQL Playground (skill 06, Patch C). Core, não passa pelo CrudGen —
-mesma categoria de ModelDefinition/CodeSnapshot (skill 00, Adendo
-Fase 7a).
+API/SQL Playground (skill 06, Patch C + adenda "Playground v2", §8).
+Core, não passa pelo CrudGen — mesma categoria de
+ModelDefinition/CodeSnapshot (skill 00, Adendo Fase 7a).
 """
 from datetime import datetime, timezone
 
@@ -16,6 +16,15 @@ class PlaygroundRequestKind:
     SQL = "sql"
 
     ALL = (HTTP, SQL)
+
+
+class PlaygroundAuthType:
+    NONE = "none"
+    BEARER = "bearer"
+    BASIC = "basic"
+    API_KEY = "api_key"
+
+    ALL = (NONE, BEARER, BASIC, API_KEY)
 
 
 class PlaygroundRequest(db.Model):
@@ -31,6 +40,15 @@ class PlaygroundRequest(db.Model):
     url = db.Column(db.String(500), nullable=True)
     headers_json = db.Column(db.JSON, nullable=True)
     body_json = db.Column(db.JSON, nullable=True)
+
+    # Playground v2 (skill 06 §8) — só relevante para kind=http
+    params_json = db.Column(db.JSON, nullable=True)
+    auth_type = db.Column(db.String(20), nullable=True, default=PlaygroundAuthType.NONE)
+    auth_config = db.Column(db.JSON, nullable=True)
+
+    # Playground v2 (skill 06 §8.2/§8.3) — organização do histórico
+    folder_id = db.Column(db.Integer, db.ForeignKey("tesseract_playground_folder.id"), nullable=True)
+    is_archived = db.Column(db.Boolean, nullable=False, default=False)
 
     # Campo de SQL (kind=sql) — sempre SELECT, validado antes de executar
     # (skill 06 §6) — nunca persistimos um texto de SQL não-SELECT aqui.
@@ -57,6 +75,9 @@ class PlaygroundRequest(db.Model):
             "http_method": self.http_method,
             "url": self.url,
             "sql_text": self.sql_text,
+            "folder_id": self.folder_id,
+            "is_archived": self.is_archived,
+            "auth_type": self.auth_type,
             "last_status_code": self.last_status_code,
             "last_error": self.last_error,
             "created_at": self.created_at.isoformat() if self.created_at else None,
