@@ -36,6 +36,14 @@
           <a href="{{ url_for('admin_odata.browse', conn_id=conn.id, entity_name=entity.name) }}" class="btn btn-sm btn-primary">
             <i class="bi bi-table"></i> Navegar dados
           </a>
+
+          <form method="post" action="{{ url_for('admin_odata.set_entity_route_override', conn_id=conn.id) }}" class="mt-2 d-flex gap-1">
+            <input type="hidden" name="declared_name" value="{{ entity.declared_name }}">
+            <input type="text" name="route_name" class="form-control form-control-sm" value="{{ entity.name }}" title="Nome real da rota na API (corrija se 'Navegar dados' der 404)">
+            <button type="submit" class="btn btn-sm btn-outline-secondary" title="Salvar nome de rota">
+              <i class="bi bi-check2"></i>
+            </button>
+          </form>
         </div>
       </div>
     </div>

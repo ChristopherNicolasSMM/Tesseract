@@ -30,6 +30,15 @@ class ODataConnection(db.Model):
     metadata_cache = db.Column(db.JSON, nullable=True)
     metadata_cached_at = db.Column(db.DateTime, nullable=True)
 
+    # Correção de bug (BACKLOG.md, "Bugs de OData"): para servidores
+    # cujo metadata não declara EntitySet (formato customizado
+    # "S2MOdataPy"), não há como derivar o nome real da rota de
+    # coleção só a partir do metadata. Guarda o mapeamento
+    # {nome_declarado: nome_real_resolvido}, preenchido automaticamente
+    # por tentativa (pluralização heurística) ou manualmente pela tela
+    # "Ver entidades". Nunca sobrescrito por um refresh de metadata_cache.
+    entity_route_overrides = db.Column(db.JSON, nullable=True)
+
     created_by_user_id = db.Column(db.Integer, db.ForeignKey("tesseract_user.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -41,6 +50,7 @@ class ODataConnection(db.Model):
             "auth_type": self.auth_type,
             "has_metadata_cache": self.metadata_cache is not None,
             "metadata_cached_at": self.metadata_cached_at.isoformat() if self.metadata_cached_at else None,
+            "entity_route_overrides": self.entity_route_overrides or {},
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 

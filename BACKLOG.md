@@ -1540,40 +1540,51 @@ regras (Fase 7b) só com Validação implementada; Designer visual (Fase
 
 Sem mudança de código — só documentação.
 
-## Bugs de OData (Fase 8) + Skill 06 adenda (Playground v2): DOCUMENTADO (pendente implementação)
+## Bugs de OData (Fase 8): CORRIGIDO — Skill 06 adenda (Playground v2): DOCUMENTADO (pendente implementação)
 
 Uso real de duas ferramentas de admin (Conexões OData e API/SQL
 Playground) revelou 2 bugs concretos e 1 gap de capacidade, todos
-diagnosticados no código real antes de decidir a correção — nenhum
-código escrito ainda, fica para depois do addon em andamento.
+diagnosticados no código real antes de decidir a correção.
 
 **Bugs de OData (`core/odata/connection_manager.py`,
-`controller/core/admin_odata.py`)** — sem mudança de convenção, não
-precisa de skill própria, só registro aqui:
-- [ ] **Descoberta de `$metadata`** (`_discover_and_fetch_metadata`,
-      linhas 68-84): quando `base_url` cadastrada já é a própria URL
-      de `$metadata` (em vez da raiz do serviço), o código concatena
-      sufixos em cima dela (`.../$metadata/$metadata.json`) e sempre
-      dá 404. Correção: tentar `base_url` crua primeiro
-      (`accept="auto"`, já suportado por `_parse_response`) antes da
-      cadeia de candidatos derivados.
-- [ ] **Browse usando `EntityType.Name` em vez de `EntitySet.Name`**
-      (`admin_odata.py` linha 158 + `_parse_xml`/`_normalize_json`):
+`controller/core/admin_odata.py`) — [x] CORRIGIDO:**
+- [x] **Descoberta de `$metadata`** (`_discover_and_fetch_metadata`):
+      quando `base_url` cadastrada já é a própria URL de `$metadata`
+      (em vez da raiz do serviço), o código concatenava sufixos em
+      cima dela (`.../$metadata/$metadata.json`) e sempre dava 404.
+      Corrigido com `_strip_metadata_suffix()` — se `base_url` bate
+      com um sufixo de metadata conhecido, tenta ela mesma crua
+      primeiro (`accept="auto"`) e usa a raiz "descascada" pro
+      restante da cadeia (fallback).
+- [x] **Browse usando `EntityType.Name` em vez de `EntitySet.Name`**:
       para servidores OData EDMX reais, a URL de coleção é o nome do
       `EntitySet` (plural, ex. `Products`), não o `EntityType` (ex.
-      `Product`) — hoje só o segundo é lido. Correção: ler
-      `EntityContainer/EntitySet` (XML e EDMX-JSON) e usar
-      `EntitySet.Name` como identificador de rota.
-- [ ] **Nova coluna `entity_route_overrides`** (JSON, nullable) em
-      `tesseract_odata_connection` — para o formato customizado
-      "S2MOdataPy" (sem `EntityContainer`, sem como derivar o nome
-      real da rota do metadata sozinho): `query()` tenta o nome
-      declarado, se 404 tenta uma pluralização heurística simples
-      (`y→ies`, `s/x/z/ch/sh→+es`, senão `+s`) e persiste o que
-      funcionou; tela "Ver entidades" ganha campo editável por
-      entidade para corrigir manualmente se a heurística errar —
-      decisão tomada em conversa (2026-07-08), evita depender só de
-      adivinhação.
+      `Product`). Corrigido com `_extract_entity_set_map_xml()` /
+      `_extract_entity_set_map_json()`, lendo `EntityContainer/
+      EntitySet` (XML e EDMX-JSON) e usando `EntitySet.Name` como
+      nome de rota; `EntityType.Name` guardado à parte em
+      `entity_type_name` (usado como `label`).
+- [x] **Nova coluna `entity_route_overrides`** (JSON, nullable) em
+      `tesseract_odata_connection`, migration `a1c7f92e5b04` — para o
+      formato customizado "S2MOdataPy" (sem `EntityContainer`):
+      `query()` tenta o nome declarado, se 404 tenta uma pluralização
+      heurística simples (`_pluralize_guess`: `y→ies`,
+      `s/x/z/ch/sh→+es`, senão `+s`) e persiste o que funcionou via
+      `_persist_route_override()`; tela "Ver entidades" ganha campo
+      editável por entidade (`set_entity_route_override`, rota POST
+      `/admin/odata/<id>/entities/override`) para corrigir
+      manualmente se a heurística errar.
+
+Testes: `tests/test_odata_bugfixes.py` (5 novos, cobrindo os 3 pontos
+acima + override manual via service e via tela) — suíte completa
+479/479 passando (12 pré-existentes de `test_phase8_odata.py`
+continuam passando sem alteração). Migration validada isoladamente
+(upgrade adiciona a coluna, downgrade remove) — o `flask db upgrade`
+completo do zero falha por um bug pré-existente **não relacionado**
+(coluna duplicada em `tesseract_brewstation_mashctrl_rule`,
+confirmado reproduzindo no HEAD anterior a este patch), registrado
+aqui como novo achado para investigar depois, fora do escopo desta
+correção.
 
 **Skill 06 adenda — Playground v2** (texto já escrito em
 `docs/skills/06-model-builder-e-playground.md`, seção 8): Auth
@@ -1586,5 +1597,5 @@ tabelas novas + colunas novas em `tesseract_playground_request` —
 schema completo na skill 06, nenhuma permissão RBAC nova (reaproveita
 `playground_requests.execute`).
 
-Nenhuma migration gerada, nenhum arquivo `.py` tocado — fica para
-quando esta frente for retomada, depois do addon atual.
+**[ABERTO]** Implementação da Skill 06 adenda ainda não iniciada —
+fica para quando esta frente for retomada, depois do addon atual.

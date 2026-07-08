@@ -136,6 +136,30 @@ def entities(conn_id: int):
     )
 
 
+@admin_odata_bp.route("/<int:conn_id>/entities/override", methods=["POST"])
+@login_required
+@permission_required("admin")
+def set_entity_route_override(conn_id: int):
+    """Corrige manualmente o nome de rota de uma entidade (bugfix
+    registrado em BACKLOG.md, 'Bugs de OData') — só necessário para
+    metadata sem EntitySet declarado, quando a pluralização automática
+    de `query()` errar."""
+    conn = ODataConnection.query.get(conn_id)
+    if not conn:
+        flash("Conexão não encontrada.", "error")
+        return redirect(url_for("admin_odata.manage"))
+
+    declared_name = (request.form.get("declared_name") or "").strip()
+    route_name = (request.form.get("route_name") or "").strip()
+    if not declared_name or not route_name:
+        flash("Nome declarado e nome de rota são obrigatórios.", "error")
+        return redirect(url_for("admin_odata.entities", conn_id=conn_id))
+
+    ODataConnectionManager(conn).set_route_override(declared_name, route_name)
+    flash(f"Rota de '{declared_name}' atualizada para '{route_name}'.", "success")
+    return redirect(url_for("admin_odata.entities", conn_id=conn_id))
+
+
 @admin_odata_bp.route("/<int:conn_id>/browse/<entity_name>", methods=["GET"])
 @login_required
 @permission_required("admin")

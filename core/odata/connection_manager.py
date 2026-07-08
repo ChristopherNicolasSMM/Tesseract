@@ -67,21 +67,31 @@ class ODataConnectionManager:
 
     def _discover_and_fetch_metadata(self) -> dict:
         base = self.conn.base_url.rstrip("/")
+        # Bugfix (BACKLOG.md, "Bugs de OData"): se a URL cadastrada já
+        # É o próprio $metadata (usuário colou a URL de metadata em vez
+        # da raiz do serviço), não concatena mais nada em cima dela —
+        # tenta ela mesma primeiro, e usa a raiz "descascada" como base
+        # para o restante da cadeia (fallback, caso a tentativa direta
+        # falhe por qualquer motivo).
+        root = _strip_metadata_suffix(base)
         tried: set = set()
         candidates = []
         errors = []
 
-        ctx_base = self._extract_context_base(base)
+        if root != base:
+            candidates.append((base, "auto"))
+
+        ctx_base = self._extract_context_base(root)
         if ctx_base:
             log.info("@odata.context encontrado -> base de metadata: %s", ctx_base)
             candidates.append((ctx_base + ".json", "json"))
             candidates.append((ctx_base, "auto"))
 
         for path in ("/$metadata.json", "/%24metadata.json", "/metadata.json"):
-            candidates.append((base + path, "json"))
+            candidates.append((root + path, "json"))
 
         for path in ("/$metadata", "/%24metadata", "/metadata"):
-            candidates.append((base + path, "xml"))
+            candidates.append((root + path, "xml"))
 
         for url, fmt_hint in candidates:
             clean = url.split("#")[0]
@@ -151,14 +161,26 @@ class ODataConnectionManager:
             ets = data.get("EntityType", [])
             if isinstance(ets, dict):
                 ets = [ets]
+
+            # Mesma correção da seção XML (ver _parse_xml) — aqui pro
+            # formato EDMX expresso em JSON.
+            entity_set_by_type = _extract_entity_set_map_json(data.get("EntityContainer"))
+
             entities = []
             for et in ets:
-                name = et.get("Name") or et.get("name", "Unknown")
+                type_name = et.get("Name") or et.get("name", "Unknown")
                 props = et.get("Property") or et.get("properties", [])
                 if isinstance(props, dict):
                     props = [props]
                 fields = [_edm_prop_to_field(p) for p in props]
-                entities.append({"name": name, "label": name, "fields": fields, "ui": {}})
+                route_name = entity_set_by_type.get(type_name, type_name)
+                entities.append({
+                    "name": route_name,
+                    "label": type_name,
+                    "entity_type_name": type_name,
+                    "fields": fields,
+                    "ui": {},
+                })
             return {"entities": entities, "_source_format": "json"}
 
         if isinstance(data, list):
@@ -173,18 +195,32 @@ class ODataConnectionManager:
         except Exception as exc:
             raise ParseError(f"XML inválido: {exc}") from exc
 
+        # Bugfix (BACKLOG.md, "Bugs de OData"): a URL navegável de uma
+        # coleção é o nome do EntitySet (normalmente plural, ex.
+        # "Products"), declarado no EntityContainer — não o nome do
+        # EntityType (normalmente singular, ex. "Product"). Sem esse
+        # mapa, o browse tentava a rota errada e recebia 404.
+        entity_set_by_type = _extract_entity_set_map_xml(root)
+
         entities = []
         for el in root.iter():
             local = el.tag.split("}")[-1]
             if local != "EntityType":
                 continue
-            name = el.get("Name", "Unknown")
+            type_name = el.get("Name", "Unknown")
             fields = []
             for child in el:
                 child_local = child.tag.split("}")[-1]
                 if child_local == "Property":
                     fields.append(_edm_prop_to_field(child.attrib))
-            entities.append({"name": name, "label": name, "fields": fields, "ui": {}})
+            route_name = entity_set_by_type.get(type_name, type_name)
+            entities.append({
+                "name": route_name,
+                "label": type_name,
+                "entity_type_name": type_name,
+                "fields": fields,
+                "ui": {},
+            })
 
         if not entities:
             log.warning("XML EDMX sem EntityType em %s", url)
@@ -195,16 +231,23 @@ class ODataConnectionManager:
 
     def list_entities(self) -> list[dict]:
         meta = self.fetch_metadata()
-        return [
-            {
-                "name": e.get("name", ""),
-                "label": e.get("label", e.get("name", "")),
+        overrides = self.conn.entity_route_overrides or {}
+        result = []
+        for e in meta.get("entities", []):
+            declared_name = e.get("name", "")
+            result.append({
+                # Bugfix (BACKLOG.md, "Bugs de OData"): nome usado pra
+                # montar a URL de browse/query — já com override manual
+                # aplicado, se existir (skill 06 do formato customizado
+                # sem EntitySet).
+                "name": overrides.get(declared_name, declared_name),
+                "declared_name": declared_name,
+                "label": e.get("label", declared_name),
                 "description": e.get("description", ""),
                 "fields": e.get("fields", []),
                 "ui": e.get("ui", {}),
-            }
-            for e in meta.get("entities", [])
-        ]
+            })
+        return result
 
     def get_entity(self, entity_name: str) -> dict | None:
         for ent in self.list_entities():
@@ -213,7 +256,30 @@ class ODataConnectionManager:
         return None
 
     def query(self, entity: str, params: dict | None = None) -> dict:
-        """GET na coleção com parâmetros OData ($filter, $orderby, $top, etc.)."""
+        """GET na coleção com parâmetros OData ($filter, $orderby, $top, etc.).
+
+        Bugfix (BACKLOG.md, "Bugs de OData"): se `entity` der 404 e o
+        formato de metadata não tinha como declarar o nome real da
+        rota (sem EntitySet), tenta uma pluralização simples como
+        último recurso e, se funcionar, persiste como override — não
+        tenta adivinhar de novo nas próximas chamadas.
+        """
+        try:
+            return self._query_raw(entity, params)
+        except urllib.error.HTTPError as original_error:
+            if original_error.code != 404:
+                raise
+            guess = _pluralize_guess(entity)
+            if guess == entity:
+                raise
+            try:
+                result = self._query_raw(guess, params)
+            except Exception:
+                raise original_error
+            self._persist_route_override(entity, guess)
+            return result
+
+    def _query_raw(self, entity: str, params: dict | None) -> dict:
         qs = ""
         if params:
             parts = [f"{k}={urllib.parse.quote(str(v))}" for k, v in params.items() if v]
@@ -221,6 +287,20 @@ class ODataConnectionManager:
                 qs = "?" + "&".join(parts)
         raw = self._get(self._build_url(f"{entity}{qs}"))
         return json.loads(raw) if isinstance(raw, (str, bytes)) else raw
+
+    def set_route_override(self, declared_name: str, route_name: str) -> None:
+        """Confirma/corrige manualmente o nome de rota de uma entidade
+        (tela 'Ver entidades') — mesmo mecanismo usado pelo fallback
+        automático de `query()`, só que disparado pelo usuário."""
+        self._persist_route_override(declared_name, route_name)
+
+    def _persist_route_override(self, declared_name: str, resolved_name: str) -> None:
+        from core.db import db
+
+        overrides = dict(self.conn.entity_route_overrides or {})
+        overrides[declared_name] = resolved_name
+        self.conn.entity_route_overrides = overrides
+        db.session.commit()
 
     def patch(self, entity: str, key: str, data: dict) -> dict:
         url = self._build_url(f"{entity}({key})")
@@ -277,6 +357,72 @@ class ODataConnectionManager:
         req = urllib.request.Request(url, data=data, headers=headers, method=method)
         with urllib.request.urlopen(req, timeout=10) as resp:
             return resp.read().decode("utf-8")
+
+
+def _extract_entity_set_map_xml(root: ET.Element) -> dict:
+    """Varre o XML procurando <EntitySet Name="..." EntityType="Ns.Tipo"/>
+    (dentro de EntityContainer) e devolve {NomeCurtoDoTipo: NomeDoSet}."""
+    mapping = {}
+    for el in root.iter():
+        if el.tag.split("}")[-1] != "EntitySet":
+            continue
+        set_name = el.get("Name")
+        type_ref = el.get("EntityType", "")
+        type_short = type_ref.rsplit(".", 1)[-1]
+        if set_name and type_short:
+            mapping[type_short] = set_name
+    return mapping
+
+
+def _extract_entity_set_map_json(container) -> dict:
+    """Mesma ideia de `_extract_entity_set_map_xml`, para o EntityContainer
+    quando o metadata vem em JSON (em vez de XML)."""
+    mapping = {}
+    if not isinstance(container, dict):
+        return mapping
+    sets = container.get("EntitySet", [])
+    if isinstance(sets, dict):
+        sets = [sets]
+    for s in sets:
+        set_name = s.get("Name") or s.get("name")
+        type_ref = s.get("EntityType") or s.get("entityType") or ""
+        type_short = type_ref.rsplit(".", 1)[-1]
+        if set_name and type_short:
+            mapping[type_short] = set_name
+    return mapping
+
+
+def _pluralize_guess(name: str) -> str:
+    """Heurística simples de pluralização em inglês — só usada como
+    'melhor esforço' de fallback (ver query()); nunca a única fonte de
+    verdade. Nomes que a heurística errar podem ser corrigidos à mão
+    na tela 'Ver entidades' (entity_route_overrides)."""
+    if not name:
+        return name
+    lower = name.lower()
+    if lower.endswith("y") and not lower.endswith(("ay", "ey", "iy", "oy", "uy")):
+        return name[:-1] + "ies"
+    if lower.endswith(("s", "x", "z", "ch", "sh")):
+        return name + "es"
+    return name + "s"
+
+
+_METADATA_URL_SUFFIXES = (
+    "/$metadata.json", "/%24metadata.json", "/metadata.json",
+    "/$metadata", "/%24metadata", "/metadata",
+)
+
+
+def _strip_metadata_suffix(url: str) -> str:
+    """Se `url` já termina apontando pro $metadata (em qualquer uma das
+    variantes reconhecidas), devolve a raiz sem esse sufixo. Caso
+    contrário, devolve `url` sem alteração — nunca esvazia a URL."""
+    lowered = url.lower()
+    for suffix in _METADATA_URL_SUFFIXES:
+        if lowered.endswith(suffix.lower()):
+            stripped = url[: -len(suffix)]
+            return stripped or url
+    return url
 
 
 def _accept_header(fmt_hint: str) -> str:
