@@ -399,3 +399,46 @@ def test_icon_max_depth_configurado_esconde_icone_a_partir_do_nivel(app, client)
     idx1 = html.find('data-menu-node="TX_GROUP_YEAST_BANK"')
     trecho1_ate_span = html[idx1:html.find("<span>", idx1)]
     assert "<i class=" not in trecho1_ate_span  # nível 1 sem ícone (só o chevron depois do label)
+
+
+# ── Tela /admin/menu-settings expõe e salva icon_max_depth (BACKLOG.md) ─────
+# Achado real: a configuração core.menu.icon_max_depth já existia e
+# funcionava (testes acima), mas só era alterável direto no banco —
+# sem controle nenhum na tela de admin.
+
+def test_tela_menu_settings_exibe_select_de_icon_max_depth(app, client):
+    _login_admin(app, client)
+    resp = client.get("/admin/menu-settings/")
+    assert resp.status_code == 200
+    assert b'name="icon_max_depth"' in resp.data
+    assert b"Sempre (todos os n\xc3\xadveis)" in resp.data
+
+
+def test_salvar_icon_max_depth_pela_tela(app, client):
+    from services.core import menu_preference_service as svc
+
+    _login_admin(app, client)
+    with app.app_context():
+        assert svc.get_global_icon_max_depth() == -1
+
+    resp = client.post(
+        "/admin/menu-settings/",
+        data={
+            "order_overrides_json": "{}",
+            "collapsed_nodes_json": "[]",
+            "icon_max_depth": "1",
+        },
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+
+    with app.app_context():
+        assert svc.get_global_icon_max_depth() == 1
+
+    # E o valor salvo já reflete de volta na sidebar, sem precisar de
+    # nenhum outro passo (mesma engine que os testes acima já cobrem).
+    resp = client.get("/")
+    html = resp.data.decode("utf-8")
+    idx1 = html.find('data-menu-node="TX_GROUP_YEAST_BANK"')
+    trecho1_ate_span = html[idx1:html.find("<span>", idx1)]
+    assert "<i class=" not in trecho1_ate_span

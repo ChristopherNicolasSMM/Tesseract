@@ -36,11 +36,20 @@
 
           <div class="col-md-4">
             <label class="form-label" id="addonFieldLabel">Addon (sem prefixo "addon_")</label>
-            <input type="text" name="target_addon_name" class="form-control" placeholder="ex.: brewstation" required>
+            <select name="target_addon_name" id="addonSelectExisting" class="form-select">
+              <option value="">Selecione...</option>
+              {% for a in existing_addons %}
+              <option value="{{ a.name }}" data-features='{{ a.features | tojson }}'>{{ a.label }} ({{ a.name }})</option>
+              {% endfor %}
+            </select>
+            <input type="text" name="target_addon_name" id="addonInputNew" class="form-control" placeholder="ex.: brewstation" style="display:none;" disabled>
           </div>
           <div class="col-md-4" id="featureFieldWrapper">
             <label class="form-label" id="featureFieldLabel">Feature (opcional, sem prefixo "feature_")</label>
-            <input type="text" name="target_feature_name" class="form-control" placeholder="deixe em branco para núcleo do Addon">
+            <select name="target_feature_name" id="featureSelectExisting" class="form-select">
+              <option value="">Núcleo do Addon (sem Feature)</option>
+            </select>
+            <input type="text" name="target_feature_name" id="featureInputNew" class="form-control" placeholder="deixe em branco para núcleo do Addon" style="display:none;" disabled>
           </div>
           <div class="col-md-4">
             <label class="form-label">Nome do Model (PascalCase)</label>
@@ -115,12 +124,28 @@
   const isNewAddon = document.getElementById('isNewAddon');
   const isNewFeature = document.getElementById('isNewFeature');
   const addonLabel = document.getElementById('addonFieldLabel');
+  const addonSelectExisting = document.getElementById('addonSelectExisting');
+  const addonInputNew = document.getElementById('addonInputNew');
   const featureWrapper = document.getElementById('featureFieldWrapper');
   const featureLabel = document.getElementById('featureFieldLabel');
+  const featureSelectExisting = document.getElementById('featureSelectExisting');
+  const featureInputNew = document.getElementById('featureInputNew');
   const manifestFields = document.getElementById('manifestFields');
   const authorWrapper = document.getElementById('authorFieldWrapper');
   const suffixWrapper = document.getElementById('suffixFieldWrapper');
-  const featureInput = featureWrapper.querySelector('input[name="target_feature_name"]');
+
+  function populateFeatureOptions() {
+    const selectedOption = addonSelectExisting.options[addonSelectExisting.selectedIndex];
+    const featuresJson = selectedOption ? selectedOption.getAttribute('data-features') : null;
+    const features = featuresJson ? JSON.parse(featuresJson) : [];
+    featureSelectExisting.innerHTML = '<option value="">Núcleo do Addon (sem Feature)</option>';
+    features.forEach(function (f) {
+      const opt = document.createElement('option');
+      opt.value = f.name;
+      opt.textContent = f.label + ' (' + f.name + ')';
+      featureSelectExisting.appendChild(opt);
+    });
+  }
 
   function sync() {
     const scope = scopeSelect.value;
@@ -131,23 +156,48 @@
     authorWrapper.style.display = scope === 'new_addon' ? '' : 'none';
     suffixWrapper.style.display = scope === 'new_feature' ? '' : 'none';
 
+    const addonIsNew = scope === 'new_addon';
+    addonSelectExisting.style.display = addonIsNew ? 'none' : '';
+    addonSelectExisting.disabled = addonIsNew;
+    addonSelectExisting.required = !addonIsNew;
+    addonInputNew.style.display = addonIsNew ? '' : 'none';
+    addonInputNew.disabled = !addonIsNew;
+    addonInputNew.required = addonIsNew;
+
     if (scope === 'new_addon') {
       addonLabel.textContent = 'Nome do Addon novo (sem prefixo "addon_")';
       featureWrapper.style.display = 'none';
-      featureInput.required = false;
+      featureSelectExisting.disabled = true;
+      featureSelectExisting.required = false;
+      featureInputNew.disabled = true;
+      featureInputNew.required = false;
     } else if (scope === 'new_feature') {
       addonLabel.textContent = 'Addon já existente (dono da Feature nova)';
       featureWrapper.style.display = '';
       featureLabel.textContent = 'Nome da Feature nova (sem prefixo "feature_")';
-      featureInput.required = true;
+      featureSelectExisting.style.display = 'none';
+      featureSelectExisting.disabled = true;
+      featureSelectExisting.required = false;
+      featureInputNew.style.display = '';
+      featureInputNew.disabled = false;
+      featureInputNew.required = true;
     } else {
       addonLabel.textContent = 'Addon (sem prefixo "addon_")';
       featureWrapper.style.display = '';
       featureLabel.textContent = 'Feature (opcional, sem prefixo "feature_")';
-      featureInput.required = false;
+      featureSelectExisting.style.display = '';
+      featureSelectExisting.disabled = false;
+      featureSelectExisting.required = false;
+      featureInputNew.style.display = 'none';
+      featureInputNew.disabled = true;
+      featureInputNew.required = false;
+      populateFeatureOptions();
     }
   }
 
+  addonSelectExisting.addEventListener('change', function () {
+    if (scopeSelect.value === 'existing') populateFeatureOptions();
+  });
   scopeSelect.addEventListener('change', sync);
   sync();
 })();

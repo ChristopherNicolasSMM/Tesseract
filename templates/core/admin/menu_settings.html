@@ -65,6 +65,23 @@
           <label class="form-check-label" for="defaultSidebarCollapsed">Sidebar inicia fechada por padrão</label>
         </div>
 
+        <div class="mb-3" style="max-width: 420px;">
+          <label class="form-label" for="iconMaxDepth">Ícone visível até o nível</label>
+          <select class="form-select" name="icon_max_depth" id="iconMaxDepth">
+            <option value="-1" {% if icon_max_depth == -1 %}selected{% endif %}>Sempre (todos os níveis)</option>
+            {% for n in range(0, 6) %}
+            <option value="{{ n }}" {% if icon_max_depth == n %}selected{% endif %}>
+              Só até o nível {{ n }} ({{ 'raiz' if n == 0 else 'raiz + ' ~ n ~ ' sub-nível(is)' }})
+            </option>
+            {% endfor %}
+          </select>
+          <p class="small text-muted mb-0">
+            "Nível 0" é a raiz da árvore do menu. A partir do nível
+            escolhido, o item aparece só com o texto, sem ícone —
+            útil pra reduzir ruído visual em árvores muito profundas.
+          </p>
+        </div>
+
         <input type="hidden" name="order_overrides_json" id="orderOverridesInput">
         <input type="hidden" name="collapsed_nodes_json" id="collapsedNodesInput">
 

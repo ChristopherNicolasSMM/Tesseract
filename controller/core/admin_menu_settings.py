@@ -26,6 +26,7 @@ def manage():
         order_overrides=svc.get_global_order_overrides(),
         collapsed_nodes=set(svc.get_global_collapsed_nodes()),
         default_sidebar_collapsed=svc.get_global_default_sidebar_collapsed(),
+        icon_max_depth=svc.get_global_icon_max_depth(),
     )
 
 
@@ -41,11 +42,13 @@ def save():
         return redirect(url_for("admin_menu_settings.manage"))
 
     default_sidebar_collapsed = bool(request.form.get("default_sidebar_collapsed"))
+    icon_max_depth = request.form.get("icon_max_depth", default=-1, type=int)
 
     svc.set_global_defaults(
         order_overrides=order_overrides,
         collapsed_nodes=collapsed_nodes,
         default_sidebar_collapsed=default_sidebar_collapsed,
+        icon_max_depth=icon_max_depth,
     )
     flash("Padrão global de menu atualizado.", "success")
     return redirect(url_for("admin_menu_settings.manage"))

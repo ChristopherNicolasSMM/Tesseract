@@ -320,3 +320,19 @@ def test_execute_http_com_auth_e_params_pela_tela(app, client):
         _, kwargs = mocked.call_args
         assert kwargs["headers"]["Authorization"] == "Bearer tok123"
         assert kwargs["params"] == {"page": "1"}
+
+
+# ── Bridge "use-as-fields" também usa select de addon/feature (BACKLOG.md) ──
+
+def test_tela_manage_playground_lista_addons_no_select_da_ponte(app, client):
+    _login_admin(app, client)
+    fake_response = Mock(status_code=200)
+    fake_response.json.return_value = {"ok": True}
+    with patch("services.core.playground_service.requests.Session.request", return_value=fake_response):
+        with app.app_context():
+            svc.execute_http_request(name=None, method="GET", url="https://api.exemplo.local/x")
+
+    resp = client.get("/admin/playground/")
+    assert resp.status_code == 200
+    assert b"pg-bridge-addon" in resp.data
+    assert b"pg-bridge-feature" in resp.data

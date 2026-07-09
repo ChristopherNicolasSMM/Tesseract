@@ -1631,3 +1631,94 @@ chamadas, pastas/subpastas, bloqueio de apagar pasta não-vazia, mover
 requisição, arquivar/desarquivar, apagar definitivo, rotas web) +
 `tests/test_playground.py` (pré-existentes, 2 com mock atualizado).
 Suíte completa do projeto: 498/498 passando.
+
+## Achados reais de uso do patch anterior — 3 correções: CORRIGIDO
+
+Depois de aplicar o patch do Playground v2, uso real revelou 3
+problemas — um bloqueante (banco quebrado sem apagar), dois de UX
+(campo livre em vez de select).
+
+### 1. `db.create_all()` vencendo a corrida do Alembic em qualquer migration que crie tabela — CORRIGIDO
+
+**Confirmado bloqueando de verdade** (não só "banco vazio do zero",
+como o achado anterior já registrado): reproduzi o cenário exato —
+banco já existente, migration `a1c7f92e5b04` aplicada, aplica o patch
+do Playground v2 (código com os models novos) e roda `flask db
+upgrade` → `OperationalError: table tesseract_playground_folder
+already exists`. Causa: `ModuleManager.create_all_pending_tables()`
+chama `db.create_all()` em TODO boot do app, inclusive quando o boot é
+disparado pelo próprio comando `flask db upgrade` — `db.create_all()`
+cria a tabela nova (já com o shape final, refletindo o model
+atualizado) antes do Alembic ter a chance, e o `CREATE TABLE`/`ADD
+COLUMN` da migration falha como duplicado.
+
+**Correção**: `core/module_manager.py` — nova função
+`_running_under_flask_db_command()` (checa `sys.argv[1] == "db"`,
+cobre tanto `flask db ...` quanto `python run.py db ...`, mesmo
+`FlaskGroup`). `create_all_pending_tables()` pula o `db.create_all()`
+quando essa checagem é verdadeira — nesse contexto o Alembic é quem
+manda no schema. Fora de comando `db`, comportamento idêntico ao de
+antes (nenhuma regressão).
+
+**Validado**: reproduzido o cenário real (banco no estado exato de
+antes do patch do Playground v2, via `git worktree` no commit
+correspondente) e confirmado que `flask db upgrade` agora migra limpo
+até `b2d8a04f6c17`, sem precisar apagar o banco. Suíte completa
+510/510 (8 testes novos em `tests/test_phase5_module_manager.py`).
+
+**Nota**: isso não muda a situação já registrada de `flask db upgrade`
+100% do zero (banco totalmente vazio) — essa combinação depende também
+do bug pré-existente e não relacionado da migration de
+`mash_control_rule` (coluna duplicada), que continua fora do escopo
+desta correção.
+
+### 2 e 3. Addon/Feature em texto livre no Model Builder e na ponte do Playground — CORRIGIDO
+
+Achado: digitar o nome errado de um addon/feature (typo, ou um nome
+que nunca existiu) falhava silenciosamente mais adiante no fluxo, sem
+nenhuma UI mostrando quais nomes existem de fato — nas duas telas que
+criam `ModelDefinition` (Model Builder direto, e a ponte "Usar
+resposta como base de campos" do Playground).
+
+**Correção**: nova função `list_existing_addons(project_root)`
+(`services/core/model_builder_service.py`) — escaneia
+`addons/addon_*/addon.json` + `features/feature_*/feature.json` em
+disco (não depende do Addon estar ativo) e devolve
+`[{"name","label","features":[...]}, ...]`.
+
+- **Model Builder** (`templates/core/admin/model_builder_manage.html`):
+  Addon/Feature viram `<select>` (populados com a lista real) para o
+  escopo "Addon/Feature já existente" — continuam campo de texto (novo
+  nome) só quando o escopo é "Addon novo"/"Feature nova". Cascata via
+  JS: mudar o Addon selecionado repopula o `<select>` de Feature a
+  partir do `data-features` embutido na `<option>`.
+- **Ponte do Playground** (`templates/core/admin/playground.html`,
+  formulário "Usar resposta como base de campos"): mesma ideia, mais
+  simples (só existente, sem os escopos "novo") — `<select>` de
+  Addon/Feature com a mesma cascata via JS (`.pg-bridge-*`).
+
+Fluxo de geração da tabela em si não mudou — confirmado que o formato
+de 2 etapas (Playground cria rascunho → revisão/edição de campos no
+Model Builder → botão "Gerar") já cobre o pedido, só faltava o select
+funcionar.
+
+Testes: 6 novos em `tests/test_model_builder.py`
+(`list_existing_addons` com/sem features, pasta sem manifesto, pasta
+`addons/` inexistente, `<select>` presente na tela) + 1 novo em
+`tests/test_playground_v2.py` (selects da ponte presentes na tela).
+
+## Achado avulso — configuração de nível máximo de ícone no menu sem UI: CORRIGIDO
+
+`core.menu.icon_max_depth` (skill 10 §5.2) já existia e funcionava
+(`templates/core/base.html`, testado desde a skill 10) — mas só era
+alterável direto no banco (`system_config`), sem nenhum controle na
+tela `/admin/menu-settings`. Adicionado `<select>` na tela ("Sempre" /
+"Só até o nível N", N de 0 a 5), com getter/setter novos em
+`services/core/menu_preference_service.py`
+(`get_global_icon_max_depth()`/`set_global_defaults(icon_max_depth=)`)
+seguindo exatamente o mesmo padrão já usado por
+`default_sidebar_collapsed`. 2 testes novos em
+`tests/test_menu_hierarquico.py` (select presente na tela; salvar pela
+tela reflete de fato na sidebar).
+
+Suíte completa do projeto após os 3 achados: **510/510 passando**.

@@ -29,6 +29,16 @@ from annotations import get_model_metadata
 logger = logging.getLogger(__name__)
 
 
+def _running_under_flask_db_command() -> bool:
+    """True se o processo foi invocado como `[...] db <subcomando>`
+    (`flask db upgrade`, `python run.py db upgrade`, etc. — mesmo
+    `FlaskGroup`, então a checagem por posição em `sys.argv` cobre os
+    dois pontos de entrada). Usado só por `create_all_pending_tables()`
+    pra evitar o `db.create_all()` adiantar a criação de uma tabela que
+    o Alembic está prestes a criar/alterar (ver BACKLOG.md)."""
+    return len(sys.argv) >= 2 and sys.argv[1] == "db"
+
+
 def _template_dir_for(obj) -> str | None:
     """
     Pasta de templates de um Addon/Feature — descoberta automática,
@@ -292,7 +302,28 @@ class ModuleManager:
         tesseract_system_config), que não passam por
         _pending_model_classes (essa lista é só dos models trazidos
         por Addons, para fins de log).
+
+        Exceção (achado real, ver BACKLOG.md "Bugs de OData" /
+        "Playground v2"): quando o processo foi invocado como um
+        comando `flask db ...` (`upgrade`/`downgrade`/`migrate`/
+        `stamp`/...), este método NÃO chama `db.create_all()`. Nesse
+        contexto quem manda no schema é o Alembic — um
+        `db.create_all()` adiantado cria a tabela nova (do metadata,
+        já refletindo o model atualizado) ANTES da migration ter a
+        chance, e o `CREATE TABLE`/`ADD COLUMN` do Alembic falha
+        com "already exists"/"duplicate column" em qualquer migration
+        que crie tabela nova ou dado que o `db.create_all()` já criou
+        sozinho. Fora desse contexto (boot normal via `python run.py
+        start`, testes, etc.) o comportamento não muda em nada.
         """
+        if _running_under_flask_db_command():
+            logger.debug(
+                "create_all_pending_tables() ignorado — processo rodando sob "
+                "'flask db ...' (Alembic é quem controla o schema aqui, ver "
+                "BACKLOG.md)."
+            )
+            return
+
         if self._pending_model_classes:
             logger.info(
                 "Criando tabelas de %d model(s) de Addon (%d módulo(s) "

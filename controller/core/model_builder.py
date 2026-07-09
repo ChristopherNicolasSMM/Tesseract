@@ -29,7 +29,11 @@ def _project_root() -> Path:
 @permission_required("model_definitions.view")
 def manage():
     definitions = ModelDefinition.query.order_by(ModelDefinition.created_at.desc()).all()
-    return render_template("core/admin/model_builder_manage.html", definitions=definitions)
+    return render_template(
+        "core/admin/model_builder_manage.html",
+        definitions=definitions,
+        existing_addons=svc.list_existing_addons(_project_root()),
+    )
 
 
 @model_builder_bp.route("/", methods=["POST"])

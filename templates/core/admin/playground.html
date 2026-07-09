@@ -179,12 +179,19 @@
         {% else %}
         <pre class="small bg-light p-2" style="max-height:200px;overflow:auto;">{{ req.last_response_json | tojson(indent=2) }}</pre>
 
-        <form method="post" action="{{ url_for('playground.use_as_fields', request_id=req.id) }}" class="row g-2 mt-2">
+        <form method="post" action="{{ url_for('playground.use_as_fields', request_id=req.id) }}" class="row g-2 mt-2 pg-bridge-form">
           <div class="col-md-3">
-            <input type="text" name="target_addon_name" class="form-control form-control-sm" placeholder="addon" required>
+            <select name="target_addon_name" class="form-select form-select-sm pg-bridge-addon" required>
+              <option value="">Addon...</option>
+              {% for a in existing_addons %}
+              <option value="{{ a.name }}" data-features='{{ a.features | tojson }}'>{{ a.label }} ({{ a.name }})</option>
+              {% endfor %}
+            </select>
           </div>
           <div class="col-md-3">
-            <input type="text" name="target_feature_name" class="form-control form-control-sm" placeholder="feature (opcional)">
+            <select name="target_feature_name" class="form-select form-select-sm pg-bridge-feature">
+              <option value="">Núcleo do Addon</option>
+            </select>
           </div>
           <div class="col-md-3">
             <input type="text" name="model_name" class="form-control form-control-sm" placeholder="Nome do Model" required>
@@ -337,5 +344,25 @@ function pgSerializeParams() {
   });
   document.getElementById('paramsJsonField').value = JSON.stringify(params);
 }
+
+// Bridge "Usar resposta como base de campos" (skill 06 §5) — cascata
+// Addon -> Feature, mesma ideia do Model Builder (achado real: campo
+// livre deixava digitar addon/feature que não existem).
+document.querySelectorAll('.pg-bridge-form').forEach(function (form) {
+  const addonSelect = form.querySelector('.pg-bridge-addon');
+  const featureSelect = form.querySelector('.pg-bridge-feature');
+  addonSelect.addEventListener('change', function () {
+    const selected = addonSelect.options[addonSelect.selectedIndex];
+    const featuresJson = selected ? selected.getAttribute('data-features') : null;
+    const features = featuresJson ? JSON.parse(featuresJson) : [];
+    featureSelect.innerHTML = '<option value="">Núcleo do Addon</option>';
+    features.forEach(function (f) {
+      const opt = document.createElement('option');
+      opt.value = f.name;
+      opt.textContent = f.label + ' (' + f.name + ')';
+      featureSelect.appendChild(opt);
+    });
+  });
+});
 </script>
 {% endblock %}

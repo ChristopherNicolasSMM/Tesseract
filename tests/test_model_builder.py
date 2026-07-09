@@ -247,3 +247,47 @@ def test_fluxo_completo_via_http(app, client):
     with app.app_context():
         definition = ModelDefinition.query.get(definition_id)
         assert definition.status == ModelDefinitionStatus.GENERATED
+
+
+# ── list_existing_addons() — select box em vez de texto livre (BACKLOG.md) ──
+
+def test_list_existing_addons_encontra_addon_de_teste():
+    addons = svc.list_existing_addons(_PROJECT_ROOT)
+    by_name = {a["name"]: a for a in addons}
+    assert "smoketest_mb" in by_name
+
+
+def test_list_existing_addons_le_features_do_addon():
+    feature_dir = _addon_dir / "features" / "feature_smoketest_mb_sub"
+    feature_dir.mkdir(parents=True, exist_ok=True)
+    (feature_dir / "feature.json").write_text(
+        json.dumps({"name": "smoketest_mb_sub", "label": "Sub Feature de Teste"}),
+        encoding="utf-8",
+    )
+    try:
+        addons = svc.list_existing_addons(_PROJECT_ROOT)
+        by_name = {a["name"]: a for a in addons}
+        feature_names = {f["name"] for f in by_name["smoketest_mb"]["features"]}
+        assert "smoketest_mb_sub" in feature_names
+    finally:
+        shutil.rmtree(feature_dir, ignore_errors=True)
+
+
+def test_list_existing_addons_ignora_pasta_sem_manifesto(tmp_path):
+    (tmp_path / "addons" / "addon_incompleto").mkdir(parents=True)
+    assert svc.list_existing_addons(tmp_path) == []
+
+
+def test_list_existing_addons_pasta_addons_inexistente(tmp_path):
+    assert svc.list_existing_addons(tmp_path / "nao_existe") == []
+
+
+def test_tela_manage_lista_addons_no_select(app, client):
+    _login_admin(app, client)
+    resp = client.get("/admin/model-builder/")
+    assert resp.status_code == 200
+    # A tela real usa addons/ do projeto real (current_app.root_path),
+    # não o _PROJECT_ROOT de teste — só confirma que o <select> existe
+    # e não quebrou a renderização.
+    assert b'id="addonSelectExisting"' in resp.data
+    assert b'id="addonInputNew"' in resp.data

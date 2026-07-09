@@ -163,3 +163,56 @@ def test_discover_ignora_pasta_sem_addon_json(app, tmp_path):
     with app.app_context():
         registrados = app.module_manager.discover_and_register_addons(pasta_vazia)
         assert registrados == []
+
+
+# ── create_all_pending_tables() vs. comando `flask db ...` (BACKLOG.md) ─────
+#
+# Achado real: db.create_all() rodando sempre no boot "ganhava a corrida"
+# do Alembic sempre que uma migration nova criava uma tabela (ou
+# adicionava uma coluna) — a tabela/coluna já existia (criada pelo
+# create_all, que reflete o model já atualizado) quando a migration
+# tentava criar/alterar, e o Alembic falhava com "already exists" /
+# "duplicate column". Corrigido pulando db.create_all() quando o
+# processo é um comando `flask db ...`.
+
+def test_running_under_flask_db_command_detecta_subcomando_db(monkeypatch):
+    from core.module_manager import _running_under_flask_db_command
+
+    monkeypatch.setattr("sys.argv", ["run.py", "db", "upgrade"])
+    assert _running_under_flask_db_command() is True
+
+    monkeypatch.setattr("sys.argv", ["flask", "db", "stamp", "head"])
+    assert _running_under_flask_db_command() is True
+
+
+def test_running_under_flask_db_command_false_para_outros_comandos(monkeypatch):
+    from core.module_manager import _running_under_flask_db_command
+
+    monkeypatch.setattr("sys.argv", ["run.py", "start"])
+    assert _running_under_flask_db_command() is False
+
+    monkeypatch.setattr("sys.argv", ["pytest"])
+    assert _running_under_flask_db_command() is False
+
+    monkeypatch.setattr("sys.argv", ["run.py"])
+    assert _running_under_flask_db_command() is False
+
+
+def test_create_all_pending_tables_pula_create_all_sob_comando_db(app, monkeypatch):
+    from unittest.mock import patch
+
+    with app.app_context():
+        monkeypatch.setattr("sys.argv", ["run.py", "db", "upgrade"])
+        with patch("core.module_manager.db.create_all") as mocked_create_all:
+            app.module_manager.create_all_pending_tables()
+            mocked_create_all.assert_not_called()
+
+
+def test_create_all_pending_tables_roda_normalmente_fora_de_comando_db(app, monkeypatch):
+    from unittest.mock import patch
+
+    with app.app_context():
+        monkeypatch.setattr("sys.argv", ["run.py", "start"])
+        with patch("core.module_manager.db.create_all") as mocked_create_all:
+            app.module_manager.create_all_pending_tables()
+            mocked_create_all.assert_called_once()

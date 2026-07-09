@@ -21,6 +21,7 @@ from model.core.user_menu_preference import UserMenuPreference
 _KEY_ORDER_OVERRIDES = "core.menu.order_overrides"
 _KEY_COLLAPSED_NODES = "core.menu.collapsed_nodes"
 _KEY_SIDEBAR_COLLAPSED = "core.menu.default_sidebar_collapsed"
+_KEY_ICON_MAX_DEPTH = "core.menu.icon_max_depth"
 
 ROOT_KEY = "__root__"  # chave de order_overrides pro nível raiz (parent_id IS NULL)
 
@@ -82,6 +83,14 @@ def get_global_default_sidebar_collapsed() -> bool:
     return bool(SystemConfig.get(_KEY_SIDEBAR_COLLAPSED, default=False))
 
 
+def get_global_icon_max_depth() -> int:
+    """`-1` = sempre mostra ícone, em qualquer nível (default — skill
+    10 §5.2). `0` esconderia em todo nível (não faz sentido na prática,
+    mas não é bloqueado); `N` esconde a partir do nível `N` (0-based),
+    ver `templates/core/base.html`."""
+    return int(SystemConfig.get(_KEY_ICON_MAX_DEPTH, default=-1))
+
+
 def _set_config(key: str, value, value_type: str) -> None:
     import json
 
@@ -97,13 +106,16 @@ def _set_config(key: str, value, value_type: str) -> None:
 
 def set_global_defaults(*, order_overrides: Optional[dict] = None,
                          collapsed_nodes: Optional[list[str]] = None,
-                         default_sidebar_collapsed: Optional[bool] = None) -> None:
+                         default_sidebar_collapsed: Optional[bool] = None,
+                         icon_max_depth: Optional[int] = None) -> None:
     if order_overrides is not None:
         _set_config(_KEY_ORDER_OVERRIDES, order_overrides, "json")
     if collapsed_nodes is not None:
         _set_config(_KEY_COLLAPSED_NODES, collapsed_nodes, "json")
     if default_sidebar_collapsed is not None:
         _set_config(_KEY_SIDEBAR_COLLAPSED, default_sidebar_collapsed, "bool")
+    if icon_max_depth is not None:
+        _set_config(_KEY_ICON_MAX_DEPTH, icon_max_depth, "int")
     db.session.commit()
 
 

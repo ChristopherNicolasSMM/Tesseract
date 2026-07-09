@@ -5,16 +5,22 @@ Telas web do API/SQL Playground (skill 06, Patch C + adenda
 "Playground v2", §8).
 """
 import json
+from pathlib import Path
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 from flask_login import login_required, current_user
 
 from core.db import db
 from core.permissions import permission_required
 from model.core.playground_request import PlaygroundRequest, PlaygroundRequestKind, PlaygroundAuthType
 from services.core import playground_service as svc
+from services.core import model_builder_service as model_builder_svc
 
 playground_bp = Blueprint("playground", __name__, url_prefix="/admin/playground")
+
+
+def _project_root() -> Path:
+    return Path(current_app.root_path).parent.resolve()
 
 
 def _build_auth_config(auth_type: str) -> dict:
@@ -63,6 +69,7 @@ def manage():
         current_folder_id=folder_id,
         show_archived=show_archived,
         auth_types=PlaygroundAuthType.ALL,
+        existing_addons=model_builder_svc.list_existing_addons(_project_root()),
     )
 
 

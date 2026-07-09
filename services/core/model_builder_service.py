@@ -64,6 +64,70 @@ def _to_pascal_case(snake: str) -> str:
     return "".join(part.capitalize() for part in snake.split("_") if part)
 
 
+# ── Listagem de Addons/Features existentes (select box, não texto livre) ────
+
+def list_existing_addons(project_root: Path) -> list[dict]:
+    """
+    Escaneia `addons/addon_*/addon.json` (e, dentro de cada um,
+    `features/feature_*/feature.json`) em disco — não depende de o
+    Addon estar ativo, já que o Model Builder é uma ferramenta de
+    desenvolvimento (adicionar Model a um Addon desativado é um caso
+    válido). Usado pelas telas de criação (Model Builder e a ponte do
+    Playground) pra oferecer select box em vez de texto livre — achado
+    real registrado em BACKLOG.md: digitar o nome errado do
+    addon/feature falhava silenciosamente mais adiante, sem UI pra
+    saber quais nomes existem de fato.
+
+    Retorna `[{"name": ..., "label": ..., "features": [{"name": ...,
+    "label": ...}, ...]}, ...]`, ordenado por nome.
+    """
+    addons_dir = project_root / "addons"
+    if not addons_dir.is_dir():
+        return []
+
+    result = []
+    for addon_dir in sorted(addons_dir.iterdir()):
+        if not addon_dir.is_dir() or not addon_dir.name.startswith("addon_"):
+            continue
+        manifest_path = addon_dir / "addon.json"
+        if not manifest_path.exists():
+            continue
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            logger.warning("addon.json inválido/ilegível em %s — ignorado na listagem.", addon_dir)
+            continue
+
+        addon_name = manifest.get("name") or addon_dir.name.removeprefix("addon_")
+        features = []
+        features_dir = addon_dir / "features"
+        if features_dir.is_dir():
+            for feature_dir in sorted(features_dir.iterdir()):
+                if not feature_dir.is_dir() or not feature_dir.name.startswith("feature_"):
+                    continue
+                feature_manifest_path = feature_dir / "feature.json"
+                if not feature_manifest_path.exists():
+                    continue
+                try:
+                    feature_manifest = json.loads(feature_manifest_path.read_text(encoding="utf-8"))
+                except (json.JSONDecodeError, OSError):
+                    logger.warning("feature.json inválido/ilegível em %s — ignorado.", feature_dir)
+                    continue
+                feature_name = feature_manifest.get("name") or feature_dir.name.removeprefix("feature_")
+                features.append({
+                    "name": feature_name,
+                    "label": feature_manifest.get("label", feature_name),
+                })
+
+        result.append({
+            "name": addon_name,
+            "label": manifest.get("label", addon_name),
+            "features": features,
+        })
+
+    return result
+
+
 # ── Rascunho (ModelDefinition + campos) ──────────────────────────────────────
 
 def create_draft(*, target_addon_name: str, target_feature_name: Optional[str],
