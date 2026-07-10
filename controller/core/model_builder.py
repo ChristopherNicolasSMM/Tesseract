@@ -92,11 +92,41 @@ def detail(definition_id: int):
     if not definition:
         flash("Rascunho não encontrado.", "error")
         return redirect(url_for("model_builder.manage"))
+
+    try:
+        preview_source = svc.preview_model_source(definition, project_root=_project_root()) if definition.fields else None
+        preview_error = None
+    except Exception as exc:  # noqa: BLE001 — preview nunca pode derrubar a tela de detalhe
+        preview_source = None
+        preview_error = str(exc)
+
     return render_template(
         "core/admin/model_builder_detail.html",
         definition=definition,
         field_types=ModelFieldType.ALL,
         fk_candidates=svc.fk_candidates(definition),
+        preview_source=preview_source,
+        preview_error=preview_error,
+    )
+
+
+def _field_form_kwargs() -> dict:
+    """Campos compartilhados entre 'adicionar' e 'editar' — o form da
+    tela é o mesmo, só muda a rota de destino (skill 06, achado real:
+    campo editado tinha só nome/tipo/label, faltavam as demais opções
+    que 'adicionar' já tinha)."""
+    return dict(
+        field_name=(request.form.get("field_name") or "").strip(),
+        field_type=request.form.get("field_type"),
+        label_text=(request.form.get("label_text") or "").strip(),
+        nullable=bool(request.form.get("nullable")),
+        unique=bool(request.form.get("unique")),
+        is_required=bool(request.form.get("is_required")),
+        default_value=(request.form.get("default_value") or "").strip() or None,
+        max_length=request.form.get("max_length", type=int),
+        fk_target_table=(request.form.get("fk_target_table") or "").strip() or None,
+        is_listview_column=bool(request.form.get("is_listview_column")),
+        is_form_field=bool(request.form.get("is_form_field")),
     )
 
 
@@ -110,21 +140,21 @@ def add_field(definition_id: int):
         return redirect(url_for("model_builder.manage"))
 
     try:
-        svc.add_field(
-            definition,
-            field_name=(request.form.get("field_name") or "").strip(),
-            field_type=request.form.get("field_type"),
-            label_text=(request.form.get("label_text") or "").strip(),
-            nullable=bool(request.form.get("nullable")),
-            unique=bool(request.form.get("unique")),
-            is_required=bool(request.form.get("is_required")),
-            default_value=(request.form.get("default_value") or "").strip() or None,
-            max_length=request.form.get("max_length", type=int),
-            fk_target_table=(request.form.get("fk_target_table") or "").strip() or None,
-            is_listview_column=bool(request.form.get("is_listview_column")),
-            is_form_field=bool(request.form.get("is_form_field")),
-        )
+        svc.add_field(definition, **_field_form_kwargs())
         flash("Campo adicionado.", "success")
+    except svc.ModelBuilderError as exc:
+        flash(str(exc), "error")
+
+    return redirect(url_for("model_builder.detail", definition_id=definition_id))
+
+
+@model_builder_bp.route("/<int:definition_id>/fields/<int:field_id>/edit", methods=["POST"])
+@login_required
+@permission_required("model_definitions.create")
+def edit_field(definition_id: int, field_id: int):
+    try:
+        svc.update_field(field_id, **_field_form_kwargs())
+        flash("Campo atualizado.", "success")
     except svc.ModelBuilderError as exc:
         flash(str(exc), "error")
 

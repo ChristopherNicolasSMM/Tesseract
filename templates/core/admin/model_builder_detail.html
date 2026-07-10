@@ -90,7 +90,23 @@
                   {% if f.unique %} único{% endif %}
                   {% if f.max_length %} max({{ f.max_length }}){% endif %}
                 </td>
-                <td>
+                <td class="d-flex gap-1">
+                  <button type="button" class="btn btn-sm btn-outline-secondary js-edit-field"
+                          data-field-id="{{ f.id }}"
+                          data-field-name="{{ f.field_name }}"
+                          data-field-type="{{ f.field_type }}"
+                          data-label-text="{{ f.label_text }}"
+                          data-nullable="{{ '1' if f.nullable else '' }}"
+                          data-unique="{{ '1' if f.unique else '' }}"
+                          data-is-required="{{ '1' if f.is_required else '' }}"
+                          data-default-value="{{ f.default_value or '' }}"
+                          data-max-length="{{ f.max_length or '' }}"
+                          data-fk-target-table="{{ f.fk_target_table or '' }}"
+                          data-is-listview-column="{{ '1' if f.is_listview_column else '' }}"
+                          data-is-form-field="{{ '1' if f.is_form_field else '' }}"
+                          title="Editar campo (inclusive campos vindos da inferencia do Playground)">
+                    <i class="bi bi-pencil"></i>
+                  </button>
                   <form method="post" action="{{ url_for('model_builder.delete_field', definition_id=definition.id, field_id=f.id) }}"
                         onsubmit="return confirm('Remover este campo?');">
                     <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash"></i></button>
@@ -105,8 +121,8 @@
 
           <hr>
 
-          <h6>Adicionar campo</h6>
-          <form method="post" action="{{ url_for('model_builder.add_field', definition_id=definition.id) }}" class="row g-2">
+          <h6 id="fieldFormTitle">Adicionar campo</h6>
+          <form method="post" action="{{ url_for('model_builder.add_field', definition_id=definition.id) }}" class="row g-2" id="fieldForm">
             <div class="col-md-4">
               <label class="form-label">Nome (snake_case)</label>
               <input type="text" name="field_name" class="form-control" required>
@@ -168,10 +184,65 @@
               </div>
             </div>
 
-            <div class="col-12 mt-2">
-              <button class="btn btn-primary" type="submit">Adicionar campo</button>
+            <div class="col-12 mt-2 d-flex gap-2">
+              <button class="btn btn-primary" type="submit" id="fieldFormSubmit">Adicionar campo</button>
+              <button class="btn btn-outline-secondary" type="button" id="fieldFormCancel" style="display:none;">Cancelar edição</button>
             </div>
           </form>
+        </div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-body">
+          <h5 class="card-title">
+            <i class="bi bi-eye"></i> Preview do Model
+            <span class="small text-muted fw-normal">— exatamente o que seria escrito em <code>model.py</code>, sem gravar nada em disco</span>
+          </h5>
+          {% if preview_error %}
+          <div class="alert alert-warning small mb-0">Não foi possível gerar o preview agora: {{ preview_error }}</div>
+          {% elif preview_source %}
+          <pre class="small bg-dark text-light p-3 rounded" style="max-height:420px;overflow:auto;"><code>{{ preview_source }}</code></pre>
+          {% else %}
+          <p class="small text-muted mb-0">Adicione pelo menos um campo para ver o preview.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-body">
+          <h5 class="card-title" data-bs-toggle="collapse" data-bs-target="#annotationsGuide" role="button" style="cursor:pointer;">
+            <i class="bi bi-book"></i> Guia de Anotações <i class="bi bi-chevron-down small"></i>
+          </h5>
+          <div class="collapse" id="annotationsGuide">
+            <p class="small text-muted">
+              Referência de <code>annotations/__init__.py</code> — usadas se você preferir editar o
+              <code>model.py</code> gerado diretamente em texto, em vez de (ou além de) usar esta tela visual.
+              O Model Builder não faz reverse-parse de texto editado à mão de volta para os campos aqui —
+              ver <code>docs/technical/06-manutencao-e-expansao.md</code> da skill 06 para o estado dessa decisão.
+            </p>
+            <table class="table table-sm">
+              <thead><tr><th>Anotação</th><th>Uso</th><th>Efeito</th></tr></thead>
+              <tbody>
+                <tr><td><code>@label("Nome")</code></td><td>classe do model</td><td>Nome de exibição da entidade (singular)</td></tr>
+                <tr><td><code>@plural("nomes")</code></td><td>classe do model</td><td>Nome de exibição/rota (plural) — vira o prefixo de URL e template</td></tr>
+                <tr><td><code>@display_field("campo")</code></td><td>classe do model</td><td>Campo usado como texto de exibição em referências fracas de outros Addons (skill 11)</td></tr>
+                <tr><td><code>@menu_icon("bi-flask")</code></td><td>classe do model</td><td>Ícone (Bootstrap Icons) da Transação auto-gerada</td></tr>
+                <tr><td><code>@weak_ref("campo_id", resolver="...")</code></td><td>classe do model</td><td>Referência fraca cross-Addon (skill 11) — sem FK real</td></tr>
+                <tr><td><code>@required("campo")</code></td><td>classe do model, um por campo</td><td>Validação: obrigatório</td></tr>
+                <tr><td><code>@max_length("campo", N)</code></td><td>classe do model</td><td>Validação: tamanho máximo (string)</td></tr>
+                <tr><td><code>@min_length("campo", N)</code></td><td>classe do model</td><td>Validação: tamanho mínimo (string)</td></tr>
+                <tr><td><code>@min_value("campo", N)</code></td><td>classe do model</td><td>Validação: valor mínimo (numérico)</td></tr>
+                <tr><td><code>@choices("campo")</code></td><td>classe do model</td><td>Filtro automático de SELECT DISTINCT na listagem</td></tr>
+                <tr><td><code>@listview(columns=[...], filters=[...])</code></td><td>classe do model</td><td>Colunas/filtros da tela de listagem (SmartList)</td></tr>
+                <tr><td><code>@form(fields=[...], groups=[...])</code></td><td>classe do model</td><td>Layout do formulário de detalhe</td></tr>
+                <tr><td><code>@permission("acao", role_required=...)</code></td><td>classe do model</td><td>Permissão de negócio extra (Camada 2), além da automática por rota</td></tr>
+              </tbody>
+            </table>
+            <p class="small text-muted mb-0">
+              Documentação completa com exemplos: <code>annotations/__init__.py</code> (docstrings de
+              <code>@weak_ref</code> e <code>@permission</code> têm o exemplo de uso mais detalhado).
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -185,13 +256,53 @@
   'use strict';
   const select = document.getElementById('fieldTypeSelect');
   const fkWrapper = document.getElementById('fkTargetWrapper');
-  if (!select || !fkWrapper) return;
+  const form = document.getElementById('fieldForm');
+  const submitBtn = document.getElementById('fieldFormSubmit');
+  const cancelBtn = document.getElementById('fieldFormCancel');
+  const formTitle = document.getElementById('fieldFormTitle');
+  const addFieldUrl = form.getAttribute('action');
+  if (!select || !fkWrapper || !form) return;
 
   function syncFkVisibility() {
     fkWrapper.style.display = select.value === 'foreign_key' ? '' : 'none';
   }
   select.addEventListener('change', syncFkVisibility);
   syncFkVisibility();
+
+  function resetToAddMode() {
+    form.setAttribute('action', addFieldUrl);
+    form.reset();
+    formTitle.textContent = 'Adicionar campo';
+    submitBtn.textContent = 'Adicionar campo';
+    cancelBtn.style.display = 'none';
+    syncFkVisibility();
+  }
+  cancelBtn.addEventListener('click', resetToAddMode);
+
+  document.querySelectorAll('.js-edit-field').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const d = btn.dataset;
+      form.setAttribute('action', addFieldUrl.replace(/\/fields$/, '/fields/' + d.fieldId + '/edit'));
+      form.querySelector('[name="field_name"]').value = d.fieldName;
+      form.querySelector('[name="field_type"]').value = d.fieldType;
+      form.querySelector('[name="label_text"]').value = d.labelText;
+      form.querySelector('[name="nullable"]').checked = !!d.nullable;
+      form.querySelector('[name="unique"]').checked = !!d.unique;
+      form.querySelector('[name="is_required"]').checked = !!d.isRequired;
+      form.querySelector('[name="default_value"]').value = d.defaultValue || '';
+      form.querySelector('[name="max_length"]').value = d.maxLength || '';
+      form.querySelector('[name="is_listview_column"]').checked = !!d.isListviewColumn;
+      form.querySelector('[name="is_form_field"]').checked = !!d.isFormField;
+      syncFkVisibility();
+      if (d.fkTargetTable) {
+        form.querySelector('[name="fk_target_table"]').value = d.fkTargetTable;
+      }
+      formTitle.textContent = 'Editando campo: ' + d.fieldName;
+      submitBtn.textContent = 'Salvar alterações';
+      cancelBtn.style.display = '';
+      form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  });
 })();
 </script>
 {% endblock %}

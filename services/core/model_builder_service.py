@@ -198,6 +198,47 @@ def add_field(model_definition: ModelDefinition, *, field_name: str, field_type:
     return field
 
 
+def update_field(field_id: int, *, field_name: str, field_type: str,
+                  label_text: str, nullable: bool = True, unique: bool = False,
+                  is_required: bool = False, default_value: Optional[str] = None,
+                  max_length: Optional[int] = None, fk_target_table: Optional[str] = None,
+                  is_listview_column: bool = True, is_form_field: bool = True) -> ModelFieldDefinition:
+    """Edita um campo já existente — inclusive os inferidos pela ponte
+    do Playground (skill 06 §5), que hoje só chegavam com
+    nome/tipo/label e nenhuma das demais opções (achado real, ver
+    BACKLOG.md). Mesma validação de FK de `add_field`, sem duplicar
+    a regra da skill 02."""
+    field = ModelFieldDefinition.query.get(field_id)
+    if not field:
+        raise ModelBuilderError("Campo não encontrado.")
+
+    if field_type not in ModelFieldType.ALL:
+        raise ModelBuilderError(f"Tipo de campo inválido: {field_type}")
+
+    if field_type == ModelFieldType.FOREIGN_KEY:
+        model_definition = ModelDefinition.query.get(field.model_definition_id)
+        candidates = {c["table_name"] for c in fk_candidates(model_definition)}
+        if fk_target_table not in candidates:
+            raise ModelBuilderError(
+                f"'{fk_target_table}' não é uma FK permitida para este Addon "
+                f"(skill 02) — só tabelas do mesmo Addon ou tesseract_user."
+            )
+
+    field.field_name = field_name
+    field.field_type = field_type
+    field.label_text = label_text
+    field.nullable = nullable
+    field.unique = unique
+    field.is_required = is_required
+    field.default_value = default_value
+    field.max_length = max_length
+    field.fk_target_table = fk_target_table if field_type == ModelFieldType.FOREIGN_KEY else None
+    field.is_listview_column = is_listview_column
+    field.is_form_field = is_form_field
+    db.session.commit()
+    return field
+
+
 def remove_field(field_id: int) -> None:
     field = ModelFieldDefinition.query.get(field_id)
     if field:
@@ -507,6 +548,41 @@ def _run_migration_autogenerate(message: str) -> Optional[str]:
 
     fm_autogenerate(directory="migrations", message=message)
     return message
+
+
+def preview_model_source(definition: ModelDefinition, *, project_root: Path) -> str:
+    """Renderiza o `model.py` que seria escrito, sem tocar em disco —
+    mesma pergunta que o PyTeca respondia com a tela de "visualizar
+    model" (achado real, ver BACKLOG.md). Reaproveita exatamente a
+    mesma renderização de `generate()`, então o preview nunca diverge
+    do que seria gerado de verdade."""
+    class_name = definition.model_name
+    class_name_lower = _to_snake_case(class_name)
+
+    try:
+        output_dir = resolve_output_dir(project_root, definition.target_addon_name, definition.target_feature_name)
+        output_module_path = str(output_dir.relative_to(project_root))
+    except ManifestError:
+        # Addon/Feature ainda não existe no disco (target_scope novo,
+        # scaffold só acontece em generate()) — caminho ilustrativo,
+        # não afeta a leitura do model em si.
+        addon_part = f"addons/addon_{definition.target_addon_name}"
+        feature_part = f"/features/feature_{definition.target_feature_name}" if definition.target_feature_name else ""
+        output_module_path = f"{addon_part}{feature_part}/root" if not definition.target_feature_name else f"{addon_part}{feature_part}"
+
+    context = {
+        "class_name": class_name,
+        "class_name_lower": class_name_lower,
+        "table_short_name": definition.table_short_name,
+        "label": definition.model_name,
+        "plural": class_name_lower + "s",
+        "output_module_path": output_module_path,
+        "model_definition_id": definition.id,
+        **_field_template_context(definition.fields),
+    }
+
+    template = _jinja_env.get_template("model.py.j2")
+    return template.render(**context)
 
 
 def generate(model_definition_id: int, *, project_root: Path, overwrite: bool = False) -> dict:

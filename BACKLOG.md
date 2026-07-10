@@ -1796,3 +1796,45 @@ doc): `i18n/pt_BR.json` ainda ausente em `addon_brewstation` (Addon +
 5 Features) e `addon_estoque` — já registrado, mantido como está.
 
 34 arquivos alterados, 2 criados, nenhum código tocado.
+
+## Model Builder — editar campo, preview e guia de anotações: CORRIGIDO
+
+Uso real revelou 3 gaps na tela de detalhe (`/admin/model-builder/<id>`):
+campos (inclusive os inferidos pela ponte do Playground, skill 06 §5)
+não tinham opção de editar depois de criados, e faltava uma forma de
+visualizar o `model.py` resultante antes de gerar de verdade (like o
+PyTeca tinha).
+
+- **Editar campo**: `services/core/model_builder_service.py::
+  update_field()` (mesma validação de FK de `add_field`, sem
+  duplicar a regra da skill 02) + rota `POST /<id>/fields/<field_id>/
+  edit`. Tela: botão "editar" por linha (inclusive campos vindos da
+  inferência do Playground) que pré-preenche o mesmo formulário de
+  "adicionar campo" com TODAS as opções (antes só existiam via
+  "adicionar" — nome/tipo/label chegavam da inferência, mas nullable/
+  unique/max_length/FK/listview/form ficavam sempre no default, sem
+  como ajustar).
+- **Preview do Model**: `services/core/model_builder_service.py::
+  preview_model_source()` — reaproveita exatamente a mesma renderização
+  de `model.py.j2` usada por `generate()`, sem escrever nada em disco.
+  Aparece na tela de detalhe, atualizado a cada campo adicionado/
+  editado/removido (reload da página já reflete — sincronização
+  visual→texto).
+- **Guia de Anotações**: painel de referência (colapsável) na própria
+  tela, cobrindo as 12 anotações de `annotations/__init__.py`
+  (`@label`/`@plural`/`@display_field`/`@weak_ref`/`@required`/
+  `@max_length`/`@min_length`/`@min_value`/`@choices`/`@listview`/
+  `@form`/`@permission`/`@menu_icon`), pra quem preferir editar o
+  `model.py` gerado direto em texto.
+
+**Decisão registrada** (conversa 2026-07-09): texto→visual (reverse-parse
+do `model.py` editado à mão de volta pros campos da tela) fica pra
+depois — risco de ambiguidade em Python fora do padrão esperado, e o
+Model Builder já deixa claro que não faz esse reverse-parse hoje (nota
+na própria tela). Só visual→texto (preview) foi implementado nesta
+rodada.
+
+Testes: 7 novos em `tests/test_model_builder.py` (editar valores/
+ordem preservada, campo inexistente, FK inválida rejeitada, preview
+reflete campos atuais, preview muda ao editar, rota HTTP de editar,
+tela mostra preview + guia). Suíte completa: 517/517 passando.

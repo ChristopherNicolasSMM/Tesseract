@@ -291,3 +291,130 @@ def test_tela_manage_lista_addons_no_select(app, client):
     # e não quebrou a renderização.
     assert b'id="addonSelectExisting"' in resp.data
     assert b'id="addonInputNew"' in resp.data
+
+
+# ── update_field() / preview_model_source() (achado real, ver BACKLOG.md) ──
+
+def test_update_field_altera_valores_e_preserva_ordem(app):
+    with app.app_context():
+        definition = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="WidgetEdit", table_short_name="widget_edit", created_by_user_id=None,
+        )
+        f1 = svc.add_field(definition, field_name="nome", field_type=ModelFieldType.STRING,
+                            label_text="Nome", max_length=50)
+        svc.add_field(definition, field_name="ativo", field_type=ModelFieldType.BOOLEAN, label_text="Ativo")
+
+        updated = svc.update_field(
+            f1.id, field_name="nome", field_type=ModelFieldType.STRING,
+            label_text="Nome Completo", max_length=120, is_required=True,
+        )
+        assert updated.label_text == "Nome Completo"
+        assert updated.max_length == 120
+        assert updated.is_required is True
+
+        definition = ModelDefinition.query.get(definition.id)
+        assert [f.field_name for f in definition.fields] == ["nome", "ativo"]
+
+
+def test_update_field_campo_inexistente_falha(app):
+    with app.app_context():
+        with pytest.raises(svc.ModelBuilderError):
+            svc.update_field(999999, field_name="x", field_type=ModelFieldType.STRING, label_text="X")
+
+
+def test_update_field_fk_invalida_rejeitada(app):
+    with app.app_context():
+        definition = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="WidgetEditFk", table_short_name="widget_edit_fk", created_by_user_id=None,
+        )
+        f = svc.add_field(definition, field_name="nome", field_type=ModelFieldType.STRING,
+                           label_text="Nome", max_length=50)
+        with pytest.raises(svc.ModelBuilderError):
+            svc.update_field(
+                f.id, field_name="nome", field_type=ModelFieldType.FOREIGN_KEY,
+                label_text="Nome", fk_target_table="tesseract_outro_addon_qualquer",
+            )
+
+
+def test_preview_model_source_reflete_campos_atuais(app):
+    with app.app_context():
+        definition = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="WidgetPreview", table_short_name="widget_preview", created_by_user_id=None,
+        )
+        svc.add_field(definition, field_name="titulo", field_type=ModelFieldType.STRING,
+                       label_text="Título", max_length=80, is_required=True)
+
+        source = svc.preview_model_source(definition, project_root=_PROJECT_ROOT)
+        assert "class WidgetPreview(db.Model)" in source
+        assert "titulo = db.Column(" in source
+        assert '__tablename__ = "widget_preview"' in source
+        assert '@required("titulo")' in source
+
+
+def test_preview_model_source_muda_ao_editar_campo(app):
+    with app.app_context():
+        definition = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="WidgetPreview2", table_short_name="widget_preview2", created_by_user_id=None,
+        )
+        f = svc.add_field(definition, field_name="apelido", field_type=ModelFieldType.STRING,
+                           label_text="Apelido", max_length=20)
+        before = svc.preview_model_source(definition, project_root=_PROJECT_ROOT)
+        assert "@max_length(\"apelido\", 20)" in before
+
+        svc.update_field(f.id, field_name="apelido", field_type=ModelFieldType.STRING,
+                          label_text="Apelido", max_length=200)
+        definition = ModelDefinition.query.get(definition.id)
+        after = svc.preview_model_source(definition, project_root=_PROJECT_ROOT)
+        assert "@max_length(\"apelido\", 200)" in after
+        assert "@max_length(\"apelido\", 20)" not in after
+
+
+# ── Rota web: editar campo + preview na tela ────────────────────────────────
+
+def test_editar_campo_pela_tela(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        definition = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="WidgetHttpEdit", table_short_name="widget_http_edit", created_by_user_id=None,
+        )
+        f = svc.add_field(definition, field_name="qtd", field_type=ModelFieldType.INTEGER, label_text="Quantidade")
+        definition_id, field_id = definition.id, f.id
+
+    resp = client.post(
+        f"/admin/model-builder/{definition_id}/fields/{field_id}/edit",
+        data={
+            "field_name": "qtd", "field_type": "integer", "label_text": "Quantidade Total",
+            "is_required": "1", "is_listview_column": "1", "is_form_field": "1",
+        },
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert "Quantidade Total".encode() in resp.data
+
+    with app.app_context():
+        from model.core.model_field_definition import ModelFieldDefinition
+        updated = ModelFieldDefinition.query.get(field_id)
+        assert updated.label_text == "Quantidade Total"
+        assert updated.is_required is True
+
+
+def test_tela_detail_mostra_preview_e_guia_de_anotacoes(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        definition = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="WidgetHttpPreview", table_short_name="widget_http_preview", created_by_user_id=None,
+        )
+        svc.add_field(definition, field_name="cor", field_type=ModelFieldType.STRING, label_text="Cor", max_length=30)
+        definition_id = definition.id
+
+    resp = client.get(f"/admin/model-builder/{definition_id}")
+    assert resp.status_code == 200
+    assert b"class WidgetHttpPreview(db.Model)" in resp.data
+    assert b"Guia de Anota" in resp.data
+    assert b"js-edit-field" in resp.data
