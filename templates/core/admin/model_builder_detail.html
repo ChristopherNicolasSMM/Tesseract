@@ -73,17 +73,20 @@
         <div class="card-body">
           <h5 class="card-title">Campos</h5>
 
-          <table class="table table-sm table-striped">
+          <table class="table table-sm table-striped" id="fieldsTable">
             <thead>
               <tr>
-                <th>Nome</th><th>Tipo</th><th>Label</th><th>Regras</th><th></th>
+                <th></th><th>Nome</th><th>Tipo</th><th>Label</th><th>Regras</th><th></th>
               </tr>
             </thead>
             <tbody>
               {% for f in definition.fields %}
-              <tr>
+              <tr class="js-field-row" draggable="true" data-field-id="{{ f.id }}">
+                <td class="text-muted" style="cursor:grab;" title="Arraste para reposicionar"><i class="bi bi-grip-vertical"></i></td>
                 <td><code>{{ f.field_name }}</code></td>
-                <td>{{ f.field_type }}{% if f.field_type == 'foreign_key' %} &rarr; <code>{{ f.fk_target_table }}</code>{% endif %}</td>
+                <td>{{ f.field_type }}{% if f.field_type == 'foreign_key' %} &rarr; <code>{{ f.fk_target_table }}</code>{% endif %}
+                  {% if f.field_type == 'json' and f.json_schema %}<br><span class="small text-muted">{{ f.json_schema | length }} sub-campo(s)</span>{% endif %}
+                </td>
                 <td>{{ f.label_text }}</td>
                 <td class="small text-muted">
                   {% if f.is_required %}obrigatório{% endif %}
@@ -104,6 +107,7 @@
                           data-fk-target-table="{{ f.fk_target_table or '' }}"
                           data-is-listview-column="{{ '1' if f.is_listview_column else '' }}"
                           data-is-form-field="{{ '1' if f.is_form_field else '' }}"
+                          data-json-schema='{{ (f.json_schema or []) | tojson }}'
                           title="Editar campo (inclusive campos vindos da inferencia do Playground)">
                     <i class="bi bi-pencil"></i>
                   </button>
@@ -114,7 +118,7 @@
                 </td>
               </tr>
               {% else %}
-              <tr><td colspan="5" class="text-muted">Nenhum campo ainda.</td></tr>
+              <tr><td colspan="6" class="text-muted">Nenhum campo ainda.</td></tr>
               {% endfor %}
             </tbody>
           </table>
@@ -159,6 +163,17 @@
             <div class="col-md-4">
               <label class="form-label">Valor padrão</label>
               <input type="text" name="default_value" class="form-control">
+            </div>
+
+            <div class="col-12" id="jsonSchemaWrapper" style="display:none;">
+              <label class="form-label mb-1">
+                Sub-campos <span class="small text-muted fw-normal">— documentação (comentário no model.py), não vira sub-tabela real</span>
+              </label>
+              <div id="jsonSchemaRows"></div>
+              <button type="button" class="btn btn-sm btn-outline-secondary mt-1" id="jsonSchemaAddBtn">
+                <i class="bi bi-plus"></i> Adicionar sub-campo
+              </button>
+              <input type="hidden" name="json_schema_json" id="jsonSchemaField">
             </div>
 
             <div class="col-12 d-flex gap-3">
@@ -256,6 +271,10 @@
   'use strict';
   const select = document.getElementById('fieldTypeSelect');
   const fkWrapper = document.getElementById('fkTargetWrapper');
+  const jsonWrapper = document.getElementById('jsonSchemaWrapper');
+  const jsonRows = document.getElementById('jsonSchemaRows');
+  const jsonField = document.getElementById('jsonSchemaField');
+  const jsonAddBtn = document.getElementById('jsonSchemaAddBtn');
   const form = document.getElementById('fieldForm');
   const submitBtn = document.getElementById('fieldFormSubmit');
   const cancelBtn = document.getElementById('fieldFormCancel');
@@ -263,19 +282,84 @@
   const addFieldUrl = form.getAttribute('action');
   if (!select || !fkWrapper || !form) return;
 
-  function syncFkVisibility() {
+  const SUBFIELD_TYPES = ['string', 'integer', 'float', 'boolean', 'date', 'datetime', 'text', 'json'];
+
+  function syncTypeVisibility() {
     fkWrapper.style.display = select.value === 'foreign_key' ? '' : 'none';
+    jsonWrapper.style.display = select.value === 'json' ? '' : 'none';
   }
-  select.addEventListener('change', syncFkVisibility);
-  syncFkVisibility();
+  select.addEventListener('change', syncTypeVisibility);
+  syncTypeVisibility();
+
+  // ── Editor de sub-campos (skill 06 — documentação, nunca sub-tabela real) ──
+
+  function mbTypeOptionsHtml(selected) {
+    return SUBFIELD_TYPES.map(function (t) {
+      return '<option value="' + t + '"' + (t === selected ? ' selected' : '') + '>' + t + '</option>';
+    }).join('');
+  }
+
+  function mbAddSubfieldRow(container, name, type, children) {
+    const row = document.createElement('div');
+    row.className = 'row g-2 mb-1 mb-subfield-row';
+    row.innerHTML =
+      '<div class="col-md-4"><input type="text" class="form-control form-control-sm mb-subfield-name" placeholder="nome do sub-campo" value="' + (name ? name.replace(/"/g, '&quot;') : '') + '"></div>' +
+      '<div class="col-md-4"><select class="form-select form-select-sm mb-subfield-type">' + mbTypeOptionsHtml(type) + '</select></div>' +
+      '<div class="col-md-2"><button type="button" class="btn btn-sm btn-outline-secondary mb-subfield-addchild" title="Este sub-campo também tem sub-campos (1 nível)"><i class="bi bi-diagram-2"></i></button></div>' +
+      '<div class="col-md-2"><button type="button" class="btn btn-sm btn-outline-danger mb-subfield-remove"><i class="bi bi-x"></i></button></div>' +
+      '<div class="col-12 ms-4 mb-subfield-children" style="display:none;border-left:2px solid var(--bs-border-color,#444);padding-left:8px;"></div>';
+    container.appendChild(row);
+
+    row.querySelector('.mb-subfield-remove').addEventListener('click', function () { row.remove(); });
+    const childrenWrap = row.querySelector('.mb-subfield-children');
+    row.querySelector('.mb-subfield-addchild').addEventListener('click', function () {
+      childrenWrap.style.display = '';
+      mbAddSubfieldRow(childrenWrap);
+    });
+
+    if (children && children.length) {
+      childrenWrap.style.display = '';
+      children.forEach(function (c) { mbAddSubfieldRow(childrenWrap, c.name, c.type, null); });
+    }
+  }
+
+  function mbSerializeSubfields(container) {
+    return Array.from(container.children)
+      .filter(function (el) { return el.classList.contains('mb-subfield-row'); })
+      .map(function (row) {
+        const name = row.querySelector('.mb-subfield-name').value.trim();
+        const type = row.querySelector('.mb-subfield-type').value;
+        const children = mbSerializeSubfields(row.querySelector('.mb-subfield-children'));
+        const item = { name: name, type: type };
+        if (children.length) item.children = children;
+        return item;
+      })
+      .filter(function (item) { return item.name; });
+  }
+
+  function mbResetSubfields(schema) {
+    jsonRows.innerHTML = '';
+    (schema || []).forEach(function (item) {
+      mbAddSubfieldRow(jsonRows, item.name, item.type, item.children);
+    });
+  }
+
+  jsonAddBtn.addEventListener('click', function () { mbAddSubfieldRow(jsonRows); });
+
+  form.addEventListener('submit', function () {
+    jsonField.value = select.value === 'json' ? JSON.stringify(mbSerializeSubfields(jsonRows)) : '';
+  });
+
+  // ── Editar / Cancelar ────────────────────────────────────────────────────
 
   function resetToAddMode() {
     form.setAttribute('action', addFieldUrl);
     form.reset();
+    mbResetSubfields([]);
     formTitle.textContent = 'Adicionar campo';
     submitBtn.textContent = 'Adicionar campo';
     cancelBtn.style.display = 'none';
-    syncFkVisibility();
+    syncTypeVisibility();
   }
   cancelBtn.addEventListener('click', resetToAddMode);
 
@@ -293,9 +377,14 @@
       form.querySelector('[name="max_length"]').value = d.maxLength || '';
       form.querySelector('[name="is_listview_column"]').checked = !!d.isListviewColumn;
       form.querySelector('[name="is_form_field"]').checked = !!d.isFormField;
-      syncFkVisibility();
+      syncTypeVisibility();
       if (d.fkTargetTable) {
         form.querySelector('[name="fk_target_table"]').value = d.fkTargetTable;
+      }
+      try {
+        mbResetSubfields(JSON.parse(d.jsonSchema || '[]'));
+      } catch (e) {
+        mbResetSubfields([]);
       }
       formTitle.textContent = 'Editando campo: ' + d.fieldName;
       submitBtn.textContent = 'Salvar alterações';
@@ -303,6 +392,36 @@
       form.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
   });
+
+  // ── Arrastar e soltar pra reposicionar (skill 06 — order_index já existia) ──
+
+  const reorderUrl = "{{ url_for('model_builder.reorder_fields', definition_id=definition.id) }}";
+  const tbody = document.querySelector('#fieldsTable tbody');
+  let dragSrcRow = null;
+
+  function wireDragEvents(row) {
+    row.addEventListener('dragstart', function () { dragSrcRow = row; });
+    row.addEventListener('dragover', function (e) { e.preventDefault(); });
+    row.addEventListener('drop', function (e) {
+      e.preventDefault();
+      if (!dragSrcRow || dragSrcRow === row) return;
+      const rows = Array.from(tbody.querySelectorAll('.js-field-row'));
+      if (rows.indexOf(dragSrcRow) < rows.indexOf(row)) {
+        row.after(dragSrcRow);
+      } else {
+        row.before(dragSrcRow);
+      }
+      const ids = Array.from(tbody.querySelectorAll('.js-field-row')).map(function (r) { return parseInt(r.dataset.fieldId, 10); });
+      fetch(reorderUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ field_ids: ids }),
+      });
+    });
+  }
+  if (tbody) {
+    tbody.querySelectorAll('.js-field-row').forEach(wireDragEvents);
+  }
 })();
 </script>
 {% endblock %}

@@ -1838,3 +1838,51 @@ Testes: 7 novos em `tests/test_model_builder.py` (editar valores/
 ordem preservada, campo inexistente, FK inválida rejeitada, preview
 reflete campos atuais, preview muda ao editar, rota HTTP de editar,
 tela mostra preview + guia). Suíte completa: 517/517 passando.
+
+## Model Builder: reposicionar campos (drag-and-drop) + tipo JSON com sub-campos: CONCLUÍDO
+
+Dois achados reais de uso, sobre a tela `/admin/model-builder/<id>`:
+
+### 1. Reposicionar campos (arrastar e soltar)
+
+`order_index` já existia (`ModelFieldDefinition.order_index`,
+`ModelDefinition.fields` já ordenado por ele) — só faltava a
+interação. `services/core/model_builder_service.py::reorder_fields()`
+novo + rota `POST /admin/model-builder/<id>/fields/reorder` (JSON, sem
+redirect — chamada via `fetch()`). Template: linhas da tabela de
+campos viram `draggable="true"`, drag-and-drop nativo (sem
+biblioteca), persiste a nova ordem a cada solto.
+
+### 2. Sub-campos aninhados (tipo JSON) — retorno de API não é mais perdido
+
+Causa raiz: `_infer_field_type()` (`playground_service.py`) tratava
+qualquer objeto ou array aninhado num JSON de resposta como `string`
+— literalmente tentava guardar `str({...})`, perdendo a estrutura.
+Decisão registrada (confirmada em conversa): sub-campos são **metadado
+de documentação**, nunca viram sub-tabela relacional de verdade (isso
+seria um projeto à parte — migration própria, FK, CRUD separado).
+
+- `model/core/model_field_definition.py`: `ModelFieldType.JSON` (→
+  `db.JSON`) + coluna `json_schema` (migration `c3f9b15e7a82`) —
+  `[{"name", "type", "children": [...]}]`, 2 níveis (sub-campo +
+  filho do sub-campo).
+- `services/core/playground_service.py`: `_infer_field_type()` agora
+  detecta `dict`/`list` e retorna `json`; `_infer_json_schema()` novo
+  infere os sub-campos automaticamente a partir da amostra (cap de
+  profundidade em 2 níveis, evita árvore infinita em JSON muito
+  aninhado); `infer_fields_from_json()` repassa o schema inferido.
+- `core/crudgen/templates/model.py.j2` +
+  `_field_template_context()`/`_render_json_schema_summary()`: preview
+  e geração real mostram um comentário acima da coluna JSON com o
+  formato esperado.
+- `templates/core/admin/model_builder_detail.html`: editor de
+  sub-campos (nome + tipo + "tem filhos?", recursivo até 2 níveis),
+  visível só quando o tipo do campo é `json`; pré-preenchido ao editar
+  um campo já existente (inclusive os que vieram da inferência do
+  Playground).
+
+Testes: 7 casos novos (`add_field`/`update_field` com `json_schema`,
+preview com o comentário, `reorder_fields` via service e via rota web,
+inferência de objeto/array aninhado, cap de profundidade). Suíte
+completa do projeto: **525/525 passando**. Migration validada
+isoladamente (upgrade adiciona a coluna, downgrade remove).

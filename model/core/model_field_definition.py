@@ -17,8 +17,9 @@ class ModelFieldType:
     DATETIME = "datetime"
     TEXT = "text"
     FOREIGN_KEY = "foreign_key"
+    JSON = "json"
 
-    ALL = (STRING, INTEGER, FLOAT, BOOLEAN, DATE, DATETIME, TEXT, FOREIGN_KEY)
+    ALL = (STRING, INTEGER, FLOAT, BOOLEAN, DATE, DATETIME, TEXT, FOREIGN_KEY, JSON)
 
     # Mapeamento direto para o tipo de coluna SQLAlchemy usado no
     # model.py.j2 (core/crudgen/templates/model.py.j2).
@@ -31,6 +32,7 @@ class ModelFieldType:
         DATETIME: "db.DateTime",
         TEXT: "db.Text",
         FOREIGN_KEY: "db.Integer",
+        JSON: "db.JSON",
     }
 
 
@@ -61,6 +63,14 @@ class ModelFieldDefinition(db.Model):
     is_form_field = db.Column(db.Boolean, nullable=False, default=True)
     order_index = db.Column(db.Integer, nullable=False, default=0)
 
+    # Só relevante para field_type=json. Metadado de documentação — NUNCA
+    # vira sub-tabela relacional (isso seria um projeto à parte, bem
+    # maior: migration própria, FK, CRUD separado). Formato:
+    # [{"name": str, "type": str, "children": [...]}, ...] — "children"
+    # só quando o próprio sub-campo também é object/array (recursivo,
+    # UI cobre 2 níveis: sub-campo e filho do sub-campo).
+    json_schema = db.Column(db.JSON, nullable=True)
+
     def to_dict(self) -> dict:
         return {
             "id": self.id,
@@ -77,6 +87,7 @@ class ModelFieldDefinition(db.Model):
             "is_listview_column": self.is_listview_column,
             "is_form_field": self.is_form_field,
             "order_index": self.order_index,
+            "json_schema": self.json_schema,
         }
 
     def __repr__(self) -> str:

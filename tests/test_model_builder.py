@@ -418,3 +418,158 @@ def test_tela_detail_mostra_preview_e_guia_de_anotacoes(app, client):
     assert b"class WidgetHttpPreview(db.Model)" in resp.data
     assert b"Guia de Anota" in resp.data
     assert b"js-edit-field" in resp.data
+
+
+# ── Campo tipo JSON + sub-campos (documentação, não sub-tabela real) ────────
+
+def test_add_field_json_com_sub_campos(app):
+    with app.app_context():
+        definition = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="WidgetJson", table_short_name="widget_json", created_by_user_id=None,
+        )
+        schema = [
+            {"name": "recipe", "type": "object", "children": [
+                {"name": "name", "type": "string"},
+                {"name": "abv", "type": "float"},
+            ]},
+        ]
+        field = svc.add_field(
+            definition, field_name="payload", field_type=ModelFieldType.JSON,
+            label_text="Payload", json_schema=schema,
+        )
+        assert field.field_type == "json"
+        assert field.json_schema == schema
+
+
+def test_update_field_json_schema_e_limpo_ao_trocar_de_tipo(app):
+    with app.app_context():
+        definition = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="WidgetJsonClear", table_short_name="widget_json_clear", created_by_user_id=None,
+        )
+        field = svc.add_field(
+            definition, field_name="payload", field_type=ModelFieldType.JSON,
+            label_text="Payload", json_schema=[{"name": "x", "type": "string"}],
+        )
+        svc.update_field(
+            field.id, field_name="payload", field_type=ModelFieldType.STRING,
+            label_text="Payload", json_schema=[{"name": "x", "type": "string"}],
+        )
+        assert field.field_type == "string"
+        assert field.json_schema is None  # não faz sentido guardar schema pra um campo que não é mais json
+
+
+def test_preview_mostra_comentario_de_sub_campos(app):
+    with app.app_context():
+        definition = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="WidgetJsonPreview", table_short_name="widget_json_preview", created_by_user_id=None,
+        )
+        svc.add_field(
+            definition, field_name="payload", field_type=ModelFieldType.JSON,
+            label_text="Payload",
+            json_schema=[{"name": "recipe", "type": "object", "children": [{"name": "name", "type": "string"}]}],
+        )
+        preview = svc.preview_model_source(definition, project_root=_PROJECT_ROOT)
+        assert "sub-campos esperados" in preview
+        assert "recipe" in preview
+        assert "db.JSON" in preview
+
+
+# ── Reposicionar campos (drag-and-drop, order_index já existia) ─────────────
+
+def test_reorder_fields_atualiza_order_index(app):
+    with app.app_context():
+        definition = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="WidgetReorder", table_short_name="widget_reorder", created_by_user_id=None,
+        )
+        f1 = svc.add_field(definition, field_name="a", field_type=ModelFieldType.STRING, label_text="A")
+        f2 = svc.add_field(definition, field_name="b", field_type=ModelFieldType.STRING, label_text="B")
+        f3 = svc.add_field(definition, field_name="c", field_type=ModelFieldType.STRING, label_text="C")
+        assert [f.order_index for f in [f1, f2, f3]] == [0, 1, 2]
+
+        svc.reorder_fields(definition.id, [f3.id, f1.id, f2.id])
+
+        db.session.refresh(f1)
+        db.session.refresh(f2)
+        db.session.refresh(f3)
+        assert f3.order_index == 0
+        assert f1.order_index == 1
+        assert f2.order_index == 2
+
+        # A ordenação real do relationship (ModelDefinition.fields,
+        # order_by=order_index) já reflete sem precisar de mais nada.
+        db.session.refresh(definition)
+        assert [f.field_name for f in definition.fields] == ["c", "a", "b"]
+
+
+def test_reorder_fields_pela_rota_web(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        definition = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="WidgetReorderHttp", table_short_name="widget_reorder_http", created_by_user_id=None,
+        )
+        f1 = svc.add_field(definition, field_name="a", field_type=ModelFieldType.STRING, label_text="A")
+        f2 = svc.add_field(definition, field_name="b", field_type=ModelFieldType.STRING, label_text="B")
+        definition_id, f1_id, f2_id = definition.id, f1.id, f2.id
+
+    resp = client.post(
+        f"/admin/model-builder/{definition_id}/fields/reorder",
+        json={"field_ids": [f2_id, f1_id]},
+    )
+    assert resp.status_code == 200
+    assert resp.get_json()["ok"] is True
+
+    with app.app_context():
+        from model.core.model_field_definition import ModelFieldDefinition
+        assert ModelFieldDefinition.query.get(f2_id).order_index == 0
+        assert ModelFieldDefinition.query.get(f1_id).order_index == 1
+
+
+# ── Inferência de campo aninhado (Playground -> Model Builder) ──────────────
+
+def test_infer_fields_from_json_objeto_aninhado_vira_json_com_schema():
+    from services.core import playground_service as pg_svc
+
+    response = {
+        "brewDate": 1756090800000,
+        "recipe": {"name": "New Weissnbier"},
+        "status": "Completed",
+    }
+    fields = pg_svc.infer_fields_from_json(response)
+    by_name = {f["field_name"]: f for f in fields}
+
+    assert by_name["recipe"]["field_type"] == "json"
+    assert by_name["recipe"]["json_schema"] == [{"name": "name", "type": "string", "children": None}]
+    assert by_name["status"]["field_type"] == "string"
+
+
+def test_infer_fields_from_json_array_de_objetos_vira_json_com_schema():
+    from services.core import playground_service as pg_svc
+
+    response = [
+        {"id": 1, "tags": [{"value": "ipa"}, {"value": "lupulado"}]},
+        {"id": 2, "tags": [{"value": "lager"}]},
+    ]
+    fields = pg_svc.infer_fields_from_json(response)
+    by_name = {f["field_name"]: f for f in fields}
+
+    assert by_name["tags"]["field_type"] == "json"
+    assert by_name["tags"]["json_schema"] == [{"name": "value", "type": "string", "children": None}]
+
+
+def test_infer_json_schema_nao_expande_alem_de_2_niveis():
+    from services.core.playground_service import _infer_json_schema
+
+    fundo = {"a": {"b": {"c": "muito fundo"}}}
+    schema = _infer_json_schema(fundo)
+    # nível 1: "a" -> json com children
+    assert schema[0]["name"] == "a"
+    assert schema[0]["type"] == "json"
+    # nível 2 (children de "a"): "b" -> json, mas SEM detalhar o que tem dentro (depth > 1)
+    assert schema[0]["children"][0]["name"] == "b"
+    assert schema[0]["children"][0]["type"] == "json"
+    assert schema[0]["children"][0]["children"] is None

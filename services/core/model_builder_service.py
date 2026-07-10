@@ -165,7 +165,8 @@ def add_field(model_definition: ModelDefinition, *, field_name: str, field_type:
               label_text: str, nullable: bool = True, unique: bool = False,
               is_required: bool = False, default_value: Optional[str] = None,
               max_length: Optional[int] = None, fk_target_table: Optional[str] = None,
-              is_listview_column: bool = True, is_form_field: bool = True) -> ModelFieldDefinition:
+              is_listview_column: bool = True, is_form_field: bool = True,
+              json_schema: Optional[list] = None) -> ModelFieldDefinition:
     if field_type not in ModelFieldType.ALL:
         raise ModelBuilderError(f"Tipo de campo inválido: {field_type}")
 
@@ -192,6 +193,7 @@ def add_field(model_definition: ModelDefinition, *, field_name: str, field_type:
         is_listview_column=is_listview_column,
         is_form_field=is_form_field,
         order_index=order_index,
+        json_schema=json_schema if field_type == ModelFieldType.JSON else None,
     )
     db.session.add(field)
     db.session.commit()
@@ -202,7 +204,8 @@ def update_field(field_id: int, *, field_name: str, field_type: str,
                   label_text: str, nullable: bool = True, unique: bool = False,
                   is_required: bool = False, default_value: Optional[str] = None,
                   max_length: Optional[int] = None, fk_target_table: Optional[str] = None,
-                  is_listview_column: bool = True, is_form_field: bool = True) -> ModelFieldDefinition:
+                  is_listview_column: bool = True, is_form_field: bool = True,
+                  json_schema: Optional[list] = None) -> ModelFieldDefinition:
     """Edita um campo já existente — inclusive os inferidos pela ponte
     do Playground (skill 06 §5), que hoje só chegavam com
     nome/tipo/label e nenhuma das demais opções (achado real, ver
@@ -235,8 +238,26 @@ def update_field(field_id: int, *, field_name: str, field_type: str,
     field.fk_target_table = fk_target_table if field_type == ModelFieldType.FOREIGN_KEY else None
     field.is_listview_column = is_listview_column
     field.is_form_field = is_form_field
+    field.json_schema = json_schema if field_type == ModelFieldType.JSON else None
     db.session.commit()
     return field
+
+
+def reorder_fields(model_definition_id: int, ordered_field_ids: list[int]) -> None:
+    """Reposiciona campos por arrastar-e-soltar na tela — `order_index`
+    já existia e já era usado pra ordenar a listagem (`ModelFieldDefinition.
+    order_index`, `ModelDefinition.fields` — `order_by`), só faltava a
+    interação (achado real, ver BACKLOG.md)."""
+    fields_by_id = {
+        f.id: f for f in ModelFieldDefinition.query.filter_by(
+            model_definition_id=model_definition_id
+        ).all()
+    }
+    for index, field_id in enumerate(ordered_field_ids):
+        field = fields_by_id.get(field_id)
+        if field:
+            field.order_index = index
+    db.session.commit()
 
 
 def remove_field(field_id: int) -> None:
@@ -475,6 +496,28 @@ def _scaffold_new_feature(definition: ModelDefinition, project_root: Path) -> Pa
 
 # ── Geração ───────────────────────────────────────────────────────────────
 
+def _render_json_schema_summary(schema: Optional[list]) -> Optional[str]:
+    """Resumo em uma linha do formato esperado dentro de um campo JSON —
+    vira comentário acima da coluna no model.py gerado/preview. Nunca
+    vira sub-tabela; é só documentação (decisão registrada em
+    BACKLOG.md)."""
+    if not schema:
+        return None
+    parts = []
+    for item in schema:
+        name = item.get("name")
+        item_type = item.get("type", "string")
+        children = item.get("children")
+        if children:
+            child_summary = ", ".join(
+                f"{c.get('name')}: {c.get('type', 'string')}" for c in children
+            )
+            parts.append(f"{name} [{item_type}] {{{child_summary}}}")
+        else:
+            parts.append(f"{name}: {item_type}")
+    return "; ".join(parts)
+
+
 def _field_template_context(fields: list[ModelFieldDefinition]) -> dict:
     rendered_fields = []
     for f in fields:
@@ -496,6 +539,10 @@ def _field_template_context(fields: list[ModelFieldDefinition]) -> dict:
             "fk_target_table": f.fk_target_table,
             "default_value": f.default_value,
             "default_value_repr": default_repr,
+            "json_schema_comment": (
+                _render_json_schema_summary(f.json_schema)
+                if f.field_type == ModelFieldType.JSON else None
+            ),
         })
     return {
         "fields": rendered_fields,

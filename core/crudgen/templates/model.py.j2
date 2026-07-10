@@ -27,6 +27,9 @@ class {{ class_name }}(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
 {% for f in fields %}
+{% if f.json_schema_comment %}
+    # sub-campos esperados (documentação — não é sub-tabela real): {{ f.json_schema_comment }}
+{% endif %}
     {{ f.field_name }} = db.Column(
         {{ f.sqlalchemy_column }}{% if f.field_type == "string" and f.max_length %}({{ f.max_length }}){% endif %},
         {%- if f.field_type == "foreign_key" %}

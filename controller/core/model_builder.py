@@ -7,8 +7,9 @@ Telas web do Model Builder Visual (skill 06). Patch A cobre
 antes de gerar o Model.
 """
 from pathlib import Path
+import json
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify
 from flask_login import login_required, current_user
 
 from core.db import db
@@ -115,6 +116,12 @@ def _field_form_kwargs() -> dict:
     tela é o mesmo, só muda a rota de destino (skill 06, achado real:
     campo editado tinha só nome/tipo/label, faltavam as demais opções
     que 'adicionar' já tinha)."""
+    json_schema_raw = (request.form.get("json_schema_json") or "").strip()
+    try:
+        json_schema = json.loads(json_schema_raw) if json_schema_raw else None
+    except json.JSONDecodeError:
+        json_schema = None
+
     return dict(
         field_name=(request.form.get("field_name") or "").strip(),
         field_type=request.form.get("field_type"),
@@ -127,6 +134,7 @@ def _field_form_kwargs() -> dict:
         fk_target_table=(request.form.get("fk_target_table") or "").strip() or None,
         is_listview_column=bool(request.form.get("is_listview_column")),
         is_form_field=bool(request.form.get("is_form_field")),
+        json_schema=json_schema,
     )
 
 
@@ -168,6 +176,24 @@ def delete_field(definition_id: int, field_id: int):
     svc.remove_field(field_id)
     flash("Campo removido.", "success")
     return redirect(url_for("model_builder.detail", definition_id=definition_id))
+
+
+@model_builder_bp.route("/<int:definition_id>/fields/reorder", methods=["POST"])
+@login_required
+@permission_required("model_definitions.create")
+def reorder_fields(definition_id: int):
+    """Chamada via fetch() pelo drag-and-drop da tela — devolve JSON,
+    não redireciona (achado real: reposicionar campos não era
+    possível, só existia adicionar/remover; ver BACKLOG.md)."""
+    ordered_ids = request.get_json(silent=True) or {}
+    field_ids = ordered_ids.get("field_ids") or []
+    try:
+        field_ids = [int(x) for x in field_ids]
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "field_ids inválido"}), 400
+
+    svc.reorder_fields(definition_id, field_ids)
+    return jsonify({"ok": True})
 
 
 @model_builder_bp.route("/<int:definition_id>/generate", methods=["POST"])

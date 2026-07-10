@@ -334,6 +334,8 @@ _ISO_DATETIME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2})?)?")
 def _infer_field_type(value: Any) -> str:
     if isinstance(value, bool):
         return ModelFieldType.BOOLEAN
+    if isinstance(value, (dict, list)):
+        return ModelFieldType.JSON
     if isinstance(value, int):
         return ModelFieldType.INTEGER
     if isinstance(value, float):
@@ -343,12 +345,50 @@ def _infer_field_type(value: Any) -> str:
     return ModelFieldType.STRING
 
 
+def _infer_json_schema(value: Any, *, depth: int = 0) -> Optional[list]:
+    """Infere os sub-campos de um objeto/array pra virar `json_schema`
+    (metadado de documentação, skill 06 — nunca vira sub-tabela real).
+    Recursivo até 2 níveis (campo -> sub-campo -> filho do sub-campo);
+    além disso, o filho mais fundo não detalha o que tem dentro dele,
+    só marca o tipo — evita árvore infinita em JSON muito aninhado."""
+    if depth > 1:
+        return None
+
+    if isinstance(value, list):
+        sample = next((v for v in value if v is not None), None)
+        if isinstance(sample, dict):
+            return [
+                {
+                    "name": key,
+                    "type": _infer_field_type(val),
+                    "children": _infer_json_schema(val, depth=depth + 1) if isinstance(val, (dict, list)) else None,
+                }
+                for key, val in sample.items()
+            ]
+        return None
+
+    if isinstance(value, dict):
+        return [
+            {
+                "name": key,
+                "type": _infer_field_type(val),
+                "children": _infer_json_schema(val, depth=depth + 1) if isinstance(val, (dict, list)) else None,
+            }
+            for key, val in value.items()
+        ]
+
+    return None
+
+
 def infer_fields_from_json(response_json: Any) -> list[dict]:
     """
     Skill 06 §5: infere field_name/field_type/nullable a partir de um
     JSON de resposta (objeto único, ou primeiro item se for lista).
     `nullable` considera presença/ausência da chave entre amostras
-    quando a resposta é uma lista.
+    quando a resposta é uma lista. Campos cujo valor é objeto/array
+    viram `field_type=json` com `json_schema` inferido (documentação —
+    nunca sub-tabela real, ver BACKLOG.md), em vez de colapsar pra
+    `string` e perder a estrutura.
     """
     if isinstance(response_json, list):
         sample = response_json[:20]
@@ -362,24 +402,28 @@ def infer_fields_from_json(response_json: Any) -> list[dict]:
         for key in keys:
             present_in_all = all(isinstance(i, dict) and key in i for i in sample)
             first_value = next((i[key] for i in sample if isinstance(i, dict) and key in i and i[key] is not None), None)
+            field_type = _infer_field_type(first_value) if first_value is not None else ModelFieldType.STRING
             fields.append({
                 "field_name": key,
-                "field_type": _infer_field_type(first_value) if first_value is not None else ModelFieldType.STRING,
+                "field_type": field_type,
                 "nullable": not present_in_all,
                 "label_text": key.replace("_", " ").title(),
+                "json_schema": _infer_json_schema(first_value) if field_type == ModelFieldType.JSON else None,
             })
         return fields
 
     if isinstance(response_json, dict):
-        return [
-            {
+        result = []
+        for key, value in response_json.items():
+            field_type = _infer_field_type(value) if value is not None else ModelFieldType.STRING
+            result.append({
                 "field_name": key,
-                "field_type": _infer_field_type(value) if value is not None else ModelFieldType.STRING,
+                "field_type": field_type,
                 "nullable": value is None,
                 "label_text": key.replace("_", " ").title(),
-            }
-            for key, value in response_json.items()
-        ]
+                "json_schema": _infer_json_schema(value) if field_type == ModelFieldType.JSON else None,
+            })
+        return result
 
     return []
 
@@ -419,5 +463,6 @@ def create_model_definition_from_playground(
             field_type=field["field_type"],
             label_text=field["label_text"],
             nullable=field["nullable"],
+            json_schema=field.get("json_schema"),
         )
     return definition
