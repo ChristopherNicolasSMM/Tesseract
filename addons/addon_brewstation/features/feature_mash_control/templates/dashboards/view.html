@@ -1,0 +1,263 @@
+{% extends "core/base.html" %}
+{% block title %}{{ layout.name }} - Dashboard de Brassagem{% endblock %}
+{% block content %}
+<div class="pagetitle d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <h1>{{ layout.name }}</h1>
+  <div class="d-flex align-items-center gap-2">
+    {% if all_layouts|length > 1 %}
+    <select class="form-select form-select-sm" style="width:auto;" onchange="window.location.href=this.value">
+      {% for l in all_layouts %}
+      <option value="{{ url_for('dashboard_runtime.view', layout_id=l.id) }}" {{ 'selected' if l.id == layout.id else '' }}>{{ l.name }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+    <a href="{{ url_for('dashboard_layouts.manage') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-gear"></i> Configurar layouts
+    </a>
+    <a href="{{ url_for('dashboard_widgets.manage') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-plus-square"></i> Configurar widgets
+    </a>
+  </div>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  <div id="dbCanvas" class="position-relative mx-auto"
+       style="width:{{ layout.canvas_width }}px; max-width:100%; min-height:{{ layout.canvas_height }}px;
+              background-color:{{ layout.background_color }}; border-radius:12px; overflow:hidden;">
+
+    <svg id="dbPipesLayer" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:1;"></svg>
+
+    {% for w in widgets %}
+    <div class="db-widget" id="db-widget-{{ w.id }}" data-widget-id="{{ w.id }}" data-widget-type="{{ w.widget_type }}"
+         {% if w.vessel_id %}data-vessel-id="{{ w.vessel_id }}"{% endif %}
+         style="position:absolute; left:{{ w.x }}px; top:{{ w.y }}px; width:{{ w.width }}px; height:{{ w.height }}px;
+                transform:rotate({{ w.rotation or 0 }}deg); z-index:{{ (w.z_index or 1) + 1 }};">
+
+      {% if w.widget_type == 'vessel' %}
+        <div class="card h-100 text-center bg-dark text-light border-secondary">
+          <div class="card-body p-2 d-flex flex-column">
+            <div class="small text-uppercase text-muted">{{ w.label_text or (vessels_by_id[w.vessel_id].label_text if w.vessel_id in vessels_by_id else '') }}</div>
+            <div class="flex-grow-1 position-relative my-1" style="border:2px solid #666; border-radius:8px; overflow:hidden;">
+              <div class="db-vessel-fill position-absolute bottom-0 w-100" style="height:50%; background:linear-gradient(#e67e22,#c0392b); transition:height .6s;"></div>
+              <div class="position-relative h-100 d-flex align-items-center justify-content-center">
+                <span class="db-vessel-temp fw-bold fs-5">—</span>
+              </div>
+            </div>
+            <div class="db-vessel-roles d-flex flex-wrap gap-1 justify-content-center"></div>
+          </div>
+        </div>
+
+      {% elif w.widget_type == 'toggle' %}
+        <button type="button" class="db-toggle btn btn-outline-light w-100 h-100 d-flex flex-column align-items-center justify-content-center">
+          <i class="bi bi-power fs-4"></i>
+          <span class="small">{{ w.label_text }}</span>
+          <span class="db-toggle-state small text-muted">—</span>
+        </button>
+
+      {% elif w.widget_type == 'gauge' %}
+        <div class="card h-100 bg-dark text-light border-secondary">
+          <div class="card-body p-2 text-center">
+            <div class="small text-muted">{{ w.label_text }}</div>
+            <div class="progress bg-secondary my-2" style="height:10px;">
+              <div class="db-gauge-bar progress-bar bg-warning" style="width:0%;"></div>
+            </div>
+            <div class="db-gauge-value fw-bold">—</div>
+          </div>
+        </div>
+
+      {% elif w.widget_type == 'digital' %}
+        <div class="card h-100 bg-dark text-light border-secondary text-center">
+          <div class="card-body p-2 d-flex flex-column justify-content-center">
+            <div class="small text-muted">{{ w.label_text }}</div>
+            <div class="db-digital-value fs-3 fw-bold">—</div>
+          </div>
+        </div>
+
+      {% elif w.widget_type == 'alarm_list' %}
+        <div class="card h-100 bg-dark text-light border-secondary">
+          <div class="card-body p-2">
+            <div class="small text-muted mb-1"><i class="bi bi-bell-fill"></i> {{ w.label_text or 'Alarmes' }}</div>
+            <ul class="db-alarm-list list-unstyled small mb-0" style="max-height:100%; overflow:auto;"></ul>
+          </div>
+        </div>
+
+      {% elif w.widget_type == 'chart' %}
+        <div class="card h-100 bg-dark text-light border-secondary">
+          <div class="card-body p-2">
+            <div class="small text-muted mb-1">{{ w.label_text }}</div>
+            <canvas class="db-chart" data-function-name="{{ w.device_function_name }}"
+                    data-session-id="{{ (w.config_json or {}).get('session_id') or '' }}"
+                    data-window-minutes="{{ (w.config_json or {}).get('window_minutes', 60) }}"></canvas>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <p class="small text-muted text-center mt-2">Atualiza a cada 3s — sem tempo real via WebSocket ainda (ver BACKLOG.md).</p>
+</section>
+
+<script src="{{ url_for('static', filename='vendor/chart.js/chart.umd.js') }}"></script>
+<script>
+(function () {
+  'use strict';
+  const layoutId = {{ layout.id }};
+  const snapshotUrl = "{{ url_for('dashboard_runtime.snapshot', layout_id=layout.id) }}";
+  const setValueUrlTemplate = "{{ url_for('dashboard_runtime.set_value', widget_id=0) }}";
+  const readingsUrlTemplate = "{{ url_for('dashboard_runtime.readings', session_id=0) }}";
+  const charts = {};
+
+  function fmtValue(v, decimals) {
+    if (v === null || v === undefined) return '—';
+    if (typeof v === 'number' && decimals !== undefined) return v.toFixed(decimals);
+    if (typeof v === 'boolean') return v ? 'Ligado' : 'Desligado';
+    return String(v);
+  }
+
+  function renderVessel(el, data) {
+    const roles = (data && data.roles) || {};
+    let tempRole = null;
+    Object.keys(roles).forEach(function (key) {
+      if (key.indexOf('sensor_temp') !== -1 || key.indexOf('temp') !== -1) tempRole = roles[key];
+    });
+    el.querySelector('.db-vessel-temp').textContent = tempRole ? fmtValue(tempRole.value, 1) + (tempRole.unit || '') : '—';
+
+    const rolesWrap = el.querySelector('.db-vessel-roles');
+    rolesWrap.innerHTML = '';
+    Object.keys(roles).forEach(function (roleKey) {
+      const r = roles[roleKey];
+      const isActuator = roleKey.indexOf('actor_') === 0;
+      const badge = document.createElement(isActuator ? 'button' : 'span');
+      badge.className = 'badge ' + (r.value ? 'bg-success' : 'bg-secondary') + (isActuator ? ' border-0' : '');
+      badge.style.cursor = isActuator ? 'pointer' : 'default';
+      badge.textContent = r.label + (isActuator ? '' : ': ' + fmtValue(r.value, 1) + (r.unit || ''));
+      if (isActuator) {
+        badge.addEventListener('click', function () {
+          postSetValue(el.dataset.widgetId, !r.value, roleKey);
+        });
+      }
+      rolesWrap.appendChild(badge);
+    });
+  }
+
+  function postSetValue(widgetId, value, roleKey) {
+    const url = setValueUrlTemplate.replace('/0/', '/' + widgetId + '/');
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value: value, role_key: roleKey || null }),
+    }).then(function () { refresh(); });
+  }
+
+  function renderWidget(el, data) {
+    const type = el.dataset.widgetType;
+    if (type === 'vessel') {
+      renderVessel(el, data);
+    } else if (type === 'toggle') {
+      const state = data ? data.value : null;
+      el.querySelector('.db-toggle-state').textContent = fmtValue(state);
+      el.classList.toggle('btn-success', !!state);
+      el.classList.toggle('btn-outline-light', !state);
+    } else if (type === 'gauge') {
+      const v = data ? data.value : null;
+      const min = (data && data.min_value) || 0;
+      const max = (data && data.max_value) || 100;
+      const pct = (v === null || v === undefined) ? 0 : Math.max(0, Math.min(100, ((v - min) / (max - min || 1)) * 100));
+      el.querySelector('.db-gauge-bar').style.width = pct + '%';
+      el.querySelector('.db-gauge-value').textContent = fmtValue(v, 1) + (data && data.unit ? data.unit : '');
+    } else if (type === 'digital') {
+      el.querySelector('.db-digital-value').textContent = fmtValue(data ? data.value : null, 1) + (data && data.unit ? data.unit : '');
+    } else if (type === 'alarm_list') {
+      const list = el.querySelector('.db-alarm-list');
+      list.innerHTML = '';
+      ((data && data.alarms) || []).forEach(function (a) {
+        const li = document.createElement('li');
+        li.className = 'mb-1';
+        li.innerHTML = '<span class="badge bg-' + (a.severity === 'critical' || a.severity === 'high' ? 'danger' : 'warning') + '">' + a.severity + '</span> ' + a.message;
+        list.appendChild(li);
+      });
+      if (!list.children.length) list.innerHTML = '<li class="text-muted">Sem alarmes ativos.</li>';
+    }
+  }
+
+  function renderPipes(connections) {
+    const svg = document.getElementById('dbPipesLayer');
+    svg.innerHTML = '';
+    connections.forEach(function (conn) {
+      const fromEl = document.querySelector('.db-widget[data-vessel-id="' + conn.from_vessel_id + '"]');
+      const toEl = document.querySelector('.db-widget[data-vessel-id="' + conn.to_vessel_id + '"]');
+      if (!fromEl || !toEl) return;
+      const x1 = fromEl.offsetLeft + fromEl.offsetWidth / 2;
+      const y1 = fromEl.offsetTop + fromEl.offsetHeight;
+      const x2 = toEl.offsetLeft + toEl.offsetWidth / 2;
+      const y2 = toEl.offsetTop;
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+      line.setAttribute('stroke', conn.flowing ? '#3498db' : '#555');
+      line.setAttribute('stroke-width', '6');
+      line.setAttribute('stroke-dasharray', conn.flowing ? '10,6' : 'none');
+      if (conn.flowing) {
+        line.style.animation = 'db-flow 1s linear infinite';
+      }
+      svg.appendChild(line);
+    });
+  }
+
+  function refresh() {
+    fetch(snapshotUrl).then(function (r) { return r.json(); }).then(function (data) {
+      Object.keys(data.widgets || {}).forEach(function (widgetId) {
+        const el = document.getElementById('db-widget-' + widgetId);
+        if (el) renderWidget(el, data.widgets[widgetId]);
+      });
+      renderPipes(data.connections || []);
+      if (data.active_session_id) initCharts(data.active_session_id);
+    }).catch(function (e) { console.warn('snapshot falhou', e); });
+  }
+
+  function initCharts(fallbackSessionId) {
+    document.querySelectorAll('.db-chart').forEach(function (canvas) {
+      if (canvas.dataset.inited) return;
+      const sessionId = canvas.dataset.sessionId || fallbackSessionId;
+      if (!sessionId) return;
+      canvas.dataset.inited = '1';
+      const readingsUrl = readingsUrlTemplate.replace('/0/', '/' + sessionId + '/');
+      const url = readingsUrl + '?function_name=' + encodeURIComponent(canvas.dataset.functionName) + '&window_minutes=' + canvas.dataset.windowMinutes;
+
+      function loadChart() {
+        fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+          const labels = (data.points || []).map(function (p) { return p.t.slice(11, 16); });
+          const values = (data.points || []).map(function (p) { return p.v; });
+          if (charts[canvas.id] || !canvas.id) {
+            canvas.id = canvas.id || ('db-chart-' + Math.random().toString(36).slice(2));
+          }
+          if (charts[canvas.id]) {
+            charts[canvas.id].data.labels = labels;
+            charts[canvas.id].data.datasets[0].data = values;
+            charts[canvas.id].update();
+          } else {
+            charts[canvas.id] = new Chart(canvas, {
+              type: 'line',
+              data: { labels: labels, datasets: [{ data: values, borderColor: '#f0932b', tension: 0.3 }] },
+              options: { plugins: { legend: { display: false } }, animation: false },
+            });
+          }
+        });
+      }
+      loadChart();
+      setInterval(loadChart, 15000);
+    });
+  }
+
+  refresh();
+  setInterval(refresh, 3000);
+})();
+</script>
+<style>
+@keyframes db-flow { to { stroke-dashoffset: -16; } }
+</style>
+{% endblock %}

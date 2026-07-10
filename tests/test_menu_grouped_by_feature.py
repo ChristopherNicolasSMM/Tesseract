@@ -94,8 +94,13 @@ def test_grupo_planta_e_sessao_tem_3_filhos_diretos_mais_subgrupo_sessoes(app):
         sessoes = Transaction.query.filter_by(code="TX_GROUP_MASH_SESSIONS").first()
         assert sessoes is not None
         assert sessoes.parent_id == folder.id
-        count_sessoes = Transaction.query.filter_by(parent_id=sessoes.id).count()
-        assert count_sessoes == 4
+        filhos_sessoes = {t.code for t in Transaction.query.filter_by(parent_id=sessoes.id).all()}
+        # 4 originais + TX_DASHBOARD_VIEW (dashboard de verdade, implementado
+        # nesta conversa — "entra aqui quando o sistema de dashboard existir")
+        assert filhos_sessoes == {
+            "TX_BREW_SESSIONS", "TX_BREW_SESSION_STEPS", "TX_BREW_SESSION_LOGS",
+            "TX_BREW_SESSION_ALARMS", "TX_DASHBOARD_VIEW",
+        }
 
 
 def test_grupo_automacao_tem_2_transacoes(app):

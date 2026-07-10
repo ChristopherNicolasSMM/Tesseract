@@ -33,6 +33,12 @@ class FeatureMashControl(FeatureBase):
         from addons.addon_brewstation.features.feature_mash_control.services import automation_engine
         automation_engine.register()
 
+        # Logger de leitura do Dashboard de Brassagem (conversa —
+        # arquitetura consolidada) — mesmo EventBus, mesmo padrão de
+        # registro idempotente.
+        from addons.addon_brewstation.features.feature_mash_control.services import dashboard_reading_logger
+        dashboard_reading_logger.register()
+
     def get_transactions(self) -> list:
         return [
             {
@@ -200,6 +206,15 @@ class FeatureMashControl(FeatureBase):
                 "icon": "bi-bell-fill",
                 "route": "/brewstation/brew-session-alarms",
                 "permission_required": "brew_session_alarms.list",
+            },
+            {
+                "code": "TX_DASHBOARD_VIEW",
+                "label": "Dashboard",
+                "parent_code": "TX_GROUP_MASH_SESSIONS",
+                "description": "Painel visual em tempo real — vasilhames, tubulação, alarmes e gráficos.",
+                "icon": "bi-grid-1x2-fill",
+                "route": "/brewstation/dashboards",
+                "permission_required": "dashboard_layouts.list",
             },
 
             # ── Automação ────────────────────────────────────────────

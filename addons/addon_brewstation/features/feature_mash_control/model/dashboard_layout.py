@@ -22,6 +22,14 @@ class DashboardLayout(db.Model):
 
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(500), nullable=True)
+
+    # Real (mesma Feature) — resolve de qual planta vêm os vasilhames
+    # disponíveis (widgets tipo "vessel") e as conexões de tubulação
+    # (BrewPlant.plant_schema_json). Nullable: um layout genérico (sem
+    # widget tipo vessel/pipe) não precisa estar amarrado a uma planta.
+    plant_id = db.Column(db.Integer, db.ForeignKey("plant.id"), nullable=True)
+    plant = db.relationship("BrewPlant", backref=db.backref("dashboard_layouts", lazy=True))
+
     is_default = db.Column(db.Boolean, default=False, nullable=False)
     is_standby_enabled = db.Column(db.Boolean, default=False, nullable=False)
     standby_duration_seconds = db.Column(db.Integer, default=30, nullable=True)
@@ -48,6 +56,7 @@ class DashboardLayout(db.Model):
             "id": self.id,
             "name": self.name,
             "description": self.description,
+            "plant_id": self.plant_id,
             "is_default": self.is_default,
             "is_standby_enabled": self.is_standby_enabled,
             "standby_duration_seconds": self.standby_duration_seconds,

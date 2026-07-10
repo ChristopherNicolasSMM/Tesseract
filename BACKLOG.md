@@ -2108,3 +2108,105 @@ inteira (contagem por grupo + o De-Para no lugar novo). Suíte completa
 do projeto: **549/549 passando**. Sem migration — `Transaction` já
 suporta árvore (skill 10), isso é só dado (via sync no boot), não
 schema.
+
+## Dashboard de Brassagem — primeira versão funcional (v1): CONCLUÍDO
+
+Arquitetura consolidada em conversa (mockup de referência com
+caldeiras/tubulação) — ponto de encontro entre `addon_device_manager`
+e `mash_control`. Decisões fechadas antes de implementar:
+1. Sistema **especializado** (evolução de `DashboardLayout`/
+   `DashboardWidget`, já existentes), não generalizado dentro do
+   Designer genérico (Fase 7c) — mantém os dois mecanismos separados
+   por ora.
+2. Atualização por **polling** (3s), sem WebSocket/SSE — infra
+   inexistente no projeto hoje, fica pra depois se precisar.
+3. 7 tipos de widget de uma vez: vasilhame, botão liga/desliga, gauge,
+   indicador digital, tubulação, lista de alarmes, gráfico histórico.
+4. Gráfico histórico reaproveita `BrewSessionLog` (source="sensor")
+   em vez de criar tabela de série temporal nova — só tem dado com
+   Sessão de Brassagem ativa.
+
+### O que já existia e foi reaproveitado (achado real ao investigar)
+
+- `DashboardLayout`/`DashboardWidget` já tinham `svg_asset_key`,
+  posição livre, `config_json`, referência fraca a `device_function_name`
+  — só faltava a renderização.
+- `BrewPlant.plant_schema_json` já existia, nunca lido em lugar
+  nenhum — virou a fonte das conexões de tubulação.
+- `BrewPlantMapping` já era, na prática, o "de-para de sensores"
+  (role_key -> device_function_name por vasilhame) — reaproveitado
+  integralmente pelo widget tipo "vessel", sem duplicar referência.
+- `device_service.get_value()`/`set_value()`/
+  `find_actor_external_id_by_function_name()` já prontos — nenhuma
+  mudança no `addon_device_manager`.
+
+### Schema novo (aditivo, migration `e5f1a37c8d02`)
+
+- `DashboardWidget.vessel_id` (FK real → `plant_vessel.id`, mesma
+  Feature) — só preenchido em widgets tipo "vessel".
+- `DashboardLayout.plant_id` (FK real → `plant.id`) — resolve de qual
+  planta vêm os vasilhames e as conexões de tubulação do layout.
+
+### Peças novas
+
+- `services/dashboard_reading_logger.py` — listener novo do EventBus
+  (`device_manager.actor.value_changed`, mesmo padrão de
+  `automation_engine.py`) — grava `BrewSessionLog(source="sensor")`
+  só quando há Sessão ativa pra planta daquele sensor, com throttle
+  de 30s (evita 1 linha por leitura).
+- `services/dashboard_runtime_service.py` — `get_layout_snapshot()`
+  (1 chamada só devolve o valor de todos os widgets), `set_widget_value()`
+  (aciona atuador — resolve `role_key` pra widgets tipo vessel),
+  `get_plant_connections()` (lê `plant_schema_json`, resolve estado
+  "fluindo" via o atuador de cada conexão), `get_session_readings()`
+  (histórico pro gráfico).
+- `controller/dashboard_runtime.py` — blueprint novo, NÃO gerado pelo
+  CrudGen (igual em espírito a `automation_engine.py`), auto-descoberto
+  (skill 09): `/brewstation/dashboards/` (resolve o layout padrão),
+  `/<id>/view` (tela visual), `/<id>/snapshot` (JSON, polling),
+  `/widgets/<id>/set-value` (aciona atuador),
+  `/sessions/<id>/readings` (dados do gráfico).
+- `templates/dashboards/view.html` — canvas com os 7 tipos de widget
+  (SVG pra tubulação com animação de fluxo, Chart.js — já vendorizado,
+  nenhuma dependência nova — pro histórico), polling a cada 3s.
+- `TX_DASHBOARD_VIEW` — nova entrada de menu dentro de
+  `TX_GROUP_MASH_SESSIONS`, exatamente onde a reorganização de menu
+  anterior já tinha previsto ("Dashboards vai entrar aqui quando o
+  sistema de dashboard existir de verdade") — fecha essa pendência.
+
+### Compatibilidade com `tesseract-device-bridge` (confirmado em conversa)
+
+O dashboard é só mais um consumidor de `device_service` (mesma
+infraestrutura MQTT que o bridge já usa pro fail-safe/LWT) — não cria
+canal de comunicação novo, não muda protocolo, não precisa de nenhum
+ajuste no bridge nem no `mqtt_client_service`. Se o Tesseract cair, o
+dashboard fica indisponível, mas o bridge continua protegendo a
+brassagem sozinho, como já era.
+
+### Limitações conhecidas desta v1 (não são bugs, são escopo)
+
+- Sem editor visual de drag-and-drop pra montar o layout — a posição/
+  configuração de cada widget continua editada pelas telas de CRUD já
+  existentes (`Layouts de Dashboard`/`Widgets de Dashboard`,
+  reativadas — ver nota abaixo). A tela nova (`/view`) é só execução/
+  visualização + acionamento de atuador, não é o "DESIGNER DE
+  DASHBOARD" do mockup.
+- Gráfico histórico só tem dado com Sessão de Brassagem ativa —
+  limitação aceita e documentada (decisão da conversa).
+- Sem WebSocket/SSE — atualização a cada 3s via polling, não é
+  instantâneo.
+
+**Ação manual recomendada**: como `TX_DASHBOARD_LAYOUTS`/
+`TX_DASHBOARD_WIDGETS` foram desativados manualmente numa rodada
+anterior (is_active=False), talvez valha reativá-los agora que servem
+pra configurar os widgets de verdade (não são mais só "CRUD de dado
+cru sem uso") — decisão sua, não fiz isso automaticamente (mesmo
+motivo de sempre: sync nunca mexe em is_active).
+
+Testes: `tests/test_dashboard_runtime.py` (17 casos novos — logger com/
+sem sessão ativa, throttle, snapshot de widget simples e vessel,
+acionar atuador direto e via vessel+role_key, conexões de tubulação,
+leituras filtradas por função/janela, as 5 rotas web). 1 teste de menu
+ajustado (contagem de filhos de Sessões/Batches, +1 pelo Dashboard
+novo). Suíte completa do projeto: **566/566 passando**. Migration
+validada isoladamente (upgrade adiciona as colunas, downgrade remove).
