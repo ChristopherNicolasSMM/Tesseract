@@ -1886,3 +1886,75 @@ preview com o comentário, `reorder_fields` via service e via rota web,
 inferência de objeto/array aninhado, cap de profundidade). Suíte
 completa do projeto: **525/525 passando**. Migration validada
 isoladamente (upgrade adiciona a coluna, downgrade remove).
+
+## `flask db upgrade` do zero absoluto falhando: CORRIGIDO (era o bug "pré-existente" já registrado múltiplas vezes)
+
+O bug que vínhamos documentando como "pré-existente, fora de escopo"
+(coluna duplicada em `tesseract_brewstation_mashctrl_rule`) voltou a
+aparecer bloqueando de verdade — Christopher reportou dois erros em
+sequência: `no such column: tesseract_model_field_definition.json_schema`
+(banco sem a migration mais recente aplicada) e, ao tentar `flask db
+upgrade` pra corrigir isso, `duplicate column name:
+sensor_function_name` numa migration bem mais antiga
+(`4a8524f00549`). Dessa vez foi resolvido de verdade, em vez de
+adiado.
+
+**Causa raiz completa**: `db.create_all()` roda em todo boot do app
+(necessário — é o que cria tabela de Addon, que não passa por
+Alembic). Isso inclui o **primeiro boot de qualquer pessoa**, antes
+mesmo dela rodar `flask db upgrade` pela primeira vez. Nesse primeiro
+boot, `db.create_all()` já cria o schema inteiro na forma **atual**
+(refletindo os models de hoje — já com `json_schema`, já com
+`sensor_function_name`, sem a coluna `group` antiga, etc.). Quando a
+pessoa então roda `flask db upgrade`, o Alembic tenta replay de **toda
+a cadeia histórica** de migrations, cada uma pressupondo transformar
+um schema antigo que, nesse cenário, nunca existiu de verdade — daí
+"duplicate column"/"already exists" em cascata, migration após
+migration.
+
+Esse **não é um caso raro** — é o caminho padrão de qualquer pessoa
+que clona o projeto e roda `python run.py start` (ou qualquer boot
+normal) antes de `flask db upgrade`.
+
+**Correção**: auditadas as 12 migrations da cadeia inteira
+(`091f87025ce4` até `c3f9b15e7a82`) — 9 delas tinham `add_column`/
+`create_table`/`rename_table`/`create_unique_constraint` sem checagem
+de existência:
+- `4a8524f00549`, `7b3e9c1a2d4f`, `9c4f1e8a3b27`, `c2a7e5f19b04`,
+  `d8b1f4a6c930`, `f4c8a2d61b73`, `3a91c7de5f42`, `8e2f6b1a94dc`
+  (todas anteriores a este patch) + `a1c7f92e5b04`, `b2d8a04f6c17`,
+  `c3f9b15e7a82` (escritas em sessões anteriores desta mesma
+  conversa — o mesmo erro que eu já tinha cometido antes, sem
+  perceber que era sistêmico).
+- Cada uma ganhou `_table_exists()`/`_column_exists()`/
+  `_fk_exists()`/`_unique_constraint_exists()` (padrão já usado em
+  `4a8524f00549` desde a Fase 9, agora generalizado) — se a
+  tabela/coluna já existe (porque `db.create_all()` já criou), o passo
+  vira no-op em vez de tentar recriar.
+- Achado um segundo bug real, independente, em `d8b1f4a6c930`:
+  `op.create_unique_constraint(...)` fora de `batch_alter_table` nunca
+  funcionaria no SQLite ("No support for ALTER of constraints") —
+  corrigido envolvendo em modo batch.
+- `3a91c7de5f42` (menu hierárquico) é a mais delicada — faz migração
+  de **dado**, não só schema (lê a coluna `group` antiga pra criar
+  nós-pasta). Guardada por inteiro: se `parent_id` já existe (schema
+  já na forma atual), a migration inteira vira no-op — não há `group`
+  legado pra migrar nesse cenário, porque essa coluna nunca existiu.
+
+**Validado fim-a-fim**: banco criado do zero absoluto via
+`db.create_all()` com o código atual (sem nenhum stamp, sem nenhuma
+migration aplicada — reproduzindo o cenário real do Christopher) +
+`flask db upgrade` real (subprocess, não atalho) → passa pelas 12
+migrations sem nenhum erro, chega limpo em `c3f9b15e7a82`. Downgrade
+completo (`c3f9b15e7a82` → `091f87025ce4`) também testado, sem erro.
+
+Teste de regressão novo: `tests/test_migrations_idempotent.py` (2
+casos, via `subprocess` chamando `flask db upgrade`/`downgrade` de
+verdade — não um atalho) garante que isso nunca mais regride
+silenciosamente. Suíte completa do projeto: **525/525 passando**
+(inalterada — só arquivos de migration foram tocados, mais os 2 testes
+novos).
+
+**Ainda em aberto**: nenhum. Este era o último item pendente da
+categoria "bug de infraestrutura do `flask db upgrade`" registrada
+nas rodadas anteriores.

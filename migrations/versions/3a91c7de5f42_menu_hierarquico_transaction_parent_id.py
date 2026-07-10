@@ -26,8 +26,23 @@ def _slugify(label: str) -> str:
     return slug or "GERAL"
 
 
+def _column_exists(table_name: str, column_name: str) -> bool:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    return column_name in {c["name"] for c in inspector.get_columns(table_name)}
+
+
 def upgrade():
     bind = op.get_bind()
+
+    # Achado real (BACKLOG.md): se db.create_all() já criou
+    # tesseract_transaction com o shape ATUAL do model (parent_id/
+    # order_index já presentes, sem a coluna "group" — que não existe
+    # mais em model/core/transaction.py), esta migration inteira é um
+    # no-op: não há "group" legado pra migrar pra pastas, e adicionar
+    # parent_id de novo falharia como "duplicate column".
+    if _column_exists("tesseract_transaction", "parent_id"):
+        return
 
     # ── Passo 1: schema — parent_id/order_index novos, route vira nullable ──
     with op.batch_alter_table("tesseract_transaction") as batch_op:
@@ -101,8 +116,9 @@ def upgrade():
 
 
 def downgrade():
-    with op.batch_alter_table("tesseract_transaction") as batch_op:
-        batch_op.add_column(sa.Column("group", sa.String(50), nullable=False, server_default="Core"))
+    if not _column_exists("tesseract_transaction", "group"):
+        with op.batch_alter_table("tesseract_transaction") as batch_op:
+            batch_op.add_column(sa.Column("group", sa.String(50), nullable=False, server_default="Core"))
 
     bind = op.get_bind()
     bind.execute(sa.text("""

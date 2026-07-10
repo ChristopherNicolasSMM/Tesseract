@@ -19,54 +19,69 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(table_name: str) -> bool:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    return table_name in inspector.get_table_names()
+
+
 def upgrade():
-    op.create_table(
-        'tesseract_scheduled_task',
-        sa.Column('id', sa.Integer(), primary_key=True),
-        sa.Column('name', sa.String(100), nullable=False),
-        sa.Column('task_type', sa.String(50), nullable=False),
-        sa.Column('target', sa.Text(), nullable=False),
-        sa.Column('schedule', sa.String(100), nullable=False),
-        sa.Column('status', sa.String(20), nullable=True),
-        sa.Column('last_run', sa.DateTime(), nullable=True),
-        sa.Column('next_run', sa.DateTime(), nullable=True),
-        sa.Column('result', sa.Text(), nullable=True),
-        sa.Column('requires_approval', sa.Boolean(), nullable=True),
-        sa.Column('approved', sa.Boolean(), nullable=True),
-        sa.Column('created_by', sa.Integer(), sa.ForeignKey('tesseract_user.id'), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), nullable=True),
-    )
+    # Achado real (BACKLOG.md): se db.create_all() já criou estas
+    # tabelas (boot antes do primeiro `flask db upgrade`), create_table
+    # falha como "table already exists" sem esta checagem.
+    if not _table_exists('tesseract_scheduled_task'):
+        op.create_table(
+            'tesseract_scheduled_task',
+            sa.Column('id', sa.Integer(), primary_key=True),
+            sa.Column('name', sa.String(100), nullable=False),
+            sa.Column('task_type', sa.String(50), nullable=False),
+            sa.Column('target', sa.Text(), nullable=False),
+            sa.Column('schedule', sa.String(100), nullable=False),
+            sa.Column('status', sa.String(20), nullable=True),
+            sa.Column('last_run', sa.DateTime(), nullable=True),
+            sa.Column('next_run', sa.DateTime(), nullable=True),
+            sa.Column('result', sa.Text(), nullable=True),
+            sa.Column('requires_approval', sa.Boolean(), nullable=True),
+            sa.Column('approved', sa.Boolean(), nullable=True),
+            sa.Column('created_by', sa.Integer(), sa.ForeignKey('tesseract_user.id'), nullable=True),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.Column('updated_at', sa.DateTime(), nullable=True),
+        )
 
-    op.create_table(
-        'tesseract_task_log',
-        sa.Column('id', sa.Integer(), primary_key=True),
-        sa.Column('task_id', sa.Integer(), sa.ForeignKey('tesseract_scheduled_task.id'), nullable=True),
-        sa.Column('task_name', sa.String(100), nullable=False),
-        sa.Column('status', sa.String(20), nullable=False),
-        sa.Column('started_at', sa.DateTime(), nullable=True),
-        sa.Column('finished_at', sa.DateTime(), nullable=True),
-        sa.Column('duration_ms', sa.Integer(), nullable=True),
-        sa.Column('result', sa.Text(), nullable=True),
-        sa.Column('error', sa.Text(), nullable=True),
-    )
+    if not _table_exists('tesseract_task_log'):
+        op.create_table(
+            'tesseract_task_log',
+            sa.Column('id', sa.Integer(), primary_key=True),
+            sa.Column('task_id', sa.Integer(), sa.ForeignKey('tesseract_scheduled_task.id'), nullable=True),
+            sa.Column('task_name', sa.String(100), nullable=False),
+            sa.Column('status', sa.String(20), nullable=False),
+            sa.Column('started_at', sa.DateTime(), nullable=True),
+            sa.Column('finished_at', sa.DateTime(), nullable=True),
+            sa.Column('duration_ms', sa.Integer(), nullable=True),
+            sa.Column('result', sa.Text(), nullable=True),
+            sa.Column('error', sa.Text(), nullable=True),
+        )
 
-    op.create_table(
-        'tesseract_message_queue',
-        sa.Column('id', sa.Integer(), primary_key=True),
-        sa.Column('channel', sa.String(50), nullable=False),
-        sa.Column('payload', sa.JSON(), nullable=False),
-        sa.Column('status', sa.String(20), nullable=True),
-        sa.Column('retries', sa.Integer(), nullable=True),
-        sa.Column('max_retries', sa.Integer(), nullable=True),
-        sa.Column('scheduled_for', sa.DateTime(), nullable=True),
-        sa.Column('processed_at', sa.DateTime(), nullable=True),
-        sa.Column('error_msg', sa.Text(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-    )
+    if not _table_exists('tesseract_message_queue'):
+        op.create_table(
+            'tesseract_message_queue',
+            sa.Column('id', sa.Integer(), primary_key=True),
+            sa.Column('channel', sa.String(50), nullable=False),
+            sa.Column('payload', sa.JSON(), nullable=False),
+            sa.Column('status', sa.String(20), nullable=True),
+            sa.Column('retries', sa.Integer(), nullable=True),
+            sa.Column('max_retries', sa.Integer(), nullable=True),
+            sa.Column('scheduled_for', sa.DateTime(), nullable=True),
+            sa.Column('processed_at', sa.DateTime(), nullable=True),
+            sa.Column('error_msg', sa.Text(), nullable=True),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+        )
 
 
 def downgrade():
-    op.drop_table('tesseract_message_queue')
-    op.drop_table('tesseract_task_log')
-    op.drop_table('tesseract_scheduled_task')
+    if _table_exists('tesseract_message_queue'):
+        op.drop_table('tesseract_message_queue')
+    if _table_exists('tesseract_task_log'):
+        op.drop_table('tesseract_task_log')
+    if _table_exists('tesseract_scheduled_task'):
+        op.drop_table('tesseract_scheduled_task')

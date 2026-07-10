@@ -17,25 +17,36 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(table_name: str) -> bool:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    return table_name in inspector.get_table_names()
+
+
 def upgrade():
-    op.create_table(
-        'tesseract_playground_request',
-        sa.Column('id', sa.Integer(), primary_key=True),
-        sa.Column('kind', sa.String(10), nullable=False),
-        sa.Column('name', sa.String(150), nullable=True),
-        sa.Column('http_method', sa.String(10), nullable=True),
-        sa.Column('url', sa.String(500), nullable=True),
-        sa.Column('headers_json', sa.JSON(), nullable=True),
-        sa.Column('body_json', sa.JSON(), nullable=True),
-        sa.Column('sql_text', sa.Text(), nullable=True),
-        sa.Column('last_response_json', sa.JSON(), nullable=True),
-        sa.Column('last_status_code', sa.Integer(), nullable=True),
-        sa.Column('last_error', sa.Text(), nullable=True),
-        sa.Column('created_by_user_id', sa.Integer(), sa.ForeignKey('tesseract_user.id'), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=False),
-        sa.Column('updated_at', sa.DateTime(), nullable=False),
-    )
+    # Achado real (BACKLOG.md): se db.create_all() já criou esta
+    # tabela, create_table falha como "already exists" sem esta
+    # checagem.
+    if not _table_exists('tesseract_playground_request'):
+        op.create_table(
+            'tesseract_playground_request',
+            sa.Column('id', sa.Integer(), primary_key=True),
+            sa.Column('kind', sa.String(10), nullable=False),
+            sa.Column('name', sa.String(150), nullable=True),
+            sa.Column('http_method', sa.String(10), nullable=True),
+            sa.Column('url', sa.String(500), nullable=True),
+            sa.Column('headers_json', sa.JSON(), nullable=True),
+            sa.Column('body_json', sa.JSON(), nullable=True),
+            sa.Column('sql_text', sa.Text(), nullable=True),
+            sa.Column('last_response_json', sa.JSON(), nullable=True),
+            sa.Column('last_status_code', sa.Integer(), nullable=True),
+            sa.Column('last_error', sa.Text(), nullable=True),
+            sa.Column('created_by_user_id', sa.Integer(), sa.ForeignKey('tesseract_user.id'), nullable=True),
+            sa.Column('created_at', sa.DateTime(), nullable=False),
+            sa.Column('updated_at', sa.DateTime(), nullable=False),
+        )
 
 
 def downgrade():
-    op.drop_table('tesseract_playground_request')
+    if _table_exists('tesseract_playground_request'):
+        op.drop_table('tesseract_playground_request')

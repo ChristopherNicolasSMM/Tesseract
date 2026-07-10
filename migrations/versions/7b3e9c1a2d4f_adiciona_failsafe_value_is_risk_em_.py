@@ -18,15 +18,41 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(table_name: str) -> bool:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    return table_name in inspector.get_table_names()
+
+
+def _column_exists(table_name: str, column_name: str) -> bool:
+    """Achado real (BACKLOG.md): quando `db.create_all()` já criou a
+    tabela com o shape ATUAL do model, esta coluna já existe e o
+    `add_column` falharia como "duplicate column name" sem essa
+    checagem."""
+    if not _table_exists(table_name):
+        return False
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    return column_name in {c["name"] for c in inspector.get_columns(table_name)}
+
+
 def upgrade():
+    if not _table_exists("tesseract_dvm_actor"):
+        return
     with op.batch_alter_table("tesseract_dvm_actor") as batch_op:
-        batch_op.add_column(sa.Column("failsafe_value", sa.String(50), nullable=True))
-        batch_op.add_column(
-            sa.Column("is_risk", sa.Boolean(), nullable=False, server_default=sa.false())
-        )
+        if not _column_exists("tesseract_dvm_actor", "failsafe_value"):
+            batch_op.add_column(sa.Column("failsafe_value", sa.String(50), nullable=True))
+        if not _column_exists("tesseract_dvm_actor", "is_risk"):
+            batch_op.add_column(
+                sa.Column("is_risk", sa.Boolean(), nullable=False, server_default=sa.false())
+            )
 
 
 def downgrade():
+    if not _table_exists("tesseract_dvm_actor"):
+        return
     with op.batch_alter_table("tesseract_dvm_actor") as batch_op:
-        batch_op.drop_column("is_risk")
-        batch_op.drop_column("failsafe_value")
+        if _column_exists("tesseract_dvm_actor", "is_risk"):
+            batch_op.drop_column("is_risk")
+        if _column_exists("tesseract_dvm_actor", "failsafe_value"):
+            batch_op.drop_column("failsafe_value")

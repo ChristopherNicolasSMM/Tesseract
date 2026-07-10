@@ -18,11 +18,24 @@ branch_labels = None
 depends_on = None
 
 
+def _column_exists(table_name: str, column_name: str) -> bool:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    return column_name in {c["name"] for c in inspector.get_columns(table_name)}
+
+
 def upgrade():
+    # Achado real (BACKLOG.md): se db.create_all() já criou a coluna
+    # (boot antes do primeiro `flask db upgrade`), add_column falha
+    # como "duplicate column name" sem esta checagem.
+    if _column_exists("tesseract_odata_connection", "entity_route_overrides"):
+        return
     with op.batch_alter_table("tesseract_odata_connection") as batch_op:
         batch_op.add_column(sa.Column("entity_route_overrides", sa.JSON(), nullable=True))
 
 
 def downgrade():
+    if not _column_exists("tesseract_odata_connection", "entity_route_overrides"):
+        return
     with op.batch_alter_table("tesseract_odata_connection") as batch_op:
         batch_op.drop_column("entity_route_overrides")

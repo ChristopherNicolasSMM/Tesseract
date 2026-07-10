@@ -38,6 +38,22 @@ def _table_exists(table_name: str) -> bool:
     return table_name in inspector.get_table_names()
 
 
+def _column_exists(table_name: str, column_name: str) -> bool:
+    """Achado real (BACKLOG.md): quando `db.create_all()` já criou a
+    tabela com o shape ATUAL do model (ex.: boot antes de rodar
+    `flask db upgrade` pela primeira vez), esta migration tenta
+    transformar um schema antigo que nunca existiu de fato — sem essa
+    checagem, `add_column` falha como "duplicate column name" e
+    `SELECT`/`drop_column` numa coluna legada falha como "no such
+    column". Cada passo abaixo só roda se o schema realmente estiver
+    no formato antigo que ele pressupõe."""
+    if not _table_exists(table_name):
+        return False
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    return column_name in {c["name"] for c in inspector.get_columns(table_name)}
+
+
 def upgrade():
     # ── Passo 1: renomear as 4 tabelas do device_manager promovido ──────
     for old_name, new_name in _TABLE_RENAMES:
@@ -46,71 +62,78 @@ def upgrade():
 
     # ── Passo 2: rule (automation_rule) — sensor/actor_function_id -> name ──
     if _table_exists("tesseract_brewstation_mashctrl_rule"):
-        with op.batch_alter_table("tesseract_brewstation_mashctrl_rule") as batch_op:
-            batch_op.add_column(sa.Column("sensor_function_name", sa.String(100), nullable=True))
-            batch_op.add_column(sa.Column("actor_function_name", sa.String(100), nullable=True))
+        if not _column_exists("tesseract_brewstation_mashctrl_rule", "sensor_function_name"):
+            with op.batch_alter_table("tesseract_brewstation_mashctrl_rule") as batch_op:
+                batch_op.add_column(sa.Column("sensor_function_name", sa.String(100), nullable=True))
+                batch_op.add_column(sa.Column("actor_function_name", sa.String(100), nullable=True))
 
-        op.execute("""
-            UPDATE tesseract_brewstation_mashctrl_rule
-            SET sensor_function_name = (
-                SELECT name FROM tesseract_dvm_function
-                WHERE tesseract_dvm_function.id = tesseract_brewstation_mashctrl_rule.sensor_function_id
-            )
-        """)
-        op.execute("""
-            UPDATE tesseract_brewstation_mashctrl_rule
-            SET actor_function_name = (
-                SELECT name FROM tesseract_dvm_function
-                WHERE tesseract_dvm_function.id = tesseract_brewstation_mashctrl_rule.actor_function_id
-            )
-        """)
+        if _column_exists("tesseract_brewstation_mashctrl_rule", "sensor_function_id"):
+            op.execute("""
+                UPDATE tesseract_brewstation_mashctrl_rule
+                SET sensor_function_name = (
+                    SELECT name FROM tesseract_dvm_function
+                    WHERE tesseract_dvm_function.id = tesseract_brewstation_mashctrl_rule.sensor_function_id
+                )
+            """)
+            op.execute("""
+                UPDATE tesseract_brewstation_mashctrl_rule
+                SET actor_function_name = (
+                    SELECT name FROM tesseract_dvm_function
+                    WHERE tesseract_dvm_function.id = tesseract_brewstation_mashctrl_rule.actor_function_id
+                )
+            """)
 
-        with op.batch_alter_table("tesseract_brewstation_mashctrl_rule") as batch_op:
-            batch_op.alter_column("sensor_function_name", nullable=False)
-            batch_op.alter_column("actor_function_name", nullable=False)
-            batch_op.drop_column("sensor_function_id")
-            batch_op.drop_column("actor_function_id")
+            with op.batch_alter_table("tesseract_brewstation_mashctrl_rule") as batch_op:
+                batch_op.alter_column("sensor_function_name", nullable=False)
+                batch_op.alter_column("actor_function_name", nullable=False)
+                batch_op.drop_column("sensor_function_id")
+                batch_op.drop_column("actor_function_id")
 
     # ── Passo 3: widget (dashboard_widget) — device_function_id -> name (nullable) ──
     if _table_exists("tesseract_brewstation_mashctrl_widget"):
-        with op.batch_alter_table("tesseract_brewstation_mashctrl_widget") as batch_op:
-            batch_op.add_column(sa.Column("device_function_name", sa.String(100), nullable=True))
+        if not _column_exists("tesseract_brewstation_mashctrl_widget", "device_function_name"):
+            with op.batch_alter_table("tesseract_brewstation_mashctrl_widget") as batch_op:
+                batch_op.add_column(sa.Column("device_function_name", sa.String(100), nullable=True))
 
-        op.execute("""
-            UPDATE tesseract_brewstation_mashctrl_widget
-            SET device_function_name = (
-                SELECT name FROM tesseract_dvm_function
-                WHERE tesseract_dvm_function.id = tesseract_brewstation_mashctrl_widget.device_function_id
-            )
-            WHERE device_function_id IS NOT NULL
-        """)
+        if _column_exists("tesseract_brewstation_mashctrl_widget", "device_function_id"):
+            op.execute("""
+                UPDATE tesseract_brewstation_mashctrl_widget
+                SET device_function_name = (
+                    SELECT name FROM tesseract_dvm_function
+                    WHERE tesseract_dvm_function.id = tesseract_brewstation_mashctrl_widget.device_function_id
+                )
+                WHERE device_function_id IS NOT NULL
+            """)
 
-        with op.batch_alter_table("tesseract_brewstation_mashctrl_widget") as batch_op:
-            batch_op.drop_column("device_function_id")
+            with op.batch_alter_table("tesseract_brewstation_mashctrl_widget") as batch_op:
+                batch_op.drop_column("device_function_id")
 
     # ── Passo 4: plant_mapping (brew_plant_mapping) — device_function_id -> name ──
     if _table_exists("tesseract_brewstation_mashctrl_plant_mapping"):
-        with op.batch_alter_table("tesseract_brewstation_mashctrl_plant_mapping") as batch_op:
-            batch_op.add_column(sa.Column("device_function_name", sa.String(100), nullable=True))
+        if not _column_exists("tesseract_brewstation_mashctrl_plant_mapping", "device_function_name"):
+            with op.batch_alter_table("tesseract_brewstation_mashctrl_plant_mapping") as batch_op:
+                batch_op.add_column(sa.Column("device_function_name", sa.String(100), nullable=True))
 
-        op.execute("""
-            UPDATE tesseract_brewstation_mashctrl_plant_mapping
-            SET device_function_name = (
-                SELECT name FROM tesseract_dvm_function
-                WHERE tesseract_dvm_function.id = tesseract_brewstation_mashctrl_plant_mapping.device_function_id
-            )
-        """)
+        if _column_exists("tesseract_brewstation_mashctrl_plant_mapping", "device_function_id"):
+            op.execute("""
+                UPDATE tesseract_brewstation_mashctrl_plant_mapping
+                SET device_function_name = (
+                    SELECT name FROM tesseract_dvm_function
+                    WHERE tesseract_dvm_function.id = tesseract_brewstation_mashctrl_plant_mapping.device_function_id
+                )
+            """)
 
-        with op.batch_alter_table("tesseract_brewstation_mashctrl_plant_mapping") as batch_op:
-            batch_op.alter_column("device_function_name", nullable=False)
-            batch_op.drop_column("device_function_id")
+            with op.batch_alter_table("tesseract_brewstation_mashctrl_plant_mapping") as batch_op:
+                batch_op.alter_column("device_function_name", nullable=False)
+                batch_op.drop_column("device_function_id")
 
 
 def downgrade():
     # Downgrade best-effort - restaura colunas *_id (perde resolucao por
     # nome se o registro de DeviceFunction correspondente tiver sido
     # apagado/renomeado entre o upgrade e o downgrade).
-    if _table_exists("tesseract_brewstation_mashctrl_plant_mapping"):
+    if _table_exists("tesseract_brewstation_mashctrl_plant_mapping") and \
+            not _column_exists("tesseract_brewstation_mashctrl_plant_mapping", "device_function_id"):
         with op.batch_alter_table("tesseract_brewstation_mashctrl_plant_mapping") as batch_op:
             batch_op.add_column(sa.Column("device_function_id", sa.Integer(), nullable=True))
         op.execute("""
@@ -123,7 +146,8 @@ def downgrade():
         with op.batch_alter_table("tesseract_brewstation_mashctrl_plant_mapping") as batch_op:
             batch_op.drop_column("device_function_name")
 
-    if _table_exists("tesseract_brewstation_mashctrl_widget"):
+    if _table_exists("tesseract_brewstation_mashctrl_widget") and \
+            not _column_exists("tesseract_brewstation_mashctrl_widget", "device_function_id"):
         with op.batch_alter_table("tesseract_brewstation_mashctrl_widget") as batch_op:
             batch_op.add_column(sa.Column("device_function_id", sa.Integer(), nullable=True))
         op.execute("""
@@ -137,7 +161,8 @@ def downgrade():
         with op.batch_alter_table("tesseract_brewstation_mashctrl_widget") as batch_op:
             batch_op.drop_column("device_function_name")
 
-    if _table_exists("tesseract_brewstation_mashctrl_rule"):
+    if _table_exists("tesseract_brewstation_mashctrl_rule") and \
+            not _column_exists("tesseract_brewstation_mashctrl_rule", "sensor_function_id"):
         with op.batch_alter_table("tesseract_brewstation_mashctrl_rule") as batch_op:
             batch_op.add_column(sa.Column("sensor_function_id", sa.Integer(), nullable=True))
             batch_op.add_column(sa.Column("actor_function_id", sa.Integer(), nullable=True))
