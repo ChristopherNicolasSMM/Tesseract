@@ -50,13 +50,76 @@ def test_grupo_banco_de_levedura_tem_9_transacoes(app):
         assert count == 9
 
 
-def test_grupo_controle_de_mostura_tem_18_transacoes(app):
+def test_grupo_controle_de_mostura_tem_5_filhos_diretos(app):
+    """
+    [ATUALIZADO — reorganização de menu em conversa] Controle de
+    Mostura tinha 18 transações soltas no mesmo nível — virou 4
+    sub-grupos (Receitas/Planta & Sessão/Automação, mais Sessões dentro
+    de Planta & Sessão) + os 2 itens de Dashboard (que ficam, mas saem
+    do menu via is_active=False manual, não por código — skill 10, sync
+    nunca mexe em is_active). O De-Para de Ingredientes saiu daqui e
+    foi para TX_GROUP_INGREDIENTES.
+    """
     with app.app_context():
         folder = Transaction.query.filter_by(code="TX_GROUP_MASH_CONTROL").first()
         assert folder is not None
+        filhos_diretos = {t.code for t in Transaction.query.filter_by(parent_id=folder.id).all()}
+        assert filhos_diretos == {
+            "TX_GROUP_MASH_RECIPES",
+            "TX_GROUP_MASH_PLANT_SESSION",
+            "TX_GROUP_MASH_AUTOMATION",
+            "TX_DASHBOARD_LAYOUTS",
+            "TX_DASHBOARD_WIDGETS",
+        }
+
+
+def test_grupo_receitas_tem_6_transacoes(app):
+    with app.app_context():
+        folder = Transaction.query.filter_by(code="TX_GROUP_MASH_RECIPES").first()
+        assert folder is not None
         count = Transaction.query.filter_by(parent_id=folder.id).count()
-        # 15 anteriores + MashStep + FermentationStep + WaterProfile (item c)
-        assert count == 18
+        assert count == 6
+
+
+def test_grupo_planta_e_sessao_tem_3_filhos_diretos_mais_subgrupo_sessoes(app):
+    with app.app_context():
+        folder = Transaction.query.filter_by(code="TX_GROUP_MASH_PLANT_SESSION").first()
+        assert folder is not None
+        filhos = {t.code for t in Transaction.query.filter_by(parent_id=folder.id).all()}
+        assert filhos == {
+            "TX_BREW_PLANTS", "TX_BREW_PLANT_VESSELS", "TX_BREW_PLANT_MAPPINGS",
+            "TX_GROUP_MASH_SESSIONS",
+        }
+
+        sessoes = Transaction.query.filter_by(code="TX_GROUP_MASH_SESSIONS").first()
+        assert sessoes is not None
+        assert sessoes.parent_id == folder.id
+        count_sessoes = Transaction.query.filter_by(parent_id=sessoes.id).count()
+        assert count_sessoes == 4
+
+
+def test_grupo_automacao_tem_2_transacoes(app):
+    with app.app_context():
+        folder = Transaction.query.filter_by(code="TX_GROUP_MASH_AUTOMATION").first()
+        assert folder is not None
+        count = Transaction.query.filter_by(parent_id=folder.id).count()
+        assert count == 2
+
+
+def test_de_para_de_ingredientes_agora_fica_em_ingredientes(app):
+    with app.app_context():
+        de_para = Transaction.query.filter_by(code="TX_INGREDIENT_MAPPINGS").first()
+        assert de_para is not None
+        parent = Transaction.query.get(de_para.parent_id)
+        assert parent.code == "TX_GROUP_INGREDIENTES"
+
+
+def test_grupo_ingredientes_tem_4_transacoes(app):
+    with app.app_context():
+        folder = Transaction.query.filter_by(code="TX_GROUP_INGREDIENTES").first()
+        assert folder is not None
+        count = Transaction.query.filter_by(parent_id=folder.id).count()
+        assert count == 4
 
 
 def test_grupo_dispositivos_iot_tem_4_transacoes(app):

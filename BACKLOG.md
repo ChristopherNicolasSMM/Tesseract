@@ -2049,3 +2049,62 @@ FK real, `relationship`, master-detail injetado, 1:1 com
 parâmetro obrigatório). Suíte completa do projeto: **544/544
 passando**. Migration validada isoladamente (upgrade adiciona as
 colunas, downgrade remove).
+
+## Reorganização de menu — BrewStation (Controle de Mostura + De-Para de Ingredientes): CONCLUÍDO
+
+Reorganização puramente de menu (`parent_code` em `get_transactions()`),
+decidida em conversa — nenhuma tabela, model, rota ou arquivo de
+funcionalidade mudou de lugar. Motivação: "Controle de Mostura" tinha
+18 páginas soltas no mesmo nível (o dobro do segundo maior grupo do
+BrewStation), sem nenhuma sub-organização.
+
+**Antes**: Controle de Mostura com 18 itens flat, incluindo o De-Para
+de Ingredientes (mais relacionado a "Ingredientes" do que a "Mostura").
+
+**Depois**:
+```
+Controle de Mostura
+├── Receitas (6): Receitas de Brassagem, Ingredientes de Receita,
+│   Passos de Mostura, Etapas de Fermentação, Perfis de Água,
+│   Histórico de Receitas
+├── Planta & Sessão
+│   ├── Plantas de Brassagem, Vasilhames, Mapeamentos de Planta
+│   └── Sessões / Batches (4): Sessões de Brassagem, Passos da Sessão,
+│       Logs da Sessão, Alarmes da Sessão
+├── Automação (2): Regras de Automação, Histórico de Regras
+└── Dashboard (2): Layouts de Dashboard, Widgets de Dashboard —
+    continuam declaradas (o CRUD é real), mas SAEM do menu por ação
+    manual em /admin/transactions/ (is_active=False) — não por código,
+    porque sync_transaction() nunca mexe em is_active de propósito
+    (skill 10, controle é só via UI). Ver "Pendências" abaixo.
+
+Ingredientes (4): Maltes, Lúpulos, Leveduras,
+  Mapeamento de Ingredientes (De-Para) ← realocado, model/rota
+  continuam em feature_mash_control, só o parent_code mudou
+```
+
+`addons/addon_brewstation/features/feature_mash_control/feature.py`:
+4 grupos novos (`TX_GROUP_MASH_RECIPES`, `TX_GROUP_MASH_PLANT_SESSION`,
+`TX_GROUP_MASH_SESSIONS` — filho de `TX_GROUP_MASH_PLANT_SESSION` —,
+`TX_GROUP_MASH_AUTOMATION`) + `parent_code` de 16 transações
+existentes reapontado (6 pra Receitas, 3 pra Planta&Sessão, 4 pra
+Sessões, 2 pra Automação, 1 — o De-Para — pra `TX_GROUP_INGREDIENTES`,
+já declarado em `feature_ingredientes/feature.py`, sem precisar tocar
+nesse arquivo). `TX_DASHBOARD_LAYOUTS`/`TX_DASHBOARD_WIDGETS` mantidos
+como estavam (parent + rota).
+
+**Pendência criada nesta rodada**: "Sistema de dashboard com abas para
+os processos" (visual de verdade, hoje só existe o CRUD dos dados cru)
+— próximo ajuste. Quando existir, os 2 itens de Dashboard entram como
+sub-grupo de `TX_GROUP_MASH_SESSIONS`.
+
+**Ação manual necessária após aplicar este patch** (não é código):
+desativar `Layouts de Dashboard`/`Widgets de Dashboard` em
+`/admin/transactions/` — o sync nunca faz isso sozinho.
+
+Testes: `tests/test_menu_grouped_by_feature.py` — 1 teste antigo
+(contagem fixa de 18) reescrito em 6 testes novos, cobrindo a árvore
+inteira (contagem por grupo + o De-Para no lugar novo). Suíte completa
+do projeto: **549/549 passando**. Sem migration — `Transaction` já
+suporta árvore (skill 10), isso é só dado (via sync no boot), não
+schema.
