@@ -529,47 +529,333 @@ def test_reorder_fields_pela_rota_web(app, client):
         assert ModelFieldDefinition.query.get(f1_id).order_index == 1
 
 
-# ── Inferência de campo aninhado (Playground -> Model Builder) ──────────────
+# -- Inferencia de campo aninhado (Playground -> Model Builder) --------------
+# Objeto/array-de-objeto agora vira tabela filha de verdade (skill 06,
+# decisao em conversa/BACKLOG.md) -- so array de valores simples (sem
+# objeto) continua virando `json` de documentacao.
 
-def test_infer_fields_from_json_objeto_aninhado_vira_json_com_schema():
+def test_infer_field_type_objeto_vira_table():
+    from services.core.playground_service import _infer_field_type
+
+    assert _infer_field_type({"name": "x"}) == "table"
+
+
+def test_infer_field_type_array_de_objetos_vira_table():
+    from services.core.playground_service import _infer_field_type
+
+    assert _infer_field_type([{"name": "x"}]) == "table"
+
+
+def test_infer_field_type_array_de_valores_simples_continua_json():
+    from services.core.playground_service import _infer_field_type
+
+    assert _infer_field_type(["ipa", "lager"]) == "json"
+
+
+def test_infer_fields_from_json_objeto_aninhado_vira_relacao_1_para_1():
     from services.core import playground_service as pg_svc
 
     response = {
         "brewDate": 1756090800000,
-        "recipe": {"name": "New Weissnbier"},
+        "recipe": {"name": "New Weissnbier", "abv": 5.2},
         "status": "Completed",
     }
     fields = pg_svc.infer_fields_from_json(response)
     by_name = {f["field_name"]: f for f in fields}
 
-    assert by_name["recipe"]["field_type"] == "json"
-    assert by_name["recipe"]["json_schema"] == [{"name": "name", "type": "string", "children": None}]
+    assert by_name["recipe"]["field_type"] == "table"
+    assert by_name["recipe"]["relation"]["relation_type"] == "one_to_one"
+    child_by_name = {c["field_name"]: c for c in by_name["recipe"]["relation"]["child_fields"]}
+    assert child_by_name["name"]["field_type"] == "string"
+    assert child_by_name["abv"]["field_type"] == "float"
     assert by_name["status"]["field_type"] == "string"
 
 
-def test_infer_fields_from_json_array_de_objetos_vira_json_com_schema():
+def test_infer_fields_from_json_array_de_objetos_vira_relacao_1_para_n():
     from services.core import playground_service as pg_svc
 
     response = [
-        {"id": 1, "tags": [{"value": "ipa"}, {"value": "lupulado"}]},
-        {"id": 2, "tags": [{"value": "lager"}]},
+        {"id": 1, "itens": [{"produto": "Malte", "qtd": 2}, {"produto": "Lupulo", "qtd": 1}]},
+        {"id": 2, "itens": [{"produto": "Levedura", "qtd": 1}]},
     ]
     fields = pg_svc.infer_fields_from_json(response)
     by_name = {f["field_name"]: f for f in fields}
 
+    assert by_name["itens"]["field_type"] == "table"
+    assert by_name["itens"]["relation"]["relation_type"] == "one_to_many"
+    child_names = {c["field_name"] for c in by_name["itens"]["relation"]["child_fields"]}
+    assert child_names == {"produto", "qtd"}
+
+
+def test_infer_fields_from_json_array_de_valores_simples_continua_json():
+    from services.core import playground_service as pg_svc
+
+    response = {"tags": ["ipa", "lupulado"]}
+    fields = pg_svc.infer_fields_from_json(response)
+    by_name = {f["field_name"]: f for f in fields}
+
     assert by_name["tags"]["field_type"] == "json"
-    assert by_name["tags"]["json_schema"] == [{"name": "value", "type": "string", "children": None}]
+    assert by_name["tags"].get("relation") is None
 
 
-def test_infer_json_schema_nao_expande_alem_de_2_niveis():
+def test_infer_table_relation_cap_de_1_nivel_no_filho():
+    """Dentro do filho, um dict/list aninhado de novo NAO vira neto --
+    cai de volta pra `json` de documentacao (cap decidido em conversa)."""
+    from services.core.playground_service import _infer_table_relation
+
+    relation = _infer_table_relation({"nome": "x", "endereco": {"rua": "y"}})
+    child_by_name = {c["field_name"]: c for c in relation["child_fields"]}
+    assert child_by_name["endereco"]["field_type"] == "json"
+
+
+def test_infer_json_schema_ainda_funciona_pra_array_de_valores_simples_dentro_de_um_objeto():
     from services.core.playground_service import _infer_json_schema
 
-    fundo = {"a": {"b": {"c": "muito fundo"}}}
-    schema = _infer_json_schema(fundo)
-    # nível 1: "a" -> json com children
-    assert schema[0]["name"] == "a"
-    assert schema[0]["type"] == "json"
-    # nível 2 (children de "a"): "b" -> json, mas SEM detalhar o que tem dentro (depth > 1)
-    assert schema[0]["children"][0]["name"] == "b"
-    assert schema[0]["children"][0]["type"] == "json"
-    assert schema[0]["children"][0]["children"] is None
+    schema = _infer_json_schema(["a", "b"])
+    assert schema is None  # array de valor simples nao tem "sub-campo" nomeado
+
+
+def test_create_model_definition_from_playground_com_relacao_cria_filho(app):
+    from services.core import playground_service as pg_svc
+    from model.core.playground_request import PlaygroundRequest
+
+    with app.app_context():
+        record = PlaygroundRequest(
+            kind="http", name="teste", http_method="GET", url="https://x",
+            last_response_json={
+                "brewDate": 1756090800000,
+                "recipe": {"name": "New Weissnbier"},
+            },
+            last_status_code=200,
+        )
+        db.session.add(record)
+        db.session.commit()
+
+        definition = pg_svc.create_model_definition_from_playground(
+            record.id, target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="Batch", table_short_name="batch", created_by_user_id=None,
+            project_root=_PROJECT_ROOT,
+        )
+
+        table_field = next(f for f in definition.fields if f.field_type == "table")
+        assert table_field.field_name == "recipe"
+        child = ModelDefinition.query.get(table_field.child_model_definition_id)
+        assert child.model_name == "Recipe"
+        assert child.parent_relation_type == "one_to_one"
+        assert child.parent_fk_column_name == "batch_id"
+        child_field_names = {f.field_name for f in child.fields if f.field_type != "foreign_key"}
+        assert child_field_names == {"name"}
+        # FK de volta pro pai ja foi criada no filho
+        fk_field = next(f for f in child.fields if f.field_type == "foreign_key")
+        assert fk_field.field_name == "batch_id"
+        assert "batch" in fk_field.fk_target_table
+
+
+# ── Geração real com tabela filha (skill 06 — relacionamento de verdade) ────
+
+@pytest.fixture(scope="module")
+def generated_with_child(app):
+    with app.app_context():
+        definition = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="Pedido", table_short_name="pedido", created_by_user_id=None,
+        )
+        svc.add_field(definition, field_name="numero", field_type=ModelFieldType.STRING,
+                       label_text="Número", is_required=True, max_length=30, nullable=False)
+        svc.add_table_field(
+            definition, field_name="itens", label_text="Itens do Pedido",
+            child_model_name="PedidoItem", child_table_short_name="pedido_item",
+            relation_type="one_to_many", project_root=_PROJECT_ROOT,
+        )
+        table_field = next(f for f in definition.fields if f.field_type == "table")
+        child_id = table_field.child_model_definition_id
+        child = ModelDefinition.query.get(child_id)
+        svc.add_field(child, field_name="produto", field_type=ModelFieldType.STRING,
+                       label_text="Produto", is_required=True, max_length=100, nullable=False)
+        svc.add_field(child, field_name="quantidade", field_type=ModelFieldType.INTEGER,
+                       label_text="Quantidade", default_value="1")
+
+        result = svc.generate(definition.id, project_root=_PROJECT_ROOT)
+        yield definition.id, child_id, result
+
+
+def test_geracao_com_tabela_filha_escreve_pai_e_filho(app, generated_with_child):
+    definition_id, child_id, result = generated_with_child
+    assert result["children_generated"] == ["tesseract_smoketestmb_pedido_item"]
+    # model.py do pai + 8 arquivos do CrudGen do pai + model.py do filho + 8 do CrudGen do filho
+    assert len(result["written"]) == 18
+
+    with app.app_context():
+        definition = ModelDefinition.query.get(definition_id)
+        child = ModelDefinition.query.get(child_id)
+        assert definition.status == ModelDefinitionStatus.GENERATED
+        assert child.status == ModelDefinitionStatus.GENERATED
+        assert child.migration_revision == definition.migration_revision  # mesma migration, uma só
+
+
+def test_geracao_com_tabela_filha_child_model_py_tem_fk_pro_pai(app, generated_with_child):
+    _, child_id, _ = generated_with_child
+    child_model_path = _PROJECT_ROOT / "addons" / "addon_smoketest_mb" / "root" / "model" / "pedido_item.py"
+    content = child_model_path.read_text(encoding="utf-8")
+    assert "pedido_id" in content
+    assert "db.ForeignKey" in content
+    assert "tesseract_smoketestmb_pedido" in content
+
+
+def test_geracao_com_tabela_filha_parent_model_py_tem_relationship(app, generated_with_child):
+    parent_model_path = _PROJECT_ROOT / "addons" / "addon_smoketest_mb" / "root" / "model" / "pedido.py"
+    content = parent_model_path.read_text(encoding="utf-8")
+    assert "itens = db.relationship(" in content
+    assert '"PedidoItem"' in content
+    assert "uselist=False" not in content  # 1:N não limita a 1
+
+
+def test_geracao_com_tabela_filha_injeta_master_detail_no_detail_do_pai(app, generated_with_child):
+    detail_path = _PROJECT_ROOT / "addons" / "addon_smoketest_mb" / "root" / "templates" / "pedidos" / "detail.html"
+    content = detail_path.read_text(encoding="utf-8")
+    assert "model-builder:master-detail" in content
+    assert "Itens do Pedido" in content
+    assert "item.itens" in content
+    assert "pedido_items.manage" in content
+
+
+def test_geracao_com_tabela_filha_um_para_um_usa_uselist_false(app):
+    with app.app_context():
+        definition = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="Fatura", table_short_name="fatura", created_by_user_id=None,
+        )
+        svc.add_field(definition, field_name="numero", field_type=ModelFieldType.STRING, label_text="Número")
+        svc.add_table_field(
+            definition, field_name="endereco", label_text="Endereço de Cobrança",
+            child_model_name="EnderecoCobranca", child_table_short_name="endereco_cobranca",
+            relation_type="one_to_one", project_root=_PROJECT_ROOT,
+        )
+        table_field = next(f for f in definition.fields if f.field_type == "table")
+        child = ModelDefinition.query.get(table_field.child_model_definition_id)
+        svc.add_field(child, field_name="rua", field_type=ModelFieldType.STRING, label_text="Rua")
+
+        svc.generate(definition.id, project_root=_PROJECT_ROOT)
+
+    parent_model_path = _PROJECT_ROOT / "addons" / "addon_smoketest_mb" / "root" / "model" / "fatura.py"
+    content = parent_model_path.read_text(encoding="utf-8")
+    assert "uselist=False" in content
+
+    child_model_path = _PROJECT_ROOT / "addons" / "addon_smoketest_mb" / "root" / "model" / "endereco_cobranca.py"
+    child_content = child_model_path.read_text(encoding="utf-8")
+    assert "unique=True" in child_content  # FK com unique=True garante 1:1 de verdade
+
+
+# ── Regras da tabela filha (cap de 1 nível, validações) ──────────────────────
+
+def test_add_table_field_bloqueado_em_quem_ja_e_filho(app):
+    with app.app_context():
+        parent = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="Nivel1", table_short_name="nivel1", created_by_user_id=None,
+        )
+        field = svc.add_table_field(
+            parent, field_name="filhos", label_text="Filhos",
+            child_model_name="Nivel2", child_table_short_name="nivel2",
+            relation_type="one_to_many", project_root=_PROJECT_ROOT,
+        )
+        child = ModelDefinition.query.get(field.child_model_definition_id)
+
+        with pytest.raises(svc.ModelBuilderError, match="1 nível"):
+            svc.add_table_field(
+                child, field_name="netos", label_text="Netos",
+                child_model_name="Nivel3", child_table_short_name="nivel3",
+                relation_type="one_to_many", project_root=_PROJECT_ROOT,
+            )
+
+
+def test_add_field_rejeita_tipo_table_direto(app):
+    with app.app_context():
+        definition = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="RejeitaTable", table_short_name="rejeita_table", created_by_user_id=None,
+        )
+        with pytest.raises(svc.ModelBuilderError):
+            svc.add_field(definition, field_name="x", field_type="table", label_text="X")
+
+
+def test_remove_field_table_apaga_o_filho_junto(app):
+    with app.app_context():
+        definition = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="ApagaFilho", table_short_name="apaga_filho", created_by_user_id=None,
+        )
+        field = svc.add_table_field(
+            definition, field_name="filhos", label_text="Filhos",
+            child_model_name="ApagaFilhoItem", child_table_short_name="apaga_filho_item",
+            relation_type="one_to_many", project_root=_PROJECT_ROOT,
+        )
+        child_id = field.child_model_definition_id
+
+        svc.remove_field(field.id)
+
+        assert ModelDefinition.query.get(child_id) is None
+
+
+def test_add_table_field_pela_rota_web(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        definition = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="ViaTela", table_short_name="via_tela", created_by_user_id=None,
+        )
+        definition_id = definition.id
+
+    resp = client.post(
+        f"/admin/model-builder/{definition_id}/fields/table",
+        data={
+            "field_name": "itens", "label_text": "Itens", "child_model_name": "ViaTelaItem",
+            "child_table_short_name": "via_tela_item", "relation_type": "one_to_many",
+        },
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert b"tabela filha" in resp.data.lower()
+
+    with app.app_context():
+        definition = ModelDefinition.query.get(definition_id)
+        table_field = next(f for f in definition.fields if f.field_type == "table")
+        assert table_field.child_model_definition_id is not None
+
+
+def test_tela_manage_so_lista_definicoes_de_topo(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        parent = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="TopoVisivel", table_short_name="topo_visivel", created_by_user_id=None,
+        )
+        field = svc.add_table_field(
+            parent, field_name="filhos", label_text="Filhos",
+            child_model_name="FilhoInvisivelNaLista", child_table_short_name="filho_invisivel_lista",
+            relation_type="one_to_many", project_root=_PROJECT_ROOT,
+        )
+
+    resp = client.get("/admin/model-builder/")
+    assert b"TopoVisivel" in resp.data
+    assert b"FilhoInvisivelNaLista" not in resp.data
+
+
+def test_tela_detail_do_pai_mostra_arvore_do_filho(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        parent = svc.create_draft(
+            target_addon_name="smoketest_mb", target_feature_name=None,
+            model_name="ArvoreNaTela", table_short_name="arvore_na_tela", created_by_user_id=None,
+        )
+        field = svc.add_table_field(
+            parent, field_name="filhos", label_text="Filhos Visiveis",
+            child_model_name="FilhoNaArvore", child_table_short_name="filho_na_arvore",
+            relation_type="one_to_many", project_root=_PROJECT_ROOT,
+        )
+        parent_id = parent.id
+
+    resp = client.get(f"/admin/model-builder/{parent_id}")
+    assert resp.status_code == 200
+    assert b"FilhoNaArvore" in resp.data
+    assert b"Filhos Visiveis" in resp.data or "Filhos Visiveis".encode("utf-8") in resp.data

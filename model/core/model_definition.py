@@ -32,6 +32,13 @@ class ModelDefinitionStatus:
     ERROR = "error"
 
 
+class ModelDefinitionRelationType:
+    ONE_TO_ONE = "one_to_one"
+    ONE_TO_MANY = "one_to_many"
+
+    ALL = (ONE_TO_ONE, ONE_TO_MANY)
+
+
 class ModelDefinition(db.Model):
     __tablename__ = "tesseract_model_definition"
 
@@ -55,6 +62,17 @@ class ModelDefinition(db.Model):
     generation_run_id = db.Column(db.String(36), nullable=True)
     migration_revision = db.Column(db.String(64), nullable=True)
 
+    # Tabela filha (relacionamento real, skill 06 — Model Builder
+    # "Patch E"): quando preenchido, este rascunho é filho de outro —
+    # nasce a partir de um campo tipo "table" no pai. Cap de 1 nível
+    # (decisão registrada em BACKLOG.md): a UI só oferece criar tabela
+    # filha em quem ainda não tem pai; além disso é manual, fora da
+    # ferramenta.
+    parent_model_definition_id = db.Column(db.Integer, db.ForeignKey("tesseract_model_definition.id"), nullable=True)
+    parent_fk_column_name = db.Column(db.String(100), nullable=True)
+    parent_relation_label = db.Column(db.String(150), nullable=True)
+    parent_relation_type = db.Column(db.String(20), nullable=True)
+
     created_by_user_id = db.Column(db.Integer, db.ForeignKey("tesseract_user.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = db.Column(
@@ -69,6 +87,14 @@ class ModelDefinition(db.Model):
         backref="model_definition",
         cascade="all, delete-orphan",
         order_by="ModelFieldDefinition.order_index",
+        foreign_keys="ModelFieldDefinition.model_definition_id",
+    )
+
+    children = db.relationship(
+        "ModelDefinition",
+        backref=db.backref("parent_model_definition", remote_side=[id]),
+        cascade="all, delete-orphan",
+        order_by="ModelDefinition.id",
     )
 
     def to_dict(self) -> dict:
@@ -83,6 +109,8 @@ class ModelDefinition(db.Model):
             "error_message": self.error_message,
             "generated_at": self.generated_at.isoformat() if self.generated_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+            "parent_model_definition_id": self.parent_model_definition_id,
+            "parent_relation_type": self.parent_relation_type,
         }
 
     def __repr__(self) -> str:

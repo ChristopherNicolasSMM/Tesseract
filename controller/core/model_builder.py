@@ -14,7 +14,7 @@ from flask_login import login_required, current_user
 
 from core.db import db
 from core.permissions import permission_required
-from model.core.model_definition import ModelDefinition
+from model.core.model_definition import ModelDefinition, ModelDefinitionRelationType
 from model.core.model_field_definition import ModelFieldType
 from services.core import model_builder_service as svc
 
@@ -29,7 +29,9 @@ def _project_root() -> Path:
 @login_required
 @permission_required("model_definitions.view")
 def manage():
-    definitions = ModelDefinition.query.order_by(ModelDefinition.created_at.desc()).all()
+    definitions = ModelDefinition.query.filter_by(parent_model_definition_id=None).order_by(
+        ModelDefinition.created_at.desc()
+    ).all()
     return render_template(
         "core/admin/model_builder_manage.html",
         definitions=definitions,
@@ -101,13 +103,25 @@ def detail(definition_id: int):
         preview_source = None
         preview_error = str(exc)
 
+    # Árvore de 1 nível (skill 06 — tabela filha de verdade, cap
+    # decidido em conversa/BACKLOG.md): cada campo tipo "table" carrega
+    # o ModelDefinition filho junto, pra tela renderizar indentado sem
+    # precisar navegar pra outra página.
+    children_by_field_id = {
+        f.id: ModelDefinition.query.get(f.child_model_definition_id)
+        for f in definition.fields
+        if f.field_type == ModelFieldType.TABLE and f.child_model_definition_id
+    }
+
     return render_template(
         "core/admin/model_builder_detail.html",
         definition=definition,
-        field_types=ModelFieldType.ALL,
+        field_types=[t for t in ModelFieldType.ALL if t != ModelFieldType.TABLE],
+        relation_types=ModelDefinitionRelationType.ALL,
         fk_candidates=svc.fk_candidates(definition),
         preview_source=preview_source,
         preview_error=preview_error,
+        children_by_field_id=children_by_field_id,
     )
 
 
@@ -150,6 +164,39 @@ def add_field(definition_id: int):
     try:
         svc.add_field(definition, **_field_form_kwargs())
         flash("Campo adicionado.", "success")
+    except svc.ModelBuilderError as exc:
+        flash(str(exc), "error")
+
+    return redirect(url_for("model_builder.detail", definition_id=definition_id))
+
+
+@model_builder_bp.route("/<int:definition_id>/fields/table", methods=["POST"])
+@login_required
+@permission_required("model_definitions.create")
+def add_table_field(definition_id: int):
+    """Skill 06 — Model Builder, tabela filha de verdade. Cria o
+    ModelDefinition filho junto (com FK de volta pro pai) — diferente
+    de `add_field`, que só cria campo escalar/relação de documentação
+    (`json`)."""
+    definition = ModelDefinition.query.get(definition_id)
+    if not definition:
+        flash("Rascunho não encontrado.", "error")
+        return redirect(url_for("model_builder.manage"))
+
+    try:
+        svc.add_table_field(
+            definition,
+            field_name=(request.form.get("field_name") or "").strip(),
+            label_text=(request.form.get("label_text") or "").strip(),
+            child_model_name=(request.form.get("child_model_name") or "").strip(),
+            child_table_short_name=(request.form.get("child_table_short_name") or "").strip(),
+            relation_type=request.form.get("relation_type"),
+            relation_label=(request.form.get("relation_label") or "").strip() or None,
+            parent_fk_column_name=(request.form.get("parent_fk_column_name") or "").strip() or None,
+            project_root=_project_root(),
+            created_by_user_id=current_user.id if current_user.is_authenticated else None,
+        )
+        flash("Tabela filha criada — adicione os campos dela.", "success")
     except svc.ModelBuilderError as exc:
         flash(str(exc), "error")
 

@@ -1958,3 +1958,94 @@ novos).
 **Ainda em aberto**: nenhum. Este era o último item pendente da
 categoria "bug de infraestrutura do `flask db upgrade`" registrada
 nas rodadas anteriores.
+
+## Model Builder: tabela filha de verdade (relacionamento 1:1/1:N) + árvore na tela: CONCLUÍDO
+
+Evolução do "tipo json com sub-campos" (patch anterior): decisão
+confirmada em conversa — objeto/array-de-objeto aninhado numa resposta
+de API deve virar uma **tabela filha de verdade** (Model independente,
+FK real, CRUD próprio), não só metadado de documentação. `json` continua
+existindo só para array de valores simples (sem objeto) — não tem
+"sub-campo" nomeado nesse caso, então não faz sentido virar tabela.
+
+### Modelo de dados
+
+- `ModelDefinition`: `parent_model_definition_id` (FK pra si mesma),
+  `parent_fk_column_name`, `parent_relation_label`,
+  `parent_relation_type` (`one_to_one`/`one_to_many`). Migration
+  `d4e0a26f9c31`.
+- `ModelFieldDefinition`: `field_type="table"` novo +
+  `child_model_definition_id` (aponta pro `ModelDefinition` filho).
+  Campo tipo `table` nunca vira coluna real no pai — é metadado de
+  relação.
+- **Cap de 1 nível** (decisão confirmada em conversa): a ferramenta só
+  cria tabela filha em quem ainda não é filho de ninguém —
+  `add_table_field()` rejeita explicitamente tentar criar neto.
+
+### Geração — 3 passadas obrigatórias (2 bugs reais encontrados e corrigidos no caminho)
+
+Christopher pediu explicitamente pra não mexer no CrudGen em si — a
+tabela filha gera normal, com o pipeline inteiro (Service/Controller/
+Routes/Templates + hooks), e por cima disso entra só 1 peça nova: um
+`db.relationship()` no `model.py` do pai (`model.py.j2` ganhou um
+bloco condicional) + uma seção "master-detail" injetada (splice de
+string, não Jinja) no `detail.html` já escrito pelo CrudGen — 2
+templates novos (`master_detail_section_one_to_one.html.j2` /
+`_one_to_many.html.j2`), no mesmo estilo `@@token@@` do resto do
+CrudGen (achado real: o CrudGen usa substituição de string simples
+pros templates HTML, não Jinja de verdade em tempo de geração — model.py.j2
+é a exceção, renderizado por Jinja de propósito pelo Model Builder).
+
+Dois bugs reais de ordem de execução, achados só ao gerar de verdade
+(pai + filho juntos):
+
+1. **SQLAlchemy resolve o nome da classe do `relationship()` cedo
+   demais.** `db.relationship("Filho", ...)` guarda só a string até a
+   configuração do mapper — que dispara na primeira query/objeto ORM
+   tocado (ex.: `snapshot_if_needed`, dentro do próprio pipeline do
+   CrudGen do pai). Se o filho ainda não tinha sido *importado*
+   nesse momento, falha (`InvalidRequestError: failed to locate a
+   name`). Corrigido: `generate()` agora faz 3 passadas separadas —
+   **1) escreve** todos os `.py` (pai + filhos) em disco, **2) importa**
+   todos, **3) só então** toca o banco (snapshot + pipeline) pra
+   qualquer um. Nenhuma escrita/import pode ficar misturada com
+   toque de banco no meio.
+2. **Prefixo de tabela também precisa ser aplicado pra todos antes de
+   qualquer um tocar o banco.** Mesma classe de bug: a FK do filho já
+   aponta pro nome final PREFIXADO do pai (previsto por
+   `_predict_full_table_name()`), mas o prefixo em si só era aplicado
+   dentro do pipeline do CrudGen do próprio pai — se a configuração do
+   mapper disparasse antes disso (o que acontece), o pai ainda estava
+   com `__tablename__` curto e o SQLAlchemy não achava a FK
+   (`NoForeignKeysError`). Corrigido: nova "passada 2.5" aplica
+   `apply_table_prefix()` em todos antes da passada 3.
+
+### Tela — árvore recursiva
+
+`templates/core/admin/model_builder_detail.html` reescrito com uma
+macro Jinja recursiva (`fields_block`) — mesma estrutura de tabela +
+formulário pra pai e pra cada filho, indentado, com o próprio
+arrastar-e-soltar (`order_index` já era por `model_definition_id`,
+só faltava escopar o JS por bloco — antes era 1 conjunto global de
+IDs, agora cada bloco tem IDs próprios sufixados por
+`model_definition_id`, e o JS itera `.mb-fields-block` /
+`.js-fields-tbody` individualmente). `/admin/model-builder/` (lista)
+agora só mostra rascunhos de topo (`parent_model_definition_id IS
+NULL`) — filhos só aparecem dentro da árvore do pai.
+
+### Inferência (ponte do Playground)
+
+`_infer_field_type()`: dict → `table` (1:1); array de objetos →
+`table` (1:N); array de valores simples → `json` (inalterado).
+`create_model_definition_from_playground()` agora cria o Model filho
+de verdade (via `add_table_field()`) com os campos dele já inferidos
+da amostra, em vez de só documentar a forma.
+
+Testes: 21 casos novos em `tests/test_model_builder.py` (inferência,
+regras de cap/validação, geração real ponta a ponta com filho —
+FK real, `relationship`, master-detail injetado, 1:1 com
+`uselist=False`/`unique=True`, listagem só de topo, árvore na tela).
+2 testes de `tests/test_playground.py` ajustados (`project_root` novo
+parâmetro obrigatório). Suíte completa do projeto: **544/544
+passando**. Migration validada isoladamente (upgrade adiciona as
+colunas, downgrade remove).

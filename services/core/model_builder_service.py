@@ -31,9 +31,10 @@ from jinja2 import Environment, FileSystemLoader
 
 from core.db import db
 from core.crudgen.generator import generate as run_crudgen_pipeline
-from core.crudgen.manifest_utils import resolve_output_dir, ManifestError
+from core.crudgen.manifest_utils import resolve_output_dir, resolve_table_prefix, ManifestError
+from core.crudgen.table_prefix import apply_table_prefix
 from core.versioning import snapshot_if_needed
-from model.core.model_definition import ModelDefinition, ModelDefinitionScope, ModelDefinitionStatus
+from model.core.model_definition import ModelDefinition, ModelDefinitionScope, ModelDefinitionStatus, ModelDefinitionRelationType
 from model.core.model_field_definition import ModelFieldDefinition, ModelFieldType
 
 logger = logging.getLogger(__name__)
@@ -169,6 +170,11 @@ def add_field(model_definition: ModelDefinition, *, field_name: str, field_type:
               json_schema: Optional[list] = None) -> ModelFieldDefinition:
     if field_type not in ModelFieldType.ALL:
         raise ModelBuilderError(f"Tipo de campo inválido: {field_type}")
+    if field_type == ModelFieldType.TABLE:
+        raise ModelBuilderError(
+            "Campo tipo 'table' não pode ser criado por aqui — use "
+            "add_table_field() (cria o Model filho junto)."
+        )
 
     if field_type == ModelFieldType.FOREIGN_KEY:
         candidates = {c["table_name"] for c in fk_candidates(model_definition)}
@@ -214,6 +220,13 @@ def update_field(field_id: int, *, field_name: str, field_type: str,
     field = ModelFieldDefinition.query.get(field_id)
     if not field:
         raise ModelBuilderError("Campo não encontrado.")
+
+    if field.field_type == ModelFieldType.TABLE or field_type == ModelFieldType.TABLE:
+        raise ModelBuilderError(
+            "Campo tipo 'table' não é editado por aqui — apague o campo "
+            "(e o Model filho junto, se quiser) e crie de novo via "
+            "add_table_field()."
+        )
 
     if field_type not in ModelFieldType.ALL:
         raise ModelBuilderError(f"Tipo de campo inválido: {field_type}")
@@ -262,9 +275,123 @@ def reorder_fields(model_definition_id: int, ordered_field_ids: list[int]) -> No
 
 def remove_field(field_id: int) -> None:
     field = ModelFieldDefinition.query.get(field_id)
-    if field:
-        db.session.delete(field)
-        db.session.commit()
+    if not field:
+        return
+    if field.field_type == ModelFieldType.TABLE and field.child_model_definition_id:
+        child = ModelDefinition.query.get(field.child_model_definition_id)
+        if child:
+            db.session.delete(child)  # cascade cuida dos campos do filho (fields, cascade=all,delete-orphan)
+    db.session.delete(field)
+    db.session.commit()
+
+
+# ── Tabela filha (relacionamento real, não é o "json" de documentação) ──────
+
+def _predict_full_table_name(definition: ModelDefinition, project_root: Path) -> str:
+    """Nome completo (já prefixado, skill 02) que este ModelDefinition vai
+    ter quando gerado. Precisa ser previsível ANTES da geração, porque a
+    FK do filho (tabela filha de verdade) tem que apontar pro pai desde
+    o momento em que os dois ainda são rascunho — `fk_candidates()` só
+    lista tabela que já existe de verdade, não serve aqui."""
+    if definition.target_scope == ModelDefinitionScope.NEW_ADDON:
+        prefix = definition.target_addon_name
+    elif definition.target_scope == ModelDefinitionScope.NEW_FEATURE:
+        draft = definition.manifest_draft_json or {}
+        suffix = draft.get("table_prefix_suffix") or definition.target_feature_name
+        prefix = f"{definition.target_addon_name}_{suffix}"
+    else:
+        prefix = resolve_table_prefix(project_root, definition.target_addon_name, definition.target_feature_name)
+    return f"tesseract_{prefix}_{definition.table_short_name}"
+
+
+def add_table_field(model_definition: ModelDefinition, *, field_name: str, label_text: str,
+                     child_model_name: str, child_table_short_name: str, relation_type: str,
+                     project_root: Path, relation_label: Optional[str] = None,
+                     parent_fk_column_name: Optional[str] = None,
+                     created_by_user_id: Optional[int] = None) -> ModelFieldDefinition:
+    """
+    Skill 06 — Model Builder, tabela filha de verdade (relacionamento
+    1:1/1:N com FK real), decisão registrada em conversa/BACKLOG.md:
+    diferente do campo tipo `json` (metadado de documentação), este
+    cria um `ModelDefinition` FILHO de verdade — com CRUD próprio e
+    independente, ligado ao pai por FK no filho.
+
+    Cap de 1 nível: só é permitido criar tabela filha em quem ainda
+    não é filho de ninguém — mais fundo que isso é manual, fora da
+    ferramenta (decisão confirmada em conversa).
+    """
+    if model_definition.parent_model_definition_id is not None:
+        raise ModelBuilderError(
+            "Este Model já é filho de outro — a ferramenta só cria 1 nível "
+            "de tabela filha automaticamente. Um nível a mais precisa ser "
+            "feito manualmente, fora do Model Builder."
+        )
+    if relation_type not in ModelDefinitionRelationType.ALL:
+        raise ModelBuilderError(f"Tipo de relação inválido: {relation_type}")
+    if not _NAME_RE.match(child_table_short_name or ""):
+        raise ModelBuilderError(
+            f"'{child_table_short_name}' inválido — nome de tabela deve ser snake_case (skill 00)."
+        )
+
+    fk_column = parent_fk_column_name or f"{model_definition.table_short_name}_id"
+
+    # O filho nasce sempre "existing_*" — o Addon/Feature, se ainda não
+    # existir de verdade em disco, já vai existir por essa altura (o pai
+    # é gerado primeiro, ver generate()); o filho nunca dispara scaffold
+    # próprio, evitando tentar criar o mesmo Addon/Feature duas vezes.
+    child_scope = (
+        ModelDefinitionScope.EXISTING_FEATURE if model_definition.target_feature_name
+        else ModelDefinitionScope.EXISTING_ADDON
+    )
+    child = ModelDefinition(
+        target_scope=child_scope,
+        target_addon_name=model_definition.target_addon_name,
+        target_feature_name=model_definition.target_feature_name,
+        model_name=child_model_name,
+        table_short_name=child_table_short_name,
+        status=ModelDefinitionStatus.DRAFT,
+        created_by_user_id=created_by_user_id,
+        parent_model_definition_id=model_definition.id,
+        parent_fk_column_name=fk_column,
+        parent_relation_label=relation_label or label_text,
+        parent_relation_type=relation_type,
+    )
+    db.session.add(child)
+    db.session.flush()  # precisa de child.id antes de referenciar em child_model_definition_id
+
+    # FK de volta pro pai, no filho — nome de tabela do pai é PREVISTO
+    # (nem sempre existe ainda), então não passa pela validação normal
+    # de fk_candidates() (que só lista tabela já registrada de verdade).
+    parent_table_name = _predict_full_table_name(model_definition, project_root)
+    back_ref = ModelFieldDefinition(
+        model_definition_id=child.id,
+        field_name=fk_column,
+        field_type=ModelFieldType.FOREIGN_KEY,
+        label_text=model_definition.model_name,
+        nullable=False,
+        unique=(relation_type == ModelDefinitionRelationType.ONE_TO_ONE),
+        fk_target_table=parent_table_name,
+        is_listview_column=False,
+        is_form_field=True,
+        order_index=0,
+    )
+    db.session.add(back_ref)
+
+    order_index = len(model_definition.fields)
+    field = ModelFieldDefinition(
+        model_definition_id=model_definition.id,
+        field_name=field_name,
+        field_type=ModelFieldType.TABLE,
+        label_text=label_text,
+        nullable=True,
+        is_listview_column=False,
+        is_form_field=False,
+        order_index=order_index,
+        child_model_definition_id=child.id,
+    )
+    db.session.add(field)
+    db.session.commit()
+    return field
 
 
 def fk_candidates(model_definition: ModelDefinition) -> list[dict]:
@@ -520,7 +647,13 @@ def _render_json_schema_summary(schema: Optional[list]) -> Optional[str]:
 
 def _field_template_context(fields: list[ModelFieldDefinition]) -> dict:
     rendered_fields = []
+    relationships = []
     for f in fields:
+        if f.field_type == ModelFieldType.TABLE:
+            # Nunca vira coluna — é uma relação (skill 06, tabela filha
+            # de verdade). Fica só no bloco `relationships`, tratado
+            # separadamente em generate()/preview_model_source().
+            continue
         default_repr = None
         if f.default_value is not None:
             if f.field_type in (ModelFieldType.INTEGER, ModelFieldType.FLOAT):
@@ -546,9 +679,33 @@ def _field_template_context(fields: list[ModelFieldDefinition]) -> dict:
         })
     return {
         "fields": rendered_fields,
-        "required_fields": [f for f in fields if f.is_required],
+        "required_fields": [f for f in fields if f.is_required and f.field_type != ModelFieldType.TABLE],
         "max_length_fields": [f for f in fields if f.field_type == ModelFieldType.STRING and f.max_length],
     }
+
+
+def _relationship_template_context(definition: ModelDefinition, class_name_lower: str) -> list[dict]:
+    """Skill 06 — tabela filha de verdade: um `db.relationship()` por
+    campo tipo `table`, direto no model.py do PAI. O filho não precisa
+    ser importado (SQLAlchemy resolve por nome de classe, via registry,
+    quando os mappers são configurados — funciona porque os dois
+    módulos acabam importados no boot via auto-descoberta, skill 09)."""
+    relationships = []
+    for f in definition.fields:
+        if f.field_type != ModelFieldType.TABLE or not f.child_model_definition_id:
+            continue
+        child = ModelDefinition.query.get(f.child_model_definition_id)
+        if not child:
+            continue
+        relationships.append({
+            "attr_name": f.field_name,
+            "child_class_name": child.model_name,
+            "backref_name": class_name_lower,
+            "one_to_one": child.parent_relation_type == ModelDefinitionRelationType.ONE_TO_ONE,
+            "relation_label": child.parent_relation_label or f.label_text,
+            "child_class_name_lower": _to_snake_case(child.model_name),
+        })
+    return relationships
 
 
 def _i18n_path(project_root: Path, addon: str, feature: Optional[str]) -> Path:
@@ -625,6 +782,7 @@ def preview_model_source(definition: ModelDefinition, *, project_root: Path) -> 
         "plural": class_name_lower + "s",
         "output_module_path": output_module_path,
         "model_definition_id": definition.id,
+        "relationships": _relationship_template_context(definition, class_name_lower),
         **_field_template_context(definition.fields),
     }
 
@@ -632,14 +790,64 @@ def preview_model_source(definition: ModelDefinition, *, project_root: Path) -> 
     return template.render(**context)
 
 
-def generate(model_definition_id: int, *, project_root: Path, overwrite: bool = False) -> dict:
-    definition = ModelDefinition.query.get(model_definition_id)
-    if not definition:
-        raise ModelBuilderError("ModelDefinition não encontrado.")
+# ── Injeção do master-detail no detail.html do pai (skill 06) ───────────────
 
-    if not definition.fields:
-        raise ModelBuilderError("Adicione pelo menos um campo antes de gerar.")
+_DETAIL_HTML_ANCHOR = '<script src="{{ url_for(\'static\', filename=\'js/rule_engine.js\') }}"></script>'
 
+
+def _render_master_detail_section(relation: dict) -> str:
+    template_name = (
+        "master_detail_section_one_to_one.html.j2" if relation["one_to_one"]
+        else "master_detail_section_one_to_many.html.j2"
+    )
+    raw = (_TEMPLATES_DIR / template_name).read_text(encoding="utf-8")
+    child_plural = relation["child_class_name_lower"] + "s"
+    return (
+        raw.replace("@@relation_label@@", relation["relation_label"])
+        .replace("@@attr_name@@", relation["attr_name"])
+        .replace("@@child_plural@@", child_plural)
+    )
+
+
+def _inject_master_detail_sections(detail_html_path: Path, relationships: list[dict]) -> None:
+    """Splice — não regenera nada do CrudGen, só insere um bloco por
+    relação logo antes do <script> de rule_engine.js (âncora estável,
+    não contém nenhum token @@...@@, sobrevive ao replace do CrudGen).
+    Não roda de novo em cima do mesmo arquivo se já tiver sido
+    injetado (idempotente em regeneração com overwrite)."""
+    if not relationships:
+        return
+    content = detail_html_path.read_text(encoding="utf-8")
+    if _DETAIL_HTML_ANCHOR not in content:
+        logger.warning(
+            "Âncora do master-detail não encontrada em %s — seção de "
+            "tabela filha não injetada (detail.html.j2 pode ter mudado).",
+            detail_html_path,
+        )
+        return
+
+    sections = "\n".join(_render_master_detail_section(r) for r in relationships)
+    marker = "<!-- model-builder:master-detail -->"
+    if marker in content:
+        return  # já injetado numa geração anterior
+
+    content = content.replace(_DETAIL_HTML_ANCHOR, f"{marker}\n{sections}\n\n{_DETAIL_HTML_ANCHOR}")
+    detail_html_path.write_text(content, encoding="utf-8")
+
+
+def _write_model_file(definition: ModelDefinition, *, project_root: Path, overwrite: bool) -> dict:
+    """So renderiza e escreve o model.py em disco -- NAO importa, NAO
+    dispara snapshot ainda. Isso e' proposital: importar (`exec_module`)
+    so' declara a classe em Python/SQLAlchemy (nao toca banco); mas
+    `snapshot_if_needed`/o pipeline do CrudGen tocam o banco, e a
+    PRIMEIRA query depois de uma classe nova ser importada dispara o
+    SQLAlchemy configurar TODOS os mappers pendentes -- inclusive
+    resolver strings de `db.relationship("Filho", ...)`. Se o filho
+    ainda nao foi importado nesse momento, a resolucao falha (achado
+    real, ver BACKLOG.md). Por isso generate() faz 3 passadas
+    separadas: escreve tudo -> importa tudo -> so' depois toca o banco
+    (snapshot + pipeline) pra qualquer um.
+    """
     scaffolded_new_module = False
     if definition.target_scope == ModelDefinitionScope.NEW_ADDON:
         _scaffold_new_addon(definition, project_root)
@@ -658,6 +866,7 @@ def generate(model_definition_id: int, *, project_root: Path, overwrite: bool = 
 
     class_name = definition.model_name
     class_name_lower = _to_snake_case(class_name)
+    relationships = _relationship_template_context(definition, class_name_lower)
 
     context = {
         "class_name": class_name,
@@ -667,6 +876,7 @@ def generate(model_definition_id: int, *, project_root: Path, overwrite: bool = 
         "plural": class_name_lower + "s",
         "output_module_path": str(output_dir.relative_to(project_root)),
         "model_definition_id": definition.id,
+        "relationships": relationships,
         **_field_template_context(definition.fields),
     }
 
@@ -684,47 +894,125 @@ def generate(model_definition_id: int, *, project_root: Path, overwrite: bool = 
         )
 
     model_path.write_text(model_content, encoding="utf-8")
-    snapshot_if_needed(str(model_path), model_content)
 
-    # Import dinâmico do model recém-escrito, mesma técnica do CLI
-    # (core/cli.py generate_cmd) — necessário para obter a classe já
-    # registrada em db.metadata antes de chamar o pipeline do CrudGen.
-    spec = importlib.util.spec_from_file_location(f"_model_builder_{class_name_lower}", model_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    model_class = getattr(module, class_name)
-
-    pipeline_result = run_crudgen_pipeline(
-        model_class,
-        project_root=project_root,
-        addon=addon,
-        feature=feature,
-        overwrite=overwrite,
-        triggered_by="ui:model_builder",
-    )
-
-    i18n_keys = {
-        f"{addon}.{class_name_lower}.field_{f.field_name}": f.label_text
-        for f in definition.fields
+    return {
+        "definition": definition,
+        "model_path": model_path,
+        "model_content": model_content,
+        "output_dir": output_dir,
+        "addon": addon,
+        "feature": feature,
+        "class_name": class_name,
+        "class_name_lower": class_name_lower,
+        "relationships": relationships,
+        "scaffolded_new_module": scaffolded_new_module,
     }
-    _merge_i18n_keys(_i18n_path(project_root, addon, feature), i18n_keys)
 
-    migration_message = f"model_builder_add_{pipeline_result['table_name']}"
+
+def generate(model_definition_id: int, *, project_root: Path, overwrite: bool = False) -> dict:
+    definition = ModelDefinition.query.get(model_definition_id)
+    if not definition:
+        raise ModelBuilderError("ModelDefinition não encontrado.")
+    if definition.parent_model_definition_id is not None:
+        raise ModelBuilderError(
+            "Isto é um Model filho — gere a partir do Model PAI (ele "
+            "gera o filho junto, na mesma migration)."
+        )
+    if not definition.fields:
+        raise ModelBuilderError("Adicione pelo menos um campo antes de gerar.")
+
+    # Passada 1 — só escreve os .py em disco (pai + filhos, 1 nível de
+    # cap). Nenhum toque em banco ainda.
+    prepared = [_write_model_file(definition, project_root=project_root, overwrite=overwrite)]
+    for f in definition.fields:
+        if f.field_type == ModelFieldType.TABLE and f.child_model_definition_id:
+            child_definition = ModelDefinition.query.get(f.child_model_definition_id)
+            if child_definition:
+                prepared.append(_write_model_file(child_definition, project_root=project_root, overwrite=overwrite))
+
+    # Passada 2 — importa TODOS antes de qualquer coisa tocar o banco.
+    # Ver docstring de _write_model_file() pro porquê disso ser
+    # obrigatoriamente uma passada própria, separada da 1 e da 3.
+    for p in prepared:
+        spec = importlib.util.spec_from_file_location(f"_model_builder_{p['class_name_lower']}", p["model_path"])
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        p["model_class"] = getattr(module, p["class_name"])
+
+    # Passada 2.5 — aplica o prefixo de tabela (skill 02) em TODOS
+    # antes de qualquer um tocar o banco. Mesmo motivo da passada 2:
+    # o `db.relationship()` do pai aponta pro nome JÁ PREFIXADO da
+    # tabela do pai (`_predict_full_table_name`) — se o pai ainda
+    # estiver com `__tablename__` curto (prefixo só aplicado dentro
+    # do próprio `run_crudgen_pipeline` de cada um, um de cada vez),
+    # a configuração do mapper falha achando que não existe FK entre
+    # as duas tabelas (achado real, ver BACKLOG.md).
+    for p in prepared:
+        full_prefix = resolve_table_prefix(project_root, p["addon"], p["feature"])
+        apply_table_prefix(p["model_class"], full_prefix)
+
+    # Passada 3 — agora sim, snapshot + pipeline do CrudGen (toca
+    # banco) — seguro pra qualquer um, porque todos já estão
+    # registrados no SQLAlchemy.
+    for p in prepared:
+        snapshot_if_needed(str(p["model_path"]), p["model_content"])
+
+    all_written = []
+    all_permissions = []
+    all_i18n_keys = []
+    children_generated = []
+    generation_run_id = None
+    parent_table_name = None
+
+    for i, p in enumerate(prepared):
+        pipeline_result = run_crudgen_pipeline(
+            p["model_class"], project_root=project_root, addon=p["addon"], feature=p["feature"],
+            overwrite=overwrite, triggered_by="ui:model_builder",
+        )
+        if i == 0:
+            generation_run_id = pipeline_result["generation_run_id"]
+            parent_table_name = pipeline_result["table_name"]
+        else:
+            children_generated.append(pipeline_result["table_name"])
+
+        i18n_keys = {
+            f"{p['addon']}.{p['class_name_lower']}.field_{f.field_name}": f.label_text
+            for f in p["definition"].fields
+        }
+        _merge_i18n_keys(_i18n_path(project_root, p["addon"], p["feature"]), i18n_keys)
+
+        # Master-detail (skill 06 — tabela filha de verdade): splice no
+        # detail.html já escrito pelo CrudGen, sem tocar em mais nada
+        # do pipeline padrão dele.
+        plural = p["class_name_lower"] + "s"
+        detail_html_path = p["output_dir"] / "templates" / plural / "detail.html"
+        if p["relationships"] and detail_html_path.exists():
+            _inject_master_detail_sections(detail_html_path, p["relationships"])
+
+        all_written.append(str(p["model_path"]))
+        all_written.extend(pipeline_result["written"])
+        all_permissions.extend(pipeline_result["permissions"])
+        all_i18n_keys.extend(i18n_keys.keys())
+
+    from datetime import datetime, timezone
+    generated_at = datetime.now(timezone.utc)
+    migration_message = f"model_builder_add_{prepared[0]['class_name_lower']}"
     migration_revision = _run_migration_autogenerate(migration_message)
 
-    definition.status = ModelDefinitionStatus.GENERATED
-    definition.error_message = None
-    definition.generation_run_id = pipeline_result["generation_run_id"]
-    definition.migration_revision = migration_revision
-    from datetime import datetime, timezone
-    definition.generated_at = datetime.now(timezone.utc)
+    for p in prepared:
+        p["definition"].status = ModelDefinitionStatus.GENERATED
+        p["definition"].error_message = None
+        p["definition"].generation_run_id = generation_run_id
+        p["definition"].migration_revision = migration_revision
+        p["definition"].generated_at = generated_at
     db.session.commit()
 
     return {
-        "table_name": pipeline_result["table_name"],
-        "written": [str(model_path)] + pipeline_result["written"],
-        "permissions": pipeline_result["permissions"],
-        "i18n_keys_written": list(i18n_keys.keys()),
+        "table_name": parent_table_name,
+        "written": all_written,
+        "permissions": all_permissions,
+        "i18n_keys_written": all_i18n_keys,
         "migration_message": migration_revision,
-        "scaffolded_new_module": scaffolded_new_module,
+        "scaffolded_new_module": prepared[0]["scaffolded_new_module"],
+        "children_generated": children_generated,
     }

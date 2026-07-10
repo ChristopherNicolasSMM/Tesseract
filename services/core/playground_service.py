@@ -31,6 +31,7 @@ from model.core.playground_folder import PlaygroundFolder
 from model.core.playground_cookie_jar import PlaygroundCookieJar
 from model.core.model_field_definition import ModelFieldType
 from services.core import model_builder_service as model_builder_svc
+from model.core.model_definition import ModelDefinition, ModelDefinitionRelationType
 
 logger = logging.getLogger(__name__)
 
@@ -334,8 +335,13 @@ _ISO_DATETIME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2})?)?")
 def _infer_field_type(value: Any) -> str:
     if isinstance(value, bool):
         return ModelFieldType.BOOLEAN
-    if isinstance(value, (dict, list)):
-        return ModelFieldType.JSON
+    if isinstance(value, dict):
+        return ModelFieldType.TABLE  # objeto aninhado -> tabela filha 1:1 (skill 06, decisao em conversa)
+    if isinstance(value, list):
+        sample = next((v for v in value if v is not None), None)
+        if isinstance(sample, dict):
+            return ModelFieldType.TABLE  # array de objetos -> tabela filha 1:N
+        return ModelFieldType.JSON  # array de valores simples (sem objeto) -> continua json, sem tabela
     if isinstance(value, int):
         return ModelFieldType.INTEGER
     if isinstance(value, float):
@@ -346,11 +352,11 @@ def _infer_field_type(value: Any) -> str:
 
 
 def _infer_json_schema(value: Any, *, depth: int = 0) -> Optional[list]:
-    """Infere os sub-campos de um objeto/array pra virar `json_schema`
-    (metadado de documentação, skill 06 — nunca vira sub-tabela real).
-    Recursivo até 2 níveis (campo -> sub-campo -> filho do sub-campo);
-    além disso, o filho mais fundo não detalha o que tem dentro dele,
-    só marca o tipo — evita árvore infinita em JSON muito aninhado."""
+    """Infere os sub-campos de um array de valores simples pra virar
+    `json_schema` (metadado de documentacao, skill 06 -- so usado
+    quando o campo continua `json`; objeto/array-de-objeto agora vira
+    tabela filha de verdade, ver `_infer_table_relation()`). Recursivo
+    ate 2 niveis, evita arvore infinita em JSON muito aninhado."""
     if depth > 1:
         return None
 
@@ -380,15 +386,56 @@ def _infer_json_schema(value: Any, *, depth: int = 0) -> Optional[list]:
     return None
 
 
+def _infer_table_relation(value: Any) -> Optional[dict]:
+    """Skill 06 -- Model Builder, tabela filha de verdade. Objeto
+    aninhado (dict) vira relacao 1:1; array de objetos vira relacao
+    1:N. Os campos do filho sao inferidos 1 nivel (cap decidido em
+    conversa/BACKLOG.md -- dentro do filho, um dict/list aninhado de
+    novo cai de volta pra `json` de documentacao, nao vira neto)."""
+    if isinstance(value, dict):
+        return {
+            "relation_type": ModelDefinitionRelationType.ONE_TO_ONE,
+            "child_fields": _infer_fields_no_relation(value),
+        }
+    if isinstance(value, list):
+        sample = next((v for v in value if v is not None), None)
+        if isinstance(sample, dict):
+            return {
+                "relation_type": ModelDefinitionRelationType.ONE_TO_MANY,
+                "child_fields": _infer_fields_no_relation(sample),
+            }
+    return None
+
+
+def _infer_fields_no_relation(obj: dict) -> list[dict]:
+    """Mesma logica de `infer_fields_from_json` pra um dict unico, mas
+    sem permitir relacao de tabela de novo (cap de 1 nivel) -- um
+    dict/list aninhado aqui dentro vira `json` de documentacao."""
+    result = []
+    for key, value in obj.items():
+        field_type = _infer_field_type(value) if value is not None else ModelFieldType.STRING
+        if field_type == ModelFieldType.TABLE:
+            field_type = ModelFieldType.JSON  # cap de 1 nivel -- nao cria neto automaticamente
+        result.append({
+            "field_name": key,
+            "field_type": field_type,
+            "nullable": value is None,
+            "label_text": key.replace("_", " ").title(),
+            "json_schema": _infer_json_schema(value) if field_type == ModelFieldType.JSON else None,
+        })
+    return result
+
+
 def infer_fields_from_json(response_json: Any) -> list[dict]:
     """
-    Skill 06 §5: infere field_name/field_type/nullable a partir de um
-    JSON de resposta (objeto único, ou primeiro item se for lista).
-    `nullable` considera presença/ausência da chave entre amostras
-    quando a resposta é uma lista. Campos cujo valor é objeto/array
-    viram `field_type=json` com `json_schema` inferido (documentação —
-    nunca sub-tabela real, ver BACKLOG.md), em vez de colapsar pra
-    `string` e perder a estrutura.
+    Skill 06 SS5: infere field_name/field_type/nullable a partir de um
+    JSON de resposta (objeto unico, ou primeiro item se for lista).
+    `nullable` considera presenca/ausencia da chave entre amostras
+    quando a resposta e uma lista. Campo cujo valor e objeto ou array
+    de objetos vira `field_type=table` (relacao de verdade, com
+    `relation` preenchido) -- antes virava `json` e a estrutura ficava
+    so documentada, sem gerar tabela/CRUD de fato (achado real, ver
+    BACKLOG.md). Array de valores simples (sem objeto) continua `json`.
     """
     if isinstance(response_json, list):
         sample = response_json[:20]
@@ -409,6 +456,7 @@ def infer_fields_from_json(response_json: Any) -> list[dict]:
                 "nullable": not present_in_all,
                 "label_text": key.replace("_", " ").title(),
                 "json_schema": _infer_json_schema(first_value) if field_type == ModelFieldType.JSON else None,
+                "relation": _infer_table_relation(first_value) if field_type == ModelFieldType.TABLE else None,
             })
         return fields
 
@@ -422,29 +470,34 @@ def infer_fields_from_json(response_json: Any) -> list[dict]:
                 "nullable": value is None,
                 "label_text": key.replace("_", " ").title(),
                 "json_schema": _infer_json_schema(value) if field_type == ModelFieldType.JSON else None,
+                "relation": _infer_table_relation(value) if field_type == ModelFieldType.TABLE else None,
             })
         return result
 
     return []
 
 
+
+
 def create_model_definition_from_playground(
     playground_request_id: int, *, target_addon_name: str, target_feature_name: Optional[str],
-    model_name: str, table_short_name: str, created_by_user_id: Optional[int],
+    model_name: str, table_short_name: str, created_by_user_id: Optional[int], project_root,
     is_new_addon: bool = False, is_new_feature: bool = False, manifest_draft: Optional[dict] = None,
 ):
     """
-    Botão "Usar resposta como base de campos" (skill 06 §5) — nunca
-    gera o Model direto; sempre cria um rascunho revisável no Model
-    Builder, com os campos já pré-preenchidos a partir da inferência.
+    Botao "Usar resposta como base de campos" (skill 06 SS5) -- nunca
+    gera o Model direto; sempre cria um rascunho revisavel no Model
+    Builder, com os campos ja pre-preenchidos a partir da inferencia.
+    Campos tipo `table` ja nascem com o Model filho criado (skill 06,
+    tabela filha de verdade) e os campos dele ja inferidos junto.
     """
     record = PlaygroundRequest.query.get(playground_request_id)
     if not record or not record.last_response_json:
-        raise PlaygroundError("Esta requisição não tem resposta salva pra usar como base.")
+        raise PlaygroundError("Esta requisicao nao tem resposta salva pra usar como base.")
 
     inferred = infer_fields_from_json(record.last_response_json)
     if not inferred:
-        raise PlaygroundError("Não foi possível inferir nenhum campo a partir desta resposta.")
+        raise PlaygroundError("Nao foi possivel inferir nenhum campo a partir desta resposta.")
 
     definition = model_builder_svc.create_draft(
         target_addon_name=target_addon_name,
@@ -457,12 +510,35 @@ def create_model_definition_from_playground(
         manifest_draft=manifest_draft,
     )
     for field in inferred:
-        model_builder_svc.add_field(
-            definition,
-            field_name=field["field_name"],
-            field_type=field["field_type"],
-            label_text=field["label_text"],
-            nullable=field["nullable"],
-            json_schema=field.get("json_schema"),
-        )
+        if field["field_type"] == model_builder_svc.ModelFieldType.TABLE:
+            relation = field["relation"]
+            child_field = model_builder_svc.add_table_field(
+                definition,
+                field_name=field["field_name"],
+                label_text=field["label_text"],
+                child_model_name=model_builder_svc._to_pascal_case(model_builder_svc._to_snake_case(field["field_name"])),
+                child_table_short_name=model_builder_svc._to_snake_case(field["field_name"]),
+                relation_type=relation["relation_type"],
+                project_root=project_root,
+                created_by_user_id=created_by_user_id,
+            )
+            child_definition = ModelDefinition.query.get(child_field.child_model_definition_id)
+            for child_field_data in relation["child_fields"]:
+                model_builder_svc.add_field(
+                    child_definition,
+                    field_name=child_field_data["field_name"],
+                    field_type=child_field_data["field_type"],
+                    label_text=child_field_data["label_text"],
+                    nullable=child_field_data["nullable"],
+                    json_schema=child_field_data.get("json_schema"),
+                )
+        else:
+            model_builder_svc.add_field(
+                definition,
+                field_name=field["field_name"],
+                field_type=field["field_type"],
+                label_text=field["label_text"],
+                nullable=field["nullable"],
+                json_schema=field.get("json_schema"),
+            )
     return definition

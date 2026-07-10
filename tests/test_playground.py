@@ -7,6 +7,7 @@ teste não tem acesso à rede externa), inferência de campos a partir de
 JSON (skill 06 §5), e a ponte com o Model Builder.
 """
 from unittest.mock import patch, Mock
+from pathlib import Path
 
 import pytest
 
@@ -153,6 +154,7 @@ def test_bridge_cria_rascunho_com_campos_inferidos(app):
             target_addon_name="brewstation", target_feature_name=None,
             model_name="BridgeWidget", table_short_name="bridge_widget",
             created_by_user_id=None,
+            project_root=Path(__file__).resolve().parent.parent,
         )
         field_names = {f.field_name for f in definition.fields}
         assert field_names == {"titulo", "quantidade"}
@@ -169,6 +171,7 @@ def test_bridge_sem_resposta_salva_falha(app):
             svc.create_model_definition_from_playground(
                 record.id, target_addon_name="brewstation", target_feature_name=None,
                 model_name="SemResposta", table_short_name="sem_resposta", created_by_user_id=None,
+                project_root=Path(__file__).resolve().parent.parent,
             )
 
 

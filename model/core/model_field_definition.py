@@ -18,11 +18,14 @@ class ModelFieldType:
     TEXT = "text"
     FOREIGN_KEY = "foreign_key"
     JSON = "json"
+    TABLE = "table"
 
-    ALL = (STRING, INTEGER, FLOAT, BOOLEAN, DATE, DATETIME, TEXT, FOREIGN_KEY, JSON)
+    ALL = (STRING, INTEGER, FLOAT, BOOLEAN, DATE, DATETIME, TEXT, FOREIGN_KEY, JSON, TABLE)
 
     # Mapeamento direto para o tipo de coluna SQLAlchemy usado no
-    # model.py.j2 (core/crudgen/templates/model.py.j2).
+    # model.py.j2 (core/crudgen/templates/model.py.j2). TABLE não tem
+    # entrada aqui de propósito — nunca vira coluna real no model.py do
+    # PAI (é o filho que ganha a FK de volta, ver model_builder_service.py).
     SQLALCHEMY_COLUMN = {
         STRING: "db.String",
         INTEGER: "db.Integer",
@@ -71,6 +74,13 @@ class ModelFieldDefinition(db.Model):
     # UI cobre 2 níveis: sub-campo e filho do sub-campo).
     json_schema = db.Column(db.JSON, nullable=True)
 
+    # Só relevante para field_type=table. Aponta pro ModelDefinition
+    # filho — este campo NUNCA vira coluna no model.py do pai, é
+    # metadado de relação (skill 06 — Model Builder, tabela filha de
+    # verdade, ver BACKLOG.md). A FK de fato mora no FILHO
+    # (ModelDefinition.parent_fk_column_name), nunca no pai.
+    child_model_definition_id = db.Column(db.Integer, db.ForeignKey("tesseract_model_definition.id"), nullable=True)
+
     def to_dict(self) -> dict:
         return {
             "id": self.id,
@@ -88,6 +98,7 @@ class ModelFieldDefinition(db.Model):
             "is_form_field": self.is_form_field,
             "order_index": self.order_index,
             "json_schema": self.json_schema,
+            "child_model_definition_id": self.child_model_definition_id,
         }
 
     def __repr__(self) -> str:

@@ -54,7 +54,22 @@ class {{ class_name }}(db.Model):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
-
+{% if relationships %}
+    # Tabela(s) filha(s) — relacionamento real (skill 06, Model Builder).
+    # O filho não precisa ser importado aqui: SQLAlchemy resolve pelo
+    # nome da classe quando os mappers são configurados (ambos acabam
+    # importados no boot via auto-descoberta, skill 09).
+{% for r in relationships %}
+    {{ r.attr_name }} = db.relationship(
+        "{{ r.child_class_name }}",
+        backref="{{ r.backref_name }}",
+        cascade="all, delete-orphan",
+        {%- if r.one_to_one %}
+        uselist=False,
+        {%- endif %}
+    )
+{% endfor %}
+{% endif %}
     def to_dict(self) -> dict:
         return {
             "id": self.id,

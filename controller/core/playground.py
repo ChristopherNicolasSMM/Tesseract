@@ -151,6 +151,7 @@ def use_as_fields(request_id: int):
             model_name=model_name,
             table_short_name=table_short_name,
             created_by_user_id=current_user.id if current_user.is_authenticated else None,
+            project_root=_project_root(),
         )
     except svc.PlaygroundError as exc:
         flash(str(exc), "error")

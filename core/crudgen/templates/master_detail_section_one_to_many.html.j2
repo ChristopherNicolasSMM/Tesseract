@@ -1,0 +1,34 @@
+{# core/crudgen/templates/master_detail_section_one_to_many.html.j2
+   Skill 06 — Model Builder, tabela filha de verdade (relação 1:N).
+   NÃO faz parte do pipeline padrão do CrudGen (core/crudgen/generator.py
+   nunca renderiza este arquivo) — model_builder_service.py substitui os
+   tokens @@...@@ (mesmo mecanismo de detail.html.j2, string replace
+   simples, NUNCA Jinja em tempo de geração) e injeta o resultado no
+   detail.html já escrito do PAI. O que sobra em {{ }}/{% %} é Jinja de
+   verdade, interpretado em runtime pelo Flask. #}
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">@@relation_label@@</h5>
+      <table class="table table-sm">
+        <tbody>
+        {% for child_item in item.@@attr_name@@ %}
+          <tr>
+            <td>#{{ child_item.id }}</td>
+            <td class="text-end">
+              <a href="{{ url_for('@@child_plural@@.detail', id=child_item.id) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-pencil"></i>
+              </a>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td class="text-muted">Nenhum registro ainda.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <a href="{{ url_for('@@child_plural@@.manage') }}" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-list"></i> Ver todos / Adicionar
+      </a>
+    </div>
+  </div>
+</section>

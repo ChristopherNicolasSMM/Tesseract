@@ -1,5 +1,192 @@
 {% extends "core/base.html" %}
 {% block title %}Model Builder: {{ definition.model_name }} - Tesseract{% endblock %}
+
+{% macro fields_block(def_id, fields, fk_cands, field_types_list, relation_types_list, children_map, depth) %}
+<div class="mb-fields-block card {{ 'mt-2 border-secondary' if depth > 0 else '' }}" data-definition-id="{{ def_id }}">
+  <div class="card-body">
+    <table class="table table-sm table-striped mb-fields-table">
+      <thead>
+        <tr><th></th><th>Nome</th><th>Tipo</th><th>Label</th><th>Regras</th><th></th></tr>
+      </thead>
+      <tbody class="js-fields-tbody" id="fieldsTbody-{{ def_id }}" data-reorder-url="{{ url_for('model_builder.reorder_fields', definition_id=def_id) }}">
+        {% for f in fields %}
+        <tr class="js-field-row" draggable="true" data-field-id="{{ f.id }}">
+          <td class="text-muted" style="cursor:grab;" title="Arraste para reposicionar"><i class="bi bi-grip-vertical"></i></td>
+          <td><code>{{ f.field_name }}</code></td>
+          <td>{{ f.field_type }}{% if f.field_type == 'foreign_key' %} &rarr; <code>{{ f.fk_target_table }}</code>{% endif %}
+            {% if f.field_type == 'json' and f.json_schema %}<br><span class="small text-muted">{{ f.json_schema | length }} sub-campo(s)</span>{% endif %}
+            {% if f.field_type == 'table' %}<br><span class="badge bg-info text-dark">tabela filha</span>{% endif %}
+          </td>
+          <td>{{ f.label_text }}</td>
+          <td class="small text-muted">
+            {% if f.is_required %}obrigatório{% endif %}
+            {% if f.unique %} único{% endif %}
+            {% if f.max_length %} max({{ f.max_length }}){% endif %}
+          </td>
+          <td class="d-flex gap-1">
+            {% if f.field_type != 'table' %}
+            <button type="button" class="btn btn-sm btn-outline-secondary js-edit-field"
+                    data-definition-id="{{ def_id }}"
+                    data-field-id="{{ f.id }}"
+                    data-field-name="{{ f.field_name }}"
+                    data-field-type="{{ f.field_type }}"
+                    data-label-text="{{ f.label_text }}"
+                    data-nullable="{{ '1' if f.nullable else '' }}"
+                    data-unique="{{ '1' if f.unique else '' }}"
+                    data-is-required="{{ '1' if f.is_required else '' }}"
+                    data-default-value="{{ f.default_value or '' }}"
+                    data-max-length="{{ f.max_length or '' }}"
+                    data-fk-target-table="{{ f.fk_target_table or '' }}"
+                    data-is-listview-column="{{ '1' if f.is_listview_column else '' }}"
+                    data-is-form-field="{{ '1' if f.is_form_field else '' }}"
+                    data-json-schema='{{ (f.json_schema or []) | tojson }}'
+                    title="Editar campo (inclusive campos vindos da inferencia do Playground)">
+              <i class="bi bi-pencil"></i>
+            </button>
+            {% endif %}
+            <form method="post" action="{{ url_for('model_builder.delete_field', definition_id=def_id, field_id=f.id) }}"
+                  onsubmit="return confirm('Remover este campo{{ ' e a tabela filha junto (e os campos dela)' if f.field_type == 'table' else '' }}?');">
+              <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash"></i></button>
+            </form>
+          </td>
+        </tr>
+        {% if f.field_type == 'table' and children_map.get(f.id) %}
+        <tr>
+          <td colspan="6" style="padding-left:2rem; border-left:3px solid var(--bs-border-color, #666);">
+            <p class="small text-muted mb-1">
+              <i class="bi bi-diagram-3"></i> Tabela filha — <strong>{{ children_map[f.id].model_name }}</strong>
+              ({{ children_map[f.id].parent_relation_type }}, FK <code>{{ children_map[f.id].parent_fk_column_name }}</code>)
+            </p>
+            {{ fields_block(children_map[f.id].id, children_map[f.id].fields, fk_cands, field_types_list, relation_types_list, {}, depth + 1) }}
+          </td>
+        </tr>
+        {% endif %}
+        {% else %}
+        <tr><td colspan="6" class="text-muted">Nenhum campo ainda.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h6 class="mb-field-form-title" id="fieldFormTitle-{{ def_id }}">Adicionar campo</h6>
+    <form method="post" action="{{ url_for('model_builder.add_field', definition_id=def_id) }}"
+          class="row g-2 mb-field-form" id="fieldForm-{{ def_id }}">
+      <div class="col-md-4">
+        <label class="form-label">Nome (snake_case)</label>
+        <input type="text" name="field_name" class="form-control" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Tipo</label>
+        <select name="field_type" class="form-select mb-field-type-select" id="fieldTypeSelect-{{ def_id }}">
+          {% for t in field_types_list %}
+          <option value="{{ t }}">{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Label (PT-BR)</label>
+        <input type="text" name="label_text" class="form-control" required>
+      </div>
+
+      <div class="col-md-4 mb-fk-wrapper" id="fkTargetWrapper-{{ def_id }}" style="display:none;">
+        <label class="form-label">Tabela referenciada (FK)</label>
+        <select name="fk_target_table" class="form-select">
+          <option value="">—</option>
+          {% for c in fk_cands %}
+          <option value="{{ c.table_name }}">{{ c.label }}</option>
+          {% endfor %}
+        </select>
+        <p class="small text-muted mb-0">Só lista tabelas do mesmo Addon + tesseract_user (skill 02).</p>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Tamanho máximo (só string)</label>
+        <input type="number" name="max_length" class="form-control">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Valor padrão</label>
+        <input type="text" name="default_value" class="form-control">
+      </div>
+
+      <div class="col-12 mb-json-wrapper" id="jsonSchemaWrapper-{{ def_id }}" style="display:none;">
+        <label class="form-label mb-1">
+          Sub-campos <span class="small text-muted fw-normal">— documentação (comentário no model.py), não vira sub-tabela real</span>
+        </label>
+        <div class="mb-json-rows" id="jsonSchemaRows-{{ def_id }}"></div>
+        <button type="button" class="btn btn-sm btn-outline-secondary mt-1 mb-json-add-btn" id="jsonSchemaAddBtn-{{ def_id }}">
+          <i class="bi bi-plus"></i> Adicionar sub-campo
+        </button>
+        <input type="hidden" name="json_schema_json" class="mb-json-field" id="jsonSchemaField-{{ def_id }}">
+      </div>
+
+      <div class="col-12 d-flex gap-3">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="nullable" checked>
+          <label class="form-check-label">Aceita nulo</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="unique">
+          <label class="form-check-label">Único</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="is_required">
+          <label class="form-check-label">Obrigatório (form)</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="is_listview_column" checked>
+          <label class="form-check-label">Coluna na listagem</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="is_form_field" checked>
+          <label class="form-check-label">Aparece no form</label>
+        </div>
+      </div>
+
+      <div class="col-12 mt-2 d-flex gap-2">
+        <button class="btn btn-primary mb-field-form-submit" type="submit" id="fieldFormSubmit-{{ def_id }}">Adicionar campo</button>
+        <button class="btn btn-outline-secondary mb-field-form-cancel" type="button" id="fieldFormCancel-{{ def_id }}" style="display:none;">Cancelar edição</button>
+      </div>
+    </form>
+
+    {% if depth == 0 %}
+    <hr>
+    <h6><i class="bi bi-diagram-3"></i> Criar tabela filha (relacionamento real, não é o campo tipo json)</h6>
+    <form method="post" action="{{ url_for('model_builder.add_table_field', definition_id=def_id) }}" class="row g-2">
+      <div class="col-md-3">
+        <label class="form-label">Nome do campo (no pai)</label>
+        <input type="text" name="field_name" class="form-control" placeholder="ex.: itens" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Label da seção</label>
+        <input type="text" name="label_text" class="form-control" placeholder="ex.: Itens do Pedido" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Nome do Model filho</label>
+        <input type="text" name="child_model_name" class="form-control" placeholder="ex.: PedidoItem" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Tabela do filho (snake_case)</label>
+        <input type="text" name="child_table_short_name" class="form-control" placeholder="ex.: pedido_item" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Tipo de relação</label>
+        <select name="relation_type" class="form-select">
+          {% for rt in relation_types_list %}
+          <option value="{{ rt }}">{{ 'Um-para-um' if rt == 'one_to_one' else 'Um-para-muitos' }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Coluna FK no filho (opcional)</label>
+        <input type="text" name="parent_fk_column_name" class="form-control" placeholder="auto: {{ definition.table_short_name }}_id">
+      </div>
+      <div class="col-12">
+        <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-plus-circle"></i> Criar tabela filha</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}
+
 {% block content %}
 <div class="pagetitle">
   <h1>Model Builder: {{ definition.model_name }}</h1>
@@ -51,6 +238,10 @@
             (nunca aplica sozinho — <code>flask db upgrade</code> continua manual).
             {% endif %}
           </p>
+          <p class="small text-muted">
+            Campos tipo "tabela filha" geram um Model independente (CRUD próprio) + uma seção
+            master-detail na tela de detalhe do pai, tudo na mesma geração/migration.
+          </p>
           <form method="post" action="{{ url_for('model_builder.generate', definition_id=definition.id) }}"
                 onsubmit="return confirm('Gerar código a partir deste rascunho?');">
             <div class="form-check mb-2">
@@ -72,138 +263,7 @@
       <div class="card">
         <div class="card-body">
           <h5 class="card-title">Campos</h5>
-
-          <table class="table table-sm table-striped" id="fieldsTable">
-            <thead>
-              <tr>
-                <th></th><th>Nome</th><th>Tipo</th><th>Label</th><th>Regras</th><th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for f in definition.fields %}
-              <tr class="js-field-row" draggable="true" data-field-id="{{ f.id }}">
-                <td class="text-muted" style="cursor:grab;" title="Arraste para reposicionar"><i class="bi bi-grip-vertical"></i></td>
-                <td><code>{{ f.field_name }}</code></td>
-                <td>{{ f.field_type }}{% if f.field_type == 'foreign_key' %} &rarr; <code>{{ f.fk_target_table }}</code>{% endif %}
-                  {% if f.field_type == 'json' and f.json_schema %}<br><span class="small text-muted">{{ f.json_schema | length }} sub-campo(s)</span>{% endif %}
-                </td>
-                <td>{{ f.label_text }}</td>
-                <td class="small text-muted">
-                  {% if f.is_required %}obrigatório{% endif %}
-                  {% if f.unique %} único{% endif %}
-                  {% if f.max_length %} max({{ f.max_length }}){% endif %}
-                </td>
-                <td class="d-flex gap-1">
-                  <button type="button" class="btn btn-sm btn-outline-secondary js-edit-field"
-                          data-field-id="{{ f.id }}"
-                          data-field-name="{{ f.field_name }}"
-                          data-field-type="{{ f.field_type }}"
-                          data-label-text="{{ f.label_text }}"
-                          data-nullable="{{ '1' if f.nullable else '' }}"
-                          data-unique="{{ '1' if f.unique else '' }}"
-                          data-is-required="{{ '1' if f.is_required else '' }}"
-                          data-default-value="{{ f.default_value or '' }}"
-                          data-max-length="{{ f.max_length or '' }}"
-                          data-fk-target-table="{{ f.fk_target_table or '' }}"
-                          data-is-listview-column="{{ '1' if f.is_listview_column else '' }}"
-                          data-is-form-field="{{ '1' if f.is_form_field else '' }}"
-                          data-json-schema='{{ (f.json_schema or []) | tojson }}'
-                          title="Editar campo (inclusive campos vindos da inferencia do Playground)">
-                    <i class="bi bi-pencil"></i>
-                  </button>
-                  <form method="post" action="{{ url_for('model_builder.delete_field', definition_id=definition.id, field_id=f.id) }}"
-                        onsubmit="return confirm('Remover este campo?');">
-                    <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash"></i></button>
-                  </form>
-                </td>
-              </tr>
-              {% else %}
-              <tr><td colspan="6" class="text-muted">Nenhum campo ainda.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-
-          <hr>
-
-          <h6 id="fieldFormTitle">Adicionar campo</h6>
-          <form method="post" action="{{ url_for('model_builder.add_field', definition_id=definition.id) }}" class="row g-2" id="fieldForm">
-            <div class="col-md-4">
-              <label class="form-label">Nome (snake_case)</label>
-              <input type="text" name="field_name" class="form-control" required>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Tipo</label>
-              <select name="field_type" class="form-select" id="fieldTypeSelect">
-                {% for t in field_types %}
-                <option value="{{ t }}">{{ t }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Label (PT-BR)</label>
-              <input type="text" name="label_text" class="form-control" required>
-            </div>
-
-            <div class="col-md-4" id="fkTargetWrapper" style="display:none;">
-              <label class="form-label">Tabela referenciada (FK)</label>
-              <select name="fk_target_table" class="form-select">
-                <option value="">—</option>
-                {% for c in fk_candidates %}
-                <option value="{{ c.table_name }}">{{ c.label }}</option>
-                {% endfor %}
-              </select>
-              <p class="small text-muted mb-0">
-                Só lista tabelas do mesmo Addon + tesseract_user (skill 02).
-              </p>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Tamanho máximo (só string)</label>
-              <input type="number" name="max_length" class="form-control">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Valor padrão</label>
-              <input type="text" name="default_value" class="form-control">
-            </div>
-
-            <div class="col-12" id="jsonSchemaWrapper" style="display:none;">
-              <label class="form-label mb-1">
-                Sub-campos <span class="small text-muted fw-normal">— documentação (comentário no model.py), não vira sub-tabela real</span>
-              </label>
-              <div id="jsonSchemaRows"></div>
-              <button type="button" class="btn btn-sm btn-outline-secondary mt-1" id="jsonSchemaAddBtn">
-                <i class="bi bi-plus"></i> Adicionar sub-campo
-              </button>
-              <input type="hidden" name="json_schema_json" id="jsonSchemaField">
-            </div>
-
-            <div class="col-12 d-flex gap-3">
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="nullable" id="nullable" checked>
-                <label class="form-check-label" for="nullable">Aceita nulo</label>
-              </div>
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="unique" id="unique">
-                <label class="form-check-label" for="unique">Único</label>
-              </div>
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="is_required" id="is_required">
-                <label class="form-check-label" for="is_required">Obrigatório (form)</label>
-              </div>
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="is_listview_column" id="is_listview_column" checked>
-                <label class="form-check-label" for="is_listview_column">Coluna na listagem</label>
-              </div>
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="is_form_field" id="is_form_field" checked>
-                <label class="form-check-label" for="is_form_field">Aparece no form</label>
-              </div>
-            </div>
-
-            <div class="col-12 mt-2 d-flex gap-2">
-              <button class="btn btn-primary" type="submit" id="fieldFormSubmit">Adicionar campo</button>
-              <button class="btn btn-outline-secondary" type="button" id="fieldFormCancel" style="display:none;">Cancelar edição</button>
-            </div>
-          </form>
+          {{ fields_block(definition.id, definition.fields, fk_candidates, field_types, relation_types, children_by_field_id, 0) }}
         </div>
       </div>
 
@@ -269,29 +329,7 @@
 <script>
 (function () {
   'use strict';
-  const select = document.getElementById('fieldTypeSelect');
-  const fkWrapper = document.getElementById('fkTargetWrapper');
-  const jsonWrapper = document.getElementById('jsonSchemaWrapper');
-  const jsonRows = document.getElementById('jsonSchemaRows');
-  const jsonField = document.getElementById('jsonSchemaField');
-  const jsonAddBtn = document.getElementById('jsonSchemaAddBtn');
-  const form = document.getElementById('fieldForm');
-  const submitBtn = document.getElementById('fieldFormSubmit');
-  const cancelBtn = document.getElementById('fieldFormCancel');
-  const formTitle = document.getElementById('fieldFormTitle');
-  const addFieldUrl = form.getAttribute('action');
-  if (!select || !fkWrapper || !form) return;
-
   const SUBFIELD_TYPES = ['string', 'integer', 'float', 'boolean', 'date', 'datetime', 'text', 'json'];
-
-  function syncTypeVisibility() {
-    fkWrapper.style.display = select.value === 'foreign_key' ? '' : 'none';
-    jsonWrapper.style.display = select.value === 'json' ? '' : 'none';
-  }
-  select.addEventListener('change', syncTypeVisibility);
-  syncTypeVisibility();
-
-  // ── Editor de sub-campos (skill 06 — documentação, nunca sub-tabela real) ──
 
   function mbTypeOptionsHtml(selected) {
     return SUBFIELD_TYPES.map(function (t) {
@@ -337,91 +375,115 @@
       .filter(function (item) { return item.name; });
   }
 
-  function mbResetSubfields(schema) {
-    jsonRows.innerHTML = '';
-    (schema || []).forEach(function (item) {
-      mbAddSubfieldRow(jsonRows, item.name, item.type, item.children);
-    });
-  }
+  // ── Uma instância por bloco (pai no nível 0, cada filho no seu nível) ──────
 
-  jsonAddBtn.addEventListener('click', function () { mbAddSubfieldRow(jsonRows); });
+  function initFieldsBlock(definitionId) {
+    const select = document.getElementById('fieldTypeSelect-' + definitionId);
+    const fkWrapper = document.getElementById('fkTargetWrapper-' + definitionId);
+    const jsonWrapper = document.getElementById('jsonSchemaWrapper-' + definitionId);
+    const jsonRows = document.getElementById('jsonSchemaRows-' + definitionId);
+    const jsonField = document.getElementById('jsonSchemaField-' + definitionId);
+    const jsonAddBtn = document.getElementById('jsonSchemaAddBtn-' + definitionId);
+    const form = document.getElementById('fieldForm-' + definitionId);
+    const submitBtn = document.getElementById('fieldFormSubmit-' + definitionId);
+    const cancelBtn = document.getElementById('fieldFormCancel-' + definitionId);
+    const formTitle = document.getElementById('fieldFormTitle-' + definitionId);
+    if (!select || !fkWrapper || !form) return;
 
-  form.addEventListener('submit', function () {
-    jsonField.value = select.value === 'json' ? JSON.stringify(mbSerializeSubfields(jsonRows)) : '';
-  });
+    const addFieldUrl = form.getAttribute('action');
 
-  // ── Editar / Cancelar ────────────────────────────────────────────────────
-
-  function resetToAddMode() {
-    form.setAttribute('action', addFieldUrl);
-    form.reset();
-    mbResetSubfields([]);
-    formTitle.textContent = 'Adicionar campo';
-    submitBtn.textContent = 'Adicionar campo';
-    cancelBtn.style.display = 'none';
+    function syncTypeVisibility() {
+      fkWrapper.style.display = select.value === 'foreign_key' ? '' : 'none';
+      jsonWrapper.style.display = select.value === 'json' ? '' : 'none';
+    }
+    select.addEventListener('change', syncTypeVisibility);
     syncTypeVisibility();
-  }
-  cancelBtn.addEventListener('click', resetToAddMode);
 
-  document.querySelectorAll('.js-edit-field').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      const d = btn.dataset;
-      form.setAttribute('action', addFieldUrl.replace(/\/fields$/, '/fields/' + d.fieldId + '/edit'));
-      form.querySelector('[name="field_name"]').value = d.fieldName;
-      form.querySelector('[name="field_type"]').value = d.fieldType;
-      form.querySelector('[name="label_text"]').value = d.labelText;
-      form.querySelector('[name="nullable"]').checked = !!d.nullable;
-      form.querySelector('[name="unique"]').checked = !!d.unique;
-      form.querySelector('[name="is_required"]').checked = !!d.isRequired;
-      form.querySelector('[name="default_value"]').value = d.defaultValue || '';
-      form.querySelector('[name="max_length"]').value = d.maxLength || '';
-      form.querySelector('[name="is_listview_column"]').checked = !!d.isListviewColumn;
-      form.querySelector('[name="is_form_field"]').checked = !!d.isFormField;
-      syncTypeVisibility();
-      if (d.fkTargetTable) {
-        form.querySelector('[name="fk_target_table"]').value = d.fkTargetTable;
-      }
-      try {
-        mbResetSubfields(JSON.parse(d.jsonSchema || '[]'));
-      } catch (e) {
-        mbResetSubfields([]);
-      }
-      formTitle.textContent = 'Editando campo: ' + d.fieldName;
-      submitBtn.textContent = 'Salvar alterações';
-      cancelBtn.style.display = '';
-      form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    function mbResetSubfields(schema) {
+      jsonRows.innerHTML = '';
+      (schema || []).forEach(function (item) {
+        mbAddSubfieldRow(jsonRows, item.name, item.type, item.children);
+      });
+    }
+    jsonAddBtn.addEventListener('click', function () { mbAddSubfieldRow(jsonRows); });
+
+    form.addEventListener('submit', function () {
+      jsonField.value = select.value === 'json' ? JSON.stringify(mbSerializeSubfields(jsonRows)) : '';
     });
-  });
 
-  // ── Arrastar e soltar pra reposicionar (skill 06 — order_index já existia) ──
+    function resetToAddMode() {
+      form.setAttribute('action', addFieldUrl);
+      form.reset();
+      mbResetSubfields([]);
+      formTitle.textContent = 'Adicionar campo';
+      submitBtn.textContent = 'Adicionar campo';
+      cancelBtn.style.display = 'none';
+      syncTypeVisibility();
+    }
+    cancelBtn.addEventListener('click', resetToAddMode);
 
-  const reorderUrl = "{{ url_for('model_builder.reorder_fields', definition_id=definition.id) }}";
-  const tbody = document.querySelector('#fieldsTable tbody');
-  let dragSrcRow = null;
-
-  function wireDragEvents(row) {
-    row.addEventListener('dragstart', function () { dragSrcRow = row; });
-    row.addEventListener('dragover', function (e) { e.preventDefault(); });
-    row.addEventListener('drop', function (e) {
-      e.preventDefault();
-      if (!dragSrcRow || dragSrcRow === row) return;
-      const rows = Array.from(tbody.querySelectorAll('.js-field-row'));
-      if (rows.indexOf(dragSrcRow) < rows.indexOf(row)) {
-        row.after(dragSrcRow);
-      } else {
-        row.before(dragSrcRow);
-      }
-      const ids = Array.from(tbody.querySelectorAll('.js-field-row')).map(function (r) { return parseInt(r.dataset.fieldId, 10); });
-      fetch(reorderUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ field_ids: ids }),
+    document.querySelectorAll('.js-edit-field[data-definition-id="' + definitionId + '"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const d = btn.dataset;
+        form.setAttribute('action', addFieldUrl.replace(/\/fields$/, '/fields/' + d.fieldId + '/edit'));
+        form.querySelector('[name="field_name"]').value = d.fieldName;
+        form.querySelector('[name="field_type"]').value = d.fieldType;
+        form.querySelector('[name="label_text"]').value = d.labelText;
+        form.querySelector('[name="nullable"]').checked = !!d.nullable;
+        form.querySelector('[name="unique"]').checked = !!d.unique;
+        form.querySelector('[name="is_required"]').checked = !!d.isRequired;
+        form.querySelector('[name="default_value"]').value = d.defaultValue || '';
+        form.querySelector('[name="max_length"]').value = d.maxLength || '';
+        form.querySelector('[name="is_listview_column"]').checked = !!d.isListviewColumn;
+        form.querySelector('[name="is_form_field"]').checked = !!d.isFormField;
+        syncTypeVisibility();
+        if (d.fkTargetTable) {
+          form.querySelector('[name="fk_target_table"]').value = d.fkTargetTable;
+        }
+        try {
+          mbResetSubfields(JSON.parse(d.jsonSchema || '[]'));
+        } catch (e) {
+          mbResetSubfields([]);
+        }
+        formTitle.textContent = 'Editando campo: ' + d.fieldName;
+        submitBtn.textContent = 'Salvar alterações';
+        cancelBtn.style.display = '';
+        form.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
     });
   }
-  if (tbody) {
-    tbody.querySelectorAll('.js-field-row').forEach(wireDragEvents);
-  }
+
+  document.querySelectorAll('.mb-fields-block').forEach(function (block) {
+    initFieldsBlock(block.dataset.definitionId);
+  });
+
+  // ── Arrastar e soltar pra reposicionar — um tbody por bloco (pai e cada filho) ──
+
+  document.querySelectorAll('.js-fields-tbody').forEach(function (tbody) {
+    const reorderUrl = tbody.dataset.reorderUrl;
+    let dragSrcRow = null;
+
+    tbody.querySelectorAll(':scope > .js-field-row').forEach(function (row) {
+      row.addEventListener('dragstart', function () { dragSrcRow = row; });
+      row.addEventListener('dragover', function (e) { e.preventDefault(); });
+      row.addEventListener('drop', function (e) {
+        e.preventDefault();
+        if (!dragSrcRow || dragSrcRow === row || dragSrcRow.closest('.js-fields-tbody') !== tbody) return;
+        const rows = Array.from(tbody.querySelectorAll(':scope > .js-field-row'));
+        if (rows.indexOf(dragSrcRow) < rows.indexOf(row)) {
+          row.after(dragSrcRow);
+        } else {
+          row.before(dragSrcRow);
+        }
+        const ids = Array.from(tbody.querySelectorAll(':scope > .js-field-row')).map(function (r) { return parseInt(r.dataset.fieldId, 10); });
+        fetch(reorderUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ field_ids: ids }),
+        });
+      });
+    });
+  });
 })();
 </script>
 {% endblock %}
