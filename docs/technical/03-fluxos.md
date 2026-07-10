@@ -177,3 +177,105 @@ sequenceDiagram
     Gen->>Perm: sync_model_permissions(Model, "plural")
     Gen-->>Dev: resumo (arquivos, tabela, permissões)
 ```
+
+## Sequência: criar Model via Model Builder, revisar e gerar tabela
+
+```mermaid
+sequenceDiagram
+    actor Dev as Desenvolvedor
+    participant UI as /admin/model-builder/
+    participant Svc as model_builder_service.py
+    participant DB as ModelDefinition/ModelFieldDefinition
+    participant Gen as core/crudgen/generator.py
+
+    Dev->>UI: Escolhe Addon/Feature (select, existente) ou "novo" (texto livre)
+    UI->>Svc: create_draft(target_addon_name, target_feature_name, model_name, table_short_name)
+    Svc->>DB: INSERT ModelDefinition (status=DRAFT)
+    Dev->>UI: Adiciona campos (nome/tipo/label/FK ou referência fraca)
+    UI->>DB: INSERT ModelFieldDefinition por campo
+    Dev->>UI: Clica "Gerar"
+    UI->>Svc: generate(model_definition_id, project_root)
+    alt escopo = novo Addon/Feature
+        Svc->>Svc: scaffold completo (pastas, manifesto, docs stub — skill 01/03/04)
+    end
+    Svc->>Gen: generate(Model montado a partir do rascunho)
+    Gen-->>Svc: model.py + service/controller/routes/templates escritos
+    Svc->>DB: UPDATE ModelDefinition status=GENERATED
+    Svc-->>Dev: link pra tela CRUD nova, pronta pra usar
+```
+
+## Sequência: Playground HTTP com Auth/Params/cookie jar (v2)
+
+```mermaid
+sequenceDiagram
+    actor Dev as Desenvolvedor
+    participant UI as /admin/playground/
+    participant Svc as playground_service.py
+    participant Jar as tesseract_playground_cookie_jar
+    participant Ext as API externa
+
+    Dev->>UI: Preenche URL + Query Params + Auth (bearer/basic/api_key) + Body
+    UI->>Svc: execute_http_request(url, params, auth_type, auth_config, ...)
+    Svc->>Svc: monta URL final (params estruturados, encoding correto)
+    Svc->>Svc: monta headers (headers_json livre + header derivado da Auth)
+    Svc->>Jar: carrega cookies salvos do usuário logado
+    Svc->>Ext: requests.Session().request(...)
+    Ext-->>Svc: resposta (status + JSON/texto)
+    Svc->>Jar: persiste cookies atualizados da sessão
+    Svc->>Svc: grava PlaygroundRequest (histórico, pasta, arquivada?)
+    Svc-->>Dev: resposta exibida na tela
+```
+
+## Sequência: bridge Playground → Model Builder ("usar resposta como base de campos")
+
+```mermaid
+sequenceDiagram
+    actor Dev as Desenvolvedor
+    participant UI as /admin/playground/
+    participant Svc as playground_service.py
+    participant MB as model_builder_service.py
+    participant DB as ModelDefinition
+
+    Dev->>UI: Escolhe Addon/Feature (select) + nome do Model/tabela, clica 🪄
+    UI->>Svc: create_model_definition_from_playground(request_id, ...)
+    Svc->>Svc: lê last_response_json da requisição
+    Svc->>Svc: infere tipo por campo (str/int/float/bool/date, nullable por amostra)
+    Svc->>MB: create_draft(...) + adiciona campos inferidos
+    MB->>DB: INSERT ModelDefinition (status=DRAFT) + campos
+    Svc-->>Dev: redireciona pra tela de detalhe do rascunho, pra revisão manual
+```
+
+## Sequência: menu hierárquico — resolução de ordem/colapso/ícone
+
+```mermaid
+flowchart TD
+    A[Boot / requisição de página] --> B[sync_all_transactions]
+    B --> C["Transaction (parent_id, order_index, is_folder) já no banco"]
+    C --> D{Usuário tem override pessoal?}
+    D -- Sim --> E[UserMenuPreference: ordem/colapso próprios]
+    D -- Não --> F[system_config: padrão global admin]
+    E --> G[Árvore final montada]
+    F --> G
+    G --> H{depth < core.menu.icon_max_depth OU max_depth = -1?}
+    H -- Sim --> I[Renderiza com ícone]
+    H -- Não --> J[Renderiza só com label]
+```
+
+## Sequência: dispositivo IoT — leitura de sensor até o EventBus (device_manager)
+
+```mermaid
+sequenceDiagram
+    participant HW as Hardware (Pi/ESP32)
+    participant Broker as Broker MQTT
+    participant MQTT as mqtt_client_service._on_message
+    participant Svc as device_service.update_from_mqtt
+    participant Bus as core/event_bus.py
+    participant Auto as automation_engine (mash_control)
+
+    HW->>Broker: publish state_topic (valor)
+    Broker->>MQTT: mensagem roteada (assinatura ativa)
+    MQTT->>Svc: update_from_mqtt(actor, valor)
+    Svc->>Svc: valida faixa (min/max de DeviceFunction)
+    Svc->>Bus: publish("device_manager.actor.value_changed", function_name, value)
+    Bus->>Auto: AutomationRule reage (sem acoplamento direto, sem FK)
+```

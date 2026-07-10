@@ -32,6 +32,7 @@ de ingrediente de uma receita) **não mora aqui** — mora em
 
 ## Pendências
 
-- Telas de cadastro/edição — não mapeadas ainda.
-- `docs/manual/` — não escrito.
-- `i18n/pt_BR.json` — não escrito.
+- Telas de cadastro/edição específicas (além do CRUD padrão gerado) —
+  não mapeadas ainda.
+- `i18n/pt_BR.json` — não escrito (gap conhecido em quase todo o
+  Addon, registrado em `BACKLOG.md`).

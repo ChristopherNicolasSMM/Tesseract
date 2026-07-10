@@ -1,5 +1,28 @@
 # 04 — Perguntas Frequentes (Controle de Mostura)
 
 **P: Cadastrei uma regra de automação, ela já liga/desliga sozinha?**
-R: Ainda não — por enquanto a regra só fica registrada como
-referência. A execução automática chega em uma atualização futura.
+R: Sim — assim que uma leitura chega do sensor vinculado, a regra é
+avaliada e, se a condição for verdadeira, a ação é disparada
+automaticamente. Você pode acompanhar cada disparo no histórico da
+própria regra.
+
+**P: Minha regra não está disparando, o que confiro primeiro?**
+R: Confirme que o sensor e o atuador da regra estão corretamente
+vinculados a Funções de Dispositivo existentes, e que o dispositivo
+está mesmo enviando leituras (veja em "Dispositivos" se a última
+leitura é recente).
+
+**P: O que acontece se o sistema cair enquanto um atuador de
+aquecimento está ligado?**
+R: Se esse atuador foi marcado como "de risco" na área de Dispositivos
+(com um valor seguro definido), ele é desligado automaticamente pelo
+próprio equipamento/ponte de controle, mesmo sem o sistema estar de
+pé — não depende da automação daqui pra isso funcionar.
+
+**P: Existe um loop de controle automático de temperatura (tipo
+termostato) durante a mostura?**
+R: Os parâmetros pra isso (ex.: ganhos de um controlador PID) já
+podem ser configurados na etapa da sessão, mas o loop de controle em
+tempo real ainda não foi ativado nesta versão — hoje a reação
+automática acontece via Regras de Automação (evento → condição →
+ação), não um controlador contínuo.

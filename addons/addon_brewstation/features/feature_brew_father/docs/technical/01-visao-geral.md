@@ -33,4 +33,5 @@ funcionamento prático completo.
 
 - Item (c) do `BACKLOG.md` — adjuntos (`miscs[]`) e água (`water`) da
   API BrewFather, decidido mas não implementado.
-- `docs/manual/`, `i18n/pt_BR.json` — não escritos.
+- `i18n/pt_BR.json` — não escrito (gap conhecido em quase todo o
+  Addon, registrado em `BACKLOG.md`).

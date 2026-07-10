@@ -29,4 +29,5 @@ completamente absorvida por `addon_estoque` (`Material` categoria
 - Telas de cadastro do Envase em si — não mapeadas.
 - Regra de bloqueio (ou não) de envase sem saldo suficiente de
   embalagem — mesma pendência de `addon_estoque`.
-- `docs/manual/`, `i18n/pt_BR.json` — não escritos.
+- `i18n/pt_BR.json` — não escrito (gap conhecido em quase todo o
+  Addon, registrado em `BACKLOG.md`).

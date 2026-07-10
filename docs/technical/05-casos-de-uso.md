@@ -108,3 +108,102 @@
   do código → bloqueado (a edição se perderia no próximo boot); só
   `is_active` é editável nesse caso
 - **Permissão**: `admin`
+
+## UC13 — Desenvolvedor cria um Model novo pelo Model Builder Visual
+
+- **Ator**: Desenvolvedor
+- **Fluxo principal**: `/admin/model-builder/` → escolhe escopo
+  (Addon/Feature já existente, via select; ou novo, texto livre) →
+  adiciona campos um a um → "Gerar" → CrudGen roda o pipeline completo
+  → tela CRUD nova disponível
+- **Fluxo alternativo**: gerar sem nenhum campo → bloqueado; gerar de
+  novo sem `--overwrite` equivalente → bloqueado, evita sobrescrever
+  customização
+- **Permissão**: `model_definitions.view` (tela) + `admin` (ação de gerar)
+
+```mermaid
+flowchart TD
+    A[Escolhe escopo: existente ou novo] --> B{Addon/Feature existe?}
+    B -- Sim, existente --> C[Select box com addons/features reais]
+    B -- Não, é novo --> D[Nome novo, texto livre]
+    C --> E[Adiciona campos]
+    D --> E
+    E --> F[Clica Gerar]
+    F --> G{Escopo é novo?}
+    G -- Sim --> H[Scaffold: pastas + manifesto + docs stub]
+    G -- Não --> I[Usa estrutura existente]
+    H --> J[CrudGen: model.py + service/controller/routes/templates]
+    I --> J
+    J --> K[Tela CRUD nova disponível]
+```
+
+## UC14 — Desenvolvedor testa uma API externa e vira Model a partir da resposta
+
+- **Ator**: Desenvolvedor
+- **Fluxo principal**: `/admin/playground/` → monta requisição (URL,
+  método, Auth — bearer/basic/api_key, Query Params, Headers/Body
+  livres) → executa → vê resposta → clica na varinha mágica → escolhe
+  Addon/Feature (select) + nome do Model/tabela → cria rascunho no
+  Model Builder → revisa campos inferidos → gera
+- **Fluxo alternativo**: login numa API externa que devolve cookie de
+  sessão → próxima chamada do mesmo usuário já reaproveita o cookie
+  automaticamente (cookie jar por usuário)
+- **Permissão**: `playground_requests.execute`
+
+## UC15 — Desenvolvedor organiza o histórico do Playground em pastas
+
+- **Ator**: Desenvolvedor
+- **Fluxo principal**: cria pasta (com pasta-pai opcional, árvore
+  N-níveis) → move requisições existentes pra dentro → arquiva as que
+  não usa mais (some da lista, recuperável) → apaga definitivamente
+  as descartáveis
+- **Fluxo alternativo**: apagar pasta com conteúdo dentro → bloqueado,
+  precisa mover ou apagar o conteúdo primeiro
+- **Permissão**: `playground_requests.execute`
+
+## UC16 — Administrador reorganiza o menu (ordem, colapso, ícone)
+
+- **Ator**: Administrador
+- **Fluxo principal**: `/admin/menu-settings/` → arrasta item pra
+  reordenar dentro do mesmo nível → ↑/↓ promove/rebaixa (só exibição)
+  → marca pasta como colapsada por padrão → escolhe até que nível
+  mostrar ícone → salva
+- **Fluxo alternativo**: usuário comum não gosta do padrão global →
+  ajusta a própria preferência em `/perfil/menu-preferencias`, sem
+  afetar os demais
+- **Permissão**: `system_config.menu_settings` (padrão global);
+  nenhuma além de estar autenticado (preferência pessoal)
+
+## UC17 — Administrador consulta e limpa logs
+
+- **Ator**: Administrador
+- **Fluxo principal**: `/admin/logs/` → escolhe fonte (log global do
+  Core, ou log de integração de um Addon específico) → lê conteúdo →
+  apaga se necessário (rotação já limita o tamanho sozinha)
+- **Fluxo alternativo**: fonte sem arquivo ainda (nunca gerou log) →
+  mensagem amigável, não erro
+- **Permissão**: `admin`
+
+## UC18 — Administrador agenda um job (task)
+
+- **Ator**: Administrador
+- **Fluxo principal**: `/admin/tasks/` → cria task (tipo: chamada
+  Python registrada, requisição HTTP, ou SQL) → define agendamento
+  (cron ou intervalo) → acompanha histórico de execuções (sucesso/
+  falha/duração)
+- **Fluxo alternativo**: task marcada `requires_approval` → fica
+  `pending_approval` até alguém aprovar explicitamente
+- **Permissão**: `admin`
+
+## UC19 — Administrador corrige o nome de rota de uma entidade OData
+
+- **Ator**: Administrador
+- **Contexto**: servidor OData cujo metadata não segue o padrão EDMX
+  (sem `EntitySet`), então o Tesseract não tem como saber o nome real
+  da coleção só pelo nome declarado
+- **Fluxo principal**: `/admin/odata/<id>/entities` → tenta navegar →
+  se der 404, o sistema já tenta uma pluralização automática sozinho;
+  se ainda assim errar, o campo de "nome da rota" ao lado da entidade
+  é editável — corrige manualmente, salva, e o Tesseract lembra da
+  próxima vez
+- **Permissão**: `admin`

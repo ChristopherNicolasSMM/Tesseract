@@ -6,8 +6,8 @@ C4Component
 
     Container_Boundary(brewstation, "addon_brewstation") {
         Component(yeastbank, "feature_yeast_bank", "8 entidades", "Cepas, itens do banco, leituras, motor de viabilidade")
-        Component(mashcontrol, "feature_mash_control", "15 entidades", "Receitas, plantas, sessoes, dashboards, regras, ingredientes de receita")
-        Component(brewfather, "feature_brew_father", "0 tabela propria", "Sync service + log - grava em MashRecipe/BrewSession")
+        Component(mashcontrol, "feature_mash_control", "18 entidades", "Receitas, plantas, sessoes, dashboards, regras, ingredientes de receita")
+        Component(brewfather, "feature_brew_father", "1 entidade", "Sync service + log - grava em MashRecipe/BrewSession")
         Component(ingredientes, "feature_ingredientes", "3 entidades", "Malte/Lupulo/Levedura - specs complementares a Material")
         Component(envase, "feature_envase", "2 entidades", "Evento de empacotamento de um Lote")
     }
@@ -28,9 +28,8 @@ C4Component
 ```
 
 Ver C4 do Sistema (`docs/technical/02-diagrama-c4.md` da raiz) para o
-nível Container completo, incluindo o Core — **ainda não atualizado**
-com as caixas de `addon_estoque` e a promoção de `addon_device_manager`
-(pendência).
+nível Container completo, incluindo o Core, `addon_estoque` e
+`addon_device_manager` como Addon independente — já atualizado.
 
 ## Correção desta rodada
 

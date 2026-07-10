@@ -27,7 +27,7 @@ materiais).
 | Feature | Entidades | Docs |
 |---|---|---|
 | `feature_yeast_bank` | 8 | `features/feature_yeast_bank/docs/technical/01-visao-geral.md` |
-| `feature_mash_control` | 15 (12 + 3 novas nesta rodada) | `features/feature_mash_control/docs/technical/01-visao-geral.md` |
+| `feature_mash_control` | 18 | `features/feature_mash_control/docs/technical/01-visao-geral.md` |
 | `feature_brew_father` | 0 tabela própria (sync service + log) | `features/feature_brew_father/docs/technical/01-visao-geral.md` (a criar) |
 | `feature_ingredientes` | 3 (Malte/Lúpulo/Levedura) | `features/feature_ingredientes/docs/technical/01-visao-geral.md` |
 | `feature_envase` | 2 (Envase/ItemEnvase) | `features/feature_envase/docs/technical/01-visao-geral.md` |

@@ -14,15 +14,23 @@ para um administrador redefinir em "Gestão de Usuários" → seu usuário
 ## 3. Primeira tela
 
 Depois de logado, você cai na **Início** — um painel com cards das
-áreas que você tem acesso (Banco de Levedura, Dispositivos, Receitas,
-Sessões de Brassagem, e — se você for administrador — Usuários, Papéis,
-Regras de Campo, Versionamento, Catálogo de Transações, Conexões
-OData e Designer Visual). O menu lateral mostra a mesma lista,
-organizada em grupos que você pode recolher/expandir clicando no
-nome do grupo.
+áreas que você tem acesso, organizado por grupo (Banco de Levedura,
+Dispositivos, Receitas, Sessões de Brassagem, Ingredientes, Envase,
+Estoque, e — se você for administrador — Usuários, Papéis, Regras de
+Campo, Versionamento, Catálogo de Transações, Configurações de Menu,
+Conexões OData, Model Builder, Playground, Logs, Tarefas Agendadas e
+Designer Visual). O menu lateral mostra a mesma lista, em árvore —
+grupos podem ter sub-grupos, e você recolhe/expande clicando no nome.
 
 ## 4. Seu perfil
 
 Clique no seu nome, no topo da tela, e depois em "Meu Perfil" para
 editar seus dados, trocar sua senha, e escolher entre tema claro ou
 escuro.
+
+## 5. Ajustando o menu do seu jeito
+
+Se a ordem ou o agrupamento padrão do menu não for do seu gosto, vá em
+"Meu Perfil" → "Preferências de Menu" — dá pra reordenar itens dentro
+do mesmo grupo e escolher quais grupos ficam recolhidos por padrão,
+só pra você, sem afetar os outros usuários.

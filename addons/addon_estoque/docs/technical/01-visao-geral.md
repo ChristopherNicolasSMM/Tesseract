@@ -40,8 +40,8 @@ foi redesenhado do zero como este Addon.
 
 - Mecanismo de recálculo manual de saldo — sinalizado, não desenhado.
 - Regra de bloqueio (ou não) de saída sem saldo suficiente — em aberto.
-- `docs/manual/` deste Addon — ainda não escrito.
-- `i18n/pt_BR.json` — ainda não escrito.
+- `i18n/pt_BR.json` — ainda não escrito (gap conhecido, registrado em
+  `BACKLOG.md`, não específico deste Addon).
 - Domínio de Cálculo/precificação (base de custo, base dedutiva,
   impostos cadastrados) que também vai consumir este Addon — parked,
   sessão dedicada futura.

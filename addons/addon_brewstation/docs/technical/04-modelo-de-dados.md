@@ -8,16 +8,12 @@ Resumo de tabelas por Feature:
 | Feature | Tabelas | Prefixo |
 |---|---|---|
 | `feature_yeast_bank` | 8 | `tesseract_brewstation_yeastbank_*` |
-| `feature_mash_control` | 15 (12 + `recipe_ingredient` + `ingredient_mapping` + `recipe_history`, nesta rodada) | `tesseract_brewstation_mashctrl_*` |
-| `feature_brew_father` | 0 (sync service + log, sem tabela de domínio) | `tesseract_brewstation_brewfather_*` (log de sync, quando implementado) |
-| `feature_ingredientes` | 3 (`Malte`/`Lupulo`/`Levedura`, nova) | `tesseract_brewstation_ingr_*` |
-| `feature_envase` | 2 (`Envase`/`ItemEnvase`, nova) | `tesseract_brewstation_env_*` |
+| `feature_mash_control` | 18 | `tesseract_brewstation_mashctrl_*` |
+| `feature_brew_father` | 1 (`BrewFatherSync` — nome curto `sync`, o prefixo do CrudGen já adiciona `brewfather_`) | `tesseract_brewstation_brewfather_*` |
+| `feature_ingredientes` | 3 (`Malte`/`Lupulo`/`Levedura`) | `tesseract_brewstation_ingr_*` |
+| `feature_envase` | 2 (`Envase`/`ItemEnvase`) | `tesseract_brewstation_env_*` |
 
-Total: 28 tabelas de domínio no Addon (24 anteriores + 4 novas —
-`recipe_ingredient`, `ingredient_mapping`, `recipe_history` em
-`feature_mash_control`, mais as 5 de `feature_ingredientes`/
-`feature_envase` menos a remoção de `recipe_data`, que não era
-tabela própria).
+Total: 32 tabelas de domínio no Addon.
 
 ## Referências fracas cross-Addon (skill 02 — nunca FK)
 

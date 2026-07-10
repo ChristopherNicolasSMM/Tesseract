@@ -1722,3 +1722,77 @@ seguindo exatamente o mesmo padrão já usado por
 tela reflete de fato na sidebar).
 
 Suíte completa do projeto após os 3 achados: **510/510 passando**.
+
+## Auditoria e atualização completa da documentação (skill 04): CONCLUÍDA
+
+Verificação de toda a documentação existente (Sistema + 3 Addons + 5
+Features) contra o estado real do código, seguida de atualização —
+sem nenhuma mudança de código, só `.md`.
+
+**Gaps estruturais corrigidos** (arquivo obrigatório da skill 04
+ausente):
+- `feature_ingredientes/docs/technical/06-manutencao-e-expansao.md` —
+  criado (não existia).
+- `feature_envase/docs/technical/06-manutencao-e-expansao.md` —
+  criado (não existia).
+
+**Inconsistências factuais corrigidas** (doc dizia uma coisa, código
+fazia outra):
+- `feature_mash_control`: manual afirmava que a automação "ainda não
+  está disponível" — na verdade já está ativa e reativa via EventBus
+  desde a Fase E da skill 05. Corrigido no manual (4 arquivos) e no
+  técnico (`06-manutencao-e-expansao.md` também dizia "sem scheduler
+  ainda", desatualizado desde que o sistema de Tasks/`APScheduler`
+  entrou).
+- `feature_mash_control/06-manutencao-e-expansao.md`: citava
+  `feature_device_manager` (nome antigo, Feature que não existe mais)
+  em vez de `addon_device_manager`, e não mencionava a dependência de
+  `estoque` que o `feature.json` real já declara.
+- ER de `feature_mash_control` (`04-modelo-de-dados.md`): só
+  detalhava 8 das 18 entidades reais — `plant_vessel`, `plant_mapping`,
+  `session_log`, `session_alarm`, `layout`, `widget`, `rule_log`,
+  `water_profile`, `fermentation_step`, `mash_step` estavam ausentes
+  do diagrama. Reescrito com as 18.
+- Contagem de entidades desatualizada em `addon_brewstation` (C4 e
+  `04-modelo-de-dados.md`): `feature_mash_control` citada como 15,
+  real é 18; `feature_brew_father` citada como "0 tabela própria",
+  real é 1 (`BrewFatherSync`).
+- 4 notas de pendência falsas ("`docs/manual/` ainda não escrito")
+  em `addon_estoque`, `feature_ingredientes`, `feature_envase`,
+  `feature_brew_father` — o manual já existia (e em bom estado) nos 4
+  casos; a nota só não tinha sido atualizada.
+
+**Sistema (`docs/`) — desatualizado havia várias skills** (não
+mencionava Playground v2, Model Builder, Menu hierárquico/skill 10,
+EventBus/skill 14, auto-descoberta/skill 09, logging admin/skill 08,
+referência fraca/skill 11): os 7 técnicos e os 4 manuais foram
+reescritos/expandidos pra cobrir tudo isso — C4 (Contexto/Container)
+com as caixas de `addon_estoque`/`addon_device_manager`/MQTT/bridge,
+9 sequências novas em `03-fluxos.md`, ER com as tabelas
+`tesseract_model_definition`/`tesseract_model_field_definition`/
+`tesseract_playground_*`/`tesseract_user_menu_preference`/
+`tesseract_scheduled_task`/`tesseract_task_log`/
+`tesseract_message_queue` que faltavam, 7 casos de uso novos (UC13-19)
+com 2 diagramas, e novas linhas na tabela de erros conhecidos
+(incluindo o achado do `db.create_all()` vs Alembic desta mesma
+sessão).
+
+**Manuais reescritos com conteúdo real** (eram esqueleto, 5-8 linhas):
+Sistema (4 arquivos), `addon_brewstation` (4, corrigindo referências
+a `feature_device_manager`), `feature_yeast_bank` (4),
+`feature_mash_control` (4, ver correção factual acima).
+`feature_ingredientes`/`feature_envase`/`feature_brew_father` já
+estavam bons — não reescritos, só a pendência falsa corrigida.
+`addon_device_manager`/`addon_estoque` já estavam em bom estado
+(técnico e manual) — só ajustes pontuais.
+
+**Diagramas novos adicionados** onde ajudavam e não existiam: 2 no
+Sistema (fluxo do menu hierárquico, fluxo de sensor→EventBus), 1 em
+`addon_estoque` (movimentação→saldo), 1 em `05-casos-de-uso.md` do
+Sistema pro fluxo do Model Builder.
+
+**Gap não coberto por esta rodada** (fora de escopo — é código, não
+doc): `i18n/pt_BR.json` ainda ausente em `addon_brewstation` (Addon +
+5 Features) e `addon_estoque` — já registrado, mantido como está.
+
+34 arquivos alterados, 2 criados, nenhum código tocado.

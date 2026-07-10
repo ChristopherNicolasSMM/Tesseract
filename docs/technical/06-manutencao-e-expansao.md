@@ -263,6 +263,52 @@ Ainda não há rotina automatizada. Hoje significa:
   automaticamente a partir das duas anotações, para qualquer entidade
   nova, não só as 6 identificadas na revisão que motivou a skill.
 
+## Como adicionar uma pasta/organização nova ao Playground
+
+Pastas (`tesseract_playground_folder`) são só uma árvore
+auto-referenciada — criar uma nova via `services/core/
+playground_service.py::create_folder()` (ou pela tela). Não precisa de
+migration nem model novo pra isso; só usa o que já existe. Apagar uma
+pasta exige que ela esteja vazia (skill 06 §8.2) — mover ou apagar o
+conteúdo antes.
+
+## Como adicionar um novo tipo de Auth ao Playground
+
+`PlaygroundAuthType` (`model/core/playground_request.py`) tem hoje
+`none`/`bearer`/`basic`/`api_key`. Pra adicionar um tipo novo (ex.:
+OAuth2 com refresh token):
+
+1. Adicionar a constante em `PlaygroundAuthType`.
+2. Adicionar o `if` correspondente em
+   `_auth_headers_for()` (`services/core/playground_service.py`) —
+   monta o header derivado a partir de `auth_config`.
+3. Adicionar os campos de formulário na tela (`playground.html`) e o
+   `if` de leitura em `_build_auth_config()`
+   (`controller/core/playground.py`).
+
+`auth_config` é sempre um JSON livre por tipo — não precisa de
+migration pra tipo novo, só pra campo novo em `PlaygroundRequest` em
+si (isso sim exige `db migrate`).
+
+## Como o menu hierárquico resolve ordem/colapso/ícone (skill 10 + adenda)
+
+Três camadas, nessa ordem de prioridade: preferência pessoal
+(`tesseract_user_menu_preference`) → padrão global
+(`system_config`, chaves `core.menu.*`) → ordem original
+(`Transaction.order_index`, já persistida pelo sync). A profundidade
+máxima de ícone (`core.menu.icon_max_depth`) é só mais uma chave nessa
+mesma camada de padrão global — `-1` (default) nunca esconde ícone,
+`N` esconde a partir do nível `N` (0-based). Editável em
+`/admin/menu-settings/`.
+
+## Como adicionar uma tela de admin nova que usa `system_config`
+
+Seguir o padrão de `services/core/menu_preference_service.py`: uma
+constante `_KEY_X = "namespace.chave"` por parâmetro, um getter
+(`SystemConfig.get(key, default=...)`) e um setter que passa por uma
+função privada `_set_config()`/similar — nunca ler/escrever
+`SystemConfig` direto no controller.
+
 ## Erros conhecidos e como resolver
 
 | Erro | Causa | Solução |
@@ -274,3 +320,7 @@ Ainda não há rotina automatizada. Hoje significa:
 | Tema escuro não aplica nenhuma regra visual | Classe/atributo no `<body>`/`<html>` não bate com o seletor real do `style_dark.css` | Confirmar `html[data-theme="dark"]` — é a convenção dominante do arquivo (129 ocorrências) |
 | Toggle do sidebar não funciona | `static/js/web.js` não incluído na página | Confirmar `<script src=".../js/web.js">` em `base.html` |
 | Edição de uma Transaction não persiste | Transação vem do código (`is_standard`/`source_module` de Addon) — `sync_transaction()` sobrescreve a cada boot | Editar o `get_transactions()`/`transactions_catalog.py` correspondente, não a tela |
+| `flask db upgrade` falha com `already exists`/`duplicate column` numa migration que cria tabela ou coluna nova | `ModuleManager.create_all_pending_tables()` chama `db.create_all()` em todo boot, inclusive quando o boot é do próprio comando `flask db` — ele cria a estrutura antes do Alembic ter a chance | Corrigido: `create_all_pending_tables()` pula `db.create_all()` quando `sys.argv[1] == "db"`. Se ainda ocorrer numa migration muito antiga (ex.: `mash_control_rule`), é um caso pré-existente e separado — não passa pelo mesmo caminho de código, registrado no BACKLOG.md |
+| Playground retorna 404 numa API que funciona no Postman | Query Params colados à mão dentro da própria `url`, sem encoding — v1 não tinha campo dedicado | Usar o campo "Query Params" da v2 (`params_json`), não colar na URL |
+| OData: "Falha ao conectar" mesmo com a URL certa | `base_url` cadastrada já era a própria URL de `$metadata` — a descoberta antiga concatenava sufixo em cima | Corrigido: `_strip_metadata_suffix()` tenta a URL crua primeiro |
+| OData: navegar uma entidade dá 404 mesmo ela existindo no servidor | Nome usado na rota era o `EntityType` (singular) em vez do `EntitySet` (plural, real) | Corrigido para EDMX real; para o formato customizado sem `EntitySet`, usar o campo editável de "nome da rota" na tela "Ver entidades" |

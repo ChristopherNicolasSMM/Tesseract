@@ -38,3 +38,20 @@
   ou `material_lookup.buscar_material_por_termo(texto)` → recebe dado
   primitivo (nunca o objeto ORM)
 - **Sem tela própria** — interação código-a-código
+
+## Diagrama — do lançamento de Movimentação ao Saldo atualizado
+
+```mermaid
+flowchart TD
+    A[Usuário lança Movimentação] --> B{Tipo}
+    B -- Entrada --> C[+quantidade no Saldo]
+    B -- Saída --> D{Saldo suficiente?}
+    D -- Sim --> E[-quantidade no Saldo]
+    D -- Não --> F[Alerta — não bloqueia, decisão em aberto]
+    B -- Ajuste --> G[Define quantidade exata no Saldo]
+    C --> H[Saldo.quantidade_atual recalculado]
+    E --> H
+    F --> E
+    G --> H
+    H --> I[Tela de Saldo reflete na próxima consulta]
+```
