@@ -82,6 +82,15 @@ class FeatureMashControl(FeatureBase):
                 "route": None,
                 "icon": "bi-cpu",
             },
+            {
+                "code": "TX_BRIDGE_IMPORT",
+                "label": "Cadastro Primário (Bridge)",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
+                "description": "Importa devices.yml/recipe.yml do tesseract-device-bridge e monta o cadastro inicial.",
+                "icon": "bi-cloud-arrow-up",
+                "route": "/brewstation/bridge-import/",
+                "permission_required": "device_actors.create",
+            },
 
             # ── Receitas ──────────────────────────────────────────────
             {

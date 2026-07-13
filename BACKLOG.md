@@ -2334,3 +2334,64 @@ verificados, POST continua persistindo certo). Regressão:
 sem nenhuma mudança de comportamento. Suíte completa do projeto:
 **587/587 passando**. Sem migration — nenhuma coluna nova, só
 anotação + regeneração de tela.
+
+## Cadastro Primário — importar devices.yml/recipe.yml do tesseract-device-bridge: CONCLUÍDO
+
+Schema confirmado direto no README real do
+[tesseract-device-bridge](https://github.com/ChristopherNicolasSMM/Tesseract-Device-Bridge)
+(não inventado a partir só dos 2 arquivos enviados na conversa — o
+projeto confirma que é exatamente esse formato). Nova tela
+("Cadastro Primário") sobe `devices.yml` (obrigatório) + `recipe.yml`
+(opcional) e monta o cadastro inicial completo, sem precisar passar
+por nenhuma tela de CRUD na mão.
+
+### Mapeamento
+
+| YAML | Tesseract |
+|---|---|
+| `devices[]` (cada entrada) | 1 `DeviceFunction` + 1 `DeviceActor` (`addon_device_manager`) — `id` do YAML vira `DeviceFunction.name` (chave estável, skill 02) |
+| Todos os `devices[]` juntos | 1 `DeviceMetadata` só (o "bridge" físico — nó único, cada device é uma porta dele) |
+| `recipe.vessels[]` | `BrewPlantVessel` — `vessel_type` adivinhado a partir do `id` convencional (`mash`→`mash_tun`, `boil`→`boil_kettle`, etc., cai em `generic` se não reconhecer) |
+| `vessel.sensor_device_id`/`heater_device_id` | `BrewPlantMapping` (`role_key="sensor_temp"`/`"actor_heat"`) — o "de-para" já fica pronto |
+| bombas distintas usadas nos `steps` de cada vasilhame | `BrewPlantMapping` (`role_key="actor_pump_N"`) |
+| bomba do primeiro step do vasilhame seguinte (por `order`) | `BrewPlant.plant_schema_json["connections"]` — tubulação, melhor esforço, editável depois |
+| (implícito) | 1 `DashboardLayout` ("Painel de Mostura") + 1 widget tipo `vessel` por vasilhame + 1 widget `alarm_list` |
+
+### Idempotência
+
+Rodar a importação de novo (mesmo arquivo, ou um YAML atualizado com
+mais devices) **reaproveita** o que já existe por nome/id em vez de
+duplicar — cada passo (Function/Actor/Planta/Vasilhame/Mapeamento/
+Layout/Widget) é `find_or_create`. Só o primeiro Layout importado
+vira `is_default=True`.
+
+### Peças novas
+
+- `services/bridge_import_service.py` — `parse_devices_yaml()`,
+  `parse_recipe_yaml()`, `import_bridge_config()` (orquestrador
+  único, transacional). NÃO gerado pelo CrudGen.
+- `controller/bridge_import.py` — blueprint novo, auto-descoberto
+  (skill 09): `GET/POST /brewstation/bridge-import/`. Aceita upload
+  de arquivo OU colar o YAML direto (textarea).
+- `templates/bridge_import/form.html` — formulário + resumo do que
+  foi criado/reaproveitado, com link direto pro Dashboard gerado.
+- `TX_BRIDGE_IMPORT` — nova entrada de menu em `TX_GROUP_MASH_CONTROL`.
+- **`PyYAML` — dependência nova** (`requirements.txt`, UTF-16LE
+  preservado). Não existia no projeto — só o bridge (repositório
+  separado) tinha PyYAML no próprio `requirements.txt` dele.
+
+### Achado real corrigido no caminho
+
+Bug de contabilidade na idempotência: o widget `alarm_list`, quando
+já existia numa segunda importação, não era registrado nem em
+"criados" nem em "reaproveitados" (ficava invisível no resumo) —
+`else` faltando. Achado pelo próprio teste de idempotência, corrigido
+antes de fechar.
+
+Testes: `tests/test_bridge_import.py` (14 casos, usando os **arquivos
+YAML reais** enviados na conversa como fixture — não simplificados:
+sensor 1-Wire compartilhando pino, atuador com `failsafe_value`/
+`is_risk`, vasilhame com múltiplas etapas e bombas). 1 teste de menu
+ajustado (novo filho direto de Controle de Mostura). Suíte completa
+do projeto: **601/601 passando**. Sem migration — nenhuma coluna
+nova, só dados.

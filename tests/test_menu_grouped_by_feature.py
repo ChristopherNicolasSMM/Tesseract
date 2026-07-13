@@ -50,15 +50,16 @@ def test_grupo_banco_de_levedura_tem_9_transacoes(app):
         assert count == 9
 
 
-def test_grupo_controle_de_mostura_tem_5_filhos_diretos(app):
+def test_grupo_controle_de_mostura_tem_6_filhos_diretos(app):
     """
     [ATUALIZADO — reorganização de menu em conversa] Controle de
     Mostura tinha 18 transações soltas no mesmo nível — virou 4
     sub-grupos (Receitas/Planta & Sessão/Automação, mais Sessões dentro
     de Planta & Sessão) + os 2 itens de Dashboard (que ficam, mas saem
     do menu via is_active=False manual, não por código — skill 10, sync
-    nunca mexe em is_active). O De-Para de Ingredientes saiu daqui e
-    foi para TX_GROUP_INGREDIENTES.
+    nunca mexe em is_active) + o Cadastro Primário (Bridge), novo
+    (conversa — importação de devices.yml/recipe.yml). O De-Para de
+    Ingredientes saiu daqui e foi para TX_GROUP_INGREDIENTES.
     """
     with app.app_context():
         folder = Transaction.query.filter_by(code="TX_GROUP_MASH_CONTROL").first()
@@ -70,6 +71,7 @@ def test_grupo_controle_de_mostura_tem_5_filhos_diretos(app):
             "TX_GROUP_MASH_AUTOMATION",
             "TX_DASHBOARD_LAYOUTS",
             "TX_DASHBOARD_WIDGETS",
+            "TX_BRIDGE_IMPORT",
         }
 
 
