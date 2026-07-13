@@ -2395,3 +2395,70 @@ sensor 1-Wire compartilhando pino, atuador com `failsafe_value`/
 ajustado (novo filho direto de Controle de Mostura). Suíte completa
 do projeto: **601/601 passando**. Sem migration — nenhuma coluna
 nova, só dados.
+
+## Dashboard de Brassagem — editor visual (arrastar, redimensionar, botão direito) + SVG real: CONCLUÍDO
+
+Pesquisado antes de desenhar (a pedido): **CraftBeerPi4** (referência
+principal — modo edição trava/destrava, painel de propriedades, SVG
+substituível pro vasilhame, tubulação com cor/espessura configuráveis)
+e **BrewUno** (mais fechado/hardware-focado, sem documentação de UI
+própria relevante). Plano baseado no padrão do CraftBeerPi4, confirmado
+em conversa antes de implementar.
+
+### O que foi resolvido
+
+- **Nenhuma coluna nova** — tudo cabe no que já existia
+  (`x`/`y`/`width`/`height`/`rotation` do widget, `config_json` livre,
+  `plant.plant_schema_json`). Sem migration.
+- **Modo Edição** (trava/destrava, como CraftBeerPi) — fora dele, a
+  tela continua só leitura+acionamento (como já era). Dentro:
+  - **Arrastar** (mousedown+mousemove+mouseup) — salva a posição ao
+    soltar.
+  - **Redimensionar** (alça no canto inferior direito) — nunca deixa
+    colapsar abaixo de 40px (proteção contra drag descuidado).
+  - **Botão direito** → menu de contexto: **Configurações** (modal —
+    legenda, e campos específicos do tipo: formato do vasilhame,
+    papel do sensor de nível, mínimo/máximo do gauge, casas decimais,
+    sessão/janela do gráfico, e o **comportamento de acionamento
+    manual** — `confirm_before_actuate`, pede confirmação no
+    `confirm()` antes de acionar um atuador) e **Remover** (soft-delete).
+  - **+ Adicionar Widget** — cria um widget novo (qualquer um dos 6
+    tipos) direto pela tela, sem precisar ir na tela de CRUD cru.
+  - **Editar Tubulação** — modal com as conexões da Planta
+    (de/para/atuador de fluxo/cor/espessura), sobrescreve
+    `plant_schema_json` inteiro (lista pequena, não vale granularizar).
+- **SVG de verdade pro vasilhame** — troca o `<div>` com gradiente por
+  um `<svg>` com silhueta real (caldeira com alças, ou fermentador com
+  fundo cônico — escolha por `config_json.svg_shape`), nível de
+  líquido animado via `clipPath` (`transition: y .6s`), cor do líquido
+  reagindo à temperatura (azul <35°C, laranja 35–75°C, vermelho >75°C).
+  Nível decorativo fixo (55%) quando não há `fill_role_key`
+  configurado; usa o sensor de verdade quando configurado.
+
+### Peças novas (service + controller)
+
+`services/dashboard_runtime_service.py`: `update_widget_geometry()`,
+`update_widget_config()` (merge, nunca substitui `config_json`
+inteiro), `create_widget_from_editor()`, `remove_widget_from_editor()`
+(soft-delete), `update_plant_connections()`. `controller/
+dashboard_runtime.py`: 5 rotas novas (`geometry`/`config`/`widgets`
+POST/`widgets/.../delete`/`plant-connections`).
+
+**Achado real corrigido no caminho**: `db` (Flask-SQLAlchemy) nunca
+tinha sido importado em `dashboard_runtime_service.py` — as funções
+anteriores só liam (via `.query`), não precisavam. As funções novas
+gravam (`db.session.commit()`) e quebravam com `NameError` até o
+import ser adicionado — pego pelo próprio teste, corrigido antes de
+fechar.
+
+Testes: 10 casos novos em `tests/test_dashboard_runtime.py` (geometria
+com proteção de colapso, config com merge, criar/remover widget,
+tubulação com cor/espessura, validação sem planta, SVG presente na
+tela). Suíte completa do projeto: **611/611 passando**. Sem migration.
+
+### Limitações conhecidas desta rodada (escopo, não bug)
+
+- Sem WebSocket/tempo real — igual antes, polling a cada 3s.
+- Sem desfazer/refazer (undo/redo) no editor.
+- Rotação de widget (`rotation`) tem endpoint pronto, mas sem
+  controle visual no editor ainda (só arrastar/redimensionar).

@@ -11,11 +11,20 @@
       {% endfor %}
     </select>
     {% endif %}
+    <button type="button" id="dbEditToggle" class="btn btn-sm btn-outline-warning">
+      <i class="bi bi-unlock"></i> Modo Edição
+    </button>
+    <div id="dbEditToolbar" class="d-none d-flex gap-2">
+      <button type="button" id="dbAddWidgetBtn" class="btn btn-sm btn-primary"><i class="bi bi-plus-lg"></i> Widget</button>
+      {% if layout.plant_id %}
+      <button type="button" id="dbEditPipesBtn" class="btn btn-sm btn-info"><i class="bi bi-share"></i> Tubulação</button>
+      {% endif %}
+    </div>
     <a href="{{ url_for('dashboard_layouts.manage') }}" class="btn btn-sm btn-outline-secondary">
       <i class="bi bi-gear"></i> Configurar layouts
     </a>
     <a href="{{ url_for('dashboard_widgets.manage') }}" class="btn btn-sm btn-outline-secondary">
-      <i class="bi bi-plus-square"></i> Configurar widgets
+      <i class="bi bi-table"></i> Ver tabela de widgets
     </a>
   </div>
 </div>
@@ -33,22 +42,43 @@
 
     {% for w in widgets %}
     <div class="db-widget" id="db-widget-{{ w.id }}" data-widget-id="{{ w.id }}" data-widget-type="{{ w.widget_type }}"
+         data-label-text="{{ w.label_text or '' }}" data-config-json='{{ (w.config_json or {}) | tojson }}'
          {% if w.vessel_id %}data-vessel-id="{{ w.vessel_id }}"{% endif %}
+         {% if w.device_function_name %}data-device-function-name="{{ w.device_function_name }}"{% endif %}
+         {% if (w.config_json or {}).get('fill_role_key') %}data-fill-role-key="{{ w.config_json.fill_role_key }}"{% endif %}
          style="position:absolute; left:{{ w.x }}px; top:{{ w.y }}px; width:{{ w.width }}px; height:{{ w.height }}px;
                 transform:rotate({{ w.rotation or 0 }}deg); z-index:{{ (w.z_index or 1) + 1 }};">
 
       {% if w.widget_type == 'vessel' %}
-        <div class="card h-100 text-center bg-dark text-light border-secondary">
-          <div class="card-body p-2 d-flex flex-column">
-            <div class="small text-uppercase text-muted">{{ w.label_text or (vessels_by_id[w.vessel_id].label_text if w.vessel_id in vessels_by_id else '') }}</div>
-            <div class="flex-grow-1 position-relative my-1" style="border:2px solid #666; border-radius:8px; overflow:hidden;">
-              <div class="db-vessel-fill position-absolute bottom-0 w-100" style="height:50%; background:linear-gradient(#e67e22,#c0392b); transition:height .6s;"></div>
-              <div class="position-relative h-100 d-flex align-items-center justify-content-center">
-                <span class="db-vessel-temp fw-bold fs-5">—</span>
-              </div>
+        {% set shape = (w.config_json or {}).get('svg_shape', 'mash_tun') %}
+        <div class="h-100 d-flex flex-column">
+          <div class="small text-uppercase text-muted text-center">{{ w.label_text or (vessels_by_id[w.vessel_id].label_text if w.vessel_id in vessels_by_id else '') }}</div>
+          <div class="flex-grow-1 position-relative">
+            <svg viewBox="0 0 100 120" preserveAspectRatio="none" class="w-100 h-100 db-vessel-svg">
+              <defs>
+                <clipPath id="db-clip-{{ w.id }}">
+                  {% if shape == 'fermenter' %}
+                  <path d="M15,8 L85,8 L85,75 L50,116 L15,75 Z"/>
+                  {% else %}
+                  <path d="M8,12 L92,12 L92,100 Q92,116 76,116 L24,116 Q8,116 8,100 Z"/>
+                  {% endif %}
+                </clipPath>
+              </defs>
+              {% if shape == 'fermenter' %}
+              <path d="M15,8 L85,8 L85,75 L50,116 L15,75 Z" fill="#22262c" stroke="#666" stroke-width="2"/>
+              {% else %}
+              <path d="M8,12 L92,12 L92,100 Q92,116 76,116 L24,116 Q8,116 8,100 Z" fill="#22262c" stroke="#666" stroke-width="2"/>
+              <ellipse cx="50" cy="12" rx="42" ry="5" fill="none" stroke="#666" stroke-width="2"/>
+              <rect x="0" y="32" width="7" height="18" rx="3" fill="#444"/>
+              <rect x="93" y="32" width="7" height="18" rx="3" fill="#444"/>
+              {% endif %}
+              <rect class="db-vessel-fill-rect" x="0" y="55" width="100" height="65" fill="#c0392b" clip-path="url(#db-clip-{{ w.id }})" style="transition: y .6s, fill .6s;"/>
+            </svg>
+            <div class="position-absolute top-50 start-50 translate-middle text-center">
+              <span class="db-vessel-temp fw-bold fs-5 text-white" style="text-shadow:0 1px 3px #000;">—</span>
             </div>
-            <div class="db-vessel-roles d-flex flex-wrap gap-1 justify-content-center"></div>
           </div>
+          <div class="db-vessel-roles d-flex flex-wrap gap-1 justify-content-center mt-1"></div>
         </div>
 
       {% elif w.widget_type == 'toggle' %}
@@ -95,11 +125,140 @@
           </div>
         </div>
       {% endif %}
+
+      <div class="db-resize-handle d-none"></div>
     </div>
     {% endfor %}
   </div>
   <p class="small text-muted text-center mt-2">Atualiza a cada 3s — sem tempo real via WebSocket ainda (ver BACKLOG.md).</p>
 </section>
+
+<!-- Menu de contexto (botão direito) -->
+<ul id="dbContextMenu" class="dropdown-menu d-none" style="position:fixed; z-index:2000;">
+  <li><a class="dropdown-item" href="#" data-action="configure"><i class="bi bi-gear"></i> Configurações</a></li>
+  <li><a class="dropdown-item text-danger" href="#" data-action="remove"><i class="bi bi-trash"></i> Remover</a></li>
+</ul>
+
+<!-- Modal: Configurações do widget -->
+<div class="modal fade" id="dbConfigModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Configurações do Widget</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="dbConfigWidgetId">
+        <div class="mb-3">
+          <label class="form-label">Legenda / Nome</label>
+          <input type="text" id="dbConfigLabel" class="form-control">
+        </div>
+        <div class="mb-3 db-config-field" data-field="svg_shape">
+          <label class="form-label">Formato do vasilhame</label>
+          <select id="dbConfigSvgShape" class="form-select">
+            <option value="mash_tun">Panela / Caldeira</option>
+            <option value="fermenter">Fermentador (fundo cônico)</option>
+          </select>
+        </div>
+        <div class="mb-3 db-config-field" data-field="fill_role_key">
+          <label class="form-label">Papel usado pro nível de líquido <span class="text-muted small">(opcional — em branco usa um nível fixo decorativo)</span></label>
+          <input type="text" id="dbConfigFillRoleKey" class="form-control" placeholder="ex.: sensor_volume">
+        </div>
+        <div class="mb-3 db-config-field" data-field="min_max">
+          <div class="row g-2">
+            <div class="col-6"><label class="form-label">Mínimo</label><input type="number" id="dbConfigMin" class="form-control"></div>
+            <div class="col-6"><label class="form-label">Máximo</label><input type="number" id="dbConfigMax" class="form-control"></div>
+          </div>
+        </div>
+        <div class="mb-3 db-config-field" data-field="decimal_places">
+          <label class="form-label">Casas decimais</label>
+          <input type="number" id="dbConfigDecimalPlaces" class="form-control" value="1" min="0" max="4">
+        </div>
+        <div class="mb-3 db-config-field" data-field="session_window">
+          <div class="row g-2">
+            <div class="col-6"><label class="form-label">Sessão (id, opcional)</label><input type="number" id="dbConfigSessionId" class="form-control"></div>
+            <div class="col-6"><label class="form-label">Janela (min)</label><input type="number" id="dbConfigWindowMinutes" class="form-control" value="60"></div>
+          </div>
+        </div>
+        <div class="form-check db-config-field" data-field="confirm_before_actuate">
+          <input class="form-check-input" type="checkbox" id="dbConfigConfirm">
+          <label class="form-check-label" for="dbConfigConfirm">Pedir confirmação antes de acionar (liga/desliga manual)</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" id="dbConfigSaveBtn" class="btn btn-primary">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Adicionar Widget -->
+<div class="modal fade" id="dbAddWidgetModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Adicionar Widget</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Tipo</label>
+          <select id="dbNewWidgetType" class="form-select">
+            <option value="vessel">Vasilhame</option>
+            <option value="toggle">Botão liga/desliga</option>
+            <option value="gauge">Gauge</option>
+            <option value="digital">Indicador digital</option>
+            <option value="alarm_list">Lista de alarmes</option>
+            <option value="chart">Gráfico histórico</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Legenda</label>
+          <input type="text" id="dbNewWidgetLabel" class="form-control">
+        </div>
+        <div class="mb-3 d-none" id="dbNewWidgetVesselWrap">
+          <label class="form-label">Vasilhame</label>
+          <select id="dbNewWidgetVessel" class="form-select">
+            {% for vid, v in vessels_by_id.items() %}
+            <option value="{{ vid }}">{{ v.label_text }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3 d-none" id="dbNewWidgetFunctionWrap">
+          <label class="form-label">Nome da Function do dispositivo</label>
+          <input type="text" id="dbNewWidgetFunction" class="form-control" placeholder="ex.: mash_tun_temp">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" id="dbAddWidgetSaveBtn" class="btn btn-primary">Adicionar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Editar Tubulação -->
+{% if layout.plant_id %}
+<div class="modal fade" id="dbPipesModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar Tubulação</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="dbPipesRows"></div>
+        <button type="button" id="dbPipesAddRowBtn" class="btn btn-sm btn-outline-secondary mt-2"><i class="bi bi-plus"></i> Adicionar conexão</button>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" id="dbPipesSaveBtn" class="btn btn-primary">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <script src="{{ url_for('static', filename='vendor/chart.js/chart.umd.js') }}"></script>
 <script>
@@ -109,13 +268,31 @@
   const snapshotUrl = "{{ url_for('dashboard_runtime.snapshot', layout_id=layout.id) }}";
   const setValueUrlTemplate = "{{ url_for('dashboard_runtime.set_value', widget_id=0) }}";
   const readingsUrlTemplate = "{{ url_for('dashboard_runtime.readings', session_id=0) }}";
+  const geometryUrlTemplate = "{{ url_for('dashboard_runtime.update_geometry', widget_id=0) }}";
+  const configUrlTemplate = "{{ url_for('dashboard_runtime.update_config', widget_id=0) }}";
+  const deleteUrlTemplate = "{{ url_for('dashboard_runtime.delete_widget', widget_id=0) }}";
+  const createWidgetUrl = "{{ url_for('dashboard_runtime.create_widget', layout_id=layout.id) }}";
+  {% if layout.plant_id %}
+  const connectionsUrl = "{{ url_for('dashboard_runtime.update_connections', layout_id=layout.id) }}";
+  {% endif %}
   const charts = {};
+  let editMode = false;
+  let lastSnapshot = null;
+
+  function widgetIdUrl(template, id) { return template.replace('/0/', '/' + id + '/'); }
 
   function fmtValue(v, decimals) {
     if (v === null || v === undefined) return '—';
     if (typeof v === 'number' && decimals !== undefined) return v.toFixed(decimals);
     if (typeof v === 'boolean') return v ? 'Ligado' : 'Desligado';
     return String(v);
+  }
+
+  function fillColorForTemp(temp) {
+    if (temp === null || temp === undefined) return '#c0392b';
+    if (temp < 35) return '#3498db';
+    if (temp < 75) return '#e67e22';
+    return '#c0392b';
   }
 
   function renderVessel(el, data) {
@@ -125,6 +302,20 @@
       if (key.indexOf('sensor_temp') !== -1 || key.indexOf('temp') !== -1) tempRole = roles[key];
     });
     el.querySelector('.db-vessel-temp').textContent = tempRole ? fmtValue(tempRole.value, 1) + (tempRole.unit || '') : '—';
+
+    const fillRect = el.querySelector('.db-vessel-fill-rect');
+    if (fillRect) {
+      const fillRoleKey = el.dataset.fillRoleKey;
+      let pct = 0.55; // nível decorativo padrão, sem sensor de volume configurado
+      if (fillRoleKey && roles[fillRoleKey] && typeof roles[fillRoleKey].value === 'number') {
+        const r = roles[fillRoleKey];
+        const min = r.min_value || 0, max = r.max_value || 100;
+        pct = Math.max(0, Math.min(1, (r.value - min) / ((max - min) || 1)));
+      }
+      const totalHeight = 120 - 4;
+      fillRect.setAttribute('y', String(4 + totalHeight * (1 - pct)));
+      fillRect.setAttribute('fill', fillColorForTemp(tempRole ? tempRole.value : null));
+    }
 
     const rolesWrap = el.querySelector('.db-vessel-roles');
     rolesWrap.innerHTML = '';
@@ -137,16 +328,23 @@
       badge.textContent = r.label + (isActuator ? '' : ': ' + fmtValue(r.value, 1) + (r.unit || ''));
       if (isActuator) {
         badge.addEventListener('click', function () {
-          postSetValue(el.dataset.widgetId, !r.value, roleKey);
+          maybeConfirmAndSetValue(el, !r.value, roleKey);
         });
       }
       rolesWrap.appendChild(badge);
     });
   }
 
+  function maybeConfirmAndSetValue(el, value, roleKey) {
+    const config = JSON.parse(el.dataset.configJson || '{}');
+    if (config.confirm_before_actuate && !confirm('Confirma acionar "' + (el.dataset.labelText || 'este atuador') + '"?')) {
+      return;
+    }
+    postSetValue(el.dataset.widgetId, value, roleKey);
+  }
+
   function postSetValue(widgetId, value, roleKey) {
-    const url = setValueUrlTemplate.replace('/0/', '/' + widgetId + '/');
-    fetch(url, {
+    fetch(widgetIdUrl(setValueUrlTemplate, widgetId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ value: value, role_key: roleKey || null }),
@@ -198,8 +396,8 @@
       const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       line.setAttribute('x1', x1); line.setAttribute('y1', y1);
       line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-      line.setAttribute('stroke', conn.flowing ? '#3498db' : '#555');
-      line.setAttribute('stroke-width', '6');
+      line.setAttribute('stroke', conn.flowing ? conn.color : '#555');
+      line.setAttribute('stroke-width', String(conn.width || 6));
       line.setAttribute('stroke-dasharray', conn.flowing ? '10,6' : 'none');
       if (conn.flowing) {
         line.style.animation = 'db-flow 1s linear infinite';
@@ -210,6 +408,7 @@
 
   function refresh() {
     fetch(snapshotUrl).then(function (r) { return r.json(); }).then(function (data) {
+      lastSnapshot = data;
       Object.keys(data.widgets || {}).forEach(function (widgetId) {
         const el = document.getElementById('db-widget-' + widgetId);
         if (el) renderWidget(el, data.widgets[widgetId]);
@@ -225,7 +424,7 @@
       const sessionId = canvas.dataset.sessionId || fallbackSessionId;
       if (!sessionId) return;
       canvas.dataset.inited = '1';
-      const readingsUrl = readingsUrlTemplate.replace('/0/', '/' + sessionId + '/');
+      const readingsUrl = widgetIdUrl(readingsUrlTemplate, sessionId);
       const url = readingsUrl + '?function_name=' + encodeURIComponent(canvas.dataset.functionName) + '&window_minutes=' + canvas.dataset.windowMinutes;
 
       function loadChart() {
@@ -253,11 +452,274 @@
     });
   }
 
+  // ── Modo Edição: arrastar, redimensionar, botão direito ────────────────
+
+  const canvas = document.getElementById('dbCanvas');
+  const editToggle = document.getElementById('dbEditToggle');
+  const editToolbar = document.getElementById('dbEditToolbar');
+
+  editToggle.addEventListener('click', function () {
+    editMode = !editMode;
+    canvas.classList.toggle('db-edit-mode', editMode);
+    editToolbar.classList.toggle('d-none', !editMode);
+    editToggle.innerHTML = editMode
+      ? '<i class="bi bi-unlock-fill"></i> Sair do Modo Edição'
+      : '<i class="bi bi-unlock"></i> Modo Edição';
+    editToggle.classList.toggle('btn-warning', editMode);
+    editToggle.classList.toggle('btn-outline-warning', !editMode);
+    document.querySelectorAll('.db-resize-handle').forEach(function (h) { h.classList.toggle('d-none', !editMode); });
+  });
+
+  // Arrastar
+  let dragState = null;
+  canvas.addEventListener('mousedown', function (e) {
+    if (!editMode) return;
+    const widgetEl = e.target.closest('.db-widget');
+    if (!widgetEl || e.target.classList.contains('db-resize-handle')) return;
+    if (e.target.closest('button, a, input, select')) return; // não arrasta clicando em controle interativo
+    dragState = {
+      el: widgetEl, startX: e.clientX, startY: e.clientY,
+      origLeft: widgetEl.offsetLeft, origTop: widgetEl.offsetTop,
+    };
+    e.preventDefault();
+  });
+
+  let resizeState = null;
+  document.addEventListener('mousedown', function (e) {
+    if (!editMode || !e.target.classList.contains('db-resize-handle')) return;
+    const widgetEl = e.target.closest('.db-widget');
+    resizeState = {
+      el: widgetEl, startX: e.clientX, startY: e.clientY,
+      origWidth: widgetEl.offsetWidth, origHeight: widgetEl.offsetHeight,
+    };
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', function (e) {
+    if (dragState) {
+      const dx = e.clientX - dragState.startX, dy = e.clientY - dragState.startY;
+      dragState.el.style.left = (dragState.origLeft + dx) + 'px';
+      dragState.el.style.top = (dragState.origTop + dy) + 'px';
+    }
+    if (resizeState) {
+      const dx = e.clientX - resizeState.startX, dy = e.clientY - resizeState.startY;
+      resizeState.el.style.width = Math.max(60, resizeState.origWidth + dx) + 'px';
+      resizeState.el.style.height = Math.max(60, resizeState.origHeight + dy) + 'px';
+    }
+  });
+
+  document.addEventListener('mouseup', function () {
+    if (dragState) {
+      const el = dragState.el;
+      fetch(widgetIdUrl(geometryUrlTemplate, el.dataset.widgetId), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ x: el.offsetLeft, y: el.offsetTop }),
+      });
+      dragState = null;
+    }
+    if (resizeState) {
+      const el = resizeState.el;
+      fetch(widgetIdUrl(geometryUrlTemplate, el.dataset.widgetId), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ width: el.offsetWidth, height: el.offsetHeight }),
+      });
+      resizeState = null;
+    }
+  });
+
+  // Botão direito — menu de contexto
+  const contextMenu = document.getElementById('dbContextMenu');
+  let contextTargetEl = null;
+
+  canvas.addEventListener('contextmenu', function (e) {
+    if (!editMode) return;
+    const widgetEl = e.target.closest('.db-widget');
+    if (!widgetEl) return;
+    e.preventDefault();
+    contextTargetEl = widgetEl;
+    contextMenu.style.left = e.clientX + 'px';
+    contextMenu.style.top = e.clientY + 'px';
+    contextMenu.classList.remove('d-none');
+  });
+  document.addEventListener('click', function () { contextMenu.classList.add('d-none'); });
+
+  contextMenu.addEventListener('click', function (e) {
+    const action = e.target.closest('[data-action]');
+    if (!action || !contextTargetEl) return;
+    e.preventDefault();
+    if (action.dataset.action === 'configure') {
+      openConfigModal(contextTargetEl);
+    } else if (action.dataset.action === 'remove') {
+      if (confirm('Remover este widget do dashboard?')) {
+        fetch(widgetIdUrl(deleteUrlTemplate, contextTargetEl.dataset.widgetId), { method: 'POST' })
+          .then(function () { contextTargetEl.remove(); });
+      }
+    }
+  });
+
+  // Modal de Configurações
+  const configModal = new bootstrap.Modal(document.getElementById('dbConfigModal'));
+  const configFieldsByType = {
+    vessel: ['svg_shape', 'fill_role_key'],
+    toggle: ['confirm_before_actuate'],
+    gauge: ['min_max'],
+    digital: ['decimal_places'],
+    alarm_list: [],
+    chart: ['session_window'],
+  };
+
+  function openConfigModal(el) {
+    const type = el.dataset.widgetType;
+    const config = JSON.parse(el.dataset.configJson || '{}');
+    document.getElementById('dbConfigWidgetId').value = el.dataset.widgetId;
+    document.getElementById('dbConfigLabel').value = el.dataset.labelText || '';
+    document.getElementById('dbConfigSvgShape').value = config.svg_shape || 'mash_tun';
+    document.getElementById('dbConfigFillRoleKey').value = config.fill_role_key || '';
+    document.getElementById('dbConfigMin').value = config.min !== undefined ? config.min : '';
+    document.getElementById('dbConfigMax').value = config.max !== undefined ? config.max : '';
+    document.getElementById('dbConfigDecimalPlaces').value = config.decimal_places !== undefined ? config.decimal_places : 1;
+    document.getElementById('dbConfigSessionId').value = config.session_id || '';
+    document.getElementById('dbConfigWindowMinutes').value = config.window_minutes || 60;
+    document.getElementById('dbConfigConfirm').checked = !!config.confirm_before_actuate;
+
+    const visibleFields = configFieldsByType[type] || [];
+    document.querySelectorAll('.db-config-field').forEach(function (field) {
+      field.classList.toggle('d-none', visibleFields.indexOf(field.dataset.field) === -1);
+    });
+    configModal.show();
+  }
+
+  document.getElementById('dbConfigSaveBtn').addEventListener('click', function () {
+    const widgetId = document.getElementById('dbConfigWidgetId').value;
+    const el = document.getElementById('db-widget-' + widgetId);
+    const type = el.dataset.widgetType;
+    const configJson = {};
+    if (type === 'vessel') {
+      configJson.svg_shape = document.getElementById('dbConfigSvgShape').value;
+      configJson.fill_role_key = document.getElementById('dbConfigFillRoleKey').value || null;
+    } else if (type === 'toggle') {
+      configJson.confirm_before_actuate = document.getElementById('dbConfigConfirm').checked;
+    } else if (type === 'gauge') {
+      configJson.min = parseFloat(document.getElementById('dbConfigMin').value) || 0;
+      configJson.max = parseFloat(document.getElementById('dbConfigMax').value) || 100;
+    } else if (type === 'digital') {
+      configJson.decimal_places = parseInt(document.getElementById('dbConfigDecimalPlaces').value, 10) || 0;
+    } else if (type === 'chart') {
+      configJson.session_id = parseInt(document.getElementById('dbConfigSessionId').value, 10) || null;
+      configJson.window_minutes = parseInt(document.getElementById('dbConfigWindowMinutes').value, 10) || 60;
+    }
+    const labelText = document.getElementById('dbConfigLabel').value;
+
+    fetch(widgetIdUrl(configUrlTemplate, widgetId), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label_text: labelText, config_json: configJson }),
+    }).then(function () { window.location.reload(); });
+  });
+
+  // Modal de Adicionar Widget
+  const addWidgetModalEl = document.getElementById('dbAddWidgetModal');
+  const addWidgetModal = new bootstrap.Modal(addWidgetModalEl);
+  document.getElementById('dbAddWidgetBtn').addEventListener('click', function () { addWidgetModal.show(); });
+
+  document.getElementById('dbNewWidgetType').addEventListener('change', function () {
+    const type = this.value;
+    document.getElementById('dbNewWidgetVesselWrap').classList.toggle('d-none', type !== 'vessel');
+    document.getElementById('dbNewWidgetFunctionWrap').classList.toggle('d-none', ['toggle', 'gauge', 'digital', 'chart'].indexOf(type) === -1);
+  });
+
+  document.getElementById('dbAddWidgetSaveBtn').addEventListener('click', function () {
+    const type = document.getElementById('dbNewWidgetType').value;
+    const payload = {
+      widget_type: type, label_text: document.getElementById('dbNewWidgetLabel').value,
+      x: 40, y: 40, width: 220, height: 220,
+    };
+    if (type === 'vessel') {
+      payload.vessel_id = parseInt(document.getElementById('dbNewWidgetVessel').value, 10) || null;
+    } else if (['toggle', 'gauge', 'digital', 'chart'].indexOf(type) !== -1) {
+      payload.device_function_name = document.getElementById('dbNewWidgetFunction').value || null;
+    }
+    fetch(createWidgetUrl, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (data.ok) { window.location.reload(); } else { alert(data.error || 'Erro ao criar widget.'); }
+    });
+  });
+
+  {% if layout.plant_id %}
+  // Modal de Tubulação
+  const pipesModal = new bootstrap.Modal(document.getElementById('dbPipesModal'));
+  const vesselOptions = [
+    {% for vid, v in vessels_by_id.items() %}
+    { id: {{ vid }}, label: {{ v.label_text | tojson }} },
+    {% endfor %}
+  ];
+
+  function pipeRowHtml(conn) {
+    conn = conn || {};
+    const opts = vesselOptions.map(function (v) {
+      return '<option value="' + v.id + '">' + v.label + '</option>';
+    }).join('');
+    return '<div class="row g-2 mb-2 db-pipe-row align-items-end">' +
+      '<div class="col-3"><label class="form-label small">De</label><select class="form-select form-select-sm db-pipe-from">' + opts + '</select></div>' +
+      '<div class="col-3"><label class="form-label small">Para</label><select class="form-select form-select-sm db-pipe-to">' + opts + '</select></div>' +
+      '<div class="col-2"><label class="form-label small">Atuador de fluxo</label><input class="form-control form-control-sm db-pipe-function" value="' + (conn.flow_function_name || '') + '"></div>' +
+      '<div class="col-2"><label class="form-label small">Cor</label><input type="color" class="form-control form-control-sm form-control-color db-pipe-color" value="' + (conn.color || '#3498db') + '"></div>' +
+      '<div class="col-1"><label class="form-label small">Esp.</label><input type="number" class="form-control form-control-sm db-pipe-width" value="' + (conn.width || 6) + '"></div>' +
+      '<div class="col-1"><button type="button" class="btn btn-sm btn-outline-danger db-pipe-remove"><i class="bi bi-x"></i></button></div>' +
+      '</div>';
+  }
+
+  function addPipeRow(conn) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = pipeRowHtml(conn);
+    const row = wrap.firstElementChild;
+    if (conn && conn.from_vessel_id) row.querySelector('.db-pipe-from').value = conn.from_vessel_id;
+    if (conn && conn.to_vessel_id) row.querySelector('.db-pipe-to').value = conn.to_vessel_id;
+    row.querySelector('.db-pipe-remove').addEventListener('click', function () { row.remove(); });
+    document.getElementById('dbPipesRows').appendChild(row);
+  }
+
+  document.getElementById('dbEditPipesBtn').addEventListener('click', function () {
+    document.getElementById('dbPipesRows').innerHTML = '';
+    const existing = (lastSnapshot && lastSnapshot.connections) || [];
+    if (existing.length) {
+      existing.forEach(function (c) { addPipeRow(c); });
+    } else {
+      addPipeRow(null);
+    }
+    pipesModal.show();
+  });
+  document.getElementById('dbPipesAddRowBtn').addEventListener('click', function () { addPipeRow(null); });
+
+  document.getElementById('dbPipesSaveBtn').addEventListener('click', function () {
+    const connections = Array.from(document.querySelectorAll('.db-pipe-row')).map(function (row) {
+      return {
+        from_vessel_id: parseInt(row.querySelector('.db-pipe-from').value, 10),
+        to_vessel_id: parseInt(row.querySelector('.db-pipe-to').value, 10),
+        flow_function_name: row.querySelector('.db-pipe-function').value || null,
+        color: row.querySelector('.db-pipe-color').value,
+        width: parseInt(row.querySelector('.db-pipe-width').value, 10) || 6,
+      };
+    });
+    fetch(connectionsUrl, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ connections: connections }),
+    }).then(function () { pipesModal.hide(); refresh(); });
+  });
+  {% endif %}
+
   refresh();
   setInterval(refresh, 3000);
 })();
 </script>
 <style>
 @keyframes db-flow { to { stroke-dashoffset: -16; } }
+.db-edit-mode .db-widget { cursor: move; outline: 1px dashed rgba(255,255,255,.25); }
+.db-resize-handle {
+  position: absolute; right: -4px; bottom: -4px; width: 14px; height: 14px;
+  background: #f0932b; border-radius: 3px; cursor: nwse-resize; z-index: 999;
+}
+#dbContextMenu.d-none { display: none !important; }
+#dbContextMenu:not(.d-none) { display: block; }
 </style>
 {% endblock %}

@@ -20,6 +20,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from core.db import db
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_mapping import BrewPlantMapping
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_vessel import BrewPlantVessel
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
@@ -112,6 +113,8 @@ def get_plant_connections(layout: DashboardLayout) -> list[dict]:
             "to_vessel_id": conn.get("to_vessel_id"),
             "flow_function_name": flow_function_name,
             "flowing": flowing,
+            "color": conn.get("color") or "#3498db",
+            "width": conn.get("width") or 6,
         })
     return out
 
@@ -191,3 +194,91 @@ def get_session_readings(session_id: int, function_name: str, window_minutes: in
         if (log.detail_json or {}).get("function_name") == function_name
     ]
     return {"function_name": function_name, "points": points}
+
+
+# ── Editor visual (conversa — CraftBeerPi como referência): modo edição,   ──
+# ── arrastar/redimensionar, botão direito (configurações/remover), pipes  ──
+
+_VALID_WIDGET_TYPES = ("vessel", "toggle", "gauge", "digital", "alarm_list", "chart")
+_VALID_SVG_SHAPES = ("mash_tun", "boil_kettle", "hlt", "fermenter", "whirlpool", "generic")
+
+
+class DashboardEditorError(Exception):
+    pass
+
+
+def update_widget_geometry(widget: DashboardWidget, *, x=None, y=None, width=None, height=None, rotation=None) -> None:
+    """Arrastar/redimensionar no editor — só a posição/tamanho, nunca o
+    tipo/referência do widget (isso é 'Configurações', não 'mover')."""
+    if x is not None:
+        widget.x = x
+    if y is not None:
+        widget.y = y
+    if width is not None:
+        widget.width = max(40, width)  # nunca deixa colapsar a 0 por um drag descuidado
+    if height is not None:
+        widget.height = max(40, height)
+    if rotation is not None:
+        widget.rotation = rotation
+    db.session.commit()
+
+
+def update_widget_config(widget: DashboardWidget, *, label_text=None, config_json=None) -> None:
+    """'Configurações' do menu de botão direito — label, e o
+    config_json específico do tipo (inclui o comportamento de
+    acionamento manual: `confirm_before_actuate`, `svg_shape` pro tipo
+    vessel, etc.). Nunca mexe em widget_type/vessel_id/
+    device_function_name — trocar a REFERÊNCIA de um widget já
+    existente é reaproveitar o CRUD normal (`/dashboard-widgets/<id>`),
+    não o editor visual."""
+    if label_text is not None:
+        widget.label_text = label_text
+    if config_json is not None:
+        merged = dict(widget.config_json or {})
+        merged.update(config_json)
+        widget.config_json = merged
+    db.session.commit()
+
+
+def create_widget_from_editor(layout: DashboardLayout, *, widget_type: str, label_text: str,
+                               x: int, y: int, width: int = 220, height: int = 220,
+                               vessel_id: Optional[int] = None,
+                               device_function_name: Optional[str] = None) -> DashboardWidget:
+    if widget_type not in _VALID_WIDGET_TYPES:
+        raise DashboardEditorError(f"Tipo de widget inválido: {widget_type}")
+
+    max_z = db.session.query(db.func.max(DashboardWidget.z_index)).filter_by(
+        layout_id=layout.id, is_deleted=False,
+    ).scalar() or 0
+
+    widget = DashboardWidget(
+        layout_id=layout.id, widget_type=widget_type, label_text=label_text,
+        x=x, y=y, width=width, height=height, z_index=max_z + 1,
+        vessel_id=vessel_id if widget_type == "vessel" else None,
+        device_function_name=device_function_name if widget_type in ("toggle", "gauge", "digital", "chart") else None,
+    )
+    db.session.add(widget)
+    db.session.commit()
+    return widget
+
+
+def remove_widget_from_editor(widget: DashboardWidget) -> None:
+    """Soft-delete — mesmo padrão do resto do projeto (skill 02).
+    Reaproveitável (aparece de novo se restaurado pela tela de CRUD,
+    já que o editor visual não tem lixeira própria)."""
+    widget.is_deleted = True
+    widget.deleted_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+
+def update_plant_connections(layout: DashboardLayout, connections: list[dict]) -> None:
+    """Editor de tubulação — sobrescreve `plant.plant_schema_json`
+    inteiro (lista pequena, não vale a pena granularizar por conexão
+    individual). Cada item aceita `color`/`width` além de
+    `from_vessel_id`/`to_vessel_id`/`flow_function_name` (mesmo
+    formato já usado por `get_plant_connections()` e pelo importador
+    do bridge — só ganham 2 chaves novas, opcionais)."""
+    if not layout.plant_id or not layout.plant:
+        raise DashboardEditorError("Este layout não está associado a nenhuma Planta.")
+    layout.plant.plant_schema_json = {"connections": connections}
+    db.session.commit()

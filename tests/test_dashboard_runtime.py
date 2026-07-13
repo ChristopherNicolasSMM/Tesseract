@@ -386,3 +386,212 @@ def test_readings_rota_web_exige_function_name(app, client):
 
     resp = client.get(f"/brewstation/dashboards/sessions/{session_id}/readings")
     assert resp.status_code == 400
+
+
+# ── Editor visual (conversa — CraftBeerPi como referência) ──────────────────
+
+def test_update_geometry_muda_posicao_e_tamanho(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Editor")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="digital", x=10, y=10, width=100, height=100)
+        db.session.add(widget)
+        db.session.commit()
+        widget_id = widget.id
+
+    resp = client.post(f"/brewstation/dashboards/widgets/{widget_id}/geometry",
+                        json={"x": 250, "y": 180, "width": 300, "height": 260})
+    assert resp.status_code == 200
+    assert resp.get_json()["ok"] is True
+
+    with app.app_context():
+        widget = DashboardWidget.query.get(widget_id)
+        assert (widget.x, widget.y, widget.width, widget.height) == (250, 180, 300, 260)
+
+
+def test_update_geometry_nao_deixa_colapsar_abaixo_de_40px(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Editor Min")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="digital", width=200, height=200)
+        db.session.add(widget)
+        db.session.commit()
+        widget_id = widget.id
+
+    client.post(f"/brewstation/dashboards/widgets/{widget_id}/geometry", json={"width": 5, "height": 5})
+    with app.app_context():
+        widget = DashboardWidget.query.get(widget_id)
+        assert widget.width == 40
+        assert widget.height == 40
+
+
+def test_update_config_muda_label_e_mescla_config_json(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Config")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="vessel", label_text="Antigo",
+                                  config_json={"svg_shape": "mash_tun", "manter": "isso"})
+        db.session.add(widget)
+        db.session.commit()
+        widget_id = widget.id
+
+    resp = client.post(f"/brewstation/dashboards/widgets/{widget_id}/config", json={
+        "label_text": "Mash Tun Novo", "config_json": {"svg_shape": "fermenter", "confirm_before_actuate": True},
+    })
+    assert resp.status_code == 200
+
+    with app.app_context():
+        widget = DashboardWidget.query.get(widget_id)
+        assert widget.label_text == "Mash Tun Novo"
+        assert widget.config_json["svg_shape"] == "fermenter"
+        assert widget.config_json["confirm_before_actuate"] is True
+        assert widget.config_json["manter"] == "isso"  # merge, não substitui tudo
+
+
+def test_create_widget_via_editor(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Criar")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.post(f"/brewstation/dashboards/{layout_id}/widgets", json={
+        "widget_type": "toggle", "label_text": "Bomba Nova", "x": 60, "y": 60,
+        "device_function_name": "pump_x",
+    })
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["ok"] is True
+
+    with app.app_context():
+        widget = DashboardWidget.query.get(body["widget_id"])
+        assert widget.widget_type == "toggle"
+        assert widget.label_text == "Bomba Nova"
+        assert widget.device_function_name == "pump_x"
+
+
+def test_create_widget_tipo_invalido_falha(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Criar Invalido")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.post(f"/brewstation/dashboards/{layout_id}/widgets", json={
+        "widget_type": "nao_existe", "label_text": "X", "x": 0, "y": 0,
+    })
+    assert resp.status_code == 400
+    assert resp.get_json()["ok"] is False
+
+
+def test_delete_widget_via_editor_e_soft_delete(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Remover")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="digital")
+        db.session.add(widget)
+        db.session.commit()
+        widget_id = widget.id
+
+    resp = client.post(f"/brewstation/dashboards/widgets/{widget_id}/delete")
+    assert resp.status_code == 200
+    assert resp.get_json()["ok"] is True
+
+    with app.app_context():
+        widget = DashboardWidget.query.get(widget_id)
+        assert widget.is_deleted is True
+        assert widget.deleted_at is not None
+
+
+def test_update_connections_sobrescreve_plant_schema_json(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Pipes Editor")
+        db.session.add(plant)
+        db.session.commit()
+        v1 = BrewPlantVessel(plant_id=plant.id, vessel_type="hlt", label_text="HLT")
+        v2 = BrewPlantVessel(plant_id=plant.id, vessel_type="mash_tun", label_text="Mash")
+        db.session.add_all([v1, v2])
+        db.session.commit()
+        layout = DashboardLayout(name="L Pipes", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+        layout_id, v1_id, v2_id, plant_id = layout.id, v1.id, v2.id, plant.id
+
+    resp = client.post(f"/brewstation/dashboards/{layout_id}/plant-connections", json={
+        "connections": [{"from_vessel_id": v1_id, "to_vessel_id": v2_id, "flow_function_name": "bomba1", "color": "#ff0000", "width": 10}],
+    })
+    assert resp.status_code == 200
+    assert resp.get_json()["ok"] is True
+
+    with app.app_context():
+        plant = BrewPlant.query.get(plant_id)
+        conns = plant.plant_schema_json["connections"]
+        assert len(conns) == 1
+        assert conns[0]["color"] == "#ff0000"
+        assert conns[0]["width"] == 10
+
+
+def test_update_connections_sem_plant_id_falha(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Sem Planta")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.post(f"/brewstation/dashboards/{layout_id}/plant-connections", json={"connections": []})
+    assert resp.status_code == 400
+
+
+def test_snapshot_expoe_color_e_width_da_conexao(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Snapshot Pipes")
+        db.session.add(plant)
+        db.session.commit()
+        v1 = BrewPlantVessel(plant_id=plant.id, vessel_type="hlt", label_text="HLT2")
+        v2 = BrewPlantVessel(plant_id=plant.id, vessel_type="mash_tun", label_text="Mash2")
+        db.session.add_all([v1, v2])
+        db.session.commit()
+        plant.plant_schema_json = {"connections": [
+            {"from_vessel_id": v1.id, "to_vessel_id": v2.id, "flow_function_name": None, "color": "#00ff00", "width": 3},
+        ]}
+        db.session.commit()
+        layout = DashboardLayout(name="L Snapshot Pipes", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/snapshot")
+    conns = resp.get_json()["connections"]
+    assert conns[0]["color"] == "#00ff00"
+    assert conns[0]["width"] == 3
+
+
+def test_view_renderiza_svg_do_vasilhame(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L SVG")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="vessel", label_text="Caldeira")
+        db.session.add(widget)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "db-vessel-svg" in html
+    assert "db-vessel-fill-rect" in html
+    assert "dbEditToggle" in html  # botão de modo edição presente

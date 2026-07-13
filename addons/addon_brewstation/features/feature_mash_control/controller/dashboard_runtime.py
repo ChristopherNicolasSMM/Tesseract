@@ -103,3 +103,83 @@ def readings(session_id: int):
     if not function_name:
         return jsonify({"error": "function_name é obrigatório."}), 400
     return jsonify(svc.get_session_readings(session_id, function_name, window_minutes))
+
+
+# ── Editor visual (conversa — CraftBeerPi como referência) ─────────────────
+
+@dashboard_runtime_bp.route("/widgets/<int:widget_id>/geometry", methods=["POST"])
+@login_required
+@permission_required("dashboard_widgets.update")
+def update_geometry(widget_id: int):
+    widget = DashboardWidget.query.get(widget_id)
+    if not widget or widget.is_deleted:
+        return jsonify({"ok": False, "error": "Widget não encontrado."}), 404
+    payload = request.get_json(silent=True) or {}
+    svc.update_widget_geometry(
+        widget,
+        x=payload.get("x"), y=payload.get("y"),
+        width=payload.get("width"), height=payload.get("height"),
+        rotation=payload.get("rotation"),
+    )
+    return jsonify({"ok": True})
+
+
+@dashboard_runtime_bp.route("/widgets/<int:widget_id>/config", methods=["POST"])
+@login_required
+@permission_required("dashboard_widgets.update")
+def update_config(widget_id: int):
+    widget = DashboardWidget.query.get(widget_id)
+    if not widget or widget.is_deleted:
+        return jsonify({"ok": False, "error": "Widget não encontrado."}), 404
+    payload = request.get_json(silent=True) or {}
+    svc.update_widget_config(
+        widget, label_text=payload.get("label_text"), config_json=payload.get("config_json"),
+    )
+    return jsonify({"ok": True})
+
+
+@dashboard_runtime_bp.route("/<int:layout_id>/widgets", methods=["POST"])
+@login_required
+@permission_required("dashboard_widgets.create")
+def create_widget(layout_id: int):
+    layout = DashboardLayout.query.get(layout_id)
+    if not layout or layout.is_deleted:
+        return jsonify({"ok": False, "error": "Layout não encontrado."}), 404
+    payload = request.get_json(silent=True) or {}
+    try:
+        widget = svc.create_widget_from_editor(
+            layout,
+            widget_type=payload.get("widget_type"), label_text=payload.get("label_text") or "",
+            x=payload.get("x", 40), y=payload.get("y", 40),
+            width=payload.get("width", 220), height=payload.get("height", 220),
+            vessel_id=payload.get("vessel_id"), device_function_name=payload.get("device_function_name"),
+        )
+    except svc.DashboardEditorError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    return jsonify({"ok": True, "widget_id": widget.id})
+
+
+@dashboard_runtime_bp.route("/widgets/<int:widget_id>/delete", methods=["POST"])
+@login_required
+@permission_required("dashboard_widgets.trash")
+def delete_widget(widget_id: int):
+    widget = DashboardWidget.query.get(widget_id)
+    if not widget or widget.is_deleted:
+        return jsonify({"ok": False, "error": "Widget não encontrado."}), 404
+    svc.remove_widget_from_editor(widget)
+    return jsonify({"ok": True})
+
+
+@dashboard_runtime_bp.route("/<int:layout_id>/plant-connections", methods=["POST"])
+@login_required
+@permission_required("dashboard_layouts.update")
+def update_connections(layout_id: int):
+    layout = DashboardLayout.query.get(layout_id)
+    if not layout or layout.is_deleted:
+        return jsonify({"ok": False, "error": "Layout não encontrado."}), 404
+    payload = request.get_json(silent=True) or {}
+    try:
+        svc.update_plant_connections(layout, payload.get("connections") or [])
+    except svc.DashboardEditorError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    return jsonify({"ok": True})
