@@ -6,11 +6,12 @@ Vasilhame de uma planta (mash tun, boil kettle, fermenter...).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required
+from annotations import label, plural, required, display_field
 
 
 @label("Vasilhame")
 @plural("brew_plant_vessels")
+@display_field("label_text")
 @required("vessel_type", message="Tipo do vasilhame é obrigatório")
 @required("label_text", message="Identificação do vasilhame é obrigatória")
 class BrewPlantVessel(db.Model):

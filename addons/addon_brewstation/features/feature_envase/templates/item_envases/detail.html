@@ -19,7 +19,8 @@
         <div class="col-md-4">
           <label class="form-label">{{ field.replace('_', ' ').title() }}{% if fv.get('required') %} <span class="text-danger">*</span>{% endif %}</label>
           {% if field in weak_ref_fields and weak_ref_options.get(field) %}
-          <div class="weakref-combo" data-weakref-source="{{ weak_ref_options[field] }}">
+          <div class="weakref-combo" data-weakref-source="{{ weak_ref_options[field] }}"
+               {% if weak_ref_value_fields.get(field) %}data-weakref-value-field="{{ weak_ref_value_fields[field] }}"{% endif %}>
             <input type="hidden" name="{{ field }}" class="weakref-combo-value" value="{{ data.get(field) if data.get(field) is not none else '' }}">
             <input type="text" class="form-control weakref-combo-search" autocomplete="off"
                    {% if fv.get('required') %}required{% endif %}

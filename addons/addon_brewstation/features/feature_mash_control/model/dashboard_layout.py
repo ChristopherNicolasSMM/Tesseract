@@ -9,12 +9,16 @@ original tinha; reavaliar quando a Fase 7 chegar.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required
+from annotations import label, plural, required, display_field, weak_ref
 
 
 @label("Layout de Dashboard")
 @plural("dashboard_layouts")
+@display_field("name")
 @required("name", message="Nome do layout é obrigatório")
+@weak_ref("plant_id",
+          resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_plant",
+          options="brew_plants")
 class DashboardLayout(db.Model):
     __tablename__ = "layout"
 

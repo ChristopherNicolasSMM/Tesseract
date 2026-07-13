@@ -8,11 +8,12 @@ usuário. Sem FK — é a tabela "raiz" desta Feature.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length, choices
+from annotations import label, plural, required, max_length, choices, display_field
 
 
 @label("Função de Dispositivo")
 @plural("device_functions")
+@display_field("display_name")
 @choices("category", label="Categoria")
 @required("name", message="Nome interno da função é obrigatório")
 @required("category", message="Categoria é obrigatória (sensor/actuator/hybrid)")

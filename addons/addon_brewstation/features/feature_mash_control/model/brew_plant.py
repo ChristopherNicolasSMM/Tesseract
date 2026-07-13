@@ -7,11 +7,12 @@ desta leva.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required
+from annotations import label, plural, required, display_field
 
 
 @label("Planta de Brassagem")
 @plural("brew_plants")
+@display_field("name")
 @required("name", message="Nome da planta é obrigatório")
 class BrewPlant(db.Model):
     __tablename__ = "plant"

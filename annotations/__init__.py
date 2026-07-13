@@ -47,20 +47,41 @@ def display_field(value: str):
     return decorator
 
 
-def weak_ref(field: str, resolver: str, options: str | None = None):
+def weak_ref(field: str, resolver: str, options: str | None = None, value_field: str | None = None):
     """
     Marca `field` como referência fraca (skill 02 — sem FK real,
-    cross-Addon) resolvida em runtime por `resolver`.
+    cross-Addon) resolvida em runtime por `resolver`. Também usada
+    (skill 11, extensão) pra FK real DENTRO da mesma Feature/Addon
+    quando só se quer o combo de busca da UI — a constraint de banco
+    continua real nesse caso, isto é puramente cosmético/formulário.
 
-    `resolver` é um caminho pontuado até uma função `(id) -> dict | None`
+    `resolver` é um caminho pontuado até uma função `(valor) -> dict | None`
     que devolve, no mínimo, a chave "display" (calculada no lado de
     quem possui o model alvo, a partir do @display_field dele — nunca
-    hardcoded aqui). Ver docs/skills/11-referencia-fraca-e-display-field.md.
+    hardcoded aqui). `valor` é o que estiver em `field` — normalmente
+    um id inteiro, mas pode ser uma string (ex.: `device_function_name`,
+    que guarda o `name` de outro Addon, skill 02 — resolver por nome é
+    a convenção nesse caso, nunca id interno). Ver
+    docs/skills/11-referencia-fraca-e-display-field.md.
 
     `options` (opcional): o @plural do model alvo — habilita o combo
     de busca assíncrono (`/api/options/<options>`) no formulário de
     detalhe gerado, no lugar do `<input>` de id cru. Sem isso, o campo
     mostra só o nome resolvido como texto de apoio ao lado do input.
+
+    `value_field` (opcional, extensão desta rodada): por padrão o
+    combo guarda o `id` (PK) do registro escolhido no campo do
+    formulário — é o caso comum (`material_id` guardando
+    `Material.id`). Quando `field` guarda outra coluna do alvo em vez
+    do id (ex.: `device_function_name` guardando `DeviceFunction.name`,
+    não `DeviceFunction.id`), `value_field` diz qual coluna do alvo
+    usar como valor armazenado — o `/api/options` valida que é uma
+    coluna real do model alvo antes de aceitar (skill 11 §6).
+    Diferentes `@weak_ref` podem apontar pro MESMO `options` com
+    `value_field` diferente (ex.: `DeviceActor.function_id` usa o
+    padrão "id"; `DashboardWidget.device_function_name` usa "name" —
+    os dois miram `DeviceFunction`, cada consumidor guarda o que
+    precisa, sem conflito).
 
     Uso no model:
         @weak_ref("material_id",
@@ -75,7 +96,9 @@ def weak_ref(field: str, resolver: str, options: str | None = None):
     def decorator(cls):
         if not hasattr(cls, '_weak_refs'):
             cls._weak_refs = []
-        cls._weak_refs.append({"field": field, "resolver": resolver, "options": options})
+        cls._weak_refs.append({
+            "field": field, "resolver": resolver, "options": options, "value_field": value_field,
+        })
         return cls
     return decorator
 

@@ -2249,3 +2249,88 @@ não regredir. Suíte completa do projeto: **569/569 passando**.
 
 Nenhuma mudança de schema — patch só em `core/logging_config.py` +
 `run.py`.
+
+## Matchcode (combo de busca) para os campos de FK/referência do Dashboard + device_manager: CONCLUÍDO
+
+Pedido direto (capturas de tela de `dashboard-widgets`/`dashboard-layouts`
+mostrando `Layout Id`/`Vessel Id`/`Plant Id`/`Device Function Name`
+como `<input>` de texto cru): trocar por combo de busca, igual já
+existia pra `Malte.material_id` etc. (skill 11). Extensão da skill 11,
+não mecanismo novo.
+
+### Achado 1 — o combo nunca existiu no formulário de CRIAÇÃO
+
+A skill 11 original só cobria a tela de **edição** (`detail.html.j2`)
+e a **listagem** (`manage.html.j2`, coluna) — o formulário de "+ Novo
+registro" (inline, no topo do `manage.html.j2`) sempre foi `<input>`
+cru pra TODO campo, mesmo os 6 já cobertos por `@weak_ref` desde a
+skill 11 original (`Malte`, `Lupulo`, `Levedura`, `ItemEnvase`,
+`RecipeIngredient`, `IngredientMapping`). Corrigido de uma vez pra
+todo mundo — `manage.html.j2` ganhou o mesmo bloco de combo que
+`detail.html.j2` já tinha, mais o `<script src=".../weak_ref_combo.js">`
+que faltava lá.
+
+### Achado 2 — `device_function_name` guarda `name`, não `id`
+
+O mecanismo original de `/api/options` sempre devolvia `obj.id` (PK)
+como valor do combo — funciona pra `material_id` (guarda
+`Material.id`), mas `device_function_name` guarda
+`DeviceFunction.name` (string, skill 02 — referência fraca cross-Addon
+sempre por nome, nunca id interno). `@weak_ref` ganhou parâmetro
+`value_field` opcional (default `None` = comportamento antigo
+inalterado): `/api/options/<plural>?value_field=name` devolve a
+coluna pedida em vez do `id` — **validada contra as colunas reais do
+model alvo** antes de aceitar (nunca expõe atributo arbitrário).
+Permite inclusive dois `@weak_ref` diferentes mirando o MESMO alvo com
+`value_field` diferente (`DeviceActor.function_id` usa o padrão "id";
+`DashboardWidget.device_function_name` usa "name" — sem conflito,
+cada combo pede o que precisa).
+
+### Campos cobertos
+
+| Model | Campo | Alvo | `value_field` |
+|---|---|---|---|
+| `DashboardLayout` | `plant_id` | `BrewPlant` | id (padrão) |
+| `DashboardWidget` | `layout_id` | `DashboardLayout` | id (padrão) |
+| `DashboardWidget` | `vessel_id` | `BrewPlantVessel` | id (padrão) |
+| `DashboardWidget` | `device_function_name` | `DeviceFunction` | **name** |
+| `BrewPlantMapping` | `vessel_id` | `BrewPlantVessel` | id (padrão) |
+| `BrewPlantMapping` | `device_function_name` | `DeviceFunction` | **name** — literalmente o "de-para de sensores" |
+| `DeviceActor` | `device_id` | `DeviceMetadata` | id (padrão) |
+| `DeviceActor` | `function_id` | `DeviceFunction` | id (padrão) |
+
+`BrewPlant`/`BrewPlantVessel`/`DashboardLayout`/`DeviceMetadata`/
+`DeviceFunction` ganharam `@display_field` (novo). Resolvers novos:
+`mash_control_lookups.py` (get_plant/get_vessel/get_layout, mesma
+Feature), `device_metadata_lookup.py` (novo arquivo, get_device_metadata),
+`device_function_lookup.get_function_by_id` (novo, complementa o
+`get_function_by_name` já existente — ambos ganharam a chave
+`"display"` obrigatória que faltava em `get_function_by_name`).
+
+**Nota de arquitetura**: `plant_id`/`layout_id`/`vessel_id`/`device_id`/
+`function_id` são FK **real** (mesmo Addon/Feature, skill 02 permite).
+Reaproveitar `@weak_ref` pra esses casos é deliberado — o combo é só
+UI/formulário, não upgrade nem downgrade da constraint de banco; criar
+um segundo mecanismo só pra "FK real com combo" duplicaria ~90% do
+código já existente.
+
+### Regeneração
+
+4 entidades regeneradas via `python run.py generate --overwrite`
+(mesmo precedente da skill 11 original): `DashboardLayout`,
+`DashboardWidget`, `BrewPlantMapping`, `DeviceActor`. Como o template
+`manage.html.j2` mudou globalmente, as 6 entidades antigas da skill 11
+(`Malte`, `Lupulo`, `Levedura`, `ItemEnvase`, `RecipeIngredient`,
+`IngredientMapping`) também foram regeneradas — ganham o combo no
+formulário de criação de graça (Achado 1 acima), fechando o mesmo gap
+pra elas também.
+
+Testes: `tests/test_weak_ref_value_field.py` (18 casos — `value_field`
+aceito/validado/inválido cai pro padrão, `display_field` nos 5 alvos,
+os resolvers novos com a chave `display`, `@weak_ref` declarado
+certo em cada model, combo aparecendo nos 3 formulários de criação
+verificados, POST continua persistindo certo). Regressão:
+`tests/test_weak_ref_display_field.py` (11 casos, os 6 usos antigos)
+sem nenhuma mudança de comportamento. Suíte completa do projeto:
+**587/587 passando**. Sem migration — nenhuma coluna nova, só
+anotação + regeneração de tela.

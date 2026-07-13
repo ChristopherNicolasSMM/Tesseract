@@ -17,10 +17,25 @@
       <div class="collapse" id="novoRegistroForm">
         <form method="post" action="{{ url_for('brew_plant_mappings.create') }}" class="row g-3" id="createForm">
           {% for field in fields %}
+          {% set fv = field_html_validations.get(field, {}) %}
           <div class="col-md-4">
-            <label class="form-label">{{ field.replace('_', ' ').title() }}</label>
-            <input type="text" name="{{ field }}" class="form-control"
+            <label class="form-label">{{ field.replace('_', ' ').title() }}{% if fv.get('required') %} <span class="text-danger">*</span>{% endif %}</label>
+            {% if field in weak_ref_fields and weak_ref_options.get(field) %}
+            <div class="weakref-combo" data-weakref-source="{{ weak_ref_options[field] }}"
+                 {% if weak_ref_value_fields.get(field) %}data-weakref-value-field="{{ weak_ref_value_fields[field] }}"{% endif %}>
+              <input type="hidden" name="{{ field }}" class="weakref-combo-value" value="">
+              <input type="text" class="form-control weakref-combo-search" autocomplete="off"
+                     {% if fv.get('required') %}required{% endif %} placeholder="Buscar...">
+              <ul class="list-group weakref-combo-results"></ul>
+            </div>
+            {% else %}
+            <input type="{{ 'number' if fv.get('min_value') is not none else 'text' }}" name="{{ field }}" class="form-control"
+                   {% if fv.get('required') %}required{% endif %}
+                   {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
+                   {% if fv.get('minlength') %}minlength="{{ fv['minlength'] }}"{% endif %}
+                   {% if fv.get('min_value') is not none %}min="{{ fv['min_value'] }}"{% endif %}
                    {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+            {% endif %}
           </div>
           {% endfor %}
           <div class="col-12">
@@ -107,7 +122,7 @@
             {% set data = item.to_dict() %}
             <tr>
               <td>{{ item.id }}</td>
-              {% for col in visible_columns %}<td>{{ data.get(col) }}</td>{% endfor %}
+              {% for col in visible_columns %}<td>{% if col in weak_ref_fields %}{{ weak_ref_display.get(item.id, {}).get(col) or data.get(col) }}{% else %}{{ data.get(col) }}{% endif %}</td>{% endfor %}
               <td>
                 <a href="{{ url_for('brew_plant_mappings.detail', id=item.id) }}" class="btn btn-sm btn-outline-primary">Ver / Editar</a>
                 <form method="post" action="{{ url_for('brew_plant_mappings.trash', id=item.id) }}" class="d-inline" onsubmit="return confirm('Mover para a lixeira?');">
@@ -138,6 +153,7 @@
 </section>
 
 <script src="{{ url_for('static', filename='js/rule_engine.js') }}"></script>
+<script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>
 <script>
   document.getElementById('createForm').addEventListener('submit', function (e) {
     if (!RuleEngine.validateForm(this)) {

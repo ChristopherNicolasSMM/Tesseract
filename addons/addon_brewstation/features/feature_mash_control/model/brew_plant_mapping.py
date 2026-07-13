@@ -9,12 +9,18 @@ service (services.device_function_lookup.get_function_by_name).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required
+from annotations import label, plural, required, weak_ref
 
 
 @label("Mapeamento de Equipamento")
 @plural("brew_plant_mappings")
 @required("role_key", message="Papel (role_key) é obrigatório")
+@weak_ref("vessel_id",
+          resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_vessel",
+          options="brew_plant_vessels")
+@weak_ref("device_function_name",
+          resolver="addons.addon_device_manager.root.services.device_function_lookup.get_function_by_name",
+          options="device_functions", value_field="name")
 class BrewPlantMapping(db.Model):
     __tablename__ = "plant_mapping"
 

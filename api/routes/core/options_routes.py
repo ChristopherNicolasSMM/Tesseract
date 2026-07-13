@@ -65,6 +65,18 @@ def get_options(plural: str):
     search = (request.args.get("search") or "").strip()
     page = request.args.get("page", 1, type=int)
 
+    # Extensão skill 11 §6 (achado real — Dashboard de Brassagem):
+    # por padrão o combo devolve o `id` (PK) do alvo, mas o campo que
+    # referencia pode guardar outra coluna de negócio (ex.:
+    # DashboardWidget.device_function_name guarda DeviceFunction.name,
+    # não DeviceFunction.id — skill 02, referência fraca cross-Addon
+    # sempre por nome, nunca id interno). `value_field` só é aceito se
+    # for uma coluna REAL do model alvo — nunca um atributo arbitrário.
+    value_field = request.args.get("value_field") or "id"
+    valid_columns = {c.name for c in model_cls.__table__.columns}
+    if value_field not in valid_columns:
+        value_field = "id"
+
     query = model_cls.query
     if hasattr(model_cls, "is_deleted"):
         query = query.filter_by(is_deleted=False)
@@ -77,7 +89,10 @@ def get_options(plural: str):
 
     pagination = query.paginate(page=page, per_page=_PER_PAGE, error_out=False)
     results = [
-        {"id": obj.id, "text": getattr(obj, display_field, None) or f"#{obj.id}"}
+        {
+            "id": getattr(obj, value_field, None) if getattr(obj, value_field, None) is not None else obj.id,
+            "text": getattr(obj, display_field, None) or f"#{obj.id}",
+        }
         for obj in pagination.items
     ]
     return jsonify({"results": results, "pagination": {"more": pagination.has_next}})

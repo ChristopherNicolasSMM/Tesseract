@@ -1,5 +1,5 @@
 """
-addons/addon_brewstation/features/feature_device_manager/services/device_actor_service.py
+addons/addon_device_manager/root/services/device_actor_service.py
 
 Gerado pelo CrudGen — NÃO editar diretamente. Customizações via hooks
 (device_actor_service_hooks.py, nunca sobrescrito).

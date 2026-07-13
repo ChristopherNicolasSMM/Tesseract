@@ -1,5 +1,5 @@
 """
-addons/addon_brewstation/features/feature_device_manager/api/routes/device_actors_routes.py
+addons/addon_device_manager/root/api/routes/device_actors_routes.py
 
 API JSON — gerado pelo CrudGen. NÃO editar diretamente.
 Customizações via device_actors_routes_hooks.py (nunca sobrescrito).

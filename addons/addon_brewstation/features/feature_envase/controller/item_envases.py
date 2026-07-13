@@ -204,6 +204,8 @@ def manage():
         field_rules=_get_field_rules(),
         weak_ref_fields=_WEAK_REF_FIELDS,
         weak_ref_display={item.id: _resolve_weak_ref_display(item) for item in items},
+        weak_ref_options={wr["field"]: wr["options"] for wr in _WEAK_REFS if wr["options"]},
+        weak_ref_value_fields={wr["field"]: wr["value_field"] for wr in _WEAK_REFS if wr.get("value_field")},
         field_html_validations=_FIELD_HTML_VALIDATIONS,
     )
 
@@ -293,6 +295,7 @@ def detail(id: int):
         weak_ref_fields=_WEAK_REF_FIELDS,
         weak_ref_display=_resolve_weak_ref_display(item),
         weak_ref_options={wr["field"]: wr["options"] for wr in _WEAK_REFS if wr["options"]},
+        weak_ref_value_fields={wr["field"]: wr["value_field"] for wr in _WEAK_REFS if wr.get("value_field")},
         field_html_validations=_FIELD_HTML_VALIDATIONS,
     )
 

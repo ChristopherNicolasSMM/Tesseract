@@ -9,12 +9,21 @@ Function do addon_device_manager. NUNCA FK direta entre Addons
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required
+from annotations import label, plural, required, weak_ref
 
 
 @label("Widget de Dashboard")
 @plural("dashboard_widgets")
 @required("widget_type", message="Tipo do widget é obrigatório")
+@weak_ref("layout_id",
+          resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_layout",
+          options="dashboard_layouts")
+@weak_ref("vessel_id",
+          resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_vessel",
+          options="brew_plant_vessels")
+@weak_ref("device_function_name",
+          resolver="addons.addon_device_manager.root.services.device_function_lookup.get_function_by_name",
+          options="device_functions", value_field="name")
 class DashboardWidget(db.Model):
     __tablename__ = "widget"
 

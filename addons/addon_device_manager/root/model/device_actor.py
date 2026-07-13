@@ -15,13 +15,19 @@ import uuid
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required
+from annotations import label, plural, required, weak_ref
 
 
 @label("Ator de Dispositivo")
 @plural("device_actors")
 @required("port_name", message="Nome da porta é obrigatório")
 @required("actor_type", message="Tipo do ator é obrigatório (sensor/actuator/rule_trigger)")
+@weak_ref("device_id",
+          resolver="addons.addon_device_manager.root.services.device_metadata_lookup.get_device_metadata",
+          options="device_metadatas")
+@weak_ref("function_id",
+          resolver="addons.addon_device_manager.root.services.device_function_lookup.get_function_by_id",
+          options="device_functions")
 class DeviceActor(db.Model):
     __tablename__ = "actor"
 

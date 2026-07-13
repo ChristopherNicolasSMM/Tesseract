@@ -13,12 +13,18 @@
  * pode ser aposentado em favor dele — o endpoint /api/options já
  * devolve o formato de resposta nativo do Select2, de propósito.
  *
- * Markup esperado (gerado por detail.html.j2):
- *   <div class="weakref-combo" data-weakref-source="materials">
+ * Markup esperado (gerado por detail.html.j2/manage.html.j2):
+ *   <div class="weakref-combo" data-weakref-source="materials"
+ *        data-weakref-value-field="name">
  *     <input type="hidden" class="weakref-combo-value" name="material_id" value="3">
  *     <input type="text" class="weakref-combo-search" value="Malte Pilsen">
  *     <ul class="weakref-combo-results"></ul>
  *   </div>
+ * `data-weakref-value-field` é opcional — extensão skill 11 §6 (achado
+ * real, Dashboard de Brassagem): por padrão o combo guarda o `id` do
+ * registro escolhido; quando presente, o backend devolve outra coluna
+ * do alvo como "id" (ex.: "name", pra referência fraca guardada por
+ * nome — device_function_name, skill 02).
  */
 (function () {
   "use strict";
@@ -59,10 +65,16 @@
 
   function search(container) {
     const source = container.dataset.weakrefSource;
+    const valueField = container.dataset.weakrefValueField;
     const input = container.querySelector(".weakref-combo-search");
     const term = (input.value || "").trim();
 
-    fetch("/api/options/" + encodeURIComponent(source) + "?search=" + encodeURIComponent(term))
+    let url = "/api/options/" + encodeURIComponent(source) + "?search=" + encodeURIComponent(term);
+    if (valueField) {
+      url += "&value_field=" + encodeURIComponent(valueField);
+    }
+
+    fetch(url)
       .then(function (resp) {
         return resp.ok ? resp.json() : { results: [] };
       })
