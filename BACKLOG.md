@@ -2210,3 +2210,42 @@ leituras filtradas por função/janela, as 5 rotas web). 1 teste de menu
 ajustado (contagem de filhos de Sessões/Batches, +1 pelo Dashboard
 novo). Suíte completa do projeto: **566/566 passando**. Migration
 validada isoladamente (upgrade adiciona as colunas, downgrade remove).
+
+## Bug de log no Windows (PermissionError/WinError 32 na rotação): CORRIGIDO
+
+Reportado com o traceback real do Windows: `RotatingFileHandler.doRollover()`
+falhando com `PermissionError: [WinError 32] O arquivo já está sendo
+usado por outro processo` ao tentar renomear `logs/core.log` →
+`logs/core.log.1`.
+
+**Causa raiz**: com `debug=True` (padrão de `python run.py start`),
+`app.run()` liga o reloader do Werkzeug, que re-executa o processo
+inteiro como subprocesso (`WERKZEUG_RUN_MAIN=true` só nesse
+subprocesso). O processo original — que vira só "monitor", esperando
+mudança de arquivo pra reiniciar — já tinha rodado `create_app()` uma
+vez antes do fork, abrindo seu **próprio** handle de `logs/core.log`;
+nunca mais escreve nele, mas também nunca libera. Quando o subprocesso
+filho (que atende requisição de verdade) atinge o limite de 5 MiB e
+tenta rotacionar, o Windows recusa o rename porque o monitor ainda
+está com o arquivo aberto. **Unix não tem esse problema** (rename
+funciona com o arquivo aberto por outro processo lá) — por isso nunca
+apareceu nos meus próprios testes (sandbox Linux).
+
+**Correção**: `core/logging_config.py` ganha `disable_file_handler()`
+(fecha e remove qualquer `RotatingFileHandler` do logger raiz).
+`run.py` (comando `start`) detecta, antes de chamar `app.run()`, se
+este processo é o monitor do reloader (`debug=True` e
+`WERKZEUG_RUN_MAIN` ainda não é `"true"`) e chama
+`disable_file_handler()` nesse caso — o subprocesso filho (que
+recebe `WERKZEUG_RUN_MAIN=true`) mantém o handler normalmente.
+
+Testes: `tests/test_logging_windows_reloader_fix.py` (3 casos —
+`disable_file_handler()` remove e fecha o handler, não falha sem
+nenhum handler de arquivo, e o console handler sobrevive sozinho
+depois). Não dá pra testar a interação real entre dois processos SO
+dentro da suíte (é específico do reloader do Werkzeug rodando de
+verdade) — a cobertura é da função em si, que é o que importa pra
+não regredir. Suíte completa do projeto: **569/569 passando**.
+
+Nenhuma mudança de schema — patch só em `core/logging_config.py` +
+`run.py`.

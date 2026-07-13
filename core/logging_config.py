@@ -130,6 +130,33 @@ def configure_logging(log_level: str = "INFO", enable_file_handler: bool = True)
     )
 
 
+def disable_file_handler() -> None:
+    """
+    Fecha e remove qualquer RotatingFileHandler do logger raiz.
+
+    Achado real (Windows, ver BACKLOG.md): com `debug=True`,
+    `app.run()` liga o reloader do Werkzeug, que re-executa o processo
+    inteiro como subprocesso (`WERKZEUG_RUN_MAIN=true` só nesse
+    subprocesso). O processo original — que vira só "monitor",
+    esperando mudança de arquivo pra reiniciar — já rodou
+    `create_app()` uma vez antes do fork, abrindo seu próprio handle
+    de `logs/core.log`; nunca mais escreve nele, mas também nunca
+    libera. Quando o subprocesso filho (que atende requisição de
+    verdade) rotaciona o arquivo ao atingir o limite, o Windows recusa
+    o rename porque o monitor ainda está com o arquivo aberto
+    (`PermissionError: [WinError 32]`) — Unix não tem esse problema
+    (rename funciona com o arquivo aberto por outro processo lá).
+
+    Chamada só por `run.py` (comando `start`), no processo que
+    detectar ser o monitor do reloader — ver comentário lá.
+    """
+    root = logging.getLogger()
+    for handler in root.handlers[:]:
+        if isinstance(handler, RotatingFileHandler):
+            root.removeHandler(handler)
+            handler.close()
+
+
 def apply_logging_level_overrides() -> None:
     """
     Lê logging.level.default e logging.level.<logger_name> de

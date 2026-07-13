@@ -56,9 +56,25 @@ def start(host, port, debug):
     # (gera o aviso "Ignoring a call to 'app.run()'...").
     os.environ.pop("FLASK_RUN_FROM_CLI", None)
 
+    # Achado real (Windows, ver BACKLOG.md — bug de log rotacionando
+    # com PermissionError/WinError 32): precisa saber ANTES do fork do
+    # reloader se este processo é o "monitor" (nunca serve requisição
+    # de verdade) — só o subprocesso filho tem WERKZEUG_RUN_MAIN=true.
+    is_reloader_child = os.environ.get("WERKZEUG_RUN_MAIN") == "true"
+
     app = create_app()
     if debug is None:
         debug = bool(app.config.get("DEBUG", True))  # Padrão ativo
+
+    if debug and not is_reloader_child:
+        # Este processo é o monitor do reloader (debug=True vai ligar
+        # o fork) — fecha o handler de arquivo que create_app() já
+        # abriu, pra não segurar logs/core.log aberto pro resto da
+        # vida desse processo sem nunca mais escrever nele (ver
+        # core/logging_config.py::disable_file_handler()).
+        from core.logging_config import disable_file_handler
+        disable_file_handler()
+
     app.run(host=host, port=port, debug=debug)
 
 
