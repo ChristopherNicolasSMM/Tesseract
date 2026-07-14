@@ -1,8 +1,11 @@
 {% extends "core/base.html" %}
 {% block title %}Importar Receita para Brassar - Tesseract{% endblock %}
 {% block content %}
-<div class="pagetitle">
+<div class="pagetitle d-flex justify-content-between align-items-center">
   <h1>Importar Receita para Brassar</h1>
+  <a href="{{ url_for('dashboard_runtime.index') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-grid-1x2-fill"></i> Ver Dashboard
+  </a>
 </div>
 
 {% for category, message in get_flashed_messages(with_categories=true) %}

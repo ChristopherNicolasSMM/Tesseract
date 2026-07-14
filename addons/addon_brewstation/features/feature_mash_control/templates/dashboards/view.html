@@ -20,6 +20,9 @@
       <button type="button" id="dbEditPipesBtn" class="btn btn-sm btn-info"><i class="bi bi-share"></i> Tubulação</button>
       {% endif %}
     </div>
+    <a href="{{ url_for('recipe_timeline.picker') }}" class="btn btn-sm btn-success">
+      <i class="bi bi-signpost-split"></i> Importar Receita para Brassar
+    </a>
     <a href="{{ url_for('dashboard_layouts.manage') }}" class="btn btn-sm btn-outline-secondary">
       <i class="bi bi-gear"></i> Configurar layouts
     </a>
@@ -28,6 +31,16 @@
     </a>
   </div>
 </div>
+
+{% if not layout.plant_id %}
+<div class="alert alert-warning">
+  <i class="bi bi-exclamation-triangle"></i>
+  Este layout ainda não tem uma <strong>Planta</strong> associada — os widgets tipo "vasilhame" e a
+  tubulação não funcionam sem isso. Vá em
+  <a href="{{ url_for('dashboard_layouts.detail', id=layout.id) }}">Configurações deste layout</a>
+  e escolha a Planta.
+</div>
+{% endif %}
 
 {% for category, message in get_flashed_messages(with_categories=true) %}
   <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>

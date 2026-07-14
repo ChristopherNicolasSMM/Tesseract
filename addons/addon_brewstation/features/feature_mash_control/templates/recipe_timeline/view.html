@@ -3,7 +3,12 @@
 {% block content %}
 <div class="pagetitle d-flex justify-content-between align-items-center">
   <h1>Timeline: {{ recipe.name }} <span class="text-muted small">v{{ recipe.versao }}</span></h1>
-  <a href="{{ url_for('recipe_timeline.picker') }}" class="btn btn-sm btn-outline-secondary">&larr; Trocar receita</a>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('dashboard_runtime.index') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-grid-1x2-fill"></i> Ver Dashboard
+    </a>
+    <a href="{{ url_for('recipe_timeline.picker') }}" class="btn btn-sm btn-outline-secondary">&larr; Trocar receita</a>
+  </div>
 </div>
 
 {% for category, message in get_flashed_messages(with_categories=true) %}

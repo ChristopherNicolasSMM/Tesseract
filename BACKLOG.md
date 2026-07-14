@@ -2604,3 +2604,27 @@ idempotente, ajuste vira log, rotas web). 1 teste em
 passando**. Migration validada com **dado real** migrado (não só
 schema vazio) + downgrade restaurando o dado exato + cenário de banco
 do zero absoluto (14 migrations em sequência, sem erro).
+
+## Navegação entre Dashboard, Timeline de Receita e Sessão: CONCLUÍDO
+
+Dois relatos reais depois de aplicar a timeline: "não consigo desenhar
+a tubulação" e "não encontrei onde carregar a receita" — nenhum dos
+dois era bug de código, os dois eram falta de caminho óbvio na tela.
+
+**Tubulação**: o botão só aparece se o Layout tiver uma Planta
+associada (`plant_id`) — layouts criados antes dessa coluna existir
+ficam sem isso. Adicionado um aviso visível no próprio Dashboard
+quando `layout.plant_id` está vazio, com link direto pra
+Configurações do layout (onde `plant_id` já é um combo de busca,
+skill 11).
+
+**"Onde carregar a receita"**: a tela existia (`TX_RECIPE_TIMELINE`),
+mas ficava 4 níveis fundo no menu (BrewStation → Controle de Mostura
+→ Receitas → "Importar Receita para Brassar") — fácil de nunca achar.
+Adicionado link direto **no topo do próprio Dashboard** (não depende
+mais de navegar a árvore do menu), e navegação de volta nos dois
+sentidos: Timeline ↔ Dashboard, Sessão gerada ↔ Dashboard.
+
+Testes: 3 casos novos (link presente, aviso aparece sem Planta, aviso
+some com Planta). Suíte completa do projeto: **643/643 passando**.
+Sem migration — só templates.

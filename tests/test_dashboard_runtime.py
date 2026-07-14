@@ -687,3 +687,51 @@ def test_editor_tubulacao_atuador_de_fluxo_agora_e_select_com_functions(app, cli
     assert "actuatorFunctionOptions" in html
     assert "bomba_transfer2" in html
     assert "db-pipe-function" in html
+
+
+def test_view_tem_link_direto_pra_importar_receita(app, client):
+    """Achado real (conversa): tela nova ficava 4 níveis fundo no menu
+    (BrewStation > Controle de Mostura > Receitas > ...) — difícil de
+    achar. Link direto adicionado no topo do Dashboard."""
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Link Receita")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "/brewstation/recipe-timeline/" in html
+    assert "Importar Receita para Brassar" in html
+
+
+def test_view_mostra_aviso_quando_layout_sem_planta(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Sem Planta Aviso")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "ainda não tem uma" in html
+    assert "Planta" in html
+
+
+def test_view_nao_mostra_aviso_quando_layout_tem_planta(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Com Aviso Off")
+        db.session.add(plant)
+        db.session.commit()
+        layout = DashboardLayout(name="L Com Planta", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "ainda não tem uma" not in html
+    assert "dbEditPipesBtn" in html  # botão de tubulação aparece com planta
