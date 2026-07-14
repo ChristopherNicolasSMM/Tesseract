@@ -2462,3 +2462,51 @@ tela). Suíte completa do projeto: **611/611 passando**. Sem migration.
 - Sem desfazer/refazer (undo/redo) no editor.
 - Rotação de widget (`rotation`) tem endpoint pronto, mas sem
   controle visual no editor ainda (só arrastar/redimensionar).
+
+## Editor do Dashboard: botões "Configurações"/"Widget"/"Tubulação" não funcionavam — CORRIGIDO
+
+Bug real reportado: botão direito → "Configurações" não fazia nada;
+botões "+ Widget" e "Editar Tubulação" também não respondiam.
+
+**Causa raiz**: o `<script>` da tela estava dentro de `{% block
+content %}`, que renderiza **antes** de `bootstrap.bundle.min.js`
+carregar (esse `<script>` só entra depois, e `{% block extra_js %}` —
+o lugar certo pra script de página, usado por toda outra tela do
+projeto — só entra ainda depois disso, logo antes de `</body>`).
+`new bootstrap.Modal(...)` estourava `ReferenceError: bootstrap is
+not defined` logo no início da execução do script, e como não havia
+try/catch, **todo o código depois desse ponto nunca rodava** —
+inclusive os `addEventListener` dos botões de Configurações/Adicionar
+Widget/Tubulação, todos declarados depois da instanciação dos modais.
+Corrigido movendo o bloco inteiro de `<script>`/`<style>` pra dentro
+de `{% block extra_js %}`.
+
+**Achado adicional no caminho**: o widget tipo `toggle` (botão liga/
+desliga dedicado, diferente dos badges de atuador dentro do
+vasilhame) nunca teve clique conectado a nada — só os badges do
+vasilhame funcionavam. Corrigido com um listener delegado.
+
+### Acionamento manual configurável (pedido — referência CraftBeerPi4)
+
+Novo campo no modal de Configurações — **"Permitir acionamento
+manual"** (`config_json.manual_control_enabled`, default `true` —
+preserva o comportamento anterior). Quando desligado: o widget/badge
+de atuador vira só leitura (não clicável, ícone de cadeado, tooltip
+explicando) — protege um atuador que já está sob controle da
+automação de ser acionado sem querer pela tela. Aplica-se a
+`vessel` (por role de atuador) e `toggle`.
+
+Testes: 3 casos novos (`tests/test_dashboard_runtime.py`) — um deles
+é **teste de regressão específico pro bug de ordem de script**
+(confirma que o `<script>` da dashboard sempre vem depois do
+`bootstrap.bundle.min.js` no HTML renderizado, pra isso nunca mais
+quebrar silenciosamente). Suíte completa do projeto: **614/614
+passando**. Sem migration.
+
+### Pendência registrada nesta conversa (fora de escopo desta rodada)
+
+"Melhorar o fluxo de navegação entre as telas e selecionar receita
+para o mash" — pedido em aberto, ainda não desenhado. Precisa de
+conversa própria antes de implementar (qual fluxo exato: seleção de
+receita ao criar uma Sessão de Brassagem? navegação
+Dashboard↔Sessões↔Receitas?).

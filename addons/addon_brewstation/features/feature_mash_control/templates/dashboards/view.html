@@ -184,6 +184,10 @@
           <input class="form-check-input" type="checkbox" id="dbConfigConfirm">
           <label class="form-check-label" for="dbConfigConfirm">Pedir confirmação antes de acionar (liga/desliga manual)</label>
         </div>
+        <div class="form-check db-config-field" data-field="manual_control_enabled">
+          <input class="form-check-input" type="checkbox" id="dbConfigManualControl">
+          <label class="form-check-label" for="dbConfigManualControl">Permitir acionamento manual <span class="text-muted small">(desligado = só leitura, protegido — útil quando a automação já controla este atuador)</span></label>
+        </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -259,7 +263,9 @@
   </div>
 </div>
 {% endif %}
+{% endblock %}
 
+{% block extra_js %}
 <script src="{{ url_for('static', filename='vendor/chart.js/chart.umd.js') }}"></script>
 <script>
 (function () {
@@ -297,6 +303,8 @@
 
   function renderVessel(el, data) {
     const roles = (data && data.roles) || {};
+    const config = JSON.parse(el.dataset.configJson || '{}');
+    const manualEnabled = config.manual_control_enabled !== false; // default: permitido (compatível com o que já existia)
     let tempRole = null;
     Object.keys(roles).forEach(function (key) {
       if (key.indexOf('sensor_temp') !== -1 || key.indexOf('temp') !== -1) tempRole = roles[key];
@@ -322,11 +330,14 @@
     Object.keys(roles).forEach(function (roleKey) {
       const r = roles[roleKey];
       const isActuator = roleKey.indexOf('actor_') === 0;
-      const badge = document.createElement(isActuator ? 'button' : 'span');
-      badge.className = 'badge ' + (r.value ? 'bg-success' : 'bg-secondary') + (isActuator ? ' border-0' : '');
-      badge.style.cursor = isActuator ? 'pointer' : 'default';
-      badge.textContent = r.label + (isActuator ? '' : ': ' + fmtValue(r.value, 1) + (r.unit || ''));
-      if (isActuator) {
+      const clickable = isActuator && manualEnabled;
+      const badge = document.createElement(clickable ? 'button' : 'span');
+      badge.className = 'badge ' + (r.value ? 'bg-success' : 'bg-secondary') + (clickable ? ' border-0' : '');
+      badge.style.cursor = clickable ? 'pointer' : 'default';
+      const lockSuffix = isActuator && !manualEnabled ? ' \uD83D\uDD12' : '';
+      badge.textContent = r.label + lockSuffix + (isActuator ? '' : ': ' + fmtValue(r.value, 1) + (r.unit || ''));
+      if (isActuator && !manualEnabled) badge.title = 'Acionamento manual desativado nas Configurações deste widget';
+      if (clickable) {
         badge.addEventListener('click', function () {
           maybeConfirmAndSetValue(el, !r.value, roleKey);
         });
@@ -343,6 +354,17 @@
     postSetValue(el.dataset.widgetId, value, roleKey);
   }
 
+  // Achado real: o widget "toggle" dedicado nunca teve clique conectado —
+  // só os badges de atuador dentro do vasilhame funcionavam.
+  document.addEventListener('click', function (e) {
+    const toggleBtn = e.target.closest('.db-toggle');
+    if (!toggleBtn || toggleBtn.disabled) return;
+    if (editMode) return; // no modo edição, clicar é pra arrastar/selecionar, não acionar
+    const data = lastSnapshot && lastSnapshot.widgets ? lastSnapshot.widgets[toggleBtn.dataset.widgetId] : null;
+    const currentValue = data ? data.value : null;
+    maybeConfirmAndSetValue(toggleBtn, !currentValue, null);
+  });
+
   function postSetValue(widgetId, value, roleKey) {
     fetch(widgetIdUrl(setValueUrlTemplate, widgetId), {
       method: 'POST',
@@ -356,10 +378,14 @@
     if (type === 'vessel') {
       renderVessel(el, data);
     } else if (type === 'toggle') {
+      const config = JSON.parse(el.dataset.configJson || '{}');
+      const manualEnabled = config.manual_control_enabled !== false;
       const state = data ? data.value : null;
-      el.querySelector('.db-toggle-state').textContent = fmtValue(state);
+      el.querySelector('.db-toggle-state').textContent = fmtValue(state) + (manualEnabled ? '' : ' \uD83D\uDD12');
       el.classList.toggle('btn-success', !!state);
       el.classList.toggle('btn-outline-light', !state);
+      el.disabled = !manualEnabled;
+      el.title = manualEnabled ? '' : 'Acionamento manual desativado nas Configurações deste widget';
     } else if (type === 'gauge') {
       const v = data ? data.value : null;
       const min = (data && data.min_value) || 0;
@@ -560,8 +586,8 @@
   // Modal de Configurações
   const configModal = new bootstrap.Modal(document.getElementById('dbConfigModal'));
   const configFieldsByType = {
-    vessel: ['svg_shape', 'fill_role_key'],
-    toggle: ['confirm_before_actuate'],
+    vessel: ['svg_shape', 'fill_role_key', 'manual_control_enabled'],
+    toggle: ['confirm_before_actuate', 'manual_control_enabled'],
     gauge: ['min_max'],
     digital: ['decimal_places'],
     alarm_list: [],
@@ -581,6 +607,7 @@
     document.getElementById('dbConfigSessionId').value = config.session_id || '';
     document.getElementById('dbConfigWindowMinutes').value = config.window_minutes || 60;
     document.getElementById('dbConfigConfirm').checked = !!config.confirm_before_actuate;
+    document.getElementById('dbConfigManualControl').checked = config.manual_control_enabled !== false;
 
     const visibleFields = configFieldsByType[type] || [];
     document.querySelectorAll('.db-config-field').forEach(function (field) {
@@ -597,8 +624,10 @@
     if (type === 'vessel') {
       configJson.svg_shape = document.getElementById('dbConfigSvgShape').value;
       configJson.fill_role_key = document.getElementById('dbConfigFillRoleKey').value || null;
+      configJson.manual_control_enabled = document.getElementById('dbConfigManualControl').checked;
     } else if (type === 'toggle') {
       configJson.confirm_before_actuate = document.getElementById('dbConfigConfirm').checked;
+      configJson.manual_control_enabled = document.getElementById('dbConfigManualControl').checked;
     } else if (type === 'gauge') {
       configJson.min = parseFloat(document.getElementById('dbConfigMin').value) || 0;
       configJson.max = parseFloat(document.getElementById('dbConfigMax').value) || 100;

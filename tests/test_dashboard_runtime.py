@@ -595,3 +595,72 @@ def test_view_renderiza_svg_do_vasilhame(app, client):
     assert "db-vessel-svg" in html
     assert "db-vessel-fill-rect" in html
     assert "dbEditToggle" in html  # botão de modo edição presente
+
+
+def test_script_da_dashboard_vem_depois_do_bootstrap_bundle(app, client):
+    """
+    Achado real (conversa): o <script> da dashboard estava dentro de
+    {% block content %} (renderiza ANTES do bootstrap.bundle.min.js
+    carregar), então `new bootstrap.Modal(...)` estourava
+    ReferenceError e travava o resto do script — os botões de
+    Configurações/Adicionar Widget/Editar Tubulação simplesmente nunca
+    tinham o listener registrado. Corrigido movendo pra
+    {% block extra_js %} (depois do bootstrap, igual toda outra tela).
+    Este teste garante que isso nunca regride silenciosamente.
+    """
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Ordem Script")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    bootstrap_pos = html.find("bootstrap.bundle.min.js")
+    dashboard_script_pos = html.find("dbEditToggle")  # dentro do <script> da dashboard
+    assert bootstrap_pos != -1, "bootstrap.bundle.min.js não encontrado na página"
+    assert dashboard_script_pos != -1
+    # o botão em si (HTML) pode vir antes; o que importa é o <script> em si
+    script_tag_pos = html.rfind("<script>", 0, html.find("(function () {"))
+    assert script_tag_pos > bootstrap_pos, (
+        "O <script> da dashboard está renderizando ANTES do bootstrap.bundle.min.js — "
+        "vai quebrar new bootstrap.Modal(...) de novo."
+    )
+
+
+def test_config_manual_control_enabled_e_persistido(app, client):
+    """Controle de acionamento manual (CraftBeerPi4 — permitir/bloquear
+    clique manual num atuador, útil quando a automação já controla)."""
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Manual Control")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="toggle", label_text="Bomba")
+        db.session.add(widget)
+        db.session.commit()
+        widget_id = widget.id
+
+    resp = client.post(f"/brewstation/dashboards/widgets/{widget_id}/config", json={
+        "config_json": {"manual_control_enabled": False},
+    })
+    assert resp.status_code == 200
+
+    with app.app_context():
+        widget = DashboardWidget.query.get(widget_id)
+        assert widget.config_json["manual_control_enabled"] is False
+
+
+def test_view_renderiza_checkbox_de_acionamento_manual_no_modal(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Modal Manual")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "dbConfigManualControl" in html
+    assert "manual_control_enabled" in html
