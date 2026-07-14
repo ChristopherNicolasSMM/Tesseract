@@ -2510,3 +2510,17 @@ para o mash" — pedido em aberto, ainda não desenhado. Precisa de
 conversa própria antes de implementar (qual fluxo exato: seleção de
 receita ao criar uma Sessão de Brassagem? navegação
 Dashboard↔Sessões↔Receitas?).
+
+## Editor de Tubulação: "Atuador de fluxo" agora é select (não texto livre): CONCLUÍDO
+
+Achado real: o campo digitava o nome da Function na mão, sem
+nenhuma validação — mesmo padrão de referência fraca já resolvido
+antes (skill 11) pra outros campos, só que este ficou de fora quando
+o editor de tubulação foi construído. Corrigido: `dashboard_runtime.
+view()` carrega as `DeviceFunction` com `category="actuator"` e passa
+pro template; o editor de tubulação monta um `<select>` com elas.
+Bônus: o valor salvo agora é pré-preenchido corretamente ao reabrir
+o editor (antes não era, mesmo sendo texto livre).
+
+Teste novo: 1 caso. Suíte completa do projeto: **615/615 passando**.
+Sem migration.

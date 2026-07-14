@@ -682,16 +682,24 @@
     { id: {{ vid }}, label: {{ v.label_text | tojson }} },
     {% endfor %}
   ];
+  const actuatorFunctionOptions = [
+    {% for f in actuator_functions %}
+    { name: {{ f.name | tojson }}, label: {{ (f.display_name or f.name) | tojson }} },
+    {% endfor %}
+  ];
 
   function pipeRowHtml(conn) {
     conn = conn || {};
     const opts = vesselOptions.map(function (v) {
       return '<option value="' + v.id + '">' + v.label + '</option>';
     }).join('');
+    const functionOpts = '<option value="">—</option>' + actuatorFunctionOptions.map(function (f) {
+      return '<option value="' + f.name + '">' + f.label + '</option>';
+    }).join('');
     return '<div class="row g-2 mb-2 db-pipe-row align-items-end">' +
       '<div class="col-3"><label class="form-label small">De</label><select class="form-select form-select-sm db-pipe-from">' + opts + '</select></div>' +
       '<div class="col-3"><label class="form-label small">Para</label><select class="form-select form-select-sm db-pipe-to">' + opts + '</select></div>' +
-      '<div class="col-2"><label class="form-label small">Atuador de fluxo</label><input class="form-control form-control-sm db-pipe-function" value="' + (conn.flow_function_name || '') + '"></div>' +
+      '<div class="col-2"><label class="form-label small">Atuador de fluxo</label><select class="form-select form-select-sm db-pipe-function">' + functionOpts + '</select></div>' +
       '<div class="col-2"><label class="form-label small">Cor</label><input type="color" class="form-control form-control-sm form-control-color db-pipe-color" value="' + (conn.color || '#3498db') + '"></div>' +
       '<div class="col-1"><label class="form-label small">Esp.</label><input type="number" class="form-control form-control-sm db-pipe-width" value="' + (conn.width || 6) + '"></div>' +
       '<div class="col-1"><button type="button" class="btn btn-sm btn-outline-danger db-pipe-remove"><i class="bi bi-x"></i></button></div>' +
@@ -704,6 +712,7 @@
     const row = wrap.firstElementChild;
     if (conn && conn.from_vessel_id) row.querySelector('.db-pipe-from').value = conn.from_vessel_id;
     if (conn && conn.to_vessel_id) row.querySelector('.db-pipe-to').value = conn.to_vessel_id;
+    if (conn && conn.flow_function_name) row.querySelector('.db-pipe-function').value = conn.flow_function_name;
     row.querySelector('.db-pipe-remove').addEventListener('click', function () { row.remove(); });
     document.getElementById('dbPipesRows').appendChild(row);
   }

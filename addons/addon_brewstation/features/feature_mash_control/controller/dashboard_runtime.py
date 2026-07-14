@@ -57,11 +57,18 @@ def view(layout_id: int):
         for v in BrewPlantVessel.query.filter_by(plant_id=layout.plant_id, is_deleted=False).all():
             vessels_by_id[v.id] = v
 
+    # Achado real (conversa): o campo "Atuador de fluxo" do editor de
+    # tubulação era texto livre — vira select, mesma referência fraca
+    # de sempre (skill 02, cross-Addon por name), sem FK real.
+    from addons.addon_device_manager.root.model.device_function import DeviceFunction
+    actuator_functions = DeviceFunction.query.filter_by(category="actuator", is_deleted=False).order_by(DeviceFunction.display_name).all()
+
     return render_template(
         "dashboards/view.html",
         layout=layout,
         widgets=widgets,
         vessels_by_id=vessels_by_id,
+        actuator_functions=actuator_functions,
         all_layouts=DashboardLayout.query.filter_by(is_deleted=False).order_by(DashboardLayout.name).all(),
     )
 

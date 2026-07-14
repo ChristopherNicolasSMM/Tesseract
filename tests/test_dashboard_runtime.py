@@ -664,3 +664,26 @@ def test_view_renderiza_checkbox_de_acionamento_manual_no_modal(app, client):
     html = resp.data.decode("utf-8")
     assert "dbConfigManualControl" in html
     assert "manual_control_enabled" in html
+
+
+def test_editor_tubulacao_atuador_de_fluxo_agora_e_select_com_functions(app, client):
+    """Achado real (conversa): o campo "Atuador de fluxo" era texto
+    livre — vira select com as Functions de atuador disponíveis
+    (mesma referência fraca cross-Addon de sempre, skill 02)."""
+    _login_admin(app, client)
+    with app.app_context():
+        _criar_actor(name="bomba_transfer2_actor", function_name="bomba_transfer2",
+                      category="actuator", actor_type="actuator")
+        plant = BrewPlant(name="Planta Select Atuador")
+        db.session.add(plant)
+        db.session.commit()
+        layout = DashboardLayout(name="L Select Atuador", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "actuatorFunctionOptions" in html
+    assert "bomba_transfer2" in html
+    assert "db-pipe-function" in html
