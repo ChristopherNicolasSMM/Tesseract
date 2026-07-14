@@ -260,13 +260,15 @@ def test_etapa_e_uso_detalhado_gravados_corretamente(app, mock_client):
         assert lupulo.tipo_ingrediente == "lupulo"
 
 
-def test_mash_steps_gravados_na_sync(app, mock_client):
+def test_recipe_steps_gravados_na_sync(app, mock_client):
+    """[ATUALIZADO — conversa, timeline única] MashStep virou RecipeStep
+    (step_type="mash")."""
     with app.app_context():
         sync_service.sync_recipes()
 
         receita = MashRecipe.query.filter_by(origem_receita_id="bf-mock-001").first()
-        from addons.addon_brewstation.features.feature_mash_control.model.mash_step import MashStep
-        steps = MashStep.query.filter_by(recipe_id=receita.id).order_by(MashStep.ordem).all()
+        from addons.addon_brewstation.features.feature_mash_control.model.recipe_step import RecipeStep
+        steps = RecipeStep.query.filter_by(recipe_id=receita.id, step_type="mash").order_by(RecipeStep.ordem).all()
 
         assert len(steps) == 2
         assert steps[0].temperatura == 67.0

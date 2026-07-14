@@ -2524,3 +2524,83 @@ o editor (antes não era, mesmo sendo texto livre).
 
 Teste novo: 1 caso. Suíte completa do projeto: **615/615 passando**.
 Sem migration.
+
+## Timeline única de receita (RecipeStep) + alertas + "Importar Receita para Brassar": CONCLUÍDO
+
+Arquitetura desenhada em conversa (várias rodadas de confirmação) —
+substitui `MashStep` por `RecipeStep`, unificando Mostura + Fervura +
+Alerta numa timeline só (Fermentação fica de fora por decisão —
+processo separado, não usa caldeira).
+
+### Modelo novo: `RecipeStep`
+
+`step_type` (`mash`/`boil`/`fervura` — fervura não tinha modelo
+próprio antes desta conversa) + `trigger_minutes_remaining`/
+`parent_step_id` (só `alert` — equivalente ao `hop_alarms` do
+tesseract-device-bridge, "dispara X min antes do fim da etapa-pai")
++ `source` (`manual`/`auto_hop`) + `source_recipe_ingredient_id`.
+
+### Lupulagem cria alerta sozinha ("toda lupulagem cria alertas")
+
+`recipe_timeline_service.sync_hop_alerts()` varre `RecipeIngredient`
+(`tipo_ingrediente="lupulo"`, `etapa="fervura"`,
+`tempo_adicao_min` preenchido — reaproveita campo que já existia,
+mesmo significado do `hop_alarms.minutes_remaining` do bridge) e
+cria/atualiza o `RecipeStep` de alerta correspondente sozinho.
+Idempotente por `source_recipe_ingredient_id` — nunca duplica, nunca
+toca em alerta manual, remove (soft-delete) se o ingrediente sumiu.
+
+### Migration com migração de dado real (validada com dado de verdade)
+
+`f7a4c916e830`: cria `recipe_step`, **copia os dados de `mash_step`**
+(`step_type="mash"`) e remove a tabela antiga — testado de verdade
+com registro real inserido antes (não só schema vazio), upgrade e
+downgrade confirmados preservando o dado exato. `BrewSessionStep`
+ganha `trigger_at_seconds` (tempo absoluto pro disparo) e
+`alarm_fired` (evita disparar 2x).
+
+### Fluxo "Importar Receita para Brassar"
+
+Escolhe uma `MashRecipe` já cadastrada → timeline sincronizada
+automaticamente (lúpulo) e editável (arrastar pra reordenar, editar
+via modal simples, adicionar/remover etapa) → **Gerar Sessão**:
+copia (snapshot, nunca referência viva — mesmo padrão de
+`RecipeHistory`) cada `RecipeStep` pra `BrewSessionStep`, calculando
+`trigger_at_seconds` de cada alerta a partir do tempo acumulado das
+etapas de processo anteriores. `status` escolhido na hora
+(`draft`=temporário/revisável, `active`=real/começa agora) —
+reaproveita o campo que já existia em `BrewSession`, sem coluna nova.
+
+### Disparo automático + ajuste vira histórico
+
+`check_and_fire_alerts()` reaproveita o polling de 3s que o Dashboard
+já fazia — a cada snapshot, verifica `BrewSessionStep` tipo alerta
+vencido (`trigger_at_seconds` <= tempo decorrido, `alarm_fired=False`)
+e gera o `BrewSessionAlarm` sozinho. `adjust_session_step()` — editar
+um valor de passo durante a sessão ativa grava em `BrewSessionLog`
+(`source="user"`, já existia o conceito, só não era usado ainda) em
+vez de só sobrescrever — dá o histórico de ajuste do lote pedido em
+conversa, sem tabela nova.
+
+### Limpeza — MashStep removido de vez (decisão confirmada em conversa)
+
+Model + CRUD gerado (`mash_steps_routes.py`/`controller/mash_steps.py`/
+`mash_step_service.py`/templates) removidos. Achado real no caminho:
+`feature_brew_father/services/sync_service.py` importava `MashStep`
+diretamente (cross-Feature dentro do mesmo Addon, permitido pela
+skill 02) — corrigido pra `RecipeStep(step_type="mash", ...)`, senão
+o boot inteiro quebrava (`ModuleNotFoundError`). `mash_recipes/
+detail.html` (seção "Rampas de Mostura") atualizado pra mostrar a
+timeline completa (mostura+fervura+alerta) com link direto pra tela
+nova. Menu: `TX_MASH_STEPS` → `TX_RECIPE_STEPS` (CRUD cru) +
+`TX_RECIPE_TIMELINE` novo (a tela de verdade).
+
+Testes: `tests/test_recipe_timeline.py` (25 casos — sync de lúpulo em
+todas as variações, CRUD/reorder, geração de sessão com cálculo de
+`trigger_at_seconds` conferido matematicamente, disparo automático
+idempotente, ajuste vira log, rotas web). 1 teste em
+`test_feature_brew_father.py` corrigido (`MashStep` → `RecipeStep`).
+1 teste de menu ajustado. Suíte completa do projeto: **639/639
+passando**. Migration validada com **dado real** migrado (não só
+schema vazio) + downgrade restaurando o dado exato + cenário de banco
+do zero absoluto (14 migrations em sequência, sem erro).

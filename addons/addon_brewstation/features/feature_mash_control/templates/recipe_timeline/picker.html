@@ -1,0 +1,34 @@
+{% extends "core/base.html" %}
+{% block title %}Importar Receita para Brassar - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Importar Receita para Brassar</h1>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Escolha a receita</h5>
+      {% if not recipes %}
+      <p class="text-muted">Nenhuma receita cadastrada ainda — cadastre em "Receitas de Brassagem" primeiro.</p>
+      {% else %}
+      <div class="list-group">
+        {% for r in recipes %}
+        <a href="{{ url_for('recipe_timeline.view', recipe_id=r.id) }}" class="list-group-item list-group-item-action">
+          <div class="d-flex justify-content-between">
+            <span><strong>{{ r.name }}</strong> <span class="text-muted small">v{{ r.versao }}</span></span>
+            <span class="badge bg-secondary">{{ r.origem_receita }}</span>
+          </div>
+          {% if r.description %}<div class="small text-muted">{{ r.description[:120] }}</div>{% endif %}
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

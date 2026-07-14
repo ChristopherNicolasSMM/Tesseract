@@ -1,19 +1,19 @@
 """
-addons/addon_brewstation/features/feature_mash_control/api/routes/mash_steps_routes.py
+addons/addon_brewstation/features/feature_mash_control/api/routes/recipe_steps_routes.py
 
 API JSON — gerado pelo CrudGen. NÃO editar diretamente.
-Customizações via mash_steps_routes_hooks.py (nunca sobrescrito).
+Customizações via recipe_steps_routes_hooks.py (nunca sobrescrito).
 """
 from flask import Blueprint, jsonify, request
 from flask_login import login_required
 
 from core.permissions import permission_required
-from addons.addon_brewstation.features.feature_mash_control.services.mash_step_service import MashStepService
+from addons.addon_brewstation.features.feature_mash_control.services.recipe_step_service import RecipeStepService
 
-mash_steps_api_bp = Blueprint(
-    "mash_steps_api", __name__, url_prefix="/api/brewstation/mash-steps"
+recipe_steps_api_bp = Blueprint(
+    "recipe_steps_api", __name__, url_prefix="/api/brewstation/recipe-steps"
 )
-_service = MashStepService()
+_service = RecipeStepService()
 
 
 def _ok(data=None, code=200):
@@ -24,17 +24,17 @@ def _err(message, code=400):
     return jsonify({"success": False, "error": message}), code
 
 
-@mash_steps_api_bp.route("/", methods=["GET"])
+@recipe_steps_api_bp.route("/", methods=["GET"])
 @login_required
-@permission_required("mash_steps.list")
+@permission_required("recipe_steps.list")
 def list_items():
     items = _service.list()
     return _ok({"items": [i.to_dict() if hasattr(i, "to_dict") else {"id": i.id} for i in items]})
 
 
-@mash_steps_api_bp.route("/<int:id>", methods=["GET"])
+@recipe_steps_api_bp.route("/<int:id>", methods=["GET"])
 @login_required
-@permission_required("mash_steps.detail")
+@permission_required("recipe_steps.detail")
 def get_item(id: int):
     item = _service.get_by_id(id)
     if not item:
@@ -42,9 +42,9 @@ def get_item(id: int):
     return _ok({"item": item.to_dict() if hasattr(item, "to_dict") else {"id": item.id}})
 
 
-@mash_steps_api_bp.route("/", methods=["POST"])
+@recipe_steps_api_bp.route("/", methods=["POST"])
 @login_required
-@permission_required("mash_steps.create")
+@permission_required("recipe_steps.create")
 def create_item():
     data = request.get_json(silent=True) or {}
     result = _service.create(data)
@@ -53,9 +53,9 @@ def create_item():
     return _ok({"item": result.data.to_dict() if hasattr(result.data, "to_dict") else {"id": result.data.id}}, result.code)
 
 
-@mash_steps_api_bp.route("/<int:id>", methods=["PUT"])
+@recipe_steps_api_bp.route("/<int:id>", methods=["PUT"])
 @login_required
-@permission_required("mash_steps.update")
+@permission_required("recipe_steps.update")
 def update_item(id: int):
     data = request.get_json(silent=True) or {}
     result = _service.update(id, data)
@@ -64,9 +64,9 @@ def update_item(id: int):
     return _ok({"item": result.data.to_dict() if hasattr(result.data, "to_dict") else {"id": result.data.id}})
 
 
-@mash_steps_api_bp.route("/<int:id>/trash", methods=["POST"])
+@recipe_steps_api_bp.route("/<int:id>/trash", methods=["POST"])
 @login_required
-@permission_required("mash_steps.trash")
+@permission_required("recipe_steps.trash")
 def trash_item(id: int):
     result = _service.trash(id)
     if not result.success:
@@ -74,9 +74,9 @@ def trash_item(id: int):
     return _ok()
 
 
-@mash_steps_api_bp.route("/<int:id>/restore", methods=["POST"])
+@recipe_steps_api_bp.route("/<int:id>/restore", methods=["POST"])
 @login_required
-@permission_required("mash_steps.restore")
+@permission_required("recipe_steps.restore")
 def restore_item(id: int):
     result = _service.restore(id)
     if not result.success:
@@ -84,9 +84,9 @@ def restore_item(id: int):
     return _ok()
 
 
-@mash_steps_api_bp.route("/<int:id>", methods=["DELETE"])
+@recipe_steps_api_bp.route("/<int:id>", methods=["DELETE"])
 @login_required
-@permission_required("mash_steps.delete_permanent")
+@permission_required("recipe_steps.delete_permanent")
 def delete_permanent_item(id: int):
     result = _service.delete_permanent(id)
     if not result.success:

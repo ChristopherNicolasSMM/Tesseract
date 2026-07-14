@@ -1,0 +1,81 @@
+{% extends "core/base.html" %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Etapa da Receita #{{ item.id }}</h1>
+  <a href="{{ url_for('recipe_steps.manage') }}">&larr; Voltar para a lista</a>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <form method="post" action="{{ url_for('recipe_steps.update', id=item.id) }}" class="row g-3" id="editForm">
+        {% set data = item.to_dict() %}
+        {% for field in fields %}
+        {% set fv = field_html_validations.get(field, {}) %}
+        <div class="col-md-4">
+          <label class="form-label">{{ field.replace('_', ' ').title() }}{% if fv.get('required') %} <span class="text-danger">*</span>{% endif %}</label>
+          {% if field in weak_ref_fields and weak_ref_options.get(field) %}
+          <div class="weakref-combo" data-weakref-source="{{ weak_ref_options[field] }}"
+               {% if weak_ref_value_fields.get(field) %}data-weakref-value-field="{{ weak_ref_value_fields[field] }}"{% endif %}>
+            <input type="hidden" name="{{ field }}" class="weakref-combo-value" value="{{ data.get(field) if data.get(field) is not none else '' }}">
+            <input type="text" class="form-control weakref-combo-search" autocomplete="off"
+                   {% if fv.get('required') %}required{% endif %}
+                   value="{{ weak_ref_display.get(field, data.get(field) or '') }}" placeholder="Buscar...">
+            <ul class="list-group weakref-combo-results"></ul>
+          </div>
+          {% elif field in weak_ref_fields %}
+          <input type="text" name="{{ field }}" class="form-control" value="{{ data.get(field) if data.get(field) is not none else '' }}"
+                 {% if fv.get('required') %}required{% endif %}
+                 {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
+                 {% if fv.get('minlength') %}minlength="{{ fv['minlength'] }}"{% endif %}
+                 {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+          {% if weak_ref_display.get(field) %}<small class="text-muted">{{ weak_ref_display[field] }}</small>{% endif %}
+          {% else %}
+          <input type="{{ 'number' if fv.get('min_value') is not none else 'text' }}" name="{{ field }}" class="form-control" value="{{ data.get(field) if data.get(field) is not none else '' }}"
+                 {% if fv.get('required') %}required{% endif %}
+                 {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
+                 {% if fv.get('minlength') %}minlength="{{ fv['minlength'] }}"{% endif %}
+                 {% if fv.get('min_value') is not none %}min="{{ fv['min_value'] }}"{% endif %}
+                 {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+          {% endif %}
+        </div>
+        {% endfor %}
+        <div class="col-12">
+          <button class="btn btn-primary" type="submit">Salvar</button>
+        </div>
+      </form>
+
+      <hr>
+
+      <div class="d-flex gap-2">
+        {% if not data.get('is_deleted') %}
+        <form method="post" action="{{ url_for('recipe_steps.trash', id=item.id) }}" onsubmit="return confirm('Mover para a lixeira?');">
+          <button type="submit" class="btn btn-warning">Mover para lixeira</button>
+        </form>
+        {% else %}
+        <form method="post" action="{{ url_for('recipe_steps.restore', id=item.id) }}">
+          <button type="submit" class="btn btn-success">Restaurar</button>
+        </form>
+        <form method="post" action="{{ url_for('recipe_steps.delete_permanent', id=item.id) }}" onsubmit="return confirm('Excluir PERMANENTEMENTE? Esta ação não pode ser desfeita.');">
+          <button type="submit" class="btn btn-danger">Excluir permanentemente</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="{{ url_for('static', filename='js/rule_engine.js') }}"></script>
+<script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>
+<script>
+  document.getElementById('editForm').addEventListener('submit', function (e) {
+    if (!RuleEngine.validateForm(this)) {
+      e.preventDefault();
+    }
+  });
+</script>
+{% endblock %}

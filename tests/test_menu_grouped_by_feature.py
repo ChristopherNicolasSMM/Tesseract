@@ -75,12 +75,15 @@ def test_grupo_controle_de_mostura_tem_6_filhos_diretos(app):
         }
 
 
-def test_grupo_receitas_tem_6_transacoes(app):
+def test_grupo_receitas_tem_7_transacoes(app):
+    """[ATUALIZADO — conversa, timeline única] TX_MASH_STEPS virou
+    TX_RECIPE_STEPS (RecipeStep substitui MashStep) + TX_RECIPE_TIMELINE
+    novo ("Importar Receita para Brassar")."""
     with app.app_context():
         folder = Transaction.query.filter_by(code="TX_GROUP_MASH_RECIPES").first()
         assert folder is not None
         count = Transaction.query.filter_by(parent_id=folder.id).count()
-        assert count == 6
+        assert count == 7
 
 
 def test_grupo_planta_e_sessao_tem_3_filhos_diretos_mais_subgrupo_sessoes(app):

@@ -86,31 +86,42 @@
     </div>
   </div>
 
-  {# ── Rampas de Mostura ───────────────────────────────────────────── #}
-  {% if item.mash_steps %}
+  {# ── Timeline (Mostura + Fervura + Alertas) ─────────────────────────── #}
+  {% if item.recipe_steps %}
   <div class="col-md-6">
     <div class="card h-100">
-      <div class="card-header"><h5 class="mb-0"><i class="bi bi-thermometer-half me-2"></i>Rampas de Mostura</h5></div>
+      <div class="card-header"><h5 class="mb-0"><i class="bi bi-thermometer-half me-2"></i>Timeline (Mostura/Fervura/Alertas)</h5></div>
       <div class="card-body p-0">
         <table class="table table-sm table-hover mb-0">
           <thead>
-            <tr><th>#</th><th>Nome</th><th>°C</th><th>Tempo</th><th>Rampa</th><th>Tipo</th></tr>
+            <tr><th>#</th><th>Tipo</th><th>Nome</th><th>°C</th><th>Tempo</th><th>Rampa/Alerta</th></tr>
           </thead>
           <tbody>
-            {% for step in item.mash_steps | sort(attribute="ordem") %}
+            {% for step in item.recipe_steps | sort(attribute="ordem") %}
             {% if not step.is_deleted %}
             <tr>
               <td>{{ loop.index }}</td>
+              <td><span class="badge bg-light text-dark">{{ step.step_type }}</span></td>
               <td>{{ step.nome or "—" }}</td>
-              <td><strong>{{ step.temperatura }}°C</strong></td>
+              <td>{{ (step.temperatura ~ "°C") if step.temperatura is not none else "—" }}</td>
               <td>{{ step.tempo_min ~ " min" if step.tempo_min else "—" }}</td>
-              <td>{{ step.ramp_time_min ~ " min" if step.ramp_time_min else "—" }}</td>
-              <td><span class="badge bg-light text-dark">{{ step.tipo or "—" }}</span></td>
+              <td>
+                {% if step.step_type == "alert" %}
+                  -{{ step.trigger_minutes_remaining }} min do fim
+                {% else %}
+                  {{ step.ramp_time_min ~ " min" if step.ramp_time_min else "—" }}
+                {% endif %}
+              </td>
             </tr>
             {% endif %}
             {% endfor %}
           </tbody>
         </table>
+      </div>
+      <div class="card-footer">
+        <a href="{{ url_for('recipe_timeline.view', recipe_id=item.id) }}" class="btn btn-sm btn-primary">
+          <i class="bi bi-pencil"></i> Editar timeline / Gerar Sessão
+        </a>
       </div>
     </div>
   </div>

@@ -1,8 +1,8 @@
 """
-addons/addon_brewstation/features/feature_mash_control/services/mash_step_service.py
+addons/addon_brewstation/features/feature_mash_control/services/recipe_step_service.py
 
 Gerado pelo CrudGen — NÃO editar diretamente. Customizações via hooks
-(mash_step_service_hooks.py, nunca sobrescrito).
+(recipe_step_service_hooks.py, nunca sobrescrito).
 """
 from __future__ import annotations
 
@@ -13,14 +13,14 @@ from datetime import datetime, timezone
 from typing import Any
 
 from core.db import db
-from addons.addon_brewstation.features.feature_mash_control.model.mash_step import MashStep
+from addons.addon_brewstation.features.feature_mash_control.model.recipe_step import RecipeStep
 
 logger = logging.getLogger(__name__)
 
 _READONLY = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"}
 
 try:
-    from addons.addon_brewstation.features.feature_mash_control.services import mash_step_service_hooks as _hooks
+    from addons.addon_brewstation.features.feature_mash_control.services import recipe_step_service_hooks as _hooks
 except ImportError:
     _hooks = None
 
@@ -51,27 +51,27 @@ class ServiceResult:
     code: int = 200
 
 
-class MashStepService:
-    """Camada de negócio para Passo de Mostura."""
+class RecipeStepService:
+    """Camada de negócio para Etapa da Receita."""
 
     def list(self, *, include_deleted: bool = False):
-        query = MashStep.query
+        query = RecipeStep.query
         if not include_deleted:
-            query = query.filter(MashStep.is_deleted.is_(False))
-        return query.order_by(MashStep.id.asc()).all()
+            query = query.filter(RecipeStep.is_deleted.is_(False))
+        return query.order_by(RecipeStep.id.asc()).all()
 
-    def get_by_id(self, id: int) -> "MashStep | None":
-        return db.session.get(MashStep, id)
+    def get_by_id(self, id: int) -> "RecipeStep | None":
+        return db.session.get(RecipeStep, id)
 
     def create(self, data: dict) -> ServiceResult:
-        obj = MashStep()
+        obj = RecipeStep()
         self._apply_fields(obj, data)
         db.session.add(obj)
         try:
             db.session.commit()
         except Exception as e:
             db.session.rollback()
-            logger.warning("Erro ao criar MashStep: %s", e)
+            logger.warning("Erro ao criar RecipeStep: %s", e)
             return ServiceResult(success=False, error=_friendly_db_error(e), code=422)
         return ServiceResult(success=True, data=obj, code=201)
 
@@ -86,7 +86,7 @@ class MashStepService:
             db.session.commit()
         except Exception as e:
             db.session.rollback()
-            logger.warning("Erro ao atualizar MashStep id=%s: %s", id, e)
+            logger.warning("Erro ao atualizar RecipeStep id=%s: %s", id, e)
             return ServiceResult(success=False, error=_friendly_db_error(e), code=422)
         return ServiceResult(success=True, data=obj)
 

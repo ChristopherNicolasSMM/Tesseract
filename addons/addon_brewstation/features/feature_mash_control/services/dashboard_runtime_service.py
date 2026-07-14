@@ -73,6 +73,14 @@ def _resolve_vessel_snapshot(vessel_id: int) -> dict:
 def get_layout_snapshot(layout: DashboardLayout) -> dict:
     """1 chamada só, devolve o valor atual de TODOS os widgets do
     layout — o front-end faz polling nisso, não 1 request por widget."""
+    active_session = _get_active_session_for_plant(layout.plant_id) if layout.plant_id else None
+
+    # Disparo automático de alertas (conversa — timeline de etapas):
+    # reaproveita este mesmo polling de 3s, sem scheduler novo.
+    if active_session:
+        from addons.addon_brewstation.features.feature_mash_control.services import recipe_timeline_service
+        recipe_timeline_service.check_and_fire_alerts(active_session)
+
     widgets_out = {}
     for widget in DashboardWidget.query.filter_by(layout_id=layout.id, is_deleted=False, is_visible=True).all():
         if widget.widget_type == "vessel" and widget.vessel_id:
@@ -82,8 +90,6 @@ def get_layout_snapshot(layout: DashboardLayout) -> dict:
         elif widget.widget_type == "alarm_list":
             widgets_out[widget.id] = {"alarms": _get_active_alarms(layout, widget)}
         # "chart" widgets buscam via get_session_readings() à parte (histórico, não snapshot pontual)
-
-    active_session = _get_active_session_for_plant(layout.plant_id) if layout.plant_id else None
 
     return {
         "widgets": widgets_out,

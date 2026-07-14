@@ -2,7 +2,7 @@
 addons/addon_brewstation/features/feature_brew_father/services/sync_service.py
 
 Orquestra a sincronização: busca receitas via brewfather_client e
-grava em MashRecipe/RecipeIngredient/MashStep/FermentationStep com
+grava em MashRecipe/RecipeIngredient/RecipeStep/FermentationStep com
 origem_receita="BrewFather".
 """
 from __future__ import annotations
@@ -13,7 +13,7 @@ from core.db import db
 from addons.addon_brewstation.features.feature_brew_father.model.brew_father_sync import BrewFatherSync
 from addons.addon_brewstation.features.feature_brew_father.services import brewfather_client
 from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
-from addons.addon_brewstation.features.feature_mash_control.model.mash_step import MashStep
+from addons.addon_brewstation.features.feature_mash_control.model.recipe_step import RecipeStep
 from addons.addon_brewstation.features.feature_mash_control.model.fermentation_step import FermentationStep
 from addons.addon_brewstation.features.feature_mash_control.model.water_profile import WaterProfile
 from addons.addon_brewstation.features.feature_mash_control.services import ingredient_resolution_service
@@ -123,8 +123,9 @@ def _importar_receita(receita_externa: dict) -> MashRecipe:
     for step_data in receita_externa.get("mash_steps", []):
         if step_data.get("temperatura") is None:
             continue
-        db.session.add(MashStep(
+        db.session.add(RecipeStep(
             recipe_id=receita.id,
+            step_type="mash",
             nome=step_data.get("nome"),
             temperatura=step_data["temperatura"],
             tempo_min=step_data.get("tempo_min"),

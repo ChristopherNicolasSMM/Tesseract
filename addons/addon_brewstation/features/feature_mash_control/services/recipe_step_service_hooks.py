@@ -1,5 +1,5 @@
 """
-addons/addon_brewstation/features/feature_mash_control/services/mash_step_service_hooks.py
+addons/addon_brewstation/features/feature_mash_control/services/recipe_step_service_hooks.py
 
 Criado UMA ÚNICA VEZ pelo CrudGen — nunca sobrescrito, mesmo com
 --overwrite (skill 00/01). Customize aqui sem editar o service gerado.

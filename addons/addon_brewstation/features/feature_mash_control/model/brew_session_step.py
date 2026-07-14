@@ -39,6 +39,15 @@ class BrewSessionStep(db.Model):
 
     hop_addition_json = db.Column(db.JSON, default=lambda: [])
 
+    # Só relevante pra step_type="alert" (RecipeStep copiado na geração
+    # da sessão, conversa — timeline de alertas). Tempo ABSOLUTO desde
+    # session.started_at (em segundos) em que o alerta deve disparar —
+    # já vem pré-calculado na hora de gerar a sessão, não recalculado
+    # em runtime. `alarm_fired` evita gerar o BrewSessionAlarm duas
+    # vezes pro mesmo step (checado a cada polling do snapshot).
+    trigger_at_seconds = db.Column(db.Integer, nullable=True)
+    alarm_fired = db.Column(db.Boolean, default=False, nullable=False)
+
     status = db.Column(db.String(20), default="pending", nullable=False)  # pending, active, completed, skipped
     started_at = db.Column(db.DateTime, nullable=True)
     completed_at = db.Column(db.DateTime, nullable=True)
@@ -71,6 +80,8 @@ class BrewSessionStep(db.Model):
             "pid_ki": self.pid_ki,
             "pid_kd": self.pid_kd,
             "hop_addition_json": self.hop_addition_json or [],
+            "trigger_at_seconds": self.trigger_at_seconds,
+            "alarm_fired": self.alarm_fired,
             "status": self.status,
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,

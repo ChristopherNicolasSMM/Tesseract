@@ -3,7 +3,7 @@ addons/addon_brewstation/features/feature_mash_control/model/water_profile.py
 
 Perfil de água de uma receita (item (c) do BACKLOG.md — decidido após
 verificação contra a API real do BrewFather). FK real pra recipe.id
-(mesma Feature, skill 02) — mesmo padrão de MashStep/FermentationStep.
+(mesma Feature, skill 02) — mesmo padrão de RecipeStep/FermentationStep.
 
 Não passa por ingredient_resolution_service (isso é só pra
 ingrediente, que referencia Material) — gravado direto em
