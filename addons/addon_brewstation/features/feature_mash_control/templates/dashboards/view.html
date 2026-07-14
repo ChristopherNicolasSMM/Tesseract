@@ -298,6 +298,15 @@
   let editMode = false;
   let lastSnapshot = null;
 
+  // ── Editor de tubulação CAD-like (conversa — Ponto 1) ───────────────────
+  // pipesState espelha data.connections (já com from_anchor/to_anchor/
+  // waypoints resolvidos pelo backend) — é a fonte de verdade em runtime
+  // pra desenhar as alças de edição e pra persistir mudanças de geometria.
+  let pipesState = [];
+  let selectedPipeIndex = null;
+  let selectedWaypointIndex = null;
+  let pipeDragState = null; // { pipeIndex, kind: 'waypoint'|'anchor'|'new-waypoint', ... }
+
   function widgetIdUrl(template, id) { return template.replace('/0/', '/' + id + '/'); }
 
   function fmtValue(v, decimals) {
@@ -444,28 +453,154 @@
     }
   }
 
+  function vesselEl(vesselId) {
+    return document.querySelector('.db-widget[data-vessel-id="' + vesselId + '"]');
+  }
+
+  // Posição absoluta (px, relativa ao canvas) de uma âncora — rx/ry são
+  // frações (0–1) da caixa do widget do vasilhame, por isso a âncora
+  // acompanha o widget se ele for movido/redimensionado (skill n/a —
+  // é dado de UI, não schema).
+  function anchorAbsPos(vesselId, anchor) {
+    const el = vesselEl(vesselId);
+    if (!el) return null;
+    const a = anchor || { rx: 0.5, ry: 1.0 };
+    return {
+      x: el.offsetLeft + (a.rx != null ? a.rx : 0.5) * el.offsetWidth,
+      y: el.offsetTop + (a.ry != null ? a.ry : 1.0) * el.offsetHeight,
+    };
+  }
+
+  // Converte um ponto absoluto (px) numa fração rx/ry clampada à borda
+  // da caixa do vasilhame — usado ao arrastar a âncora (âncora livre,
+  // clique/arrasto em qualquer ponto da borda).
+  function pointToClampedAnchor(vesselId, absX, absY) {
+    const el = vesselEl(vesselId);
+    if (!el) return { rx: 0.5, ry: 1.0 };
+    const rx = Math.min(Math.max((absX - el.offsetLeft) / el.offsetWidth, 0), 1);
+    const ry = Math.min(Math.max((absY - el.offsetTop) / el.offsetHeight, 0), 1);
+    return { rx: rx, ry: ry };
+  }
+
+  function pipePointsFor(conn) {
+    const p0 = anchorAbsPos(conn.from_vessel_id, conn.from_anchor);
+    const p1 = anchorAbsPos(conn.to_vessel_id, conn.to_anchor);
+    if (!p0 || !p1) return null;
+    return [p0].concat(conn.waypoints || []).concat([p1]);
+  }
+
   function renderPipes(connections) {
+    pipesState = connections || [];
     const svg = document.getElementById('dbPipesLayer');
     svg.innerHTML = '';
-    connections.forEach(function (conn) {
-      const fromEl = document.querySelector('.db-widget[data-vessel-id="' + conn.from_vessel_id + '"]');
-      const toEl = document.querySelector('.db-widget[data-vessel-id="' + conn.to_vessel_id + '"]');
-      if (!fromEl || !toEl) return;
-      const x1 = fromEl.offsetLeft + fromEl.offsetWidth / 2;
-      const y1 = fromEl.offsetTop + fromEl.offsetHeight;
-      const x2 = toEl.offsetLeft + toEl.offsetWidth / 2;
-      const y2 = toEl.offsetTop;
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('x1', x1); line.setAttribute('y1', y1);
-      line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-      line.setAttribute('stroke', conn.flowing ? conn.color : '#555');
-      line.setAttribute('stroke-width', String(conn.width || 6));
-      line.setAttribute('stroke-dasharray', conn.flowing ? '10,6' : 'none');
-      if (conn.flowing) {
-        line.style.animation = 'db-flow 1s linear infinite';
+    svg.style.pointerEvents = editMode ? 'auto' : 'none';
+
+    pipesState.forEach(function (conn, idx) {
+      const points = pipePointsFor(conn);
+      if (!points) return;
+
+      const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      poly.setAttribute('points', points.map(function (p) { return p.x + ',' + p.y; }).join(' '));
+      poly.setAttribute('fill', 'none');
+      poly.setAttribute('stroke', conn.flowing ? conn.color : '#555');
+      poly.setAttribute('stroke-width', String(conn.width || 6));
+      poly.setAttribute('stroke-dasharray', conn.flowing ? '10,6' : 'none');
+      poly.setAttribute('pointer-events', editMode ? 'stroke' : 'none');
+      poly.style.cursor = editMode ? 'pointer' : 'default';
+      if (conn.flowing) poly.style.animation = 'db-flow 1s linear infinite';
+      poly.addEventListener('mousedown', function (e) {
+        if (!editMode) return;
+        e.stopPropagation();
+        selectedPipeIndex = idx;
+        selectedWaypointIndex = null;
+        renderPipes(pipesState);
+      });
+      svg.appendChild(poly);
+
+      if (editMode && selectedPipeIndex === idx) {
+        renderPipeHandles(svg, idx, points);
       }
-      svg.appendChild(line);
     });
+  }
+
+  function makeHandleCircle(x, y, r, fill) {
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', r);
+    c.setAttribute('fill', fill);
+    c.setAttribute('stroke', '#fff');
+    c.setAttribute('stroke-width', 1.5);
+    c.setAttribute('pointer-events', 'all');
+    c.style.cursor = 'grab';
+    return c;
+  }
+
+  // Alças de edição de geometria da conexão selecionada: âncoras
+  // (verde, extremos, arrasto restrito à borda do vasilhame),
+  // waypoints já existentes (azul/vermelho se selecionado, arrasto
+  // livre, clique seleciona pra permitir apagar com Delete), e um
+  // "fantasma" no meio de cada segmento (arrastar cria waypoint novo
+  // ali — combinamos essa interação na conversa).
+  function renderPipeHandles(svg, pipeIdx, points) {
+    for (let i = 0; i < points.length - 1; i++) {
+      const mx = (points[i].x + points[i + 1].x) / 2;
+      const my = (points[i].y + points[i + 1].y) / 2;
+      const ghost = makeHandleCircle(mx, my, 5, 'rgba(255,255,255,0.5)');
+      ghost.style.cursor = 'copy';
+      ghost.addEventListener('mousedown', function (e) {
+        e.stopPropagation();
+        e.preventDefault();
+        const waypointIndex = i; // novo waypoint entra na posição i da lista de waypoints
+        pipeDragState = { pipeIndex: pipeIdx, kind: 'new-waypoint', waypointIndex: waypointIndex, created: false };
+      });
+      svg.appendChild(ghost);
+    }
+
+    (pipesState[pipeIdx].waypoints || []).forEach(function (wp, wpIdx) {
+      const isSelected = selectedWaypointIndex === wpIdx;
+      const c = makeHandleCircle(wp.x, wp.y, 6, isSelected ? '#e74c3c' : '#3498db');
+      c.addEventListener('mousedown', function (e) {
+        e.stopPropagation();
+        e.preventDefault();
+        selectedWaypointIndex = wpIdx;
+        pipeDragState = { pipeIndex: pipeIdx, kind: 'waypoint', waypointIndex: wpIdx };
+        renderPipes(pipesState);
+      });
+      svg.appendChild(c);
+    });
+
+    [{ side: 'from', vesselId: pipesState[pipeIdx].from_vessel_id, p: points[0] },
+     { side: 'to', vesselId: pipesState[pipeIdx].to_vessel_id, p: points[points.length - 1] }]
+      .forEach(function (anchorInfo) {
+        const c = makeHandleCircle(anchorInfo.p.x, anchorInfo.p.y, 7, '#2ecc71');
+        c.addEventListener('mousedown', function (e) {
+          e.stopPropagation();
+          e.preventDefault();
+          pipeDragState = { pipeIndex: pipeIdx, kind: 'anchor', side: anchorInfo.side, vesselId: anchorInfo.vesselId };
+        });
+        svg.appendChild(c);
+      });
+  }
+
+  function svgPointFromEvent(e) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  function persistPipesGeometry() {
+    fetch(connectionsUrl, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ connections: pipesState }),
+    });
+  }
+
+  function removeSelectedWaypoint() {
+    if (selectedPipeIndex === null || selectedWaypointIndex === null) return;
+    const conn = pipesState[selectedPipeIndex];
+    if (!conn || !conn.waypoints) return;
+    conn.waypoints.splice(selectedWaypointIndex, 1);
+    selectedWaypointIndex = null;
+    persistPipesGeometry();
+    renderPipes(pipesState);
   }
 
   function refresh() {
@@ -475,7 +610,7 @@
         const el = document.getElementById('db-widget-' + widgetId);
         if (el) renderWidget(el, data.widgets[widgetId]);
       });
-      renderPipes(data.connections || []);
+      if (!pipeDragState) renderPipes(data.connections || []);
       if (data.active_session_id) initCharts(data.active_session_id);
     }).catch(function (e) { console.warn('snapshot falhou', e); });
   }
@@ -530,6 +665,35 @@
     editToggle.classList.toggle('btn-warning', editMode);
     editToggle.classList.toggle('btn-outline-warning', !editMode);
     document.querySelectorAll('.db-resize-handle').forEach(function (h) { h.classList.toggle('d-none', !editMode); });
+    if (!editMode) {
+      selectedPipeIndex = null;
+      selectedWaypointIndex = null;
+      pipeDragState = null;
+    }
+    renderPipes(pipesState);
+  });
+
+  // Clicar em área vazia do canvas desseleciona a tubulação em edição
+  // (as alças só aparecem pra conexão selecionada — seção "Editor de
+  // tubulação CAD-like").
+  canvas.addEventListener('mousedown', function (e) {
+    if (!editMode) return;
+    if (e.target.closest('.db-widget') || e.target.closest('svg#dbPipesLayer')) return;
+    if (selectedPipeIndex !== null) {
+      selectedPipeIndex = null;
+      selectedWaypointIndex = null;
+      renderPipes(pipesState);
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (!editMode) return;
+    if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+    if (e.target.closest('input, select, textarea')) return; // não intercepta digitação normal
+    if (selectedWaypointIndex !== null) {
+      e.preventDefault();
+      removeSelectedWaypoint();
+    }
   });
 
   // Arrastar
@@ -568,6 +732,28 @@
       resizeState.el.style.width = Math.max(60, resizeState.origWidth + dx) + 'px';
       resizeState.el.style.height = Math.max(60, resizeState.origHeight + dy) + 'px';
     }
+    if (pipeDragState) {
+      const pt = svgPointFromEvent(e);
+      const conn = pipesState[pipeDragState.pipeIndex];
+      if (!conn) { pipeDragState = null; return; }
+      if (pipeDragState.kind === 'anchor') {
+        const anchor = pointToClampedAnchor(pipeDragState.vesselId, pt.x, pt.y);
+        if (pipeDragState.side === 'from') conn.from_anchor = anchor; else conn.to_anchor = anchor;
+      } else if (pipeDragState.kind === 'waypoint') {
+        conn.waypoints[pipeDragState.waypointIndex] = pt;
+      } else if (pipeDragState.kind === 'new-waypoint') {
+        if (!pipeDragState.created) {
+          conn.waypoints = conn.waypoints || [];
+          conn.waypoints.splice(pipeDragState.waypointIndex, 0, pt);
+          pipeDragState.created = true;
+          pipeDragState.kind = 'waypoint';
+          selectedWaypointIndex = pipeDragState.waypointIndex;
+        } else {
+          conn.waypoints[pipeDragState.waypointIndex] = pt;
+        }
+      }
+      renderPipes(pipesState);
+    }
   });
 
   document.addEventListener('mouseup', function () {
@@ -586,6 +772,12 @@
         body: JSON.stringify({ width: el.offsetWidth, height: el.offsetHeight }),
       });
       resizeState = null;
+    }
+    if (pipeDragState) {
+      if (pipeDragState.kind !== 'new-waypoint' || pipeDragState.created) {
+        persistPipesGeometry();
+      }
+      pipeDragState = null;
     }
   });
 
@@ -749,6 +941,16 @@
     if (conn && conn.from_vessel_id) row.querySelector('.db-pipe-from').value = conn.from_vessel_id;
     if (conn && conn.to_vessel_id) row.querySelector('.db-pipe-to').value = conn.to_vessel_id;
     if (conn && conn.flow_function_name) row.querySelector('.db-pipe-function').value = conn.flow_function_name;
+    // Geometria (from_anchor/to_anchor/waypoints) editada no canvas viaja
+    // junto da linha — o modal só edita identidade/estilo, nunca mexe
+    // nisso, mas precisa devolver intacto no Salvar (conversa — editor
+    // CAD-like). Linha nova (conn == null) não carrega geometria; o
+    // backend aplica âncora padrão nesse caso.
+    if (conn) {
+      row.dataset.geometry = JSON.stringify({
+        from_anchor: conn.from_anchor, to_anchor: conn.to_anchor, waypoints: conn.waypoints,
+      });
+    }
     row.querySelector('.db-pipe-remove').addEventListener('click', function () { row.remove(); });
     document.getElementById('dbPipesRows').appendChild(row);
   }
@@ -767,13 +969,17 @@
 
   document.getElementById('dbPipesSaveBtn').addEventListener('click', function () {
     const connections = Array.from(document.querySelectorAll('.db-pipe-row')).map(function (row) {
-      return {
+      const base = {
         from_vessel_id: parseInt(row.querySelector('.db-pipe-from').value, 10),
         to_vessel_id: parseInt(row.querySelector('.db-pipe-to').value, 10),
         flow_function_name: row.querySelector('.db-pipe-function').value || null,
         color: row.querySelector('.db-pipe-color').value,
         width: parseInt(row.querySelector('.db-pipe-width').value, 10) || 6,
       };
+      if (row.dataset.geometry) {
+        Object.assign(base, JSON.parse(row.dataset.geometry));
+      }
+      return base;
     });
     fetch(connectionsUrl, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },

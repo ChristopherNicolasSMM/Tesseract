@@ -543,6 +543,152 @@ def test_update_connections_sobrescreve_plant_schema_json(app, client):
         assert conns[0]["width"] == 10
 
 
+def test_get_plant_connections_sem_anchor_waypoints_usa_default_retrocompativel(app):
+    """Conexão salva antes do editor CAD-like (sem from_anchor/to_anchor/
+    waypoints) continua funcionando — âncora vira o default (centro-base
+    -> centro-topo, igual ao comportamento antigo) e waypoints vira []."""
+    with app.app_context():
+        plant = BrewPlant(name="Planta Legado")
+        db.session.add(plant)
+        db.session.commit()
+        v1 = BrewPlantVessel(plant_id=plant.id, vessel_type="hlt", label_text="HLT")
+        v2 = BrewPlantVessel(plant_id=plant.id, vessel_type="mash_tun", label_text="Mash")
+        db.session.add_all([v1, v2])
+        db.session.commit()
+
+        plant.plant_schema_json = {
+            "connections": [{"from_vessel_id": v1.id, "to_vessel_id": v2.id}]
+        }
+        db.session.commit()
+
+        layout = DashboardLayout(name="L Legado", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+
+        connections = svc.get_plant_connections(layout)
+        assert connections[0]["from_anchor"] == {"rx": 0.5, "ry": 1.0}
+        assert connections[0]["to_anchor"] == {"rx": 0.5, "ry": 0.0}
+        assert connections[0]["waypoints"] == []
+
+
+def test_get_plant_connections_com_waypoints_e_anchor_customizada(app):
+    with app.app_context():
+        plant = BrewPlant(name="Planta CAD")
+        db.session.add(plant)
+        db.session.commit()
+        v1 = BrewPlantVessel(plant_id=plant.id, vessel_type="hlt", label_text="HLT")
+        v2 = BrewPlantVessel(plant_id=plant.id, vessel_type="mash_tun", label_text="Mash")
+        db.session.add_all([v1, v2])
+        db.session.commit()
+
+        plant.plant_schema_json = {
+            "connections": [{
+                "from_vessel_id": v1.id, "to_vessel_id": v2.id,
+                "from_anchor": {"rx": 1.0, "ry": 0.5}, "to_anchor": {"rx": 0.0, "ry": 0.5},
+                "waypoints": [{"x": 320, "y": 180}, {"x": 340, "y": 220}],
+            }]
+        }
+        db.session.commit()
+
+        layout = DashboardLayout(name="L CAD", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+
+        connections = svc.get_plant_connections(layout)
+        assert connections[0]["from_anchor"] == {"rx": 1.0, "ry": 0.5}
+        assert connections[0]["to_anchor"] == {"rx": 0.0, "ry": 0.5}
+        assert connections[0]["waypoints"] == [{"x": 320.0, "y": 180.0}, {"x": 340.0, "y": 220.0}]
+
+
+def test_get_plant_connections_clampa_anchor_fora_da_faixa(app):
+    """rx/ry fora de 0-1 (dado corrompido/bug de front) é clampado, nunca
+    quebra o snapshot."""
+    with app.app_context():
+        plant = BrewPlant(name="Planta Clamp")
+        db.session.add(plant)
+        db.session.commit()
+        v1 = BrewPlantVessel(plant_id=plant.id, vessel_type="hlt", label_text="HLT")
+        v2 = BrewPlantVessel(plant_id=plant.id, vessel_type="mash_tun", label_text="Mash")
+        db.session.add_all([v1, v2])
+        db.session.commit()
+
+        plant.plant_schema_json = {
+            "connections": [{
+                "from_vessel_id": v1.id, "to_vessel_id": v2.id,
+                "from_anchor": {"rx": 5.0, "ry": -3.0},
+            }]
+        }
+        db.session.commit()
+
+        layout = DashboardLayout(name="L Clamp", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+
+        connections = svc.get_plant_connections(layout)
+        assert connections[0]["from_anchor"] == {"rx": 1.0, "ry": 0.0}
+
+
+def test_update_connections_persiste_anchor_e_waypoints(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Pipes CAD")
+        db.session.add(plant)
+        db.session.commit()
+        v1 = BrewPlantVessel(plant_id=plant.id, vessel_type="hlt", label_text="HLT")
+        v2 = BrewPlantVessel(plant_id=plant.id, vessel_type="mash_tun", label_text="Mash")
+        db.session.add_all([v1, v2])
+        db.session.commit()
+        layout = DashboardLayout(name="L Pipes CAD", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+        layout_id, v1_id, v2_id, plant_id = layout.id, v1.id, v2.id, plant.id
+
+    resp = client.post(f"/brewstation/dashboards/{layout_id}/plant-connections", json={
+        "connections": [{
+            "from_vessel_id": v1_id, "to_vessel_id": v2_id,
+            "from_anchor": {"rx": 0.2, "ry": 0.8}, "to_anchor": {"rx": 0.9, "ry": 0.1},
+            "waypoints": [{"x": 100, "y": 50}],
+        }],
+    })
+    assert resp.status_code == 200
+
+    with app.app_context():
+        plant = BrewPlant.query.get(plant_id)
+        conn = plant.plant_schema_json["connections"][0]
+        assert conn["from_anchor"] == {"rx": 0.2, "ry": 0.8}
+        assert conn["to_anchor"] == {"rx": 0.9, "ry": 0.1}
+        assert conn["waypoints"] == [{"x": 100.0, "y": 50.0}]
+
+
+def test_update_connections_ignora_waypoint_malformado(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Pipes Malformado")
+        db.session.add(plant)
+        db.session.commit()
+        v1 = BrewPlantVessel(plant_id=plant.id, vessel_type="hlt", label_text="HLT")
+        v2 = BrewPlantVessel(plant_id=plant.id, vessel_type="mash_tun", label_text="Mash")
+        db.session.add_all([v1, v2])
+        db.session.commit()
+        layout = DashboardLayout(name="L Pipes Malformado", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+        layout_id, v1_id, v2_id, plant_id = layout.id, v1.id, v2.id, plant.id
+
+    resp = client.post(f"/brewstation/dashboards/{layout_id}/plant-connections", json={
+        "connections": [{
+            "from_vessel_id": v1_id, "to_vessel_id": v2_id,
+            "waypoints": [{"x": 100, "y": 50}, {"x": "não é número"}, "lixo"],
+        }],
+    })
+    assert resp.status_code == 200
+
+    with app.app_context():
+        plant = BrewPlant.query.get(plant_id)
+        conn = plant.plant_schema_json["connections"][0]
+        assert conn["waypoints"] == [{"x": 100.0, "y": 50.0}]
+
+
 def test_update_connections_sem_plant_id_falha(app, client):
     _login_admin(app, client)
     with app.app_context():

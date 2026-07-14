@@ -99,11 +99,51 @@ def get_layout_snapshot(layout: DashboardLayout) -> dict:
     }
 
 
+# Âncora padrão = comportamento antigo (linha reta, saindo do
+# centro-base do vasilhame de origem e entrando no centro-topo do
+# vasilhame de destino) — conversa "editor de tubulação CAD-like".
+# `rx`/`ry` são frações (0–1) da caixa delimitadora do widget do
+# vasilhame no layout, não coordenada absoluta — assim a âncora
+# acompanha o widget se ele for movido/redimensionado.
+_DEFAULT_FROM_ANCHOR = {"rx": 0.5, "ry": 1.0}
+_DEFAULT_TO_ANCHOR = {"rx": 0.5, "ry": 0.0}
+
+
+def _sanitize_anchor(raw: Optional[dict], default: dict) -> dict:
+    if not isinstance(raw, dict):
+        return dict(default)
+    try:
+        rx = float(raw.get("rx", default["rx"]))
+        ry = float(raw.get("ry", default["ry"]))
+    except (TypeError, ValueError):
+        return dict(default)
+    return {"rx": min(max(rx, 0.0), 1.0), "ry": min(max(ry, 0.0), 1.0)}
+
+
+def _sanitize_waypoints(raw) -> list[dict]:
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for point in raw:
+        if not isinstance(point, dict):
+            continue
+        try:
+            out.append({"x": float(point["x"]), "y": float(point["y"])})
+        except (TypeError, ValueError, KeyError):
+            continue
+    return out
+
+
 def get_plant_connections(layout: DashboardLayout) -> list[dict]:
     """Lê BrewPlant.plant_schema_json (campo que já existia, nunca
     lido em lugar nenhum antes desta conversa) — cada conexão pode
     trazer `flow_function_name` (atuador que decide se a tubulação
-    "flui" ou fica parada)."""
+    "flui" ou fica parada).
+
+    `from_anchor`/`to_anchor`/`waypoints` são novos (conversa —
+    editor de tubulação CAD-like) e sempre opcionais: conexão salva
+    antes desta mudança não tem essas chaves e continua renderizando
+    exatamente como antes (âncora fixa, linha reta)."""
     if not layout.plant_id or not layout.plant:
         return []
     schema = layout.plant.plant_schema_json or {}
@@ -122,6 +162,9 @@ def get_plant_connections(layout: DashboardLayout) -> list[dict]:
             "flowing": flowing,
             "color": conn.get("color") or "#3498db",
             "width": conn.get("width") or 6,
+            "from_anchor": _sanitize_anchor(conn.get("from_anchor"), _DEFAULT_FROM_ANCHOR),
+            "to_anchor": _sanitize_anchor(conn.get("to_anchor"), _DEFAULT_TO_ANCHOR),
+            "waypoints": _sanitize_waypoints(conn.get("waypoints")),
         })
     return out
 
@@ -339,8 +382,24 @@ def update_plant_connections(layout: DashboardLayout, connections: list[dict]) -
     individual). Cada item aceita `color`/`width` além de
     `from_vessel_id`/`to_vessel_id`/`flow_function_name` (mesmo
     formato já usado por `get_plant_connections()` e pelo importador
-    do bridge — só ganham 2 chaves novas, opcionais)."""
+    do bridge) e, desde a conversa do editor CAD-like,
+    `from_anchor`/`to_anchor`/`waypoints` (opcionais — sanitizados
+    aqui antes de persistir, mesma regra da leitura)."""
     if not layout.plant_id or not layout.plant:
         raise DashboardEditorError("Este layout não está associado a nenhuma Planta.")
-    layout.plant.plant_schema_json = {"connections": connections}
+    sanitized = []
+    for conn in connections:
+        if not isinstance(conn, dict):
+            continue
+        sanitized.append({
+            "from_vessel_id": conn.get("from_vessel_id"),
+            "to_vessel_id": conn.get("to_vessel_id"),
+            "flow_function_name": conn.get("flow_function_name"),
+            "color": conn.get("color") or "#3498db",
+            "width": conn.get("width") or 6,
+            "from_anchor": _sanitize_anchor(conn.get("from_anchor"), _DEFAULT_FROM_ANCHOR),
+            "to_anchor": _sanitize_anchor(conn.get("to_anchor"), _DEFAULT_TO_ANCHOR),
+            "waypoints": _sanitize_waypoints(conn.get("waypoints")),
+        })
+    layout.plant.plant_schema_json = {"connections": sanitized}
     db.session.commit()
