@@ -2628,3 +2628,43 @@ sentidos: Timeline ↔ Dashboard, Sessão gerada ↔ Dashboard.
 Testes: 3 casos novos (link presente, aviso aparece sem Planta, aviso
 some com Planta). Suíte completa do projeto: **643/643 passando**.
 Sem migration — só templates.
+
+## Widget de alarmes: timeline (disparado + agendado), não só log reativo: CONCLUÍDO
+
+Achado real relatado: "ao importar sessão de receita ainda não
+apareceu nos alertas". Causa: o widget `alarm_list` só mostrava
+`BrewSessionAlarm` (já disparado) — uma Sessão recém-gerada como
+"Rascunho" (opção padrão do formulário, sem `started_at`) ou uma
+Sessão "Ativa" mas ainda longe do tempo do alerta não mostrava **nada**,
+mesmo com a timeline certa por trás. Parecia bug, era ausência da
+parte "agendado/próximo" — o widget só era reativo, não "dashboard"
+de verdade.
+
+**Corrigido**: `_get_active_alarms()` agora devolve duas listas —
+`fired` (`BrewSessionAlarm`, como antes) e `upcoming`
+(`BrewSessionStep` tipo `alert` ainda não disparado):
+- Sessão **rascunho** (sem `started_at`): mostra os alertas agendados
+  com rótulo "agendado" (sem contagem regressiva — o relógio ainda
+  não está rodando).
+- Sessão **ativa**: contagem regressiva de verdade
+  (`trigger_at_seconds - segundos decorridos`).
+- Sem sessão "active", cai pro rascunho mais recente da planta (não
+  fica esperando alguém "ativar" pra mostrar alguma coisa).
+
+Testes: 5 casos novos (`tests/test_dashboard_runtime.py`) — rascunho
+mostra agendado sem contagem, ativa mostra contagem regressiva
+correta, alerta já disparado não aparece em `upcoming` de novo, sem
+sessão nenhuma devolve listas vazias sem erro, JS renderiza os dois
+grupos. Suíte completa do projeto: **648/648 passando**. Sem
+migration — só lógica de leitura.
+
+### Pendências registradas nesta conversa (fora de escopo desta rodada — "vamos focar no dashboard")
+
+- Auditoria de campos que ainda são `<input>` de id cru em vez de
+  combo de busca (skill 11) em outras telas do addon (não só as já
+  cobertas: Dashboard/device_manager).
+- Consolidar as telas de Planta (Vasilhames, Mapeamentos, etc.) numa
+  página só com abas — a maioria dos cervejeiros caseiros só tem 1
+  Planta, hoje isso fica espalhado em várias telas de CRUD separadas.
+- Carga inicial/onboarding pra usuário novo do sistema (fora do fluxo
+  já existente de importar `devices.yml`/`recipe.yml` do bridge).

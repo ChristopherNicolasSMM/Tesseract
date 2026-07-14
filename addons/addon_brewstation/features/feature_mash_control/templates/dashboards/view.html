@@ -411,13 +411,36 @@
     } else if (type === 'alarm_list') {
       const list = el.querySelector('.db-alarm-list');
       list.innerHTML = '';
-      ((data && data.alarms) || []).forEach(function (a) {
+      const fired = (data && data.fired) || [];
+      const upcoming = (data && data.upcoming) || [];
+
+      fired.forEach(function (a) {
         const li = document.createElement('li');
         li.className = 'mb-1';
         li.innerHTML = '<span class="badge bg-' + (a.severity === 'critical' || a.severity === 'high' ? 'danger' : 'warning') + '">' + a.severity + '</span> ' + a.message;
         list.appendChild(li);
       });
-      if (!list.children.length) list.innerHTML = '<li class="text-muted">Sem alarmes ativos.</li>';
+
+      upcoming.forEach(function (u) {
+        const li = document.createElement('li');
+        li.className = 'mb-1 text-muted';
+        let timeLabel;
+        if (u.seconds_until === null || u.seconds_until === undefined) {
+          timeLabel = 'agendado';
+        } else if (u.seconds_until <= 0) {
+          timeLabel = 'agora';
+        } else {
+          const mins = Math.ceil(u.seconds_until / 60);
+          timeLabel = 'em ' + mins + ' min';
+        }
+        li.innerHTML = '<span class="badge bg-secondary">' + timeLabel + '</span> ' + u.name;
+        list.appendChild(li);
+      });
+
+      if (!list.children.length) {
+        const statusHint = (data && data.session_status) ? '' : ' (nenhuma Sessão associada a esta Planta ainda)';
+        list.innerHTML = '<li class="text-muted">Sem alarmes ativos ou agendados' + statusHint + '.</li>';
+      }
     }
   }
 

@@ -24,6 +24,7 @@ from core.db import db
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_mapping import BrewPlantMapping
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_vessel import BrewPlantVessel
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
+from addons.addon_brewstation.features.feature_mash_control.model.brew_session_step import BrewSessionStep
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session_alarm import BrewSessionAlarm
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session_log import BrewSessionLog
 from addons.addon_brewstation.features.feature_mash_control.model.dashboard_layout import DashboardLayout
@@ -88,7 +89,7 @@ def get_layout_snapshot(layout: DashboardLayout) -> dict:
         elif widget.widget_type in ("toggle", "gauge", "digital"):
             widgets_out[widget.id] = _resolve_value_and_meta(widget.device_function_name)
         elif widget.widget_type == "alarm_list":
-            widgets_out[widget.id] = {"alarms": _get_active_alarms(layout, widget)}
+            widgets_out[widget.id] = _get_active_alarms(layout, widget)
         # "chart" widgets buscam via get_session_readings() à parte (histórico, não snapshot pontual)
 
     return {
@@ -125,20 +126,75 @@ def get_plant_connections(layout: DashboardLayout) -> list[dict]:
     return out
 
 
-def _get_active_alarms(layout: DashboardLayout, widget: DashboardWidget) -> list[dict]:
+def _get_active_alarms(layout: DashboardLayout, widget: DashboardWidget) -> dict:
+    """
+    Timeline de alertas do widget — achado real (conversa): antes só
+    devolvia `BrewSessionAlarm` (já disparado), então uma Sessão
+    recém-gerada (ainda "draft"/sem `started_at`, ou "active" mas
+    ainda longe do tempo do alerta) não mostrava NADA, mesmo com a
+    receita/timeline certa por trás — parecia bug, mas era só a
+    ausência da parte "agendado/próximo". Agora devolve as duas
+    listas: `fired` (BrewSessionAlarm, já disparou) e `upcoming`
+    (BrewSessionStep tipo alert, ainda não disparou — com contagem
+    regressiva se a sessão já estiver ativa, ou só o rótulo se ainda
+    for rascunho).
+    """
     max_items = (widget.config_json or {}).get("max_items", 5)
     session_id = (widget.config_json or {}).get("session_id")
-    query = BrewSessionAlarm.query.filter_by(is_deleted=False, is_acknowledged=False)
+    session = None
+
     if session_id:
-        query = query.filter_by(session_id=session_id)
+        session = BrewSession.query.get(session_id)
     elif layout.plant_id:
-        active_session = _get_active_session_for_plant(layout.plant_id)
-        if active_session:
-            query = query.filter_by(session_id=active_session.id)
-        else:
-            return []
-    alarms = query.order_by(BrewSessionAlarm.created_at.desc()).limit(max_items).all()
-    return [a.to_dict() for a in alarms]
+        session = _get_active_session_for_plant(layout.plant_id)
+        if not session:
+            # Sem sessão "active" — cai pra rascunho mais recente da
+            # planta, pra timeline aparecer mesmo antes de iniciar.
+            session = (
+                BrewSession.query
+                .filter_by(plant_id=layout.plant_id, status="draft", is_deleted=False)
+                .order_by(BrewSession.created_at.desc())
+                .first()
+            )
+
+    if not session:
+        return {"fired": [], "upcoming": []}
+
+    fired = (
+        BrewSessionAlarm.query
+        .filter_by(session_id=session.id, is_deleted=False, is_acknowledged=False)
+        .order_by(BrewSessionAlarm.created_at.desc())
+        .limit(max_items)
+        .all()
+    )
+
+    elapsed_seconds = None
+    if session.started_at:
+        started_at = session.started_at.replace(tzinfo=None) if session.started_at.tzinfo else session.started_at
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        elapsed_seconds = (now - started_at).total_seconds()
+
+    upcoming_steps = (
+        BrewSessionStep.query
+        .filter_by(session_id=session.id, step_type="alert", alarm_fired=False, is_deleted=False)
+        .order_by(BrewSessionStep.trigger_at_seconds.asc())
+        .limit(max_items)
+        .all()
+    )
+    upcoming = []
+    for step in upcoming_steps:
+        seconds_until = None
+        if elapsed_seconds is not None and step.trigger_at_seconds is not None:
+            seconds_until = step.trigger_at_seconds - elapsed_seconds
+        upcoming.append({
+            "id": step.id, "name": step.name, "seconds_until": seconds_until,
+        })
+
+    return {
+        "fired": [a.to_dict() for a in fired],
+        "upcoming": upcoming,
+        "session_status": session.status,
+    }
 
 
 def _get_active_session_for_plant(plant_id: int) -> Optional[BrewSession]:

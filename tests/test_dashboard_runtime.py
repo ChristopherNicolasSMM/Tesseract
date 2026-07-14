@@ -26,6 +26,7 @@ from addons.addon_brewstation.features.feature_mash_control.model.brew_plant imp
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_vessel import BrewPlantVessel
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_mapping import BrewPlantMapping
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
+from addons.addon_brewstation.features.feature_mash_control.model.brew_session_step import BrewSessionStep
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session_log import BrewSessionLog
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session_alarm import BrewSessionAlarm
 from addons.addon_brewstation.features.feature_mash_control.model.dashboard_layout import DashboardLayout
@@ -735,3 +736,143 @@ def test_view_nao_mostra_aviso_quando_layout_tem_planta(app, client):
     html = resp.data.decode("utf-8")
     assert "ainda não tem uma" not in html
     assert "dbEditPipesBtn" in html  # botão de tubulação aparece com planta
+
+
+# ── Timeline de alertas (fired + upcoming) — achado real relatado ───────────
+
+def test_snapshot_mostra_alertas_agendados_de_sessao_draft(app, client):
+    """Achado real: 'ao importar sessão de receita ainda não apareceu
+    nos alertas' — sessão gerada como rascunho (sem started_at) nunca
+    tinha NADA no widget, porque só mostrava BrewSessionAlarm (já
+    disparado). Agora mostra a timeline agendada mesmo em rascunho."""
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Draft Alertas")
+        db.session.add(plant)
+        db.session.commit()
+        session = BrewSession(name="S Draft Alertas", plant_id=plant.id, status="draft")  # sem started_at
+        db.session.add(session)
+        db.session.commit()
+        db.session.add(BrewSessionStep(
+            session_id=session.id, step_index=0, name="Lúpulo Amargor", step_type="alert",
+            trigger_at_seconds=3000, alarm_fired=False,
+        ))
+        db.session.commit()
+        layout = DashboardLayout(name="L Draft Alertas", plant_id=plant.id)
+        widget = DashboardWidget(layout_id=None, widget_type="alarm_list")
+        db.session.add(layout)
+        db.session.commit()
+        widget.layout_id = layout.id
+        db.session.add(widget)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/snapshot")
+    data = resp.get_json()
+    widget_data = list(data["widgets"].values())[0]
+    assert len(widget_data["upcoming"]) == 1
+    assert widget_data["upcoming"][0]["name"] == "Lúpulo Amargor"
+    assert widget_data["upcoming"][0]["seconds_until"] is None  # rascunho, sem relógio rodando
+    assert widget_data["session_status"] == "draft"
+
+
+def test_snapshot_mostra_contagem_regressiva_em_sessao_ativa(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Ativa Alertas")
+        db.session.add(plant)
+        db.session.commit()
+        session = BrewSession(
+            name="S Ativa Alertas", plant_id=plant.id, status="active",
+            started_at=datetime.now(timezone.utc) - timedelta(seconds=600),
+        )
+        db.session.add(session)
+        db.session.commit()
+        db.session.add(BrewSessionStep(
+            session_id=session.id, step_index=0, name="Lúpulo Aroma", step_type="alert",
+            trigger_at_seconds=900, alarm_fired=False,  # 300s no futuro
+        ))
+        db.session.commit()
+        layout = DashboardLayout(name="L Ativa Alertas", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="alarm_list")
+        db.session.add(widget)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/snapshot")
+    data = resp.get_json()
+    widget_data = list(data["widgets"].values())[0]
+    assert len(widget_data["upcoming"]) == 1
+    assert 250 < widget_data["upcoming"][0]["seconds_until"] < 310  # ~300s restantes
+
+
+def test_snapshot_alerta_ja_disparado_nao_aparece_em_upcoming(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Ja Disparado")
+        db.session.add(plant)
+        db.session.commit()
+        session = BrewSession(
+            name="S Ja Disparado", plant_id=plant.id, status="active",
+            started_at=datetime.now(timezone.utc) - timedelta(seconds=1000),
+        )
+        db.session.add(session)
+        db.session.commit()
+        db.session.add(BrewSessionStep(
+            session_id=session.id, step_index=0, name="Já disparado", step_type="alert",
+            trigger_at_seconds=500, alarm_fired=True,
+        ))
+        db.session.add(BrewSessionAlarm(session_id=session.id, message="Já disparado", severity="medium"))
+        db.session.commit()
+        layout = DashboardLayout(name="L Ja Disparado", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="alarm_list")
+        db.session.add(widget)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/snapshot")
+    data = resp.get_json()
+    widget_data = list(data["widgets"].values())[0]
+    assert widget_data["upcoming"] == []
+    assert len(widget_data["fired"]) == 1
+
+
+def test_snapshot_sem_nenhuma_sessao_devolve_listas_vazias(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Sem Sessao Nenhuma")
+        db.session.add(plant)
+        db.session.commit()
+        layout = DashboardLayout(name="L Sem Sessao Nenhuma", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="alarm_list")
+        db.session.add(widget)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/snapshot")
+    data = resp.get_json()
+    widget_data = list(data["widgets"].values())[0]
+    assert widget_data == {"fired": [], "upcoming": []}
+
+
+def test_view_html_renderiza_upcoming_no_js(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L JS Upcoming")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="alarm_list")
+        db.session.add(widget)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "data.upcoming" in html
+    assert "data.fired" in html
