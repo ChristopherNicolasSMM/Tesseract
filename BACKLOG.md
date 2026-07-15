@@ -2728,3 +2728,41 @@ Testes: suíte completa rodada após as mudanças. Migration
 `ramp_seconds` validada com dado real (upgrade → insere → downgrade →
 confirma sobrevivência → upgrade → confirma volta), mesmo processo já
 usado pra `source_recipe_step_id`.
+
+## Ponto 3 do Dashboard — paleta arrastável + painel lateral: CONCLUÍDO
+
+Fecha o plano original de 3 pontos do Dashboard de Brassagem.
+
+- **Paleta** (`#dbPalette`, lado esquerdo, só em modo edição): 9 tipos
+  de widget com ícone — os 7 já existentes (`digital`, `gauge`,
+  `chart`, `toggle`, `vessel`, `step_card`, `alarm_list`) + 2 novos,
+  **`text`** e **`image`** (widgets sem device/atuador, só conteúdo
+  estático — `config_json.content` e `config_json.image_url`).
+  Arrastar um ícone pro canvas cria o widget **solto** (sem
+  `vessel_id`/`device_function_name`) na posição exata do drop —
+  mesmo padrão de arrasto customizado (mousedown/mousemove/mouseup)
+  já usado pro resto do editor, sem HTML5 Drag and Drop nativo.
+- **Estado "Não configurado"**: badge cinza no widget enquanto ele
+  precisar de vínculo (`vessel`/`toggle`/`gauge`/`digital`/`chart`) e
+  não tiver — some assim que o painel salva o vínculo.
+- **Painel lateral** (`#dbSidePanel`, lado direito): substituiu **de
+  vez** o modal de "Configurações" e o modal "+ Widget" (ambos
+  removidos do HTML, não só escondidos). Abre ao **clicar** (sem
+  arrastar) um widget em modo edição — precisou diferenciar clique de
+  arrasto no mesmo `mousedown`/`mouseup` (limiar de 3px de
+  deslocamento). Fecha ao clicar em área vazia do canvas. Tem
+  "Remover" embutido (não precisa mais de menu de contexto — o
+  `<ul id="dbContextMenu">` de botão direito foi removido).
+- **Mudança de decisão de arquitetura**: `update_widget_config()`
+  antes tinha uma regra explícita de "nunca mexe em
+  `vessel_id`/`device_function_name`, isso é só via CRUD separado".
+  Superada nesta rodada — o painel agora PODE setar essas referências
+  (parâmetros novos `vessel_id`/`device_function_name`/
+  `clear_reference` na função e na rota), porque agora existe um
+  fluxo legítimo de widget nascer sem vínculo (arrastado da paleta) e
+  precisar ganhar um na primeira configuração. A tela de CRUD
+  tabular (`/dashboard-widgets/<id>`) continua existindo e
+  funcionando igual, pra edição em lote.
+
+Sem migration nesta rodada (só service/controller/template). 12
+testes novos. Suíte completa rodada em lotes — tudo passou.

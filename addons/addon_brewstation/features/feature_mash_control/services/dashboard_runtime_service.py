@@ -308,7 +308,7 @@ def get_session_readings(session_id: int, function_name: str, window_minutes: in
 # ── Editor visual (conversa — CraftBeerPi como referência): modo edição,   ──
 # ── arrastar/redimensionar, botão direito (configurações/remover), pipes  ──
 
-_VALID_WIDGET_TYPES = ("vessel", "toggle", "gauge", "digital", "alarm_list", "chart", "step_card")
+_VALID_WIDGET_TYPES = ("vessel", "toggle", "gauge", "digital", "alarm_list", "chart", "step_card", "text", "image")
 _VALID_SVG_SHAPES = ("mash_tun", "boil_kettle", "hlt", "fermenter", "whirlpool", "generic")
 
 
@@ -332,20 +332,31 @@ def update_widget_geometry(widget: DashboardWidget, *, x=None, y=None, width=Non
     db.session.commit()
 
 
-def update_widget_config(widget: DashboardWidget, *, label_text=None, config_json=None) -> None:
-    """'Configurações' do menu de botão direito — label, e o
-    config_json específico do tipo (inclui o comportamento de
-    acionamento manual: `confirm_before_actuate`, `svg_shape` pro tipo
-    vessel, etc.). Nunca mexe em widget_type/vessel_id/
-    device_function_name — trocar a REFERÊNCIA de um widget já
-    existente é reaproveitar o CRUD normal (`/dashboard-widgets/<id>`),
-    não o editor visual."""
+def update_widget_config(widget: DashboardWidget, *, label_text=None, config_json=None,
+                          vessel_id=None, device_function_name=None, clear_reference=False) -> None:
+    """Painel lateral do editor visual (conversa — Ponto 3, substituiu o
+    antigo modal de 'Configurações' por completo). `vessel_id`/
+    `device_function_name` agora PODEM ser setados aqui — mudança de
+    decisão em relação à versão anterior: widget nasce solto ao ser
+    arrastado da paleta (sem vínculo), e o painel é o lugar onde o
+    primeiro vínculo é feito. `clear_reference=True` limpa ambos (ex.:
+    usuário troca o tipo de referência). A tela de CRUD separada
+    (`/dashboard-widgets/<id>`) continua existindo e funcionando igual,
+    pra edição em lote/tabular."""
     if label_text is not None:
         widget.label_text = label_text
     if config_json is not None:
         merged = dict(widget.config_json or {})
         merged.update(config_json)
         widget.config_json = merged
+    if clear_reference:
+        widget.vessel_id = None
+        widget.device_function_name = None
+    else:
+        if vessel_id is not None:
+            widget.vessel_id = vessel_id
+        if device_function_name is not None:
+            widget.device_function_name = device_function_name
     db.session.commit()
 
 

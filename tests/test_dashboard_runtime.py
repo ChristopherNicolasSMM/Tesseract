@@ -802,17 +802,17 @@ def test_config_manual_control_enabled_e_persistido(app, client):
         assert widget.config_json["manual_control_enabled"] is False
 
 
-def test_view_renderiza_checkbox_de_acionamento_manual_no_modal(app, client):
+def test_view_renderiza_checkbox_de_acionamento_manual_no_painel(app, client):
     _login_admin(app, client)
     with app.app_context():
-        layout = DashboardLayout(name="L Modal Manual")
+        layout = DashboardLayout(name="L Painel Manual")
         db.session.add(layout)
         db.session.commit()
         layout_id = layout.id
 
     resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
     html = resp.data.decode("utf-8")
-    assert "dbConfigManualControl" in html
+    assert "dbPanelManualControl" in html
     assert "manual_control_enabled" in html
 
 
@@ -1088,3 +1088,169 @@ def test_snapshot_step_card_com_sessao_ativa_mostra_etapa_atual(app, client):
     data = resp.get_json()
     assert data["active_recipe_id"] == recipe_id
     assert data["widgets"][str(widget_id)]["current"]["name"] == "Mash"
+
+
+# ── Paleta arrastável + painel lateral (Ponto 3) ─────────────────────────────
+
+def test_create_widget_tipo_text_via_editor(app):
+    with app.app_context():
+        layout = DashboardLayout(name="L Text Widget")
+        db.session.add(layout)
+        db.session.commit()
+        widget = svc.create_widget_from_editor(layout, widget_type="text", label_text="", x=10, y=10)
+        assert widget.widget_type == "text"
+        assert widget.vessel_id is None
+        assert widget.device_function_name is None
+
+
+def test_create_widget_tipo_image_via_editor(app):
+    with app.app_context():
+        layout = DashboardLayout(name="L Image Widget")
+        db.session.add(layout)
+        db.session.commit()
+        widget = svc.create_widget_from_editor(layout, widget_type="image", label_text="", x=10, y=10)
+        assert widget.widget_type == "image"
+
+
+def test_update_widget_config_vincula_vessel_id_pela_primeira_vez(app):
+    """Achado da conversa (Ponto 3): widget nasce solto da paleta —
+    o painel lateral agora PODE setar vessel_id/device_function_name,
+    diferente da restrição antiga do modal."""
+    with app.app_context():
+        layout = DashboardLayout(name="L Vincula Vessel")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="vessel")
+        db.session.add(widget)
+        db.session.commit()
+        assert widget.vessel_id is None
+
+        svc.update_widget_config(widget, vessel_id=7)
+        assert widget.vessel_id == 7
+
+
+def test_update_widget_config_vincula_device_function_name(app):
+    with app.app_context():
+        layout = DashboardLayout(name="L Vincula Function")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="toggle")
+        db.session.add(widget)
+        db.session.commit()
+
+        svc.update_widget_config(widget, device_function_name="bomba_transfer")
+        assert widget.device_function_name == "bomba_transfer"
+
+
+def test_update_widget_config_clear_reference_limpa_vinculo(app):
+    with app.app_context():
+        layout = DashboardLayout(name="L Clear Ref")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="vessel", vessel_id=3)
+        db.session.add(widget)
+        db.session.commit()
+
+        svc.update_widget_config(widget, clear_reference=True)
+        assert widget.vessel_id is None
+        assert widget.device_function_name is None
+
+
+def test_update_config_rota_web_aceita_vessel_id(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Rota Vincula")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="vessel")
+        db.session.add(widget)
+        db.session.commit()
+        widget_id = widget.id
+
+    resp = client.post(f"/brewstation/dashboards/widgets/{widget_id}/config", json={"vessel_id": 9})
+    assert resp.status_code == 200
+    with app.app_context():
+        widget = DashboardWidget.query.get(widget_id)
+        assert widget.vessel_id == 9
+
+
+def test_view_renderiza_badge_nao_configurado_pra_widget_solto(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Badge Nao Config")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="toggle")  # sem device_function_name
+        db.session.add(widget)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "Não configurado" in html
+
+
+def test_view_nao_renderiza_badge_pra_widget_ja_vinculado(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Badge Configurado")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="toggle", device_function_name="bomba_x")
+        db.session.add(widget)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "Não configurado" not in html
+
+
+def test_view_renderiza_paleta_com_os_9_tipos(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Paleta")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    for wtype in ["digital", "gauge", "chart", "toggle", "vessel", "step_card", "alarm_list", "text", "image"]:
+        assert f'data-widget-type="{wtype}"' in html
+
+
+def test_view_renderiza_widget_text_e_image(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Text Image Render")
+        db.session.add(layout)
+        db.session.commit()
+        text_w = DashboardWidget(layout_id=layout.id, widget_type="text", config_json={"content": "Aviso importante"})
+        image_w = DashboardWidget(layout_id=layout.id, widget_type="image")
+        db.session.add_all([text_w, image_w])
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "Aviso importante" in html
+    assert "Sem imagem" in html
+
+
+def test_view_nao_referencia_modal_removido(app, client):
+    """Garante que o modal de Configurações/Adicionar Widget antigos
+    foram mesmo removidos, não só escondidos (conversa — Ponto 3)."""
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Sem Modal Antigo")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert 'id="dbAddWidgetModal"' not in html
+    assert 'id="dbConfigModal"' not in html
+    assert 'id="dbSidePanel"' in html
+    assert 'id="dbPalette"' in html

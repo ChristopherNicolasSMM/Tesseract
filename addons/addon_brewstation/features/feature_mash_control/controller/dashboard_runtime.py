@@ -181,6 +181,8 @@ def update_config(widget_id: int):
     payload = request.get_json(silent=True) or {}
     svc.update_widget_config(
         widget, label_text=payload.get("label_text"), config_json=payload.get("config_json"),
+        vessel_id=payload.get("vessel_id"), device_function_name=payload.get("device_function_name"),
+        clear_reference=bool(payload.get("clear_reference")),
     )
     return jsonify({"ok": True})
 

@@ -15,7 +15,6 @@
       <i class="bi bi-unlock"></i> Modo Edição
     </button>
     <div id="dbEditToolbar" class="d-none d-flex gap-2">
-      <button type="button" id="dbAddWidgetBtn" class="btn btn-sm btn-primary"><i class="bi bi-plus-lg"></i> Widget</button>
       {% if layout.plant_id %}
       <button type="button" id="dbEditPipesBtn" class="btn btn-sm btn-info"><i class="bi bi-share"></i> Tubulação</button>
       {% endif %}
@@ -47,20 +46,53 @@
 {% endfor %}
 
 <section class="section">
-  <div id="dbCanvas" class="position-relative mx-auto"
-       style="width:{{ layout.canvas_width }}px; max-width:100%; min-height:{{ layout.canvas_height }}px;
-              background-color:{{ layout.background_color }}; border-radius:12px; overflow:hidden;">
+  <div class="d-flex gap-2 align-items-start">
+    <!-- Paleta de widgets (conversa — Ponto 3): arrastar pro canvas cria
+         widget SOLTO (sem vínculo) na posição do drop; painel lateral
+         faz a configuração/vínculo depois, sem tela de cadastro. -->
+    <div id="dbPalette" class="d-none flex-shrink-0 bg-dark border border-secondary rounded p-2" style="width:90px;">
+      <div class="small text-muted text-center mb-2">Paleta</div>
+      {% for wtype, wicon, wlabel in [
+        ('digital', 'bi-thermometer-half', 'Temp.'),
+        ('gauge', 'bi-speedometer2', 'Gauge'),
+        ('chart', 'bi-graph-up', 'Gráfico'),
+        ('toggle', 'bi-toggle-on', 'Botão'),
+        ('vessel', 'bi-cup-straw', 'Tanque'),
+        ('step_card', 'bi-list-check', 'Etapa'),
+        ('alarm_list', 'bi-bell', 'Alarme'),
+        ('text', 'bi-fonts', 'Texto'),
+        ('image', 'bi-image', 'Imagem'),
+      ] %}
+      <div class="db-palette-item text-center p-2 mb-1 rounded" data-widget-type="{{ wtype }}"
+           style="cursor:grab; user-select:none;" title="{{ wlabel }}">
+        <i class="bi {{ wicon }} fs-4 d-block"></i>
+        <span class="small">{{ wlabel }}</span>
+      </div>
+      {% endfor %}
+    </div>
 
-    <svg id="dbPipesLayer" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:1;"></svg>
+    <div id="dbCanvas" class="position-relative mx-auto"
+         style="width:{{ layout.canvas_width }}px; max-width:100%; min-height:{{ layout.canvas_height }}px;
+                background-color:{{ layout.background_color }}; border-radius:12px; overflow:hidden;">
 
-    {% for w in widgets %}
-    <div class="db-widget" id="db-widget-{{ w.id }}" data-widget-id="{{ w.id }}" data-widget-type="{{ w.widget_type }}"
-         data-label-text="{{ w.label_text or '' }}" data-config-json='{{ (w.config_json or {}) | tojson }}'
-         {% if w.vessel_id %}data-vessel-id="{{ w.vessel_id }}"{% endif %}
-         {% if w.device_function_name %}data-device-function-name="{{ w.device_function_name }}"{% endif %}
-         {% if (w.config_json or {}).get('fill_role_key') %}data-fill-role-key="{{ w.config_json.fill_role_key }}"{% endif %}
-         style="position:absolute; left:{{ w.x }}px; top:{{ w.y }}px; width:{{ w.width }}px; height:{{ w.height }}px;
-                transform:rotate({{ w.rotation or 0 }}deg); z-index:{{ (w.z_index or 1) + 1 }};">
+      <svg id="dbPipesLayer" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:1;"></svg>
+
+      {% for w in widgets %}
+      <div class="db-widget" id="db-widget-{{ w.id }}" data-widget-id="{{ w.id }}" data-widget-type="{{ w.widget_type }}"
+           data-label-text="{{ w.label_text or '' }}" data-config-json='{{ (w.config_json or {}) | tojson }}'
+           {% if w.vessel_id %}data-vessel-id="{{ w.vessel_id }}"{% endif %}
+           {% if w.device_function_name %}data-device-function-name="{{ w.device_function_name }}"{% endif %}
+           {% if (w.config_json or {}).get('fill_role_key') %}data-fill-role-key="{{ w.config_json.fill_role_key }}"{% endif %}
+           style="position:absolute; left:{{ w.x }}px; top:{{ w.y }}px; width:{{ w.width }}px; height:{{ w.height }}px;
+                  transform:rotate({{ w.rotation or 0 }}deg); z-index:{{ (w.z_index or 1) + 1 }};">
+
+        {% set needs_vessel = w.widget_type == 'vessel' and not w.vessel_id %}
+      {% set needs_function = w.widget_type in ('toggle', 'gauge', 'digital', 'chart') and not w.device_function_name %}
+      {% if needs_vessel or needs_function %}
+      <span class="badge bg-secondary position-absolute top-0 start-0 m-1" style="z-index:10;">
+        <i class="bi bi-exclamation-triangle"></i> Não configurado
+      </span>
+      {% endif %}
 
       {% if w.widget_type == 'vessel' %}
         {% set shape = (w.config_json or {}).get('svg_shape', 'mash_tun') %}
@@ -174,129 +206,112 @@
             </div>
           </div>
         </div>
+
+      {% elif w.widget_type == 'text' %}
+        <div class="h-100 d-flex align-items-center justify-content-center p-2 text-center"
+             style="color:{{ (w.config_json or {}).get('color', '#e9ecef') }}; font-size:{{ (w.config_json or {}).get('font_size', 16) }}px;">
+          {{ (w.config_json or {}).get('content') or w.label_text or 'Texto' }}
+        </div>
+
+      {% elif w.widget_type == 'image' %}
+        {% set image_url = (w.config_json or {}).get('image_url') %}
+        <div class="h-100 d-flex align-items-center justify-content-center bg-black bg-opacity-25">
+          {% if image_url %}
+          <img src="{{ image_url }}" class="w-100 h-100" style="object-fit:contain;" alt="{{ w.label_text or '' }}">
+          {% else %}
+          <div class="text-muted small text-center"><i class="bi bi-image fs-3"></i><br>Sem imagem</div>
+          {% endif %}
+        </div>
       {% endif %}
 
       <div class="db-resize-handle d-none"></div>
     </div>
     {% endfor %}
+    </div>
+
+    <!-- Painel lateral (conversa — Ponto 3): substitui o modal de
+         'Configurações' de vez. Aparece ao selecionar um widget em modo
+         edição; some ao clicar em área vazia. -->
+    <div id="dbSidePanel" class="d-none flex-shrink-0 bg-dark border border-secondary rounded p-3" style="width:280px;">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <strong id="dbPanelTitle">Widget</strong>
+        <button type="button" id="dbPanelCloseBtn" class="btn-close btn-close-white"></button>
+      </div>
+      <input type="hidden" id="dbPanelWidgetId">
+      <div class="mb-2">
+        <label class="form-label small">Legenda / Nome</label>
+        <input type="text" id="dbPanelLabel" class="form-control form-control-sm">
+      </div>
+      <div class="mb-2 db-panel-field" data-field="vessel_ref">
+        <label class="form-label small">Vasilhame</label>
+        <select id="dbPanelVessel" class="form-select form-select-sm">
+          <option value="">— nenhum —</option>
+          {% for vid, v in vessels_by_id.items() %}
+          <option value="{{ vid }}">{{ v.label_text }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="mb-2 db-panel-field" data-field="function_ref">
+        <label class="form-label small">Function do dispositivo</label>
+        <select id="dbPanelFunction" class="form-select form-select-sm">
+          <option value="">— nenhuma —</option>
+          {% for f in device_functions %}
+          <option value="{{ f.name }}">{{ f.display_name or f.name }} ({{ f.category }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="mb-2 db-panel-field" data-field="svg_shape">
+        <label class="form-label small">Formato do vasilhame</label>
+        <select id="dbPanelSvgShape" class="form-select form-select-sm">
+          <option value="mash_tun">Panela / Caldeira</option>
+          <option value="fermenter">Fermentador (fundo cônico)</option>
+        </select>
+      </div>
+      <div class="mb-2 db-panel-field" data-field="fill_role_key">
+        <label class="form-label small">Papel do nível de líquido <span class="text-muted">(opcional)</span></label>
+        <input type="text" id="dbPanelFillRoleKey" class="form-control form-control-sm" placeholder="ex.: sensor_volume">
+      </div>
+      <div class="mb-2 db-panel-field" data-field="min_max">
+        <div class="row g-2">
+          <div class="col-6"><label class="form-label small">Mínimo</label><input type="number" id="dbPanelMin" class="form-control form-control-sm"></div>
+          <div class="col-6"><label class="form-label small">Máximo</label><input type="number" id="dbPanelMax" class="form-control form-control-sm"></div>
+        </div>
+      </div>
+      <div class="mb-2 db-panel-field" data-field="decimal_places">
+        <label class="form-label small">Casas decimais</label>
+        <input type="number" id="dbPanelDecimalPlaces" class="form-control form-control-sm" value="1" min="0" max="4">
+      </div>
+      <div class="mb-2 db-panel-field" data-field="session_window">
+        <div class="row g-2">
+          <div class="col-6"><label class="form-label small">Sessão (opcional)</label><input type="number" id="dbPanelSessionId" class="form-control form-control-sm"></div>
+          <div class="col-6"><label class="form-label small">Janela (min)</label><input type="number" id="dbPanelWindowMinutes" class="form-control form-control-sm" value="60"></div>
+        </div>
+      </div>
+      <div class="mb-2 db-panel-field" data-field="content">
+        <label class="form-label small">Texto</label>
+        <textarea id="dbPanelContent" class="form-control form-control-sm" rows="2"></textarea>
+      </div>
+      <div class="mb-2 db-panel-field" data-field="image_url">
+        <label class="form-label small">URL da imagem</label>
+        <input type="text" id="dbPanelImageUrl" class="form-control form-control-sm" placeholder="https://...">
+      </div>
+      <div class="form-check db-panel-field" data-field="confirm_before_actuate">
+        <input class="form-check-input" type="checkbox" id="dbPanelConfirm">
+        <label class="form-check-label small" for="dbPanelConfirm">Pedir confirmação antes de acionar</label>
+      </div>
+      <div class="form-check db-panel-field mb-2" data-field="manual_control_enabled">
+        <input class="form-check-input" type="checkbox" id="dbPanelManualControl">
+        <label class="form-check-label small" for="dbPanelManualControl">Permitir acionamento manual</label>
+      </div>
+      <div class="d-flex gap-2 mt-3">
+        <button type="button" id="dbPanelSaveBtn" class="btn btn-sm btn-primary flex-grow-1">Salvar</button>
+        <button type="button" id="dbPanelRemoveBtn" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+      </div>
+    </div>
   </div>
   <p class="small text-muted text-center mt-2">Atualiza a cada 3s — sem tempo real via WebSocket ainda (ver BACKLOG.md).</p>
 </section>
 
-<!-- Menu de contexto (botão direito) -->
-<ul id="dbContextMenu" class="dropdown-menu d-none" style="position:fixed; z-index:2000;">
-  <li><a class="dropdown-item" href="#" data-action="configure"><i class="bi bi-gear"></i> Configurações</a></li>
-  <li><a class="dropdown-item text-danger" href="#" data-action="remove"><i class="bi bi-trash"></i> Remover</a></li>
-</ul>
-
-<!-- Modal: Configurações do widget -->
-<div class="modal fade" id="dbConfigModal" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Configurações do Widget</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <input type="hidden" id="dbConfigWidgetId">
-        <div class="mb-3">
-          <label class="form-label">Legenda / Nome</label>
-          <input type="text" id="dbConfigLabel" class="form-control">
-        </div>
-        <div class="mb-3 db-config-field" data-field="svg_shape">
-          <label class="form-label">Formato do vasilhame</label>
-          <select id="dbConfigSvgShape" class="form-select">
-            <option value="mash_tun">Panela / Caldeira</option>
-            <option value="fermenter">Fermentador (fundo cônico)</option>
-          </select>
-        </div>
-        <div class="mb-3 db-config-field" data-field="fill_role_key">
-          <label class="form-label">Papel usado pro nível de líquido <span class="text-muted small">(opcional — em branco usa um nível fixo decorativo)</span></label>
-          <input type="text" id="dbConfigFillRoleKey" class="form-control" placeholder="ex.: sensor_volume">
-        </div>
-        <div class="mb-3 db-config-field" data-field="min_max">
-          <div class="row g-2">
-            <div class="col-6"><label class="form-label">Mínimo</label><input type="number" id="dbConfigMin" class="form-control"></div>
-            <div class="col-6"><label class="form-label">Máximo</label><input type="number" id="dbConfigMax" class="form-control"></div>
-          </div>
-        </div>
-        <div class="mb-3 db-config-field" data-field="decimal_places">
-          <label class="form-label">Casas decimais</label>
-          <input type="number" id="dbConfigDecimalPlaces" class="form-control" value="1" min="0" max="4">
-        </div>
-        <div class="mb-3 db-config-field" data-field="session_window">
-          <div class="row g-2">
-            <div class="col-6"><label class="form-label">Sessão (id, opcional)</label><input type="number" id="dbConfigSessionId" class="form-control"></div>
-            <div class="col-6"><label class="form-label">Janela (min)</label><input type="number" id="dbConfigWindowMinutes" class="form-control" value="60"></div>
-          </div>
-        </div>
-        <div class="form-check db-config-field" data-field="confirm_before_actuate">
-          <input class="form-check-input" type="checkbox" id="dbConfigConfirm">
-          <label class="form-check-label" for="dbConfigConfirm">Pedir confirmação antes de acionar (liga/desliga manual)</label>
-        </div>
-        <div class="form-check db-config-field" data-field="manual_control_enabled">
-          <input class="form-check-input" type="checkbox" id="dbConfigManualControl">
-          <label class="form-check-label" for="dbConfigManualControl">Permitir acionamento manual <span class="text-muted small">(desligado = só leitura, protegido — útil quando a automação já controla este atuador)</span></label>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" id="dbConfigSaveBtn" class="btn btn-primary">Salvar</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Adicionar Widget -->
-<div class="modal fade" id="dbAddWidgetModal" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Adicionar Widget</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <div class="mb-3">
-          <label class="form-label">Tipo</label>
-          <select id="dbNewWidgetType" class="form-select">
-            <option value="vessel">Vasilhame</option>
-            <option value="toggle">Botão liga/desliga</option>
-            <option value="gauge">Gauge</option>
-            <option value="digital">Indicador digital</option>
-            <option value="alarm_list">Lista de alarmes</option>
-            <option value="chart">Gráfico histórico</option>
-            <option value="step_card">Etapa (atual/próxima)</option>
-          </select>
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Legenda</label>
-          <input type="text" id="dbNewWidgetLabel" class="form-control">
-        </div>
-        <div class="mb-3 d-none" id="dbNewWidgetVesselWrap">
-          <label class="form-label">Vasilhame</label>
-          <select id="dbNewWidgetVessel" class="form-select">
-            {% for vid, v in vessels_by_id.items() %}
-            <option value="{{ vid }}">{{ v.label_text }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="mb-3 d-none" id="dbNewWidgetFunctionWrap">
-          <label class="form-label">Function do dispositivo</label>
-          <select id="dbNewWidgetFunction" class="form-select">
-            <option value="">— selecione —</option>
-            {% for f in device_functions %}
-            <option value="{{ f.name }}">{{ f.display_name or f.name }} ({{ f.category }})</option>
-            {% endfor %}
-          </select>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" id="dbAddWidgetSaveBtn" class="btn btn-primary">Adicionar</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- Modal: Editar Tubulação -->
 {% if layout.plant_id %}
@@ -867,6 +882,7 @@
     editMode = !editMode;
     canvas.classList.toggle('db-edit-mode', editMode);
     editToolbar.classList.toggle('d-none', !editMode);
+    palette.classList.toggle('d-none', !editMode);
     editToggle.innerHTML = editMode
       ? '<i class="bi bi-unlock-fill"></i> Sair do Modo Edição'
       : '<i class="bi bi-unlock"></i> Modo Edição';
@@ -876,6 +892,7 @@
     if (!editMode) {
       selectedPipeIndex = null;
       selectedWaypointIndex = null;
+      deselectWidget();
       pipeDragState = null;
     }
     renderPipes(pipesState);
@@ -892,6 +909,7 @@
       selectedWaypointIndex = null;
       renderPipes(pipesState);
     }
+    deselectWidget();
   });
 
   document.addEventListener('keydown', function (e) {
@@ -913,7 +931,7 @@
     if (e.target.closest('button, a, input, select')) return; // não arrasta clicando em controle interativo
     dragState = {
       el: widgetEl, startX: e.clientX, startY: e.clientY,
-      origLeft: widgetEl.offsetLeft, origTop: widgetEl.offsetTop,
+      origLeft: widgetEl.offsetLeft, origTop: widgetEl.offsetTop, moved: false,
     };
     e.preventDefault();
   });
@@ -932,6 +950,7 @@
   document.addEventListener('mousemove', function (e) {
     if (dragState) {
       const dx = e.clientX - dragState.startX, dy = e.clientY - dragState.startY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragState.moved = true;
       dragState.el.style.left = (dragState.origLeft + dx) + 'px';
       dragState.el.style.top = (dragState.origTop + dy) + 'px';
     }
@@ -967,10 +986,14 @@
   document.addEventListener('mouseup', function () {
     if (dragState) {
       const el = dragState.el;
-      fetch(widgetIdUrl(geometryUrlTemplate, el.dataset.widgetId), {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ x: el.offsetLeft, y: el.offsetTop }),
-      });
+      if (dragState.moved) {
+        fetch(widgetIdUrl(geometryUrlTemplate, el.dataset.widgetId), {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ x: el.offsetLeft, y: el.offsetTop }),
+        });
+      } else {
+        selectWidget(el);
+      }
       dragState = null;
     }
     if (resizeState) {
@@ -989,125 +1012,159 @@
     }
   });
 
-  // Botão direito — menu de contexto
-  const contextMenu = document.getElementById('dbContextMenu');
-  let contextTargetEl = null;
+  // ── Paleta de widgets (conversa — Ponto 3) ──────────────────────────────
+  // Arrastar um ícone da paleta pro canvas cria um widget SOLTO (sem
+  // vessel_id/device_function_name) na posição exata do drop — sem
+  // formulário/tela de cadastro no meio do caminho. O painel lateral
+  // (abaixo) é quem faz a configuração/vínculo depois.
+  const palette = document.getElementById('dbPalette');
+  let paletteDragType = null;
+  let paletteGhost = null;
 
-  canvas.addEventListener('contextmenu', function (e) {
-    if (!editMode) return;
-    const widgetEl = e.target.closest('.db-widget');
-    if (!widgetEl) return;
-    e.preventDefault();
-    contextTargetEl = widgetEl;
-    contextMenu.style.left = e.clientX + 'px';
-    contextMenu.style.top = e.clientY + 'px';
-    contextMenu.classList.remove('d-none');
-  });
-  document.addEventListener('click', function () { contextMenu.classList.add('d-none'); });
-
-  contextMenu.addEventListener('click', function (e) {
-    const action = e.target.closest('[data-action]');
-    if (!action || !contextTargetEl) return;
-    e.preventDefault();
-    if (action.dataset.action === 'configure') {
-      openConfigModal(contextTargetEl);
-    } else if (action.dataset.action === 'remove') {
-      if (confirm('Remover este widget do dashboard?')) {
-        fetch(widgetIdUrl(deleteUrlTemplate, contextTargetEl.dataset.widgetId), { method: 'POST' })
-          .then(function () { contextTargetEl.remove(); });
-      }
-    }
-  });
-
-  // Modal de Configurações
-  const configModal = new bootstrap.Modal(document.getElementById('dbConfigModal'));
-  const configFieldsByType = {
-    vessel: ['svg_shape', 'fill_role_key', 'manual_control_enabled'],
-    toggle: ['confirm_before_actuate', 'manual_control_enabled'],
-    gauge: ['min_max'],
-    digital: ['decimal_places'],
-    alarm_list: [],
-    chart: ['session_window'],
-  };
-
-  function openConfigModal(el) {
-    const type = el.dataset.widgetType;
-    const config = JSON.parse(el.dataset.configJson || '{}');
-    document.getElementById('dbConfigWidgetId').value = el.dataset.widgetId;
-    document.getElementById('dbConfigLabel').value = el.dataset.labelText || '';
-    document.getElementById('dbConfigSvgShape').value = config.svg_shape || 'mash_tun';
-    document.getElementById('dbConfigFillRoleKey').value = config.fill_role_key || '';
-    document.getElementById('dbConfigMin').value = config.min !== undefined ? config.min : '';
-    document.getElementById('dbConfigMax').value = config.max !== undefined ? config.max : '';
-    document.getElementById('dbConfigDecimalPlaces').value = config.decimal_places !== undefined ? config.decimal_places : 1;
-    document.getElementById('dbConfigSessionId').value = config.session_id || '';
-    document.getElementById('dbConfigWindowMinutes').value = config.window_minutes || 60;
-    document.getElementById('dbConfigConfirm').checked = !!config.confirm_before_actuate;
-    document.getElementById('dbConfigManualControl').checked = config.manual_control_enabled !== false;
-
-    const visibleFields = configFieldsByType[type] || [];
-    document.querySelectorAll('.db-config-field').forEach(function (field) {
-      field.classList.toggle('d-none', visibleFields.indexOf(field.dataset.field) === -1);
+  document.querySelectorAll('.db-palette-item').forEach(function (item) {
+    item.addEventListener('mousedown', function (e) {
+      if (!editMode) return;
+      e.preventDefault();
+      paletteDragType = item.dataset.widgetType;
+      paletteGhost = item.cloneNode(true);
+      paletteGhost.style.position = 'fixed';
+      paletteGhost.style.opacity = '0.7';
+      paletteGhost.style.pointerEvents = 'none';
+      paletteGhost.style.width = '80px';
+      paletteGhost.style.zIndex = '3000';
+      paletteGhost.style.left = e.clientX + 'px';
+      paletteGhost.style.top = e.clientY + 'px';
+      document.body.appendChild(paletteGhost);
     });
-    configModal.show();
-  }
+  });
 
-  document.getElementById('dbConfigSaveBtn').addEventListener('click', function () {
-    const widgetId = document.getElementById('dbConfigWidgetId').value;
-    const el = document.getElementById('db-widget-' + widgetId);
-    const type = el.dataset.widgetType;
-    const configJson = {};
-    if (type === 'vessel') {
-      configJson.svg_shape = document.getElementById('dbConfigSvgShape').value;
-      configJson.fill_role_key = document.getElementById('dbConfigFillRoleKey').value || null;
-      configJson.manual_control_enabled = document.getElementById('dbConfigManualControl').checked;
-    } else if (type === 'toggle') {
-      configJson.confirm_before_actuate = document.getElementById('dbConfigConfirm').checked;
-      configJson.manual_control_enabled = document.getElementById('dbConfigManualControl').checked;
-    } else if (type === 'gauge') {
-      configJson.min = parseFloat(document.getElementById('dbConfigMin').value) || 0;
-      configJson.max = parseFloat(document.getElementById('dbConfigMax').value) || 100;
-    } else if (type === 'digital') {
-      configJson.decimal_places = parseInt(document.getElementById('dbConfigDecimalPlaces').value, 10) || 0;
-    } else if (type === 'chart') {
-      configJson.session_id = parseInt(document.getElementById('dbConfigSessionId').value, 10) || null;
-      configJson.window_minutes = parseInt(document.getElementById('dbConfigWindowMinutes').value, 10) || 60;
+  document.addEventListener('mousemove', function (e) {
+    if (paletteGhost) {
+      paletteGhost.style.left = (e.clientX - 30) + 'px';
+      paletteGhost.style.top = (e.clientY - 20) + 'px';
     }
-    const labelText = document.getElementById('dbConfigLabel').value;
-
-    fetch(widgetIdUrl(configUrlTemplate, widgetId), {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label_text: labelText, config_json: configJson }),
-    }).then(function () { window.location.reload(); });
   });
 
-  // Modal de Adicionar Widget
-  const addWidgetModalEl = document.getElementById('dbAddWidgetModal');
-  const addWidgetModal = new bootstrap.Modal(addWidgetModalEl);
-  document.getElementById('dbAddWidgetBtn').addEventListener('click', function () { addWidgetModal.show(); });
-
-  document.getElementById('dbNewWidgetType').addEventListener('change', function () {
-    const type = this.value;
-    document.getElementById('dbNewWidgetVesselWrap').classList.toggle('d-none', type !== 'vessel');
-    document.getElementById('dbNewWidgetFunctionWrap').classList.toggle('d-none', ['toggle', 'gauge', 'digital', 'chart'].indexOf(type) === -1);
+  document.addEventListener('mouseup', function (e) {
+    if (!paletteDragType) return;
+    const rect = canvas.getBoundingClientRect();
+    const insideCanvas = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+    if (insideCanvas) {
+      createWidgetFromPalette(paletteDragType, e.clientX - rect.left - 40, e.clientY - rect.top - 40);
+    }
+    if (paletteGhost) { paletteGhost.remove(); paletteGhost = null; }
+    paletteDragType = null;
   });
 
-  document.getElementById('dbAddWidgetSaveBtn').addEventListener('click', function () {
-    const type = document.getElementById('dbNewWidgetType').value;
+  function createWidgetFromPalette(widgetType, x, y) {
     const payload = {
-      widget_type: type, label_text: document.getElementById('dbNewWidgetLabel').value,
-      x: 40, y: 40, width: 220, height: 220,
+      widget_type: widgetType, label_text: '', x: Math.max(0, Math.round(x)), y: Math.max(0, Math.round(y)),
+      width: 180, height: 180,
     };
-    if (type === 'vessel') {
-      payload.vessel_id = parseInt(document.getElementById('dbNewWidgetVessel').value, 10) || null;
-    } else if (['toggle', 'gauge', 'digital', 'chart'].indexOf(type) !== -1) {
-      payload.device_function_name = document.getElementById('dbNewWidgetFunction').value || null;
-    }
     fetch(createWidgetUrl, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     }).then(function (r) { return r.json(); }).then(function (data) {
       if (data.ok) { window.location.reload(); } else { alert(data.error || 'Erro ao criar widget.'); }
     });
+  }
+
+  // ── Painel lateral (conversa — Ponto 3) ─────────────────────────────────
+  // Substitui o antigo menu de contexto + modal de Configurações por
+  // completo: clicar (sem arrastar) um widget em modo edição seleciona
+  // e abre o painel; clicar em área vazia fecha.
+  const sidePanel = document.getElementById('dbSidePanel');
+  let selectedWidgetEl = null;
+
+  const panelFieldsByType = {
+    vessel: ['vessel_ref', 'svg_shape', 'fill_role_key', 'manual_control_enabled'],
+    toggle: ['function_ref', 'confirm_before_actuate', 'manual_control_enabled'],
+    gauge: ['function_ref', 'min_max'],
+    digital: ['function_ref', 'decimal_places'],
+    chart: ['function_ref', 'session_window'],
+    alarm_list: [],
+    step_card: [],
+    text: ['content'],
+    image: ['image_url'],
+  };
+
+  function selectWidget(el) {
+    selectedWidgetEl = el;
+    const type = el.dataset.widgetType;
+    const config = JSON.parse(el.dataset.configJson || '{}');
+    document.getElementById('dbPanelTitle').textContent = (el.dataset.labelText || type);
+    document.getElementById('dbPanelWidgetId').value = el.dataset.widgetId;
+    document.getElementById('dbPanelLabel').value = el.dataset.labelText || '';
+    document.getElementById('dbPanelVessel').value = el.dataset.vesselId || '';
+    document.getElementById('dbPanelFunction').value = el.dataset.deviceFunctionName || '';
+    document.getElementById('dbPanelSvgShape').value = config.svg_shape || 'mash_tun';
+    document.getElementById('dbPanelFillRoleKey').value = config.fill_role_key || '';
+    document.getElementById('dbPanelMin').value = config.min !== undefined ? config.min : '';
+    document.getElementById('dbPanelMax').value = config.max !== undefined ? config.max : '';
+    document.getElementById('dbPanelDecimalPlaces').value = config.decimal_places !== undefined ? config.decimal_places : 1;
+    document.getElementById('dbPanelSessionId').value = config.session_id || '';
+    document.getElementById('dbPanelWindowMinutes').value = config.window_minutes || 60;
+    document.getElementById('dbPanelContent').value = config.content || '';
+    document.getElementById('dbPanelImageUrl').value = config.image_url || '';
+    document.getElementById('dbPanelConfirm').checked = !!config.confirm_before_actuate;
+    document.getElementById('dbPanelManualControl').checked = config.manual_control_enabled !== false;
+
+    const visibleFields = panelFieldsByType[type] || [];
+    document.querySelectorAll('.db-panel-field').forEach(function (field) {
+      field.classList.toggle('d-none', visibleFields.indexOf(field.dataset.field) === -1);
+    });
+    sidePanel.classList.remove('d-none');
+  }
+
+  function deselectWidget() {
+    selectedWidgetEl = null;
+    sidePanel.classList.add('d-none');
+  }
+
+  document.getElementById('dbPanelCloseBtn').addEventListener('click', deselectWidget);
+
+  document.getElementById('dbPanelSaveBtn').addEventListener('click', function () {
+    if (!selectedWidgetEl) return;
+    const widgetId = document.getElementById('dbPanelWidgetId').value;
+    const type = selectedWidgetEl.dataset.widgetType;
+    const configJson = {};
+    if (type === 'vessel') {
+      configJson.svg_shape = document.getElementById('dbPanelSvgShape').value;
+      configJson.fill_role_key = document.getElementById('dbPanelFillRoleKey').value || null;
+      configJson.manual_control_enabled = document.getElementById('dbPanelManualControl').checked;
+    } else if (type === 'toggle') {
+      configJson.confirm_before_actuate = document.getElementById('dbPanelConfirm').checked;
+      configJson.manual_control_enabled = document.getElementById('dbPanelManualControl').checked;
+    } else if (type === 'gauge') {
+      configJson.min = parseFloat(document.getElementById('dbPanelMin').value) || 0;
+      configJson.max = parseFloat(document.getElementById('dbPanelMax').value) || 100;
+    } else if (type === 'digital') {
+      configJson.decimal_places = parseInt(document.getElementById('dbPanelDecimalPlaces').value, 10) || 0;
+    } else if (type === 'chart') {
+      configJson.session_id = parseInt(document.getElementById('dbPanelSessionId').value, 10) || null;
+      configJson.window_minutes = parseInt(document.getElementById('dbPanelWindowMinutes').value, 10) || 60;
+    } else if (type === 'text') {
+      configJson.content = document.getElementById('dbPanelContent').value || null;
+    } else if (type === 'image') {
+      configJson.image_url = document.getElementById('dbPanelImageUrl').value || null;
+    }
+
+    const payload = { label_text: document.getElementById('dbPanelLabel').value, config_json: configJson };
+    if (type === 'vessel') {
+      payload.vessel_id = parseInt(document.getElementById('dbPanelVessel').value, 10) || null;
+    } else if (['toggle', 'gauge', 'digital', 'chart'].indexOf(type) !== -1) {
+      payload.device_function_name = document.getElementById('dbPanelFunction').value || null;
+    }
+
+    fetch(widgetIdUrl(configUrlTemplate, widgetId), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    }).then(function () { window.location.reload(); });
+  });
+
+  document.getElementById('dbPanelRemoveBtn').addEventListener('click', function () {
+    if (!selectedWidgetEl) return;
+    if (!confirm('Remover este widget do dashboard?')) return;
+    fetch(widgetIdUrl(deleteUrlTemplate, selectedWidgetEl.dataset.widgetId), { method: 'POST' })
+      .then(function () { selectedWidgetEl.remove(); deselectWidget(); });
   });
 
   {% if layout.plant_id %}
@@ -1349,7 +1406,6 @@
   position: absolute; right: -4px; bottom: -4px; width: 14px; height: 14px;
   background: #f0932b; border-radius: 3px; cursor: nwse-resize; z-index: 999;
 }
-#dbContextMenu.d-none { display: none !important; }
-#dbContextMenu:not(.d-none) { display: block; }
+
 </style>
 {% endblock %}
