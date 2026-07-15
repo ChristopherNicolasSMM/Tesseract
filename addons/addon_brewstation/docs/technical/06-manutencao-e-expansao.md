@@ -15,6 +15,9 @@ reescrita ser decidida.
 
 ## Sobre o motor de controle em tempo real
 
+O motor de **automação** (`AutomationRule` → `automation_engine.py`)
+**já está implementado e ativo** — event-driven via EventBus do Core,
+sem scheduler. O que falta é só o loop de **PID contínuo** (parâmetros
+`pid_kp`/`ki`/`kd` já existem na tabela, sem processo consumindo).
 Ver `features/feature_mash_control/docs/technical/06-manutencao-e-expansao.md`
-— os parâmetros já existem nas tabelas (`pid_kp`/`ki`/`kd`,
-`AutomationRule`), só falta o motor que os consome continuamente.
+pro detalhe e candidato de implementação (sistema de Tasks do Core).

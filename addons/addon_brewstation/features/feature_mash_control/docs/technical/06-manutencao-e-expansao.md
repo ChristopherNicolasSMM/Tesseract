@@ -19,9 +19,9 @@ portado para o Tesseract:
   regulares. Candidato natural: `services/core/task_service.py`
   (sistema de Tasks/`APScheduler`, já existe e já é usado por outras
   áreas do Core — `/admin/tasks/`), não vale mais a justificativa
-  antiga de "não temos scheduler ainda".
-2. Quando isso entrar, o motor consumiria as tabelas já existentes
-   como configuração, sem precisar de migration nova.
+  antiga de "não temos scheduler ainda". Quando isso entrar, o motor
+  consumiria as tabelas já existentes como configuração, sem precisar
+  de migration nova.
 
 ## Dependência de `addon_device_manager`
 
@@ -29,3 +29,26 @@ Sempre ativar `device_manager` antes — `mash_control` declara isso em
 `feature.json` (`"requires": ["device_manager", "estoque"]` — nome
 correto do Addon promovido, skill 05; a Feature também depende de
 `estoque` pra resolução de ingrediente de receita).
+
+## Como adicionar um tipo de widget novo ao Dashboard
+
+1. Adiciona o nome do tipo em `_VALID_WIDGET_TYPES`
+   (`dashboard_runtime_service.py`) — sem isso, `create_widget_from_editor()`
+   rejeita a criação.
+2. Se o tipo precisa de dado em tempo real (como `step_card`), adiciona
+   um branch em `get_layout_snapshot()` que popula
+   `widgets_out[widget.id]`. Se é conteúdo estático (como `text`/`image`),
+   não precisa — o dado vem direto de `config_json`, lido no template.
+3. Bloco HTML novo no loop de widgets em `dashboards/view.html`
+   (`{% elif w.widget_type == '...' %}`), e branch em JS
+   `renderWidget()` se o tipo tiver dado dinâmico.
+4. Ícone na paleta (`#dbPalette`, lista de tuplas
+   `(widget_type, icone_bootstrap, label)` no topo do template).
+5. Se o tipo precisa de vínculo (`vessel_id`/`device_function_name`),
+   adiciona um `.db-panel-field` no painel lateral e inclui o tipo em
+   `panelFieldsByType` (JS) — senão o painel não mostra os campos de
+   configuração certos pra ele.
+
+Nenhum desses passos precisa de migration — `DashboardWidget.widget_type`
+é `String` livre e `config_json` é `JSON` livre; o "schema" de um tipo
+de widget novo é inteiramente convenção de código, não de banco.

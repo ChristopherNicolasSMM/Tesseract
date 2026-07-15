@@ -2,10 +2,13 @@
 addons/addon_brewstation/features/feature_mash_control/model/automation_rule.py
 
 Definição de uma regra de automação (sensor -> condição -> ator).
-Esta tabela é só a DEFINIÇÃO da regra (dados de configuração) — o
-motor que avalia continuamente o sensor e dispara a ação
-(services/automation_engine.py no BrewStation original) fica fora do
-escopo desta fase (decisão registrada no BACKLOG.md).
+Esta tabela é a DEFINIÇÃO da regra (dados de configuração). O motor
+que avalia o sensor e dispara a ação (`services/automation_engine.py`)
+está implementado e ativo — event-driven via `core/event_bus.py`
+(assina `device_manager.actor.value_changed`, publicado a cada leitura
+resolvida em `addon_device_manager`), sem polling nem scheduler
+próprio. Só o loop de PID contínuo (parâmetros já existem em
+`BrewSessionStep`) segue fora do escopo — ver BACKLOG.md.
 
 Referência a DeviceFunction (addon_device_manager, Addon separado
 após a promoção — ver docs/skills/05-proposta-addon-device-manager-e-mqtt.md):

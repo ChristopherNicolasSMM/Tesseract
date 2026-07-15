@@ -10,9 +10,11 @@ são:
 - **Ator**: usuário com `automation_rules.create`
 - **Fluxo**: cadastra uma `AutomationRule` (`feature_mash_control`)
   apontando para um sensor e um atuador, ambos `DeviceFunction`
-  (`addon_device_manager`, referência fraca cross-Addon)
-- **Limitação atual**: a regra fica registrada, mas nenhum motor a
-  executa de fato (sem job runner/scheduler ainda)
+  (`addon_device_manager`, referência fraca cross-Addon) — o motor
+  (`automation_engine.py`, event-driven via EventBus do Core) avalia e
+  dispara de fato assim que chega uma leitura do sensor vinculado, sem
+  scheduler/job runner. Ver
+  `features/feature_mash_control/docs/technical/03-fluxos.md`
 
 ## UC02 — Envase consome Receita/Lote e dá baixa em Estoque — novo
 
