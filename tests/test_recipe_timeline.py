@@ -519,7 +519,8 @@ def test_get_step_card_data_ativa_primeiro_passo_pending_automaticamente(app):
         data = svc.get_step_card_data(session)
         assert data["current"] is not None
         assert data["current"]["step_type"] == "mash"
-        assert data["current"]["progress_pct"] == 0.0
+        assert data["current"]["phase"] == "hold"  # timeline de teste não tem ramp_time_min
+        assert data["current"]["hold_progress_pct"] == 0.0
         assert data["next"] is not None
         assert data["next"]["step_type"] == "boil"
 
@@ -544,7 +545,8 @@ def test_get_step_card_data_calcula_progresso_por_tempo_decorrido(app):
         db.session.commit()
 
         data = svc.get_step_card_data(session)
-        assert data["current"]["progress_pct"] == pytest.approx(50.0, abs=1.0)
+        assert data["current"]["phase"] == "hold"
+        assert data["current"]["hold_progress_pct"] == pytest.approx(50.0, abs=1.0)
 
 
 def test_confirm_and_advance_step_conclui_atual_e_ativa_proximo(app):
@@ -715,3 +717,145 @@ def test_resync_steps_rota_web(app, client):
     resp2 = client.get(f"/brewstation/recipe-timeline/{recipe_id}/steps.json")
     assert resp2.status_code == 200
     assert len(resp2.get_json()["steps"]) == 3
+
+
+# ── Rampa separada do hold (achado real pós-Ponto 2) ─────────────────────────
+
+def test_generate_session_grava_ramp_seconds_separado_do_hold(app):
+    with app.app_context():
+        recipe = _criar_receita()
+        mash = RecipeStep(recipe_id=recipe.id, step_type="mash", ordem=0, nome="Mash",
+                           temperatura=67, tempo_min=40, ramp_time_min=10)
+        db.session.add(mash)
+        db.session.commit()
+        plant = BrewPlant(name="Planta Ramp")
+        db.session.add(plant)
+        db.session.commit()
+
+        session = svc.generate_session_from_recipe(recipe.id, plant_id=plant.id, name="S", status="draft")
+        step = BrewSessionStep.query.filter_by(session_id=session.id).first()
+        assert step.ramp_seconds == 600  # 10 min
+        assert step.duration_seconds == 2400  # 40 min — hold, sem a rampa misturada
+
+
+def test_get_step_card_data_fase_rampa_antes_do_alvo(app):
+    with app.app_context():
+        recipe = _criar_receita()
+        mash = RecipeStep(recipe_id=recipe.id, step_type="mash", ordem=0, nome="Mash",
+                           temperatura=67, tempo_min=40, ramp_time_min=10)
+        db.session.add(mash)
+        db.session.commit()
+        plant = BrewPlant(name="Planta Ramp Fase")
+        db.session.add(plant)
+        db.session.commit()
+        session = svc.generate_session_from_recipe(recipe.id, plant_id=plant.id, name="S", status="active")
+        svc.get_step_card_data(session)  # ativa o primeiro passo (lazy)
+
+        current_step = BrewSessionStep.query.filter_by(session_id=session.id, status="active").first()
+        current_step.started_at = datetime.now(timezone.utc) - timedelta(seconds=300)  # metade dos 600s de rampa
+        db.session.commit()
+
+        data = svc.get_step_card_data(session)
+        assert data["current"]["phase"] == "ramp"
+        assert data["current"]["ramp_progress_pct"] == pytest.approx(50.0, abs=1.0)
+        assert data["current"]["hold_progress_pct"] == 0.0
+        assert data["current"]["remaining_seconds"] == pytest.approx(2700, abs=2)  # 600+2400-300
+
+
+def test_get_step_card_data_fase_hold_apos_rampa_terminar(app):
+    with app.app_context():
+        recipe = _criar_receita()
+        mash = RecipeStep(recipe_id=recipe.id, step_type="mash", ordem=0, nome="Mash",
+                           temperatura=67, tempo_min=40, ramp_time_min=10)
+        db.session.add(mash)
+        db.session.commit()
+        plant = BrewPlant(name="Planta Ramp Hold")
+        db.session.add(plant)
+        db.session.commit()
+        session = svc.generate_session_from_recipe(recipe.id, plant_id=plant.id, name="S", status="active")
+        svc.get_step_card_data(session)
+
+        current_step = BrewSessionStep.query.filter_by(session_id=session.id, status="active").first()
+        # 600s de rampa + 1200s de hold (metade dos 2400s)
+        current_step.started_at = datetime.now(timezone.utc) - timedelta(seconds=1800)
+        db.session.commit()
+
+        data = svc.get_step_card_data(session)
+        assert data["current"]["phase"] == "hold"
+        assert data["current"]["ramp_progress_pct"] == 100.0
+        assert data["current"]["hold_progress_pct"] == pytest.approx(50.0, abs=1.0)
+
+
+# ── "Voltar" (conversa — inspirado no painel de referência prev/next) ───────
+
+def test_go_back_step_reativa_etapa_anterior(app):
+    with app.app_context():
+        recipe = _criar_receita()
+        _criar_timeline_completa(recipe)
+        plant = BrewPlant(name="Planta Voltar")
+        db.session.add(plant)
+        db.session.commit()
+        session = _gerar_sessao_ativa(recipe, plant)
+
+        svc.confirm_and_advance_step(session.id)  # mash -> boil
+        data = svc.go_back_step(session.id)
+
+        assert data["current"]["step_type"] == "mash"
+        mash_step = BrewSessionStep.query.filter_by(session_id=session.id, step_type="mash").first()
+        assert mash_step.status == "active"
+        assert mash_step.started_at is not None
+        boil_step = BrewSessionStep.query.filter_by(session_id=session.id, step_type="boil").first()
+        assert boil_step.status == "pending"
+        assert boil_step.started_at is None
+
+
+def test_go_back_step_sem_etapa_anterior_falha(app):
+    with app.app_context():
+        recipe = _criar_receita()
+        _criar_timeline_completa(recipe)
+        plant = BrewPlant(name="Planta Voltar Falha")
+        db.session.add(plant)
+        db.session.commit()
+        session = _gerar_sessao_ativa(recipe, plant)
+        svc.get_step_card_data(session)  # ativa o primeiro passo, nenhum completed ainda
+
+        with pytest.raises(svc.RecipeTimelineError):
+            svc.go_back_step(session.id)
+
+
+def test_go_back_step_rota_web(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        recipe = _criar_receita()
+        _criar_timeline_completa(recipe)
+        plant = BrewPlant(name="Planta Rota Voltar")
+        db.session.add(plant)
+        db.session.commit()
+        session = _gerar_sessao_ativa(recipe, plant)
+        session_id = session.id
+
+    client.post(f"/brewstation/dashboards/sessions/{session_id}/advance-step")
+    resp = client.post(f"/brewstation/dashboards/sessions/{session_id}/go-back-step")
+    assert resp.status_code == 200
+    assert resp.get_json()["ok"] is True
+    assert resp.get_json()["current"]["step_type"] == "mash"
+
+
+# ── Select box de status (achado real reportado — não vinha como select) ────
+
+def test_brew_session_detail_renderiza_select_para_status(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        session = BrewSession(name="Sessão Status", status="active")
+        db.session.add(session)
+        db.session.commit()
+        session_id = session.id
+
+    resp = client.get(f"/brewstation/brew-sessions/{session_id}")
+    html = resp.data.decode("utf-8")
+    assert '<select name="status"' in html
+    assert 'value="active" selected' in html
+    assert 'value="draft"' in html
+    assert 'value="paused"' in html
+    assert 'value="completed"' in html
+    assert 'value="aborted"' in html

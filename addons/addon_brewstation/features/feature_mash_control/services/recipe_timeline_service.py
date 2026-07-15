@@ -194,7 +194,8 @@ def generate_session_from_recipe(recipe_id: int, *, plant_id: int, name: str, st
             db.session.add(BrewSessionStep(
                 session_id=session.id, step_index=step_index, name=step.nome or step.step_type,
                 step_type=step.step_type, target_temp=step.temperatura,
-                duration_seconds=int(hold * 60), source_recipe_step_id=step.id,
+                duration_seconds=int(hold * 60), ramp_seconds=int(ramp * 60),
+                source_recipe_step_id=step.id,
             ))
             step_index += 1
 
@@ -350,6 +351,7 @@ def resync_session_steps(session_id: int) -> dict:
             new_name = step.nome or step.step_type
             new_target = step.temperatura
             new_duration = int((step.tempo_min or 0) * 60)
+            new_ramp = int((step.ramp_time_min or 0) * 60)
         else:
             parent_end = end_offset_by_step_id.get(step.parent_step_id, cumulative_min)
             trigger_min = parent_end - (step.trigger_minutes_remaining or 0)
@@ -368,6 +370,9 @@ def resync_session_steps(session_id: int) -> dict:
                 if session_step.duration_seconds != new_duration:
                     session_step.duration_seconds = new_duration
                     changed = True
+                if session_step.ramp_seconds != new_ramp:
+                    session_step.ramp_seconds = new_ramp
+                    changed = True
             elif session_step.trigger_at_seconds != new_trigger:
                 session_step.trigger_at_seconds = new_trigger
                 changed = True
@@ -380,7 +385,7 @@ def resync_session_steps(session_id: int) -> dict:
             step_type=step.step_type, source_recipe_step_id=step.id,
         )
         if step.step_type in ("mash", "boil"):
-            kwargs.update(target_temp=new_target, duration_seconds=new_duration)
+            kwargs.update(target_temp=new_target, duration_seconds=new_duration, ramp_seconds=new_ramp)
         else:
             kwargs.update(duration_seconds=0, trigger_at_seconds=new_trigger)
         db.session.add(BrewSessionStep(**kwargs))
@@ -414,6 +419,45 @@ def _ensure_current_step_active(session: BrewSession) -> None:
         first_pending.status = "active"
         first_pending.started_at = datetime.now(timezone.utc)
         db.session.commit()
+
+
+def go_back_step(session_id: int) -> dict:
+    """"Voltar" do card de Etapa (conversa — inspirado no controle
+    prev/next do painel de referência): desfaz o avanço, devolvendo a
+    etapa atual pra `pending` (zera timer) e reativando a etapa anterior
+    `completed` com o timer reiniciado do zero — é um "refazer esta
+    etapa", não uma reconstrução exata do tempo já gasto antes."""
+    session = BrewSession.query.get(session_id)
+    if not session or session.is_deleted:
+        raise RecipeTimelineError("Sessão não encontrada.")
+
+    steps = _operational_steps_query(session.id).all()
+    current = next((s for s in steps if s.status == "active"), None)
+    if current:
+        previous = next(
+            (s for s in reversed(steps) if s.status == "completed" and s.step_index < current.step_index),
+            None,
+        )
+    else:
+        previous = next((s for s in reversed(steps) if s.status == "completed"), None)
+
+    if not previous:
+        raise RecipeTimelineError("Não há etapa anterior pra voltar.")
+
+    now = datetime.now(timezone.utc)
+    if current:
+        current.status = "pending"
+        current.started_at = None
+        current.completed_at = None
+        current.actual_duration_s = None
+
+    previous.status = "active"
+    previous.started_at = now
+    previous.completed_at = None
+    previous.actual_duration_s = None
+
+    db.session.commit()
+    return get_step_card_data(session)
 
 
 def confirm_and_advance_step(session_id: int) -> dict:
@@ -451,9 +495,11 @@ def confirm_and_advance_step(session_id: int) -> dict:
 
 def get_step_card_data(session: Optional[BrewSession]) -> dict:
     """Dado consumido pelo widget `step_card` do Dashboard: etapa atual
-    (com progresso sugerido pelo timer, decisão híbrida da conversa) e
-    preview da próxima. `session=None` (sem sessão ativa pra planta) devolve
-    tudo vazio — widget mostra estado "sem sessão ativa"."""
+    (com as DUAS fases — rampa até a temperatura alvo, depois hold/
+    patamar — decisão da conversa: rampa some quando termina, hold
+    assume) e preview da próxima. `session=None` (sem sessão ativa pra
+    planta) devolve tudo vazio — widget mostra estado "sem sessão
+    ativa"."""
     if not session:
         return {"current": None, "next": None}
 
@@ -461,23 +507,44 @@ def get_step_card_data(session: Optional[BrewSession]) -> dict:
     steps = _operational_steps_query(session.id).all()
     current = next((s for s in steps if s.status == "active"), None)
 
-    def _progress_pct(step: BrewSessionStep) -> float:
-        if not step.duration_seconds:
-            return 100.0  # etapa sem duração definida — já "pronta" pra confirmar
+    def _phase_progress(step: BrewSessionStep) -> dict:
+        ramp_s = step.ramp_seconds or 0
+        hold_s = step.duration_seconds or 0
+        total = ramp_s + hold_s
         if not step.started_at:
-            return 0.0
+            return {
+                "phase": "ramp" if ramp_s else "hold",
+                "ramp_progress_pct": 0.0, "hold_progress_pct": 0.0,
+                "remaining_seconds": total,
+            }
         started = step.started_at
         if started.tzinfo is None:
             started = started.replace(tzinfo=timezone.utc)
         elapsed = (datetime.now(timezone.utc) - started).total_seconds()
-        return max(0.0, min(100.0, (elapsed / step.duration_seconds) * 100))
+
+        if ramp_s and elapsed < ramp_s:
+            return {
+                "phase": "ramp",
+                "ramp_progress_pct": round(max(0.0, min(100.0, (elapsed / ramp_s) * 100)), 1),
+                "hold_progress_pct": 0.0,
+                "remaining_seconds": max(0, int(total - elapsed)),
+            }
+        hold_elapsed = elapsed - ramp_s
+        hold_pct = 100.0 if not hold_s else max(0.0, min(100.0, (hold_elapsed / hold_s) * 100))
+        return {
+            "phase": "hold",
+            "ramp_progress_pct": 100.0,
+            "hold_progress_pct": round(hold_pct, 1),
+            "remaining_seconds": max(0, int(total - elapsed)),
+        }
 
     current_out = None
     if current:
         current_out = {
             "id": current.id, "name": current.name, "step_type": current.step_type,
             "target_temp": current.target_temp, "duration_seconds": current.duration_seconds,
-            "progress_pct": round(_progress_pct(current), 1),
+            "ramp_seconds": current.ramp_seconds,
+            **_phase_progress(current),
         }
         next_step = next((s for s in steps if s.status == "pending" and s.step_index > current.step_index), None)
     else:
@@ -488,6 +555,7 @@ def get_step_card_data(session: Optional[BrewSession]) -> dict:
         next_out = {
             "id": next_step.id, "name": next_step.name, "step_type": next_step.step_type,
             "target_temp": next_step.target_temp, "duration_seconds": next_step.duration_seconds,
+            "ramp_seconds": next_step.ramp_seconds,
         }
 
     return {"current": current_out, "next": next_out}

@@ -29,6 +29,14 @@ class BrewSessionStep(db.Model):
     target_temp = db.Column(db.Float, nullable=True)
     duration_seconds = db.Column(db.Integer, default=0, nullable=True)
 
+    # Fase de rampa (subida de temperatura até o alvo, ANTES do hold) —
+    # separada de duration_seconds (que é só o hold) porque a rampa
+    # era descartada silenciosamente na geração da sessão (achado real,
+    # conversa pós-Ponto 2 — usuário reportou "nem as rampas aparecem
+    # no Dashboard"). Duração total real da etapa = ramp_seconds +
+    # duration_seconds.
+    ramp_seconds = db.Column(db.Integer, default=0, nullable=False)
+
     vessel_id = db.Column(db.Integer, db.ForeignKey("plant_vessel.id"), nullable=True)
     vessel = db.relationship("BrewPlantVessel", backref=db.backref("session_steps", lazy=True))
 
@@ -82,6 +90,7 @@ class BrewSessionStep(db.Model):
             "step_type": self.step_type,
             "target_temp": self.target_temp,
             "duration_seconds": self.duration_seconds,
+            "ramp_seconds": self.ramp_seconds,
             "vessel_id": self.vessel_id,
             "source_recipe_step_id": self.source_recipe_step_id,
             "pid_enabled": self.pid_enabled,

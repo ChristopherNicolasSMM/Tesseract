@@ -151,13 +151,26 @@
             <div class="db-step-current d-none flex-grow-1 d-flex flex-column">
               <div class="fw-bold db-step-current-name">—</div>
               <div class="small text-muted db-step-current-meta">—</div>
-              <div class="progress bg-secondary my-2" style="height:8px;">
-                <div class="db-step-progress-bar progress-bar bg-info" style="width:0%;"></div>
+              <div class="text-center fw-bold fs-4 my-1 db-step-countdown">—:—</div>
+              <div class="db-step-ramp-wrap">
+                <div class="small text-muted">Rampa</div>
+                <div class="progress bg-secondary mb-2" style="height:8px;">
+                  <div class="db-step-ramp-bar progress-bar bg-warning" style="width:0%;"></div>
+                </div>
+              </div>
+              <div class="small text-muted">Patamar (hold)</div>
+              <div class="progress bg-secondary mb-2" style="height:8px;">
+                <div class="db-step-hold-bar progress-bar bg-info" style="width:0%;"></div>
               </div>
               <div class="small text-muted">Próxima: <span class="db-step-next-name">—</span></div>
-              <button type="button" class="btn btn-sm btn-outline-success mt-2 db-step-advance-btn">
-                <i class="bi bi-check-lg"></i> Concluir e Avançar
-              </button>
+              <div class="d-flex gap-2 mt-2">
+                <button type="button" class="btn btn-sm btn-outline-light db-step-back-btn" title="Voltar pra etapa anterior">
+                  <i class="bi bi-skip-backward-fill"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success flex-grow-1 db-step-advance-btn">
+                  <i class="bi bi-check-lg"></i> Concluir e Avançar
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -268,8 +281,13 @@
           </select>
         </div>
         <div class="mb-3 d-none" id="dbNewWidgetFunctionWrap">
-          <label class="form-label">Nome da Function do dispositivo</label>
-          <input type="text" id="dbNewWidgetFunction" class="form-control" placeholder="ex.: mash_tun_temp">
+          <label class="form-label">Function do dispositivo</label>
+          <select id="dbNewWidgetFunction" class="form-select">
+            <option value="">— selecione —</option>
+            {% for f in device_functions %}
+            <option value="{{ f.name }}">{{ f.display_name or f.name }} ({{ f.category }})</option>
+            {% endfor %}
+          </select>
         </div>
       </div>
       <div class="modal-footer">
@@ -388,6 +406,7 @@
   const deleteUrlTemplate = "{{ url_for('dashboard_runtime.delete_widget', widget_id=0) }}";
   const createWidgetUrl = "{{ url_for('dashboard_runtime.create_widget', layout_id=layout.id) }}";
   const advanceStepUrlTemplate = "{{ url_for('dashboard_runtime.advance_step', session_id=0) }}";
+  const goBackStepUrlTemplate = "{{ url_for('dashboard_runtime.go_back_step', session_id=0) }}";
   const resyncStepsUrlTemplate = "{{ url_for('dashboard_runtime.resync_steps', session_id=0) }}";
   const recipeStepsJsonUrlTemplate = "{{ url_for('recipe_timeline.steps_json', recipe_id=0) }}";
   const recipeAddStepUrlTemplate = "{{ url_for('recipe_timeline.add_step', recipe_id=0) }}";
@@ -502,6 +521,23 @@
       .finally(function () { advanceBtn.disabled = false; });
   });
 
+  // "Voltar" (conversa — inspirado no painel de referência com
+  // prev/next): reativa a etapa anterior, reiniciando o timer dela.
+  document.addEventListener('click', function (e) {
+    const backBtn = e.target.closest('.db-step-back-btn');
+    if (!backBtn || editMode) return;
+    const sessionId = lastSnapshot && lastSnapshot.active_session_id;
+    if (!sessionId) return;
+    backBtn.disabled = true;
+    fetch(widgetIdUrl(goBackStepUrlTemplate, sessionId), { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) alert(data.error || 'Não foi possível voltar.');
+        refresh();
+      })
+      .finally(function () { backBtn.disabled = false; });
+  });
+
   function postSetValue(widgetId, value, roleKey) {
     fetch(widgetIdUrl(setValueUrlTemplate, widgetId), {
       method: 'POST',
@@ -581,19 +617,42 @@
       const tempLabel = (current.target_temp === null || current.target_temp === undefined) ? '' : (current.target_temp + '°C');
       el.querySelector('.db-step-current-name').textContent = current.name;
       el.querySelector('.db-step-current-meta').textContent = typeLabel + (tempLabel ? ' — ' + tempLabel : '');
-      const pct = current.progress_pct || 0;
-      const bar = el.querySelector('.db-step-progress-bar');
-      bar.style.width = Math.min(100, pct) + '%';
-      bar.classList.toggle('bg-info', pct < 100);
-      bar.classList.toggle('bg-success', pct >= 100);
+
+      el.querySelector('.db-step-countdown').textContent = fmtCountdown(current.remaining_seconds);
+
+      // Rampa (subida até o alvo) some quando termina — decisão da
+      // conversa; barra de hold assume a partir daí.
+      const rampWrap = el.querySelector('.db-step-ramp-wrap');
+      const hasRamp = !!current.ramp_seconds;
+      rampWrap.classList.toggle('d-none', !hasRamp || current.phase !== 'ramp');
+      el.querySelector('.db-step-ramp-bar').style.width = (current.ramp_progress_pct || 0) + '%';
+
+      const holdPct = current.hold_progress_pct || 0;
+      const holdBar = el.querySelector('.db-step-hold-bar');
+      holdBar.style.width = holdPct + '%';
+      holdBar.classList.toggle('bg-info', current.phase !== 'hold' || holdPct < 100);
+      holdBar.classList.toggle('bg-success', current.phase === 'hold' && holdPct >= 100);
+
       el.querySelector('.db-step-next-name').textContent = next ? next.name : '—';
-      // Botão sempre habilitado (avanço manual a qualquer momento) — só
-      // ganha destaque visual (sólido) quando o timer sugere que já deu
-      // tempo (decisão híbrida da conversa).
+
+      // Botão "Avançar" sempre habilitado — só ganha destaque visual
+      // (sólido) quando o timer sugere que já deu tempo (decisão
+      // híbrida da conversa). "Voltar" reaproveita o mesmo destaque
+      // discreto, sempre disponível (mesmo padrão do painel de
+      // referência anexado na conversa: prev/next sempre visíveis).
+      const finished = current.phase === 'hold' && holdPct >= 100;
       const advanceBtn = el.querySelector('.db-step-advance-btn');
-      advanceBtn.classList.toggle('btn-outline-success', pct < 100);
-      advanceBtn.classList.toggle('btn-success', pct >= 100);
+      advanceBtn.classList.toggle('btn-outline-success', !finished);
+      advanceBtn.classList.toggle('btn-success', finished);
     }
+  }
+
+  function fmtCountdown(totalSeconds) {
+    if (totalSeconds === null || totalSeconds === undefined) return '—:—';
+    const s = Math.max(0, Math.round(totalSeconds));
+    const mm = Math.floor(s / 60);
+    const ss = s % 60;
+    return mm + ':' + String(ss).padStart(2, '0');
   }
 
   function vesselEl(vesselId) {
@@ -637,6 +696,12 @@
     const svg = document.getElementById('dbPipesLayer');
     svg.innerHTML = '';
     svg.style.pointerEvents = editMode ? 'auto' : 'none';
+    // Achado real (conversa): self-loop (origem == destino) desenha a
+    // linha atrás do próprio widget (z-index do widget é maior) —
+    // fica inclicável. Levanta a camada SVG acima dos widgets só
+    // enquanto uma tubulação está selecionada, pra linha/alças ficarem
+    // sempre acessíveis.
+    svg.style.zIndex = (editMode && selectedPipeIndex !== null) ? '500' : '1';
 
     pipesState.forEach(function (conn, idx) {
       const points = pipePointsFor(conn);
@@ -1110,17 +1175,36 @@
   });
   document.getElementById('dbPipesAddRowBtn').addEventListener('click', function () { addPipeRow(null); });
 
+  // Self-loop (origem == destino, ex.: recirculação na própria panela)
+  // sem geometria salva ainda: gera uma alcinha padrão pra fora do
+  // vasilhame — sem isso a conexão nasce com a linha inteira atrás do
+  // próprio widget, achado real da conversa.
+  function defaultSelfLoopGeometry(vesselId) {
+    const el = vesselEl(vesselId);
+    if (!el) return null;
+    return {
+      from_anchor: { rx: 1.0, ry: 0.35 },
+      to_anchor: { rx: 1.0, ry: 0.65 },
+      waypoints: [{ x: el.offsetLeft + el.offsetWidth + 40, y: el.offsetTop + el.offsetHeight * 0.5 }],
+    };
+  }
+
   document.getElementById('dbPipesSaveBtn').addEventListener('click', function () {
     const connections = Array.from(document.querySelectorAll('.db-pipe-row')).map(function (row) {
+      const fromId = parseInt(row.querySelector('.db-pipe-from').value, 10);
+      const toId = parseInt(row.querySelector('.db-pipe-to').value, 10);
       const base = {
-        from_vessel_id: parseInt(row.querySelector('.db-pipe-from').value, 10),
-        to_vessel_id: parseInt(row.querySelector('.db-pipe-to').value, 10),
+        from_vessel_id: fromId,
+        to_vessel_id: toId,
         flow_function_name: row.querySelector('.db-pipe-function').value || null,
         color: row.querySelector('.db-pipe-color').value,
         width: parseInt(row.querySelector('.db-pipe-width').value, 10) || 6,
       };
       if (row.dataset.geometry) {
         Object.assign(base, JSON.parse(row.dataset.geometry));
+      } else if (fromId === toId) {
+        const loop = defaultSelfLoopGeometry(fromId);
+        if (loop) Object.assign(base, loop);
       }
       return base;
     });

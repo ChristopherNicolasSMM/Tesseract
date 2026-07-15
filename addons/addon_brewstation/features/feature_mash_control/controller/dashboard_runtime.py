@@ -62,6 +62,7 @@ def view(layout_id: int):
     # de sempre (skill 02, cross-Addon por name), sem FK real.
     from addons.addon_device_manager.root.model.device_function import DeviceFunction
     actuator_functions = DeviceFunction.query.filter_by(category="actuator", is_deleted=False).order_by(DeviceFunction.display_name).all()
+    device_functions = DeviceFunction.query.filter_by(is_deleted=False).order_by(DeviceFunction.category, DeviceFunction.display_name).all()
 
     return render_template(
         "dashboards/view.html",
@@ -69,6 +70,7 @@ def view(layout_id: int):
         widgets=widgets,
         vessels_by_id=vessels_by_id,
         actuator_functions=actuator_functions,
+        device_functions=device_functions,
         all_layouts=DashboardLayout.query.filter_by(is_deleted=False).order_by(DashboardLayout.name).all(),
     )
 
@@ -121,6 +123,18 @@ def advance_step(session_id: int):
     from addons.addon_brewstation.features.feature_mash_control.services import recipe_timeline_service
     try:
         data = recipe_timeline_service.confirm_and_advance_step(session_id)
+    except recipe_timeline_service.RecipeTimelineError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    return jsonify({"ok": True, **data})
+
+
+@dashboard_runtime_bp.route("/sessions/<int:session_id>/go-back-step", methods=["POST"])
+@login_required
+@permission_required("dashboard_layouts.update")
+def go_back_step(session_id: int):
+    from addons.addon_brewstation.features.feature_mash_control.services import recipe_timeline_service
+    try:
+        data = recipe_timeline_service.go_back_step(session_id)
     except recipe_timeline_service.RecipeTimelineError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
     return jsonify({"ok": True, **data})

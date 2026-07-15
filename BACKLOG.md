@@ -2668,3 +2668,63 @@ migration — só lógica de leitura.
   Planta, hoje isso fica espalhado em várias telas de CRUD separadas.
 - Carga inicial/onboarding pra usuário novo do sistema (fora do fluxo
   já existente de importar `devices.yml`/`recipe.yml` do bridge).
+
+## Ajustes reportados após o Card de Etapa (self-loop, rampa, selects): CONCLUÍDO
+
+Três achados reais reportados em uso, mais um quarto encontrado na
+investigação:
+
+**1. `BrewSession.status` (e campos parecidos) sem select box.** Causa
+raiz: `@choices` (annotations) é só pra filtro de lista (`SELECT
+DISTINCT`), nunca existiu suporte do CrudGen a campo de opção FIXA
+(enum) virar `<select>` — em nenhuma tela, de nenhuma entidade. Só
+`status` foi corrigido nesta rodada (`brew_sessions/detail.html`,
+select manual com os 5 valores do model). **Registrado como
+prioridade alta**: o CrudGen precisa ganhar uma annotation nova
+(`@enum_field` ou similar) que gere `<select>` tanto pra criação
+quanto edição, aplicada a todo campo de opção fixa do sistema
+(`BrewSessionStep.status`, `RecipeStep.step_type`, `DeviceActor.
+actor_type`, etc.) — e, junto disso, garantir que toda referência
+fraca (`@weak_ref`, skill 11) também sempre vire combo, nunca `<input>`
+de id cru. Sem isso não há validação de dado na entrada — hoje dá pra
+digitar qualquer string num campo de status ou colar um id que não
+existe numa referência fraca. Marcado pelo usuário como a maior falha
+do sistema hoje.
+
+**2. Tubulação self-loop (ex.: recirculação mostura → mostura) não
+dava pra desenhar.** Causa raiz: âncora padrão (centro-base →
+centro-topo) desenha a linha inteira **atrás do próprio widget**
+(z-index do widget é maior que o da camada SVG) — ficava inclicável,
+sem jeito de criar o primeiro waypoint. Corrigido: (a) camada SVG
+levanta o z-index acima dos widgets enquanto uma tubulação está
+selecionada; (b) conexão nova com origem == destino já nasce com uma
+alcinha padrão pra fora do vasilhame (âncoras nas laterais + 1
+waypoint automático), em vez de reta escondida.
+
+**3. Sem mudança visual / sem rampa no Card de Etapa.** Dois problemas:
+(a) `step_card` é widget novo, não aparece sozinho em dashboard já
+existente — precisa ser adicionado via "+ Widget" (não é bug, só
+onboarding). (b) achado real mais sério: `duration_seconds` só
+gravava o hold, `ramp_time_min` da receita nunca virava dado na
+sessão — mesmo com o widget, não tinha o que mostrar. Corrigido:
+`BrewSessionStep.ramp_seconds` novo (migration com guard,
+`generate_session_from_recipe`/`resync_session_steps` passam a
+gravar), `get_step_card_data()` calcula fase (rampa vs. hold) e
+progresso de cada uma separado. UI: duas barras (rampa some quando
+termina, hold assume — decisão da conversa), contagem regressiva
+mm:ss, e botão "Voltar" novo (`go_back_step()`) — inspirado num
+painel de referência anexado na conversa (prev/next sempre visíveis
+durante a operação). Reativa a etapa anterior reiniciando o timer
+dela; não reconstrói o tempo exato já gasto antes.
+
+**4. Achado extra na investigação**: modal "+ Widget" do editor visual
+tinha "Nome da Function do dispositivo" como texto livre, mesmo
+`device_function_name` já sendo `@weak_ref` no model (a tela de CRUD
+separada `/dashboard-widgets/<id>` já usa combo corretamente). Só o
+formulário próprio do editor visual (não gerado pelo CrudGen) estava
+sem — virou `<select>` alimentado por `DeviceFunction`.
+
+Testes: suíte completa rodada após as mudanças. Migration
+`ramp_seconds` validada com dado real (upgrade → insere → downgrade →
+confirma sobrevivência → upgrade → confirma volta), mesmo processo já
+usado pra `source_recipe_step_id`.

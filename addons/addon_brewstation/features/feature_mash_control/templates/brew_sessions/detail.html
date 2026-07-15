@@ -22,8 +22,17 @@
         {% for field in fields %}
         <div class="col-md-4">
           <label class="form-label">{{ field.replace('_', ' ').title() }}</label>
+          {% if field == 'status' %}
+          <select name="status" class="form-select"
+                  {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+            {% for opt in ['draft', 'active', 'paused', 'completed', 'aborted'] %}
+            <option value="{{ opt }}" {{ 'selected' if data.get('status') == opt else '' }}>{{ opt }}</option>
+            {% endfor %}
+          </select>
+          {% else %}
           <input type="text" name="{{ field }}" class="form-control" value="{{ data.get(field) if data.get(field) is not none else '' }}"
                  {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+          {% endif %}
         </div>
         {% endfor %}
         <div class="col-12">
