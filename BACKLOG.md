@@ -2837,3 +2837,63 @@ hand-written).
 select de verdade na tela). Sem migration (nenhuma coluna nova — só
 metadado de apresentação). Suíte completa rodada em lotes — tudo
 passou.
+
+## CrudGen: form_modal.html.j2 (dead code) + select no formulário de criação/filtro: CONCLUÍDO
+
+Fecha as duas pendências registradas na rodada anterior.
+
+**`form_modal.html.j2` confirmado morto e removido.** Nunca aparecia
+em `_FILES_TO_GENERATE` (`core/crudgen/generator.py`) — a criação de
+registro de verdade sempre viveu num formulário colapsável embutido
+em `manage.html.j2` (botão "Novo registro"). Removidos: o template
+fonte (`core/crudgen/templates/form_modal.html.j2`) e as ~24 pastas
+`_modals/` já geradas em entidades antigas (só continham
+`form_modal.html`, nada mais — confirmado antes de apagar).
+
+**Achado real ao investigar**: o formulário de criação embutido em
+`manage.html.j2` tinha o **mesmo gap de enum** que `detail.html.j2`
+tinha antes da rodada anterior — `<input type="text">` livre pro
+campo de status/tipo, mesmo já existindo `@enum_field`. Corrigido com
+o mesmo branch `{% if field in enum_field_options %}<select>...`,
+testado antes do branch de weak_ref.
+
+**Filtro da listagem passa a usar `@enum_field` quando presente** (em
+vez de só `@choices`, que só mostra valor já existente no banco):
+campo com `@enum_field` mostra TODAS as opções válidas na dropdown de
+filtro, mesmo com banco vazio pra aquele campo. Campo com só
+`@choices` (sem `@enum_field`) continua no comportamento antigo
+(dinâmico, `SELECT DISTINCT`). `RecipeStep.step_type` tem os dois —
+`@enum_field` tem prioridade, sem duplicar a renderização.
+
+**Bug real pego pelos testes**: `_apply_filters()` (server-side)
+precisou de um loop novo iterando `_ENUM_FIELDS` além de
+`_CHOICES_FIELDS` — sem isso o filtro aparecia na tela mas não
+filtrava nada de verdade pra campo só-`@enum_field`. A primeira
+versão do patch em lote também esqueceu de declarar `_ENUM_FIELDS`
+(lista) nos 7 controllers "old-style" — só `_ENUM_FIELD_OPTIONS`
+(dict) tinha sido adicionado na rodada anterior — causaria
+`NameError` em produção; pego e corrigido antes de rodar a suíte.
+
+Aplicado nas mesmas 10 entidades da rodada anterior (`manage.html` +
+`controller.py`, patch cirúrgico igual ao de `detail.html`).
+
+9 testes novos (formulário de criação em entidade old-style e
+moderna, filtro mostrando todas as opções com banco vazio, filtro
+filtrando de verdade, filtro não duplicando com `@choices`,
+confirmação de que `form_modal.html`/`_modals/` sumiram). Sem
+migration. Suíte completa rodada em lotes — tudo passou.
+
+### Pendências registradas nesta conversa (fora de escopo)
+
+- Fase F da skill 05 — validação ponta a ponta com
+  `tesseract-device-bridge` (spec do bridge precisa de ajuste por
+  causa da correção do LWT agregado).
+- 2 itens `[ABERTO]` na skill 14 — nome de evento do EventBus
+  duplicado sem import compartilhado, e docstring desatualizada em
+  `register_example_listener()`.
+- `Transaction.parent_manually_set` (skill 10).
+- Import de `miscs[]` do BrewFather (adjuntos/water agents) +
+  `WaterProfile`.
+- Consolidar as telas de Planta numa página só com abas.
+- Log admin: filtro por tempo, cor por nível, customização via
+  `system_config`.

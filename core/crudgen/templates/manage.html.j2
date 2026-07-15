@@ -20,7 +20,16 @@
           {% set fv = field_html_validations.get(field, {}) %}
           <div class="col-md-4">
             <label class="form-label">{{ field.replace('_', ' ').title() }}{% if fv.get('required') %} <span class="text-danger">*</span>{% endif %}</label>
-            {% if field in weak_ref_fields and weak_ref_options.get(field) %}
+            {% if field in enum_field_options %}
+            <select name="{{ field }}" class="form-select"
+                    {% if fv.get('required') %}required{% endif %}
+                    {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+              {% if not fv.get('required') %}<option value="">—</option>{% endif %}
+              {% for opt in enum_field_options[field] %}
+              <option value="{{ opt.value }}">{{ opt.label }}</option>
+              {% endfor %}
+            </select>
+            {% elif field in weak_ref_fields and weak_ref_options.get(field) %}
             <div class="weakref-combo" data-weakref-source="{{ weak_ref_options[field] }}"
                  {% if weak_ref_value_fields.get(field) %}data-weakref-value-field="{{ weak_ref_value_fields[field] }}"{% endif %}>
               <input type="hidden" name="{{ field }}" class="weakref-combo-value" value="">
@@ -60,7 +69,20 @@
         </div>
         {% endfor %}
 
+        {% for field in enum_field_options %}
+        <div class="col-md-2">
+          <label class="form-label small mb-0">{{ field.replace('_', ' ').title() }}</label>
+          <select name="filter_{{ field }}" class="form-select form-select-sm">
+            <option value="">Todos</option>
+            {% for opt in enum_field_options[field] %}
+            <option value="{{ opt.value }}" {% if request_args.get('filter_' + field) == opt.value %}selected{% endif %}>{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endfor %}
+
         {% for field in choices_fields %}
+        {% if field not in enum_field_options %}
         <div class="col-md-2">
           <label class="form-label small mb-0">{{ field.replace('_', ' ').title() }}</label>
           <select name="filter_{{ field }}" class="form-select form-select-sm">
@@ -70,12 +92,13 @@
             {% endfor %}
           </select>
         </div>
+        {% endif %}
         {% endfor %}
 
         <div class="col-md-1">
           <button class="btn btn-outline-primary w-100" type="submit"><i class="bi bi-search"></i></button>
         </div>
-        {% if search or boolean_fields or choices_fields %}
+        {% if search or boolean_fields or choices_fields or enum_field_options %}
         <div class="col-md-1">
           <a href="{{ url_for('@@plural@@.manage') }}" class="btn btn-outline-secondary w-100"><i class="bi bi-x-circle"></i></a>
         </div>

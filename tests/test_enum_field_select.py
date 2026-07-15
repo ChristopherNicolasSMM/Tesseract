@@ -219,3 +219,88 @@ def test_device_metadatas_detail_renderiza_select_device_type(app, client):
     assert 'value="gateway" selected' in html
     assert 'value="sensor"' in html
     assert 'value="actuator"' in html
+
+
+# ── manage.html: formulário de criação + filtro (achado da conversa —
+# form_modal.html.j2 confirmado morto; a criação real acontece dentro
+# de manage.html.j2, que tinha o MESMO gap de enum que detail.html.j2
+# tinha antes da rodada anterior) ───────────────────────────────────────────
+
+def test_manage_brew_sessions_renderiza_select_no_formulario_de_criacao(app, client):
+    """Entidade old-style (sem weak_ref) — confirma o branch enum no
+    formulário 'Novo registro' embutido em manage.html."""
+    _login_admin(app, client)
+    resp = client.get("/brewstation/brew-sessions/")
+    html = resp.data.decode("utf-8")
+    assert 'id="createForm"' in html
+    assert '<select name="status"' in html
+    assert 'value="draft"' in html
+    assert 'value="aborted"' in html
+
+
+def test_manage_recipe_steps_renderiza_select_no_formulario_de_criacao(app, client):
+    """Entidade moderna (com weak_ref) — confirma que o branch enum
+    não quebra a cadeia if/elif com weak_ref no formulário de criação."""
+    _login_admin(app, client)
+    resp = client.get("/brewstation/recipe-steps/")
+    html = resp.data.decode("utf-8")
+    assert '<select name="step_type"' in html
+    assert 'value="mash"' in html
+    assert 'value="boil"' in html
+    assert 'value="alert"' in html
+
+
+def test_manage_device_metadatas_filtro_mostra_todas_opcoes_mesmo_sem_registro(app, client):
+    """Achado da conversa: filtro antes só mostrava valor que já
+    existe no banco (via @choices). Com @enum_field, mostra TODAS as
+    opções válidas mesmo sem nenhum registro usando ainda."""
+    _login_admin(app, client)
+    with app.app_context():
+        # Nenhum DeviceMetadata criado ainda — banco vazio pra este campo.
+        assert DeviceMetadata.query.count() == 0
+
+    resp = client.get("/device-manager/device-metadatas/")
+    html = resp.data.decode("utf-8")
+    assert '<select name="filter_device_type"' in html
+    assert 'value="sensor"' in html
+    assert 'value="actuator"' in html
+    assert 'value="gateway"' in html
+
+
+def test_manage_envases_filtro_por_enum_filtra_de_verdade(app, client):
+    """Confirma que o filtro renderizado também FUNCIONA — _apply_filters
+    precisa iterar _ENUM_FIELDS além de _CHOICES_FIELDS (achado real:
+    esquecido na primeira versão do patch em lote desta rodada)."""
+    _login_admin(app, client)
+    with app.app_context():
+        session = BrewSession(name="Sessão Filtro Enum", status="completed")
+        db.session.add(session)
+        db.session.commit()
+        db.session.add(Envase(lote_id=session.id, status="registrado"))
+        db.session.add(Envase(lote_id=session.id, status="cancelado"))
+        db.session.commit()
+
+    resp = client.get("/brewstation/envases/?filter_status=cancelado")
+    html = resp.data.decode("utf-8")
+    assert "1 registro" in html  # só o "cancelado" bate o filtro
+
+
+def test_manage_recipe_steps_filtro_por_enum_nao_duplica_com_choices(app, client):
+    """RecipeStep.step_type tem @enum_field E @choices — confirma que
+    o filtro não quebra e não duplica a condição (skip quando o campo
+    já está em _CHOICES_FIELDS)."""
+    _login_admin(app, client)
+    resp = client.get("/brewstation/recipe-steps/?filter_step_type=boil")
+    assert resp.status_code == 200
+
+
+def test_form_modal_html_nao_existe_mais():
+    """form_modal.html.j2 confirmado morto (nunca referenciado) —
+    removido do CrudGen e de todas as instâncias já geradas."""
+    import os
+    assert not os.path.exists("core/crudgen/templates/form_modal.html.j2")
+    modals_dirs = []
+    for root, dirs, files in os.walk("addons"):
+        if root.endswith("_modals"):
+            modals_dirs.append(root)
+    assert modals_dirs == []

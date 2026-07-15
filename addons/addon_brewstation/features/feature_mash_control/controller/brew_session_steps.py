@@ -26,9 +26,8 @@ _service = BrewSessionStepService()
 _READONLY_FIELDS = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"}
 _EDITABLE_FIELDS = [c.name for c in BrewSessionStep.__table__.columns if c.name not in _READONLY_FIELDS]
 
-_ENUM_FIELD_OPTIONS = {
-    ef["field"]: ef["options"] for ef in get_enum_fields(BrewSessionStep) if ef["field"] in _EDITABLE_FIELDS
-}
+_ENUM_FIELDS = [ef for ef in get_enum_fields(BrewSessionStep) if ef["field"] in _EDITABLE_FIELDS]
+_ENUM_FIELD_OPTIONS = {ef["field"]: ef["options"] for ef in _ENUM_FIELDS}
 
 # Campo usado como "resumo" na coluna da lista — prefere um nome
 # reconhecível em vez de simplesmente "a primeira coluna declarada"
@@ -116,6 +115,13 @@ def _apply_filters(query):
         if value:
             query = query.filter(getattr(BrewSessionStep, field) == value)
 
+    for _ef in _ENUM_FIELDS:
+        if _ef["field"] in _CHOICES_FIELDS:
+            continue  # já filtrado acima — evita duplicar a mesma condição
+        value = request.args.get(f"filter_{_ef['field']}")
+        if value:
+            query = query.filter(getattr(BrewSessionStep, _ef["field"]) == value)
+
     return query
 
 
@@ -151,6 +157,7 @@ def manage():
         boolean_fields=_BOOLEAN_FIELDS, choices_fields=_CHOICES_FIELDS,
         choices_options=_choices_options(), request_args=request.args,
         field_rules=_get_field_rules(),
+        enum_field_options=_ENUM_FIELD_OPTIONS,
     )
 
 

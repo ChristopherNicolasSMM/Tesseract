@@ -28,9 +28,8 @@ _EDITABLE_FIELDS = [c.name for c in BrewSession.__table__.columns if c.name not 
 
 # Campos com @enum_field no model — select estático (skill n/a — feature
 # nova do CrudGen, conversa "select box pra campo de opção fixa").
-_ENUM_FIELD_OPTIONS = {
-    ef["field"]: ef["options"] for ef in get_enum_fields(BrewSession) if ef["field"] in _EDITABLE_FIELDS
-}
+_ENUM_FIELDS = [ef for ef in get_enum_fields(BrewSession) if ef["field"] in _EDITABLE_FIELDS]
+_ENUM_FIELD_OPTIONS = {ef["field"]: ef["options"] for ef in _ENUM_FIELDS}
 
 # Campo usado como "resumo" na coluna da lista — prefere um nome
 # reconhecível em vez de simplesmente "a primeira coluna declarada"
@@ -118,6 +117,13 @@ def _apply_filters(query):
         if value:
             query = query.filter(getattr(BrewSession, field) == value)
 
+    for _ef in _ENUM_FIELDS:
+        if _ef["field"] in _CHOICES_FIELDS:
+            continue  # já filtrado acima — evita duplicar a mesma condição
+        value = request.args.get(f"filter_{_ef['field']}")
+        if value:
+            query = query.filter(getattr(BrewSession, _ef["field"]) == value)
+
     return query
 
 
@@ -153,6 +159,7 @@ def manage():
         boolean_fields=_BOOLEAN_FIELDS, choices_fields=_CHOICES_FIELDS,
         choices_options=_choices_options(), request_args=request.args,
         field_rules=_get_field_rules(),
+        enum_field_options=_ENUM_FIELD_OPTIONS,
     )
 
 

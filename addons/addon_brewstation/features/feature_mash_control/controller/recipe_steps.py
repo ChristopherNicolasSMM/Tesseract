@@ -170,6 +170,13 @@ def _apply_filters(query):
         if value:
             query = query.filter(getattr(RecipeStep, field) == value)
 
+    for _ef in _ENUM_FIELDS:
+        if _ef["field"] in _CHOICES_FIELDS:
+            continue  # já filtrado acima — evita duplicar a mesma condição
+        value = request.args.get(f"filter_{_ef['field']}")
+        if value:
+            query = query.filter(getattr(RecipeStep, _ef["field"]) == value)
+
     return query
 
 
@@ -209,6 +216,7 @@ def manage():
         weak_ref_display={item.id: _resolve_weak_ref_display(item) for item in items},
         weak_ref_options={wr["field"]: wr["options"] for wr in _WEAK_REFS if wr["options"]},
         weak_ref_value_fields={wr["field"]: wr["value_field"] for wr in _WEAK_REFS if wr.get("value_field")},
+        enum_field_options=_ENUM_FIELD_OPTIONS,
         field_html_validations=_FIELD_HTML_VALIDATIONS,
     )
 
