@@ -31,7 +31,10 @@ from addons.addon_brewstation.features.feature_mash_control.model.brew_session_l
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session_alarm import BrewSessionAlarm
 from addons.addon_brewstation.features.feature_mash_control.model.dashboard_layout import DashboardLayout
 from addons.addon_brewstation.features.feature_mash_control.model.dashboard_widget import DashboardWidget
+from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
+from addons.addon_brewstation.features.feature_mash_control.model.recipe_step import RecipeStep
 from addons.addon_brewstation.features.feature_mash_control.services import dashboard_runtime_service as svc
+from addons.addon_brewstation.features.feature_mash_control.services import recipe_timeline_service as rt_svc
 
 
 @pytest.fixture
@@ -1022,3 +1025,66 @@ def test_view_html_renderiza_upcoming_no_js(app, client):
     html = resp.data.decode("utf-8")
     assert "data.upcoming" in html
     assert "data.fired" in html
+
+
+# ── step_card no snapshot do Dashboard (conversa — Ponto 2) ──────────────────
+
+def test_create_widget_step_card_via_editor(app):
+    with app.app_context():
+        layout = DashboardLayout(name="L Step Card")
+        db.session.add(layout)
+        db.session.commit()
+        widget = svc.create_widget_from_editor(layout, widget_type="step_card", label_text="Etapa", x=40, y=40)
+        assert widget.widget_type == "step_card"
+        assert widget.vessel_id is None
+        assert widget.device_function_name is None
+
+
+def test_snapshot_step_card_sem_sessao_ativa(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Step Card Vazia")
+        db.session.add(plant)
+        db.session.commit()
+        layout = DashboardLayout(name="L Step Card Vazia", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="step_card")
+        db.session.add(widget)
+        db.session.commit()
+        layout_id, widget_id = layout.id, widget.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/snapshot")
+    data = resp.get_json()
+    assert data["active_recipe_id"] is None
+    assert data["widgets"][str(widget_id)] == {"current": None, "next": None}
+
+
+def test_snapshot_step_card_com_sessao_ativa_mostra_etapa_atual(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        recipe = MashRecipe(name="Receita Snapshot Card")
+        db.session.add(recipe)
+        db.session.commit()
+        mash = RecipeStep(recipe_id=recipe.id, step_type="mash", ordem=0, nome="Mash", temperatura=66, tempo_min=30)
+        db.session.add(mash)
+        db.session.commit()
+
+        plant = BrewPlant(name="Planta Step Card Ativa")
+        db.session.add(plant)
+        db.session.commit()
+
+        session = rt_svc.generate_session_from_recipe(recipe.id, plant_id=plant.id, name="S", status="active")
+
+        layout = DashboardLayout(name="L Step Card Ativa", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="step_card")
+        db.session.add(widget)
+        db.session.commit()
+        layout_id, widget_id, recipe_id = layout.id, widget.id, recipe.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/snapshot")
+    data = resp.get_json()
+    assert data["active_recipe_id"] == recipe_id
+    assert data["widgets"][str(widget_id)]["current"]["name"] == "Mash"

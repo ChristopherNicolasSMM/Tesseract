@@ -137,6 +137,30 @@
                     data-window-minutes="{{ (w.config_json or {}).get('window_minutes', 60) }}"></canvas>
           </div>
         </div>
+
+      {% elif w.widget_type == 'step_card' %}
+        <div class="card h-100 bg-dark text-light border-secondary">
+          <div class="card-body p-2 d-flex flex-column">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <div class="small text-muted">{{ w.label_text or 'Etapa Atual' }}</div>
+              <button type="button" class="btn btn-sm btn-outline-secondary db-steps-manage-btn py-0 px-1" title="Gerenciar etapas">
+                <i class="bi bi-list-check"></i>
+              </button>
+            </div>
+            <div class="db-step-empty small text-muted">Sem sessão ativa.</div>
+            <div class="db-step-current d-none flex-grow-1 d-flex flex-column">
+              <div class="fw-bold db-step-current-name">—</div>
+              <div class="small text-muted db-step-current-meta">—</div>
+              <div class="progress bg-secondary my-2" style="height:8px;">
+                <div class="db-step-progress-bar progress-bar bg-info" style="width:0%;"></div>
+              </div>
+              <div class="small text-muted">Próxima: <span class="db-step-next-name">—</span></div>
+              <button type="button" class="btn btn-sm btn-outline-success mt-2 db-step-advance-btn">
+                <i class="bi bi-check-lg"></i> Concluir e Avançar
+              </button>
+            </div>
+          </div>
+        </div>
       {% endif %}
 
       <div class="db-resize-handle d-none"></div>
@@ -228,6 +252,7 @@
             <option value="digital">Indicador digital</option>
             <option value="alarm_list">Lista de alarmes</option>
             <option value="chart">Gráfico histórico</option>
+            <option value="step_card">Etapa (atual/próxima)</option>
           </select>
         </div>
         <div class="mb-3">
@@ -276,6 +301,77 @@
   </div>
 </div>
 {% endif %}
+
+<!-- Modal: Gerenciar Etapas (conversa — Ponto 2) — mesmo formulário de
+     /brewstation/recipe-timeline/, embutido pra não sair do Dashboard.
+     Edita a receita-modelo (RecipeStep); "Ressincronizar" reflete na
+     sessão em execução. -->
+<div class="modal fade" id="dbStepsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Gerenciar Etapas da Receita</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted">
+          Isto edita a <strong>receita</strong> (afeta futuras sessões geradas a partir dela).
+          Pra refletir na brassagem em andamento, use "Ressincronizar com a sessão" abaixo.
+        </p>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="mb-0">Etapas</h6>
+          <button type="button" id="dbStepsResyncBtn" class="btn btn-sm btn-outline-info">
+            <i class="bi bi-arrow-repeat"></i> Ressincronizar com a sessão
+          </button>
+        </div>
+        <table class="table table-sm table-striped">
+          <thead><tr><th>Tipo</th><th>Nome</th><th>°C</th><th>Tempo</th><th>Rampa</th><th>Alerta</th><th></th></tr></thead>
+          <tbody id="dbStepsTbody"></tbody>
+        </table>
+        <hr>
+        <h6 id="dbStepFormTitle">Adicionar Etapa</h6>
+        <form id="dbStepForm" class="row g-2">
+          <input type="hidden" id="dbStepFormId" value="">
+          <div class="col-md-2">
+            <label class="form-label small">Tipo</label>
+            <select id="dbStepFormType" class="form-select form-select-sm">
+              <option value="mash">Mostura</option>
+              <option value="boil">Fervura</option>
+              <option value="alert">Alerta</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small">Nome</label>
+            <input type="text" id="dbStepFormNome" class="form-control form-control-sm" required>
+          </div>
+          <div class="col-md-2 db-step-field" data-field="temperatura">
+            <label class="form-label small">°C</label>
+            <input type="number" step="0.1" id="dbStepFormTemperatura" class="form-control form-control-sm">
+          </div>
+          <div class="col-md-2 db-step-field" data-field="tempo_min">
+            <label class="form-label small">Tempo (min)</label>
+            <input type="number" id="dbStepFormTempoMin" class="form-control form-control-sm">
+          </div>
+          <div class="col-md-2 db-step-field" data-field="ramp_time_min">
+            <label class="form-label small">Rampa (min)</label>
+            <input type="number" id="dbStepFormRampTimeMin" class="form-control form-control-sm">
+          </div>
+          <div class="col-md-2 db-step-field d-none" data-field="trigger_minutes_remaining">
+            <label class="form-label small">Min. restantes p/ disparar</label>
+            <input type="number" id="dbStepFormTrigger" class="form-control form-control-sm">
+          </div>
+          <div class="col-12">
+            <button type="submit" id="dbStepFormSaveBtn" class="btn btn-sm btn-primary"><i class="bi bi-plus-lg"></i> Adicionar</button>
+            <button type="button" id="dbStepFormCancelBtn" class="btn btn-sm btn-outline-secondary d-none">Cancelar edição</button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -291,6 +387,12 @@
   const configUrlTemplate = "{{ url_for('dashboard_runtime.update_config', widget_id=0) }}";
   const deleteUrlTemplate = "{{ url_for('dashboard_runtime.delete_widget', widget_id=0) }}";
   const createWidgetUrl = "{{ url_for('dashboard_runtime.create_widget', layout_id=layout.id) }}";
+  const advanceStepUrlTemplate = "{{ url_for('dashboard_runtime.advance_step', session_id=0) }}";
+  const resyncStepsUrlTemplate = "{{ url_for('dashboard_runtime.resync_steps', session_id=0) }}";
+  const recipeStepsJsonUrlTemplate = "{{ url_for('recipe_timeline.steps_json', recipe_id=0) }}";
+  const recipeAddStepUrlTemplate = "{{ url_for('recipe_timeline.add_step', recipe_id=0) }}";
+  const recipeUpdateStepUrlTemplate = "{{ url_for('recipe_timeline.update_step', step_id=0) }}";
+  const recipeDeleteStepUrlTemplate = "{{ url_for('recipe_timeline.delete_step', step_id=0) }}";
   {% if layout.plant_id %}
   const connectionsUrl = "{{ url_for('dashboard_runtime.update_connections', layout_id=layout.id) }}";
   {% endif %}
@@ -387,6 +489,19 @@
     maybeConfirmAndSetValue(toggleBtn, !currentValue, null);
   });
 
+  // Card de Etapa (conversa — Ponto 2): "Concluir e Avançar" sempre
+  // disponível, não só quando o timer sugere.
+  document.addEventListener('click', function (e) {
+    const advanceBtn = e.target.closest('.db-step-advance-btn');
+    if (!advanceBtn || editMode) return;
+    const sessionId = lastSnapshot && lastSnapshot.active_session_id;
+    if (!sessionId) return;
+    advanceBtn.disabled = true;
+    fetch(widgetIdUrl(advanceStepUrlTemplate, sessionId), { method: 'POST' })
+      .then(function () { refresh(); })
+      .finally(function () { advanceBtn.disabled = false; });
+  });
+
   function postSetValue(widgetId, value, roleKey) {
     fetch(widgetIdUrl(setValueUrlTemplate, widgetId), {
       method: 'POST',
@@ -450,6 +565,34 @@
         const statusHint = (data && data.session_status) ? '' : ' (nenhuma Sessão associada a esta Planta ainda)';
         list.innerHTML = '<li class="text-muted">Sem alarmes ativos ou agendados' + statusHint + '.</li>';
       }
+    } else if (type === 'step_card') {
+      const current = data && data.current;
+      const next = data && data.next;
+      const emptyEl = el.querySelector('.db-step-empty');
+      const currentBox = el.querySelector('.db-step-current');
+      if (!current) {
+        emptyEl.classList.remove('d-none');
+        currentBox.classList.add('d-none');
+        return;
+      }
+      emptyEl.classList.add('d-none');
+      currentBox.classList.remove('d-none');
+      const typeLabel = current.step_type === 'boil' ? 'Fervura' : 'Mostura';
+      const tempLabel = (current.target_temp === null || current.target_temp === undefined) ? '' : (current.target_temp + '°C');
+      el.querySelector('.db-step-current-name').textContent = current.name;
+      el.querySelector('.db-step-current-meta').textContent = typeLabel + (tempLabel ? ' — ' + tempLabel : '');
+      const pct = current.progress_pct || 0;
+      const bar = el.querySelector('.db-step-progress-bar');
+      bar.style.width = Math.min(100, pct) + '%';
+      bar.classList.toggle('bg-info', pct < 100);
+      bar.classList.toggle('bg-success', pct >= 100);
+      el.querySelector('.db-step-next-name').textContent = next ? next.name : '—';
+      // Botão sempre habilitado (avanço manual a qualquer momento) — só
+      // ganha destaque visual (sólido) quando o timer sugere que já deu
+      // tempo (decisão híbrida da conversa).
+      const advanceBtn = el.querySelector('.db-step-advance-btn');
+      advanceBtn.classList.toggle('btn-outline-success', pct < 100);
+      advanceBtn.classList.toggle('btn-success', pct >= 100);
     }
   }
 
@@ -987,6 +1130,129 @@
     }).then(function () { pipesModal.hide(); refresh(); });
   });
   {% endif %}
+
+  // ── Modal: Gerenciar Etapas (conversa — Ponto 2) ────────────────────────
+  const stepsModal = new bootstrap.Modal(document.getElementById('dbStepsModal'));
+  const stepTypeFieldsMap = {
+    mash: ['temperatura', 'tempo_min', 'ramp_time_min'],
+    boil: ['temperatura', 'tempo_min'],
+    alert: ['trigger_minutes_remaining'],
+  };
+
+  function syncStepFormFields() {
+    const type = document.getElementById('dbStepFormType').value;
+    const visible = stepTypeFieldsMap[type] || [];
+    document.querySelectorAll('.db-step-field').forEach(function (field) {
+      field.classList.toggle('d-none', visible.indexOf(field.dataset.field) === -1);
+    });
+  }
+  document.getElementById('dbStepFormType').addEventListener('change', syncStepFormFields);
+
+  function resetStepForm() {
+    document.getElementById('dbStepForm').reset();
+    document.getElementById('dbStepFormId').value = '';
+    document.getElementById('dbStepFormTitle').textContent = 'Adicionar Etapa';
+    document.getElementById('dbStepFormSaveBtn').innerHTML = '<i class="bi bi-plus-lg"></i> Adicionar';
+    document.getElementById('dbStepFormCancelBtn').classList.add('d-none');
+    syncStepFormFields();
+  }
+  document.getElementById('dbStepFormCancelBtn').addEventListener('click', resetStepForm);
+
+  function loadStepsList() {
+    const recipeId = lastSnapshot && lastSnapshot.active_recipe_id;
+    const tbody = document.getElementById('dbStepsTbody');
+    if (!recipeId) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-muted">Sem sessão ativa com receita associada.</td></tr>';
+      return;
+    }
+    fetch(widgetIdUrl(recipeStepsJsonUrlTemplate, recipeId)).then(function (r) { return r.json(); }).then(function (data) {
+      tbody.innerHTML = '';
+      (data.steps || []).forEach(function (s) {
+        const tr = document.createElement('tr');
+        const typeBadge = s.step_type === 'alert' ? 'warning' : (s.step_type === 'boil' ? 'danger' : 'primary');
+        tr.innerHTML =
+          '<td><span class="badge bg-' + typeBadge + '">' + s.step_type + '</span></td>' +
+          '<td>' + (s.nome || '—') + '</td>' +
+          '<td>' + (s.temperatura !== null && s.temperatura !== undefined ? s.temperatura + '°C' : '—') + '</td>' +
+          '<td>' + (s.tempo_min ? s.tempo_min + ' min' : '—') + '</td>' +
+          '<td>' + (s.ramp_time_min ? s.ramp_time_min + ' min' : '—') + '</td>' +
+          '<td>' + (s.trigger_minutes_remaining !== null && s.trigger_minutes_remaining !== undefined ? '-' + s.trigger_minutes_remaining + ' min do fim' : '—') + '</td>' +
+          '<td></td>';
+        const actionsTd = tr.lastElementChild;
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'btn btn-sm btn-outline-secondary me-1';
+        editBtn.innerHTML = '<i class="bi bi-pencil"></i>';
+        editBtn.addEventListener('click', function () {
+          document.getElementById('dbStepFormId').value = s.id;
+          document.getElementById('dbStepFormType').value = s.step_type;
+          document.getElementById('dbStepFormNome').value = s.nome || '';
+          document.getElementById('dbStepFormTemperatura').value = s.temperatura !== null && s.temperatura !== undefined ? s.temperatura : '';
+          document.getElementById('dbStepFormTempoMin').value = s.tempo_min || '';
+          document.getElementById('dbStepFormRampTimeMin').value = s.ramp_time_min || '';
+          document.getElementById('dbStepFormTrigger').value = s.trigger_minutes_remaining !== null && s.trigger_minutes_remaining !== undefined ? s.trigger_minutes_remaining : '';
+          document.getElementById('dbStepFormTitle').textContent = 'Editar Etapa';
+          document.getElementById('dbStepFormSaveBtn').innerHTML = '<i class="bi bi-check-lg"></i> Salvar';
+          document.getElementById('dbStepFormCancelBtn').classList.remove('d-none');
+          syncStepFormFields();
+        });
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'btn btn-sm btn-outline-danger';
+        delBtn.innerHTML = '<i class="bi bi-trash"></i>';
+        delBtn.addEventListener('click', function () {
+          if (!confirm('Remover esta etapa da receita?')) return;
+          fetch(widgetIdUrl(recipeDeleteStepUrlTemplate, s.id), { method: 'POST' }).then(loadStepsList);
+        });
+        actionsTd.appendChild(editBtn);
+        actionsTd.appendChild(delBtn);
+        tbody.appendChild(tr);
+      });
+      if (!(data.steps || []).length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-muted">Nenhuma etapa ainda.</td></tr>';
+      }
+    });
+  }
+
+  document.querySelectorAll('.db-steps-manage-btn').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      resetStepForm();
+      loadStepsList();
+      stepsModal.show();
+    });
+  });
+
+  document.getElementById('dbStepForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const recipeId = lastSnapshot && lastSnapshot.active_recipe_id;
+    if (!recipeId) return;
+    const stepId = document.getElementById('dbStepFormId').value;
+    const payload = {
+      step_type: document.getElementById('dbStepFormType').value,
+      nome: document.getElementById('dbStepFormNome').value,
+      temperatura: document.getElementById('dbStepFormTemperatura').value ? parseFloat(document.getElementById('dbStepFormTemperatura').value) : null,
+      tempo_min: document.getElementById('dbStepFormTempoMin').value ? parseInt(document.getElementById('dbStepFormTempoMin').value, 10) : null,
+      ramp_time_min: document.getElementById('dbStepFormRampTimeMin').value ? parseInt(document.getElementById('dbStepFormRampTimeMin').value, 10) : null,
+      trigger_minutes_remaining: document.getElementById('dbStepFormTrigger').value ? parseInt(document.getElementById('dbStepFormTrigger').value, 10) : null,
+    };
+    const url = stepId ? widgetIdUrl(recipeUpdateStepUrlTemplate, stepId) : widgetIdUrl(recipeAddStepUrlTemplate, recipeId);
+    fetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (data.ok) { resetStepForm(); loadStepsList(); } else { alert(data.error || 'Erro ao salvar etapa.'); }
+    });
+  });
+
+  document.getElementById('dbStepsResyncBtn').addEventListener('click', function () {
+    const sessionId = lastSnapshot && lastSnapshot.active_session_id;
+    if (!sessionId) { alert('Sem sessão ativa pra ressincronizar.'); return; }
+    fetch(widgetIdUrl(resyncStepsUrlTemplate, sessionId), { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) { refresh(); } else { alert(data.error || 'Erro ao ressincronizar.'); }
+      });
+  });
 
   refresh();
   setInterval(refresh, 3000);

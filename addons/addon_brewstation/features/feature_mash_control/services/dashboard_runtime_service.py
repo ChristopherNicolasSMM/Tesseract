@@ -90,12 +90,16 @@ def get_layout_snapshot(layout: DashboardLayout) -> dict:
             widgets_out[widget.id] = _resolve_value_and_meta(widget.device_function_name)
         elif widget.widget_type == "alarm_list":
             widgets_out[widget.id] = _get_active_alarms(layout, widget)
+        elif widget.widget_type == "step_card":
+            from addons.addon_brewstation.features.feature_mash_control.services import recipe_timeline_service
+            widgets_out[widget.id] = recipe_timeline_service.get_step_card_data(active_session)
         # "chart" widgets buscam via get_session_readings() à parte (histórico, não snapshot pontual)
 
     return {
         "widgets": widgets_out,
         "connections": get_plant_connections(layout),
         "active_session_id": active_session.id if active_session else None,
+        "active_recipe_id": active_session.recipe_id if active_session else None,
     }
 
 
@@ -304,7 +308,7 @@ def get_session_readings(session_id: int, function_name: str, window_minutes: in
 # ── Editor visual (conversa — CraftBeerPi como referência): modo edição,   ──
 # ── arrastar/redimensionar, botão direito (configurações/remover), pipes  ──
 
-_VALID_WIDGET_TYPES = ("vessel", "toggle", "gauge", "digital", "alarm_list", "chart")
+_VALID_WIDGET_TYPES = ("vessel", "toggle", "gauge", "digital", "alarm_list", "chart", "step_card")
 _VALID_SVG_SHAPES = ("mash_tun", "boil_kettle", "hlt", "fermenter", "whirlpool", "generic")
 
 

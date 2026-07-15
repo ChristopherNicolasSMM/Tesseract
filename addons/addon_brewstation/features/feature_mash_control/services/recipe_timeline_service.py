@@ -194,7 +194,7 @@ def generate_session_from_recipe(recipe_id: int, *, plant_id: int, name: str, st
             db.session.add(BrewSessionStep(
                 session_id=session.id, step_index=step_index, name=step.nome or step.step_type,
                 step_type=step.step_type, target_temp=step.temperatura,
-                duration_seconds=int(hold * 60),
+                duration_seconds=int(hold * 60), source_recipe_step_id=step.id,
             ))
             step_index += 1
 
@@ -206,6 +206,7 @@ def generate_session_from_recipe(recipe_id: int, *, plant_id: int, name: str, st
             db.session.add(BrewSessionStep(
                 session_id=session.id, step_index=step_index, name=step.nome or "Alerta",
                 step_type="alert", duration_seconds=0, trigger_at_seconds=trigger_seconds,
+                source_recipe_step_id=step.id,
             ))
             step_index += 1
 
@@ -282,3 +283,211 @@ def adjust_session_step(session_step_id: int, *, field: str, new_value, user_id:
     ))
     db.session.commit()
     return step
+
+
+# ── Etapa atual/próxima no Dashboard de Brassagem (conversa — Ponto 2) ──────
+#
+# Opção confirmada em conversa: o operador edita a RECEITA-MODELO
+# (RecipeStep) direto pelo Dashboard — reaproveitando add_step/update_step
+# já existentes — e usa resync_session_steps() pra refletir a mudança na
+# sessão em execução (mesmo espírito de sync_hop_alerts, generalizado pra
+# mash/boil/alert). Nunca mexe em passo já active/completed/skipped —
+# histórico de execução já começado é imutável.
+
+_LOCKED_STEP_STATUSES = ("active", "completed", "skipped")
+
+
+def _operational_steps_query(session_id: int):
+    return (
+        BrewSessionStep.query
+        .filter_by(session_id=session_id, is_deleted=False)
+        .filter(BrewSessionStep.step_type.in_(("mash", "boil")))
+        .order_by(BrewSessionStep.step_index)
+    )
+
+
+def resync_session_steps(session_id: int) -> dict:
+    """Ressincroniza BrewSessionStep com a timeline atual de RecipeStep.
+    Só adiciona passo novo (RecipeStep sem BrewSessionStep correspondente),
+    atualiza passo `pending` cujo RecipeStep de origem mudou, e remove
+    (soft-delete) passo `pending` cujo RecipeStep de origem sumiu da
+    timeline. Passo sem `source_recipe_step_id` (sessão gerada antes desta
+    coluna existir) nunca é tocado — fica como "órfão" intencionalmente."""
+    session = BrewSession.query.get(session_id)
+    if not session or session.is_deleted:
+        raise RecipeTimelineError("Sessão não encontrada.")
+    if not session.recipe_id:
+        raise RecipeTimelineError("Esta sessão não tem receita associada.")
+
+    timeline = get_timeline(session.recipe_id)
+    existing = BrewSessionStep.query.filter_by(session_id=session.id, is_deleted=False).all()
+    existing_by_source = {s.source_recipe_step_id: s for s in existing if s.source_recipe_step_id}
+
+    # Mesmo cálculo de deslocamento acumulado de generate_session_from_recipe
+    # — só usado pra dar duration_seconds/trigger_at_seconds corretos a
+    # passo NOVO; passo pending já existente mantém seu step_index (ordem
+    # de execução em andamento não é reordenada por um resync).
+    cumulative_min = 0.0
+    end_offset_by_step_id: dict[int, float] = {}
+    for step in timeline:
+        if step.step_type in ("mash", "boil"):
+            cumulative_min += (step.ramp_time_min or 0) + (step.tempo_min or 0)
+            end_offset_by_step_id[step.id] = cumulative_min
+
+    next_step_index = max((s.step_index for s in existing), default=-1) + 1
+    created, updated, removed = [], [], []
+    seen_recipe_step_ids = set()
+
+    for step in timeline:
+        if step.step_type not in ("mash", "boil", "alert"):
+            continue
+        seen_recipe_step_ids.add(step.id)
+        session_step = existing_by_source.get(step.id)
+        if session_step and session_step.status in _LOCKED_STEP_STATUSES:
+            continue  # histórico já em execução/concluído — nunca mexe
+
+        if step.step_type in ("mash", "boil"):
+            new_name = step.nome or step.step_type
+            new_target = step.temperatura
+            new_duration = int((step.tempo_min or 0) * 60)
+        else:
+            parent_end = end_offset_by_step_id.get(step.parent_step_id, cumulative_min)
+            trigger_min = parent_end - (step.trigger_minutes_remaining or 0)
+            new_name = step.nome or "Alerta"
+            new_trigger = max(0, int(trigger_min * 60))
+
+        if session_step:
+            changed = False
+            if session_step.name != new_name:
+                session_step.name = new_name
+                changed = True
+            if step.step_type in ("mash", "boil"):
+                if session_step.target_temp != new_target:
+                    session_step.target_temp = new_target
+                    changed = True
+                if session_step.duration_seconds != new_duration:
+                    session_step.duration_seconds = new_duration
+                    changed = True
+            elif session_step.trigger_at_seconds != new_trigger:
+                session_step.trigger_at_seconds = new_trigger
+                changed = True
+            if changed:
+                updated.append(new_name)
+            continue
+
+        kwargs = dict(
+            session_id=session.id, step_index=next_step_index, name=new_name,
+            step_type=step.step_type, source_recipe_step_id=step.id,
+        )
+        if step.step_type in ("mash", "boil"):
+            kwargs.update(target_temp=new_target, duration_seconds=new_duration)
+        else:
+            kwargs.update(duration_seconds=0, trigger_at_seconds=new_trigger)
+        db.session.add(BrewSessionStep(**kwargs))
+        next_step_index += 1
+        created.append(new_name)
+
+    for source_id, session_step in existing_by_source.items():
+        if source_id not in seen_recipe_step_ids and session_step.status not in _LOCKED_STEP_STATUSES:
+            session_step.is_deleted = True
+            session_step.deleted_at = datetime.now(timezone.utc)
+            removed.append(session_step.name)
+
+    db.session.commit()
+    return {"created": created, "updated": updated, "removed": removed}
+
+
+def _ensure_current_step_active(session: BrewSession) -> None:
+    """Promove preguiçosamente o primeiro passo `pending` pra `active`
+    assim que a sessão está em execução e nenhum passo operacional
+    (mash/boil) está ativo ainda — "start" implícito do passo 1,
+    disparado na primeira leitura do card (mesmo padrão de
+    check_and_fire_alerts: reaproveita o polling do snapshot, sem
+    scheduler novo)."""
+    if session.status != "active":
+        return
+    steps = _operational_steps_query(session.id).all()
+    if any(s.status == "active" for s in steps):
+        return
+    first_pending = next((s for s in steps if s.status == "pending"), None)
+    if first_pending:
+        first_pending.status = "active"
+        first_pending.started_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+
+def confirm_and_advance_step(session_id: int) -> dict:
+    """"Concluir e Avançar" do card de Etapa (conversa — modelo híbrido:
+    o timer só sugere quando a etapa terminou, esta confirmação explícita
+    é quem de fato conclui e já avança pra próxima, num clique só). Botão
+    fica sempre disponível — nada aqui valida se o tempo já passou."""
+    session = BrewSession.query.get(session_id)
+    if not session or session.is_deleted:
+        raise RecipeTimelineError("Sessão não encontrada.")
+
+    _ensure_current_step_active(session)
+    steps = _operational_steps_query(session.id).all()
+    current = next((s for s in steps if s.status == "active"), None)
+    if not current:
+        raise RecipeTimelineError("Não há etapa ativa pra concluir.")
+
+    now = datetime.now(timezone.utc)
+    current.status = "completed"
+    current.completed_at = now
+    started = current.started_at
+    if started:
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        current.actual_duration_s = max(0, int((now - started).total_seconds()))
+
+    next_step = next((s for s in steps if s.status == "pending" and s.step_index > current.step_index), None)
+    if next_step:
+        next_step.status = "active"
+        next_step.started_at = now
+
+    db.session.commit()
+    return get_step_card_data(session)
+
+
+def get_step_card_data(session: Optional[BrewSession]) -> dict:
+    """Dado consumido pelo widget `step_card` do Dashboard: etapa atual
+    (com progresso sugerido pelo timer, decisão híbrida da conversa) e
+    preview da próxima. `session=None` (sem sessão ativa pra planta) devolve
+    tudo vazio — widget mostra estado "sem sessão ativa"."""
+    if not session:
+        return {"current": None, "next": None}
+
+    _ensure_current_step_active(session)
+    steps = _operational_steps_query(session.id).all()
+    current = next((s for s in steps if s.status == "active"), None)
+
+    def _progress_pct(step: BrewSessionStep) -> float:
+        if not step.duration_seconds:
+            return 100.0  # etapa sem duração definida — já "pronta" pra confirmar
+        if not step.started_at:
+            return 0.0
+        started = step.started_at
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        elapsed = (datetime.now(timezone.utc) - started).total_seconds()
+        return max(0.0, min(100.0, (elapsed / step.duration_seconds) * 100))
+
+    current_out = None
+    if current:
+        current_out = {
+            "id": current.id, "name": current.name, "step_type": current.step_type,
+            "target_temp": current.target_temp, "duration_seconds": current.duration_seconds,
+            "progress_pct": round(_progress_pct(current), 1),
+        }
+        next_step = next((s for s in steps if s.status == "pending" and s.step_index > current.step_index), None)
+    else:
+        next_step = next((s for s in steps if s.status == "pending"), None)
+
+    next_out = None
+    if next_step:
+        next_out = {
+            "id": next_step.id, "name": next_step.name, "step_type": next_step.step_type,
+            "target_temp": next_step.target_temp, "duration_seconds": next_step.duration_seconds,
+        }
+
+    return {"current": current_out, "next": next_out}

@@ -39,6 +39,14 @@ class BrewSessionStep(db.Model):
 
     hop_addition_json = db.Column(db.JSON, default=lambda: [])
 
+    # Liga de volta ao RecipeStep que originou este passo na geração da
+    # sessão (conversa — Dashboard, Ponto 2) — permite resync_session_steps()
+    # detectar o que já existe sem duplicar, mesmo espírito de
+    # source_recipe_ingredient_id em RecipeStep/sync_hop_alerts. Nulo em
+    # sessão gerada antes desta coluna existir (retrocompatível — resync
+    # simplesmente não toca nesses passos "órfãos").
+    source_recipe_step_id = db.Column(db.Integer, db.ForeignKey("recipe_step.id"), nullable=True)
+
     # Só relevante pra step_type="alert" (RecipeStep copiado na geração
     # da sessão, conversa — timeline de alertas). Tempo ABSOLUTO desde
     # session.started_at (em segundos) em que o alerta deve disparar —
@@ -75,6 +83,7 @@ class BrewSessionStep(db.Model):
             "target_temp": self.target_temp,
             "duration_seconds": self.duration_seconds,
             "vessel_id": self.vessel_id,
+            "source_recipe_step_id": self.source_recipe_step_id,
             "pid_enabled": self.pid_enabled,
             "pid_kp": self.pid_kp,
             "pid_ki": self.pid_ki,

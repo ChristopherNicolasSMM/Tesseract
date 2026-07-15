@@ -484,3 +484,234 @@ def test_generate_session_rota_web(app, client):
         assert session is not None
         assert session.status == "draft"
         assert BrewSessionStep.query.filter_by(session_id=session.id).count() == 3
+
+
+# ── Etapa atual/próxima no Dashboard (conversa — Ponto 2) ───────────────────
+
+def _gerar_sessao_ativa(recipe, plant):
+    return svc.generate_session_from_recipe(recipe.id, plant_id=plant.id, name="Sessão Ativa", status="active")
+
+
+def test_generate_session_grava_source_recipe_step_id(app):
+    with app.app_context():
+        recipe = _criar_receita()
+        mash, boil, alert = _criar_timeline_completa(recipe)
+        plant = BrewPlant(name="Planta Source")
+        db.session.add(plant)
+        db.session.commit()
+
+        session = svc.generate_session_from_recipe(recipe.id, plant_id=plant.id, name="S", status="draft")
+        steps = BrewSessionStep.query.filter_by(session_id=session.id).order_by(BrewSessionStep.step_index).all()
+        assert steps[0].source_recipe_step_id == mash.id
+        assert steps[1].source_recipe_step_id == boil.id
+        assert steps[2].source_recipe_step_id == alert.id
+
+
+def test_get_step_card_data_ativa_primeiro_passo_pending_automaticamente(app):
+    with app.app_context():
+        recipe = _criar_receita()
+        _criar_timeline_completa(recipe)
+        plant = BrewPlant(name="Planta Card 1")
+        db.session.add(plant)
+        db.session.commit()
+        session = _gerar_sessao_ativa(recipe, plant)
+
+        data = svc.get_step_card_data(session)
+        assert data["current"] is not None
+        assert data["current"]["step_type"] == "mash"
+        assert data["current"]["progress_pct"] == 0.0
+        assert data["next"] is not None
+        assert data["next"]["step_type"] == "boil"
+
+
+def test_get_step_card_data_sem_sessao_devolve_vazio(app):
+    with app.app_context():
+        assert svc.get_step_card_data(None) == {"current": None, "next": None}
+
+
+def test_get_step_card_data_calcula_progresso_por_tempo_decorrido(app):
+    with app.app_context():
+        recipe = _criar_receita()
+        _criar_timeline_completa(recipe)  # mash: 40min = 2400s
+        plant = BrewPlant(name="Planta Card 2")
+        db.session.add(plant)
+        db.session.commit()
+        session = _gerar_sessao_ativa(recipe, plant)
+        svc.get_step_card_data(session)  # ativa o primeiro passo (lazy)
+
+        current_step = BrewSessionStep.query.filter_by(session_id=session.id, status="active").first()
+        current_step.started_at = datetime.now(timezone.utc) - timedelta(seconds=1200)  # metade de 2400s
+        db.session.commit()
+
+        data = svc.get_step_card_data(session)
+        assert data["current"]["progress_pct"] == pytest.approx(50.0, abs=1.0)
+
+
+def test_confirm_and_advance_step_conclui_atual_e_ativa_proximo(app):
+    with app.app_context():
+        recipe = _criar_receita()
+        _criar_timeline_completa(recipe)
+        plant = BrewPlant(name="Planta Avanco")
+        db.session.add(plant)
+        db.session.commit()
+        session = _gerar_sessao_ativa(recipe, plant)
+
+        data = svc.confirm_and_advance_step(session.id)
+        assert data["current"]["step_type"] == "boil"
+
+        mash_step = BrewSessionStep.query.filter_by(session_id=session.id, step_type="mash").first()
+        assert mash_step.status == "completed"
+        assert mash_step.completed_at is not None
+        assert mash_step.actual_duration_s is not None
+
+        boil_step = BrewSessionStep.query.filter_by(session_id=session.id, step_type="boil").first()
+        assert boil_step.status == "active"
+        assert boil_step.started_at is not None
+
+
+def test_confirm_and_advance_step_sem_sessao_falha(app):
+    with app.app_context():
+        with pytest.raises(svc.RecipeTimelineError):
+            svc.confirm_and_advance_step(999999)
+
+
+def test_confirm_and_advance_step_ultimo_passo_nao_sobra_current(app):
+    with app.app_context():
+        recipe = _criar_receita()
+        _criar_timeline_completa(recipe)  # mash, boil, alert
+        plant = BrewPlant(name="Planta Ultimo")
+        db.session.add(plant)
+        db.session.commit()
+        session = _gerar_sessao_ativa(recipe, plant)
+
+        svc.confirm_and_advance_step(session.id)  # mash -> boil
+        data = svc.confirm_and_advance_step(session.id)  # boil -> nenhum mash/boil pending sobrando
+        assert data["current"] is None
+
+
+def test_resync_session_steps_cria_etapa_nova_da_receita(app):
+    with app.app_context():
+        recipe = _criar_receita()
+        _criar_timeline_completa(recipe)
+        plant = BrewPlant(name="Planta Resync 1")
+        db.session.add(plant)
+        db.session.commit()
+        session = _gerar_sessao_ativa(recipe, plant)
+        antes = BrewSessionStep.query.filter_by(session_id=session.id, is_deleted=False).count()
+
+        db.session.add(RecipeStep(recipe_id=recipe.id, step_type="mash", ordem=3, nome="Mash Extra", temperatura=70, tempo_min=10))
+        db.session.commit()
+
+        result = svc.resync_session_steps(session.id)
+        assert result["created"] == ["Mash Extra"]
+        depois = BrewSessionStep.query.filter_by(session_id=session.id, is_deleted=False).count()
+        assert depois == antes + 1
+
+
+def test_resync_session_steps_atualiza_pending_alterado(app):
+    with app.app_context():
+        recipe = _criar_receita()
+        mash, boil, alert = _criar_timeline_completa(recipe)
+        plant = BrewPlant(name="Planta Resync 2")
+        db.session.add(plant)
+        db.session.commit()
+        session = svc.generate_session_from_recipe(recipe.id, plant_id=plant.id, name="S", status="draft")
+
+        boil.temperatura = 99
+        boil.nome = "Fervura Ajustada"
+        db.session.commit()
+
+        result = svc.resync_session_steps(session.id)
+        assert "Fervura Ajustada" in result["updated"]
+        boil_step = BrewSessionStep.query.filter_by(session_id=session.id, source_recipe_step_id=boil.id).first()
+        assert boil_step.target_temp == 99
+        assert boil_step.name == "Fervura Ajustada"
+
+
+def test_resync_session_steps_remove_pending_orfao(app):
+    with app.app_context():
+        recipe = _criar_receita()
+        mash, boil, alert = _criar_timeline_completa(recipe)
+        plant = BrewPlant(name="Planta Resync 3")
+        db.session.add(plant)
+        db.session.commit()
+        session = svc.generate_session_from_recipe(recipe.id, plant_id=plant.id, name="S", status="draft")
+
+        svc.remove_step(alert.id)  # some da timeline
+
+        result = svc.resync_session_steps(session.id)
+        assert "Lúpulo manual" in result["removed"]
+        alert_step = BrewSessionStep.query.filter_by(session_id=session.id, source_recipe_step_id=alert.id).first()
+        assert alert_step.is_deleted is True
+
+
+def test_resync_session_steps_nunca_mexe_em_passo_ja_completo(app):
+    with app.app_context():
+        recipe = _criar_receita()
+        mash, boil, alert = _criar_timeline_completa(recipe)
+        plant = BrewPlant(name="Planta Resync 4")
+        db.session.add(plant)
+        db.session.commit()
+        session = _gerar_sessao_ativa(recipe, plant)
+
+        svc.confirm_and_advance_step(session.id)  # completa o mash
+
+        mash.temperatura = 55  # muda a receita depois do passo já concluído
+        db.session.commit()
+
+        svc.resync_session_steps(session.id)
+        mash_step = BrewSessionStep.query.filter_by(session_id=session.id, source_recipe_step_id=mash.id).first()
+        assert mash_step.status == "completed"
+        assert mash_step.target_temp == 67  # não foi sobrescrito — histórico é imutável
+
+
+def test_resync_session_steps_sem_recipe_id_falha(app):
+    with app.app_context():
+        plant = BrewPlant(name="Planta Sem Receita")
+        db.session.add(plant)
+        db.session.commit()
+        session = BrewSession(name="Sessão Solta", plant_id=plant.id, status="draft")
+        db.session.add(session)
+        db.session.commit()
+
+        with pytest.raises(svc.RecipeTimelineError):
+            svc.resync_session_steps(session.id)
+
+
+# ── Rotas web do card de Etapa ───────────────────────────────────────────────
+
+def test_advance_step_rota_web(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        recipe = _criar_receita()
+        _criar_timeline_completa(recipe)
+        plant = BrewPlant(name="Planta Rota Avanco")
+        db.session.add(plant)
+        db.session.commit()
+        session = _gerar_sessao_ativa(recipe, plant)
+        session_id = session.id
+
+    resp = client.post(f"/brewstation/dashboards/sessions/{session_id}/advance-step")
+    assert resp.status_code == 200
+    assert resp.get_json()["ok"] is True
+    assert resp.get_json()["current"]["step_type"] == "boil"
+
+
+def test_resync_steps_rota_web(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        recipe = _criar_receita()
+        _criar_timeline_completa(recipe)
+        plant = BrewPlant(name="Planta Rota Resync")
+        db.session.add(plant)
+        db.session.commit()
+        session = svc.generate_session_from_recipe(recipe.id, plant_id=plant.id, name="S", status="draft")
+        session_id, recipe_id = session.id, recipe.id
+
+    resp = client.post(f"/brewstation/dashboards/sessions/{session_id}/resync-steps")
+    assert resp.status_code == 200
+    assert resp.get_json()["ok"] is True
+
+    resp2 = client.get(f"/brewstation/recipe-timeline/{recipe_id}/steps.json")
+    assert resp2.status_code == 200
+    assert len(resp2.get_json()["steps"]) == 3

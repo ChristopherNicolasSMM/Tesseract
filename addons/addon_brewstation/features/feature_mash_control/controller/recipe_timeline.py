@@ -71,6 +71,29 @@ def add_step(recipe_id: int):
     return jsonify({"ok": True, "step_id": step.id})
 
 
+@recipe_timeline_bp.route("/<int:recipe_id>/steps.json", methods=["GET"])
+@login_required
+@permission_required("recipe_steps.list")
+def steps_json(recipe_id: int):
+    """Timeline em JSON — usado pelo modal de etapas embutido no
+    Dashboard de Brassagem (conversa, Ponto 2: reaproveitar o mesmo
+    formulário de add/editar etapa sem sair da tela de operação, em
+    vez de renderizar a página HTML inteira de novo)."""
+    recipe = MashRecipe.query.get(recipe_id)
+    if not recipe or recipe.is_deleted:
+        return jsonify({"error": "Receita não encontrada."}), 404
+    timeline = svc.get_timeline(recipe_id)
+    return jsonify({"steps": [
+        {
+            "id": s.id, "step_type": s.step_type, "nome": s.nome,
+            "temperatura": s.temperatura, "tempo_min": s.tempo_min,
+            "ramp_time_min": s.ramp_time_min, "trigger_minutes_remaining": s.trigger_minutes_remaining,
+            "source": s.source,
+        }
+        for s in timeline
+    ]})
+
+
 @recipe_timeline_bp.route("/steps/<int:step_id>", methods=["POST"])
 @login_required
 @permission_required("recipe_steps.update")

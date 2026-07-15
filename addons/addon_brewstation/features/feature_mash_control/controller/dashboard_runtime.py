@@ -112,6 +112,32 @@ def readings(session_id: int):
     return jsonify(svc.get_session_readings(session_id, function_name, window_minutes))
 
 
+# ── Card de Etapa (conversa — Ponto 2) ──────────────────────────────────────
+
+@dashboard_runtime_bp.route("/sessions/<int:session_id>/advance-step", methods=["POST"])
+@login_required
+@permission_required("dashboard_layouts.update")
+def advance_step(session_id: int):
+    from addons.addon_brewstation.features.feature_mash_control.services import recipe_timeline_service
+    try:
+        data = recipe_timeline_service.confirm_and_advance_step(session_id)
+    except recipe_timeline_service.RecipeTimelineError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    return jsonify({"ok": True, **data})
+
+
+@dashboard_runtime_bp.route("/sessions/<int:session_id>/resync-steps", methods=["POST"])
+@login_required
+@permission_required("dashboard_layouts.update")
+def resync_steps(session_id: int):
+    from addons.addon_brewstation.features.feature_mash_control.services import recipe_timeline_service
+    try:
+        result = recipe_timeline_service.resync_session_steps(session_id)
+    except recipe_timeline_service.RecipeTimelineError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    return jsonify({"ok": True, **result})
+
+
 # ── Editor visual (conversa — CraftBeerPi como referência) ─────────────────
 
 @dashboard_runtime_bp.route("/widgets/<int:widget_id>/geometry", methods=["POST"])
