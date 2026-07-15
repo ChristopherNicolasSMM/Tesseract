@@ -16,11 +16,12 @@ FK real pra recipe.id e pra si mesma (parent_step_id) — mesma
 Feature, skill 02.
 """
 from core.db import db
-from annotations import label, plural, required, choices, min_value
+from annotations import label, plural, required, choices, min_value, enum_field
 
 
 @label("Etapa da Receita")
 @plural("recipe_steps")
+@enum_field("step_type", options=["mash", "boil", "alert"])
 @choices("step_type", label="Tipo de Etapa")
 @choices("tipo", label="Subtipo (mostura)")
 @choices("source", label="Origem")

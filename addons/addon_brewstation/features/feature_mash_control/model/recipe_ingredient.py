@@ -17,13 +17,14 @@ uso_detalhado (campo `use` bruto do BrewFather, mais granular que
 `etapa`).
 """
 from core.db import db
-from annotations import label, plural, required, choices, min_value, weak_ref
+from annotations import label, plural, required, choices, min_value, weak_ref, enum_field
 
 _MATERIAL_RESOLVER = "addons.addon_estoque.root.services.material_lookup.get_material"
 
 
 @label("Ingrediente de Receita")
 @plural("recipe_ingredients")
+@enum_field("status_resolucao", options=[("pendente_depara", "Pendente de vínculo"), ("resolvido", "Resolvido")])
 @choices("etapa", label="Etapa")
 @choices("tipo_ingrediente", label="Tipo")
 @choices("status_resolucao", label="Status")

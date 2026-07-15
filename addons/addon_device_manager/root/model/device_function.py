@@ -8,11 +8,12 @@ usuário. Sem FK — é a tabela "raiz" desta Feature.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length, choices, display_field
+from annotations import label, plural, required, max_length, choices, display_field, enum_field
 
 
 @label("Função de Dispositivo")
 @plural("device_functions")
+@enum_field("data_type", options=["float", "int", "bool", "string"])
 @display_field("display_name")
 @choices("category", label="Categoria")
 @required("name", message="Nome interno da função é obrigatório")

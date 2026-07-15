@@ -9,11 +9,12 @@ docs/technical/04-modelo-de-dados.md.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, choices
+from annotations import label, plural, required, choices, enum_field
 
 
 @label("Sincronização BrewFather")
 @plural("brewfather_syncs")
+@enum_field("status", options=["em_andamento", "sucesso", "erro", "parcial"])
 @choices("tipo_sync", label="Tipo")
 @choices("status", label="Status")
 @required("tipo_sync", message="Tipo de sincronização é obrigatório")

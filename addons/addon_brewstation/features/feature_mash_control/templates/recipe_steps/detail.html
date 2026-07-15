@@ -18,7 +18,16 @@
         {% set fv = field_html_validations.get(field, {}) %}
         <div class="col-md-4">
           <label class="form-label">{{ field.replace('_', ' ').title() }}{% if fv.get('required') %} <span class="text-danger">*</span>{% endif %}</label>
-          {% if field in weak_ref_fields and weak_ref_options.get(field) %}
+          {% if field in enum_field_options %}
+          <select name="{{ field }}" class="form-select"
+                  {% if fv.get('required') %}required{% endif %}
+                  {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+            {% if not fv.get('required') %}<option value="" {{ 'selected' if not data.get(field) else '' }}>—</option>{% endif %}
+            {% for opt in enum_field_options[field] %}
+            <option value="{{ opt.value }}" {{ 'selected' if data.get(field) == opt.value else '' }}>{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+          {% elif field in weak_ref_fields and weak_ref_options.get(field) %}
           <div class="weakref-combo" data-weakref-source="{{ weak_ref_options[field] }}"
                {% if weak_ref_value_fields.get(field) %}data-weakref-value-field="{{ weak_ref_value_fields[field] }}"{% endif %}>
             <input type="hidden" name="{{ field }}" class="weakref-combo-value" value="{{ data.get(field) if data.get(field) is not none else '' }}">

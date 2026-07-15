@@ -12,7 +12,7 @@ from flask_login import login_required, current_user
 
 from core.db import db
 from core.permissions import permission_required
-from annotations import get_choices_fields
+from annotations import get_choices_fields, get_enum_fields
 from addons.addon_brewstation.features.feature_mash_control.services.brew_session_service import BrewSessionService
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
 
@@ -25,6 +25,12 @@ _service = BrewSessionService()
 # colunas do model (genérico, não precisa saber o schema de antemão).
 _READONLY_FIELDS = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"}
 _EDITABLE_FIELDS = [c.name for c in BrewSession.__table__.columns if c.name not in _READONLY_FIELDS]
+
+# Campos com @enum_field no model — select estático (skill n/a — feature
+# nova do CrudGen, conversa "select box pra campo de opção fixa").
+_ENUM_FIELD_OPTIONS = {
+    ef["field"]: ef["options"] for ef in get_enum_fields(BrewSession) if ef["field"] in _EDITABLE_FIELDS
+}
 
 # Campo usado como "resumo" na coluna da lista — prefere um nome
 # reconhecível em vez de simplesmente "a primeira coluna declarada"
@@ -232,6 +238,7 @@ def detail(id: int):
         "brew_sessions/detail.html",
         item=item, label="Sessão de Brassagem", fields=_EDITABLE_FIELDS,
         field_rules=_get_field_rules(),
+        enum_field_options=_ENUM_FIELD_OPTIONS,
     )
 
 

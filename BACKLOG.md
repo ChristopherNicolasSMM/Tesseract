@@ -2766,3 +2766,74 @@ Fecha o plano original de 3 pontos do Dashboard de Brassagem.
 
 Sem migration nesta rodada (só service/controller/template). 12
 testes novos. Suíte completa rodada em lotes — tudo passou.
+
+## CrudGen: select genérico pra campo de opção fixa (@enum_field): CONCLUÍDO
+
+Frente prioritária apontada pelo usuário ("maior falha do sistema
+hoje" — sem isso não há validação de dado na entrada). Duas partes:
+capacidade genérica nova no CrudGen + aplicação nos campos reais que
+já sofriam disso.
+
+**Capacidade genérica (`annotations/__init__.py` + `core/crudgen/templates/`):**
+- `@enum_field(field, options=[...], label=None)` novo — `options`
+  aceita string (`valor == label`) ou tupla `(valor, label)` quando o
+  texto exibido precisa diferir do valor gravado.
+- Diferente de `@choices` (já existia): `@choices` é **dinâmico**
+  (`SELECT DISTINCT` do banco, só serve pra filtro de lista, nunca
+  aparece no formulário). `@enum_field` é **estático** — as opções
+  são a fonte de verdade declarada no código, valem pra criar e
+  editar, funcionam mesmo com o banco vazio. Os dois decorators
+  coexistem sem conflito no mesmo campo se fizer sentido (ex.:
+  `RecipeStep.step_type` tem ambos — `@enum_field` pro formulário,
+  `@choices` pro filtro de lista que já existia).
+- `detail.html.j2` (template real do CrudGen): novo branch `{% if
+  field in enum_field_options %}` — `<select>`, testado ANTES do
+  branch de weak_ref (mutuamente exclusivos pro mesmo campo).
+  `controller.py.j2`: `_ENUM_FIELDS`/`_ENUM_FIELD_OPTIONS` calculados
+  a partir de `get_enum_fields()`, mesmo padrão de `_WEAK_REFS`.
+  Entidade gerada/regenerada a partir de agora já ganha isso de
+  graça.
+
+**Aplicado em 8 entidades reais** (`@enum_field` no model +
+`_ENUM_FIELD_OPTIONS` manual no controller.py já gerado + branch no
+detail.html já gerado — patch cirúrgico, não regeneração cega, pra
+não arriscar perder customização de arquivo já gerado antes desta
+capacidade existir):
+
+| Entidade | Campo | Observação |
+|---|---|---|
+| `BrewSession` | `status` | Reaplicado — a rodada anterior tinha feito um select hardcoded ad-hoc só nesta entidade; virou o mecanismo genérico agora, igual às demais |
+| `BrewSessionStep` | `status` | |
+| `RecipeStep` | `step_type` | Coexiste com weak_ref (`parent_step_id`) na mesma tela — confirma que o branch novo não quebra a cadeia if/elif existente |
+| `RecipeIngredient` | `status_resolucao` | Opção com label customizado (tupla `valor, label`), não só o valor cru |
+| `DeviceActor` | `actor_type` | |
+| `DeviceFunction` | `data_type` | |
+| `DeviceMetadata` | `device_type` | |
+| `BrewFatherSync` | `status` | |
+| `Envase` | `status` | |
+| `BrewPlantVessel` | `vessel_type` | |
+
+**Auditoria de weak_ref** (segunda parte pedida — "assim como as
+demais referências de widgets"): todas as 10 declarações `@weak_ref`
+do sistema já tinham `options=` setado (combo de busca de verdade) e
+`weak_ref_fields`/`weakref-combo` presentes em todos os 10
+`detail.html` correspondentes — **auditoria limpa, nenhum gap
+encontrado**. O único caso real de weak_ref sem combo era o "Nome da
+Function do dispositivo" do editor visual do Dashboard, já corrigido
+na rodada anterior (não é CrudGen — é formulário próprio,
+hand-written).
+
+**Fora de escopo desta rodada** (registrar pra próxima):
+- `form_modal.html.j2` (modal de criação do CrudGen) continua um
+  stub vazio — nunca foi implementado, não é regressão desta rodada.
+  A criação de registro hoje passa por outro caminho em toda entidade
+  já testada; não bloqueou nada aqui, mas vale investigar se é dead
+  code antes de decidir se implementa ou remove.
+- Select pra campo enum na LISTAGEM (SmartList/`manage.html`, edição
+  inline) — esta rodada cobriu só o formulário de detalhe.
+
+11 testes novos (`tests/test_enum_field_select.py`: 4 cobrindo
+`get_enum_fields()` isolado + 7 cobrindo entidades reais renderizando
+select de verdade na tela). Sem migration (nenhuma coluna nova — só
+metadado de apresentação). Suíte completa rodada em lotes — tudo
+passou.

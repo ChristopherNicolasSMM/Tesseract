@@ -227,6 +227,51 @@ def get_choices_fields(cls) -> list[dict]:
     return getattr(cls, '_choices_fields', [])
 
 
+def enum_field(field: str, options: list, label: str | None = None):
+    """
+    Campo de OPÇÃO FIXA (enum) — o CrudGen gera `<select>` com essas
+    opções no formulário de detalhe (criação/edição), em vez de
+    `<input type="text">` livre.
+
+    Diferente de @choices (acima): @choices é dinâmico — computa
+    `SELECT DISTINCT` do que já existe no banco, só serve pra montar
+    filtro de lista, nunca aparece no formulário. @enum_field é
+    estático — as opções são a fonte de verdade declarada no código
+    (ex.: os `status` válidos de uma máquina de estados), valem tanto
+    pra criar quanto editar, e funcionam mesmo com o banco vazio.
+
+    `options`: lista de string (valor == label) ou lista de tupla
+    `(valor, label)` quando o texto exibido precisa ser diferente do
+    valor gravado.
+
+    Uso no model:
+        @enum_field("status", options=["draft", "active", "paused", "completed", "aborted"])
+        class BrewSession(db.Model):
+            status = db.Column(db.String(20), default="draft")  # SEM CHECK constraint — validação é aqui
+    """
+    def decorator(cls):
+        if not hasattr(cls, '_enum_fields'):
+            cls._enum_fields = []
+        normalized = []
+        for opt in options:
+            if isinstance(opt, tuple):
+                normalized.append({"value": opt[0], "label": opt[1]})
+            else:
+                normalized.append({"value": opt, "label": opt})
+        cls._enum_fields.append({
+            "field": field,
+            "label": label or field.replace("_", " ").title(),
+            "options": normalized,
+        })
+        return cls
+    return decorator
+
+
+def get_enum_fields(cls) -> list[dict]:
+    """Retorna a lista de {"field", "label", "options"} de @enum_field declaradas no model."""
+    return getattr(cls, '_enum_fields', [])
+
+
 # ---- Extração de metadados ----
 def get_model_metadata(cls) -> Dict[str, Any]:
     """Extrai todos os metadados anotados de uma classe, para o CrudGen."""
@@ -240,6 +285,7 @@ def get_model_metadata(cls) -> Dict[str, Any]:
         "display_field": getattr(cls, '_display_field', 'id'),
         "menu_icon": getattr(cls, '_menu_icon', None),
         "weak_refs": getattr(cls, '_weak_refs', []),
+        "enum_fields": getattr(cls, '_enum_fields', []),
     }
 
 

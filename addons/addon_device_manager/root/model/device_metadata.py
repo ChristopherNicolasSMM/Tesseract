@@ -14,11 +14,12 @@ import uuid
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length, display_field
+from annotations import label, plural, required, max_length, display_field, enum_field
 
 
 @label("Dispositivo IoT")
 @plural("device_metadatas")
+@enum_field("device_type", options=["sensor", "actuator", "gateway"])
 @display_field("name")
 @required("name", message="Nome do dispositivo é obrigatório")
 @max_length("name", 100)

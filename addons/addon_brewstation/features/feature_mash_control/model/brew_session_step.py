@@ -8,11 +8,12 @@ real fica fora do escopo desta fase.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required
+from annotations import label, plural, required, enum_field
 
 
 @label("Passo da Sessão")
 @plural("brew_session_steps")
+@enum_field("status", options=["pending", "active", "completed", "skipped"])
 @required("name", message="Nome do passo é obrigatório")
 class BrewSessionStep(db.Model):
     __tablename__ = "session_step"

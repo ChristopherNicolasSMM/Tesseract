@@ -13,7 +13,7 @@ from flask_login import login_required, current_user
 
 from core.db import db
 from core.permissions import permission_required
-from annotations import get_choices_fields, get_weak_refs, get_model_metadata
+from annotations import get_choices_fields, get_weak_refs, get_enum_fields, get_model_metadata
 from addons.addon_device_manager.root.services.device_actor_service import DeviceActorService
 from addons.addon_device_manager.root.model.device_actor import DeviceActor
 
@@ -54,6 +54,9 @@ _CHOICES_FIELDS = [f["field"] for f in get_choices_fields(DeviceActor) if f["fie
 # pra decidir se substitui a célula pelo valor resolvido.
 _WEAK_REFS = [wr for wr in get_weak_refs(DeviceActor) if wr["field"] in _EDITABLE_FIELDS]
 _WEAK_REF_FIELDS = [wr["field"] for wr in _WEAK_REFS]
+
+_ENUM_FIELDS = [ef for ef in get_enum_fields(DeviceActor) if ef["field"] in _EDITABLE_FIELDS]
+_ENUM_FIELD_OPTIONS = {ef["field"]: ef["options"] for ef in _ENUM_FIELDS}
 
 # Tradução de @required/@max_length/@min_length/@min_value em
 # atributos HTML5 nativos + badge visual (skill 12 — decisão desta
@@ -296,6 +299,7 @@ def detail(id: int):
         weak_ref_display=_resolve_weak_ref_display(item),
         weak_ref_options={wr["field"]: wr["options"] for wr in _WEAK_REFS if wr["options"]},
         weak_ref_value_fields={wr["field"]: wr["value_field"] for wr in _WEAK_REFS if wr.get("value_field")},
+        enum_field_options=_ENUM_FIELD_OPTIONS,
         field_html_validations=_FIELD_HTML_VALIDATIONS,
     )
 

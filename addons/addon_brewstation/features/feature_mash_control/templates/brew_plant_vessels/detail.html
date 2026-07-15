@@ -17,8 +17,17 @@
         {% for field in fields %}
         <div class="col-md-4">
           <label class="form-label">{{ field.replace('_', ' ').title() }}</label>
+          {% if field in enum_field_options %}
+          <select name="{{ field }}" class="form-select"
+                  {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+            {% for opt in enum_field_options[field] %}
+            <option value="{{ opt.value }}" {{ 'selected' if data.get(field) == opt.value else '' }}>{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+          {% else %}
           <input type="text" name="{{ field }}" class="form-control" value="{{ data.get(field) if data.get(field) is not none else '' }}"
                  {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+          {% endif %}
         </div>
         {% endfor %}
         <div class="col-12">

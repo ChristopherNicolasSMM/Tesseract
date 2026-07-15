@@ -12,7 +12,7 @@ from flask_login import login_required, current_user
 
 from core.db import db
 from core.permissions import permission_required
-from annotations import get_choices_fields
+from annotations import get_choices_fields, get_enum_fields
 from addons.addon_device_manager.root.services.device_function_service import DeviceFunctionService
 from addons.addon_device_manager.root.model.device_function import DeviceFunction
 
@@ -25,6 +25,10 @@ _service = DeviceFunctionService()
 # colunas do model (genérico, não precisa saber o schema de antemão).
 _READONLY_FIELDS = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"}
 _EDITABLE_FIELDS = [c.name for c in DeviceFunction.__table__.columns if c.name not in _READONLY_FIELDS]
+
+_ENUM_FIELD_OPTIONS = {
+    ef["field"]: ef["options"] for ef in get_enum_fields(DeviceFunction) if ef["field"] in _EDITABLE_FIELDS
+}
 
 # Campo usado como "resumo" na coluna da lista — prefere um nome
 # reconhecível em vez de simplesmente "a primeira coluna declarada"
@@ -232,6 +236,7 @@ def detail(id: int):
         "device_functions/detail.html",
         item=item, label="Função de Dispositivo", fields=_EDITABLE_FIELDS,
         field_rules=_get_field_rules(),
+        enum_field_options=_ENUM_FIELD_OPTIONS,
     )
 
 

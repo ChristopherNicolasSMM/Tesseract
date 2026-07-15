@@ -12,7 +12,7 @@ from flask_login import login_required, current_user
 
 from core.db import db
 from core.permissions import permission_required
-from annotations import get_choices_fields
+from annotations import get_choices_fields, get_enum_fields
 from addons.addon_brewstation.features.feature_mash_control.services.brew_session_step_service import BrewSessionStepService
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session_step import BrewSessionStep
 
@@ -25,6 +25,10 @@ _service = BrewSessionStepService()
 # colunas do model (genérico, não precisa saber o schema de antemão).
 _READONLY_FIELDS = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"}
 _EDITABLE_FIELDS = [c.name for c in BrewSessionStep.__table__.columns if c.name not in _READONLY_FIELDS]
+
+_ENUM_FIELD_OPTIONS = {
+    ef["field"]: ef["options"] for ef in get_enum_fields(BrewSessionStep) if ef["field"] in _EDITABLE_FIELDS
+}
 
 # Campo usado como "resumo" na coluna da lista — prefere um nome
 # reconhecível em vez de simplesmente "a primeira coluna declarada"
@@ -232,6 +236,7 @@ def detail(id: int):
         "brew_session_steps/detail.html",
         item=item, label="Passo da Sessão", fields=_EDITABLE_FIELDS,
         field_rules=_get_field_rules(),
+        enum_field_options=_ENUM_FIELD_OPTIONS,
     )
 
 

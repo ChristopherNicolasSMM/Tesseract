@@ -10,11 +10,12 @@ registrada no BACKLOG.md — Fase 6 é só CRUD).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, choices
+from annotations import label, plural, required, choices, enum_field
 
 
 @label("Sessão de Brassagem")
 @plural("brew_sessions")
+@enum_field("status", options=["draft", "active", "paused", "completed", "aborted"])
 @choices("status", label="Status")
 @required("name", message="Nome da sessão é obrigatório")
 class BrewSession(db.Model):

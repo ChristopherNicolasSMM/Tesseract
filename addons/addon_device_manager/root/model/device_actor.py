@@ -15,11 +15,12 @@ import uuid
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, weak_ref
+from annotations import label, plural, required, weak_ref, enum_field
 
 
 @label("Ator de Dispositivo")
 @plural("device_actors")
+@enum_field("actor_type", options=["sensor", "actuator", "rule_trigger"])
 @required("port_name", message="Nome da porta é obrigatório")
 @required("actor_type", message="Tipo do ator é obrigatório (sensor/actuator/rule_trigger)")
 @weak_ref("device_id",

@@ -6,11 +6,12 @@ Vasilhame de uma planta (mash tun, boil kettle, fermenter...).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, display_field
+from annotations import label, plural, required, display_field, enum_field
 
 
 @label("Vasilhame")
 @plural("brew_plant_vessels")
+@enum_field("vessel_type", options=["mash_tun", "boil_kettle", "hlt", "fermenter", "bright_tank"])
 @display_field("label_text")
 @required("vessel_type", message="Tipo do vasilhame é obrigatório")
 @required("label_text", message="Identificação do vasilhame é obrigatória")

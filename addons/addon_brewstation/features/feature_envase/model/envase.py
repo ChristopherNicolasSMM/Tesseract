@@ -7,11 +7,12 @@ Evento de empacotamento de um Lote (BrewSession, feature_mash_control).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, choices, min_value
+from annotations import label, plural, required, choices, min_value, enum_field
 
 
 @label("Envase")
 @plural("envases")
+@enum_field("status", options=["registrado", "cancelado"])
 @choices("status", label="Status")
 @required("lote_id", message="Lote é obrigatório")
 @min_value("quantidade_litros", 0, message="Quantidade não pode ser negativa")
