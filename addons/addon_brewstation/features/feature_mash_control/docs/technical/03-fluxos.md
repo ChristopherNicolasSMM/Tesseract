@@ -1,28 +1,127 @@
 # 03 — Fluxos (Feature Mash Control)
 
-## Caminho feliz: sessão de brassagem (manual, sem automação)
+## Caminho feliz: sessão de brassagem, do cadastro à operação
 
 ```mermaid
 flowchart TD
-    A[Cadastrar Receita] --> B[Cadastrar Planta + Vasilhames]
+    A[Cadastrar Receita + timeline de Etapas mash/boil/alert] --> B[Cadastrar Planta + Vasilhames]
     B --> C[Mapear Vasilhame a uma DeviceFunction]
-    C --> D[Criar Sessão de Brassagem]
-    D --> E[Registrar Passos manualmente]
-    E --> F[Registrar Logs/Alarmes conforme necessário]
-    F --> G[Marcar sessão como concluída]
+    C --> D[Gerar Sessão a partir da Receita — status active]
+    D --> E["Passos da sessão nascem 'pending', copiados da timeline (ver skill 02, regra de PK)"]
+    E --> F[Operar pelo Dashboard: card de Etapa avança/volta — ver fluxo próprio abaixo]
+    F --> G[Alarmes disparam sozinhos conforme trigger_at_seconds de cada etapa 'alert']
+    G --> H[Última etapa concluída → marcar sessão como completed]
 ```
 
-## Sequência: regra de automação (definição apenas, sem execução)
+## Sequência: motor de automação (event-driven, já dispara de verdade)
+
+> Corrigido — a versão anterior deste documento descrevia só o
+> cadastro da regra, sem execução ("nenhum motor avalia
+> continuamente ainda"). O motor foi implementado e está em produção:
+> reage a cada evento de mudança de valor publicado no EventBus do
+> Core, sem polling e sem scheduler próprio.
+
+```mermaid
+sequenceDiagram
+    participant HW as Hardware (via addon_device_manager)
+    participant Bus as core/event_bus.py
+    participant Engine as automation_engine._on_device_value_changed
+    participant Rule as AutomationRule
+    participant Svc as device_service.set_value (addon_device_manager)
+
+    HW->>Bus: publish("device_manager.actor.value_changed", function_name, value)
+    Bus->>Engine: notifica (subscribe feito em automation_engine.register(), no boot)
+    Engine->>Rule: busca regras ativas com sensor_function_name == function_name
+    loop pra cada regra encontrada
+        Engine->>Engine: _evaluate_rule() — checa condição (>, <, ==, etc.) e cooldown
+        alt condição verdadeira e fora do cooldown
+            Engine->>Svc: set_value(actor_function_name, valor_alvo)
+            Engine->>Rule: grava no histórico (AutomationRuleLog): valor que disparou, ação, sucesso/erro
+        else condição falsa ou em cooldown
+            Note over Engine: nada acontece, sem log de disparo
+        end
+    end
+```
+
+## Fluxo: operar uma brassagem pelo Dashboard (caminho feliz)
+
+```mermaid
+flowchart TD
+    A[Sessão de Brassagem ativa] --> B[Abrir Dashboard vinculado à Planta]
+    B --> C{Widget step_card no painel?}
+    C -- não --> C1[Modo Edição → arrastar 'Etapa' da paleta → configurar] --> D
+    C -- sim --> D[Card mostra etapa atual: nome, alvo, contagem regressiva]
+    D --> E{Fase da etapa}
+    E -- rampa --> E1[Barra de rampa avança até a temperatura alvo]
+    E1 --> E2[Rampa termina → barra some, barra de hold assume]
+    E -- hold/patamar --> F[Barra de hold avança até o tempo da etapa acabar]
+    E2 --> F
+    F --> G{Operador decide}
+    G -- "Concluir e Avançar" --> H[Etapa atual = completed, próxima etapa = active]
+    G -- "Voltar" --> I[Etapa atual = pending, etapa anterior = active com timer reiniciado]
+    H --> D
+    I --> D
+    H --> J{Ainda há próxima etapa pending?}
+    J -- não --> K[Card mostra 'sem etapa ativa' — brassagem operacional concluída]
+```
+
+Nota: a ativação da primeira etapa (`pending` → `active`) acontece
+sozinha, de forma preguiçosa, na primeira vez que o snapshot do
+Dashboard é lido depois da sessão nascer `active` — não precisa de
+nenhuma ação manual pra "começar" a primeira etapa.
+
+## Sequência: editar a receita e ressincronizar com a sessão em andamento
 
 ```mermaid
 sequenceDiagram
     actor U as Usuário
-    participant Rule as AutomationRule
-    participant Lookup as device_function_lookup (addon_device_manager, service público)
+    participant Card as step_card (Dashboard)
+    participant Modal as Modal 'Gerenciar Etapas'
+    participant RecipeStep as RecipeStep (receita-modelo)
+    participant SessionStep as BrewSessionStep (sessão em execução)
 
-    U->>Rule: cria regra (sensor, condição, atuador, ação)
-    Rule->>Lookup: referencia sensor_function_id/actor_function_id (referência fraca, cross-Addon)
-    Note over Rule: fica registrada — NENHUM motor avalia continuamente ainda
+    U->>Card: clica no ícone de lista
+    Card->>Modal: abre, busca timeline via GET .../steps.json
+    U->>Modal: adiciona/edita/remove etapa
+    Modal->>RecipeStep: POST add_step / update_step / delete_step
+    Note over SessionStep: sessão em andamento NÃO muda ainda — só a receita
+    U->>Modal: clica "Ressincronizar com a sessão"
+    Modal->>SessionStep: POST resync-steps
+    SessionStep->>SessionStep: pra cada RecipeStep: cria se novo, atualiza se pending, remove se sumiu
+    Note over SessionStep: passo já active/completed/skipped NUNCA é tocado — histórico imutável
+    SessionStep-->>Card: próximo snapshot já reflete a mudança
+```
+
+## Fluxo: editor de tubulação (CAD-like, incluindo recirculação)
+
+```mermaid
+flowchart TD
+    A[Modo Edição → botão 'Tubulação'] --> B[Escolhe vasilhame origem + destino + atuador de fluxo]
+    B --> C{Origem == Destino?}
+    C -- sim, recirculação --> C1[Nasce com alcinha automática pra fora do vasilhame]
+    C -- não --> C2[Nasce reta, centro-base → centro-topo]
+    C1 --> D[Salvar]
+    C2 --> D
+    D --> E[Clicar na linha no canvas seleciona a tubulação]
+    E --> F[Arrastar o meio de um trecho cria uma curva ali]
+    E --> G[Arrastar ponto verde nas pontas reposiciona a âncora na borda do vasilhame]
+    E --> H[Selecionar um ponto de curva + Delete remove]
+    F & G & H --> I[Geometria salva automaticamente a cada solta do mouse]
+```
+
+## Fluxo: montar um widget pelo Dashboard (paleta + painel lateral)
+
+```mermaid
+flowchart TD
+    A[Modo Edição] --> B[Arrastar ícone da paleta pro canvas]
+    B --> C[Widget nasce SOLTO no ponto do drop — sem vessel_id/device_function_name]
+    C --> D{Tipo precisa de vínculo?}
+    D -- "vessel/toggle/gauge/digital/chart" --> D1[Badge cinza 'Não configurado' aparece]
+    D -- "step_card/alarm_list/text/image" --> E
+    D1 --> E[Clicar no widget abre o painel lateral direito]
+    E --> F[Escolher vasilhame/função/texto/imagem conforme o tipo]
+    F --> G[Salvar — painel grava e o badge some, se havia]
+    G --> H[Arrastar move, puxar o canto redimensiona]
 ```
 
 ## Sequência: importação de receita + resolução de ingrediente (novo)

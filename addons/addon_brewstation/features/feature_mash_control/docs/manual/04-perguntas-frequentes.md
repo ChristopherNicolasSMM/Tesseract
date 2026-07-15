@@ -26,3 +26,18 @@ podem ser configurados na etapa da sessão, mas o loop de controle em
 tempo real ainda não foi ativado nesta versão — hoje a reação
 automática acontece via Regras de Automação (evento → condição →
 ação), não um controlador contínuo.
+
+**P: Editei uma etapa em "Gerenciar Etapas" no Dashboard e não vejo a
+mudança na brassagem em andamento — por quê?**
+R: Aquele formulário edita a **receita** (o modelo, reaproveitável em
+futuras sessões), não a sessão que já está rodando. Clique em
+"Ressincronizar com a sessão" pra essa mudança aparecer na brassagem
+atual — uma etapa já concluída ou em andamento nunca é sobrescrita
+por esse botão, só as que ainda não começaram.
+
+**P: O botão "Voltar" do Card de Etapa desfaz exatamente o tempo que
+já tinha passado?**
+R: Não — ele reativa a etapa anterior com o timer **reiniciado do
+zero**, não reconstrói o tempo exato que já tinha se passado antes de
+avançar. É pra usar como um "deixa eu refazer esta etapa", não como
+um desfazer preciso.

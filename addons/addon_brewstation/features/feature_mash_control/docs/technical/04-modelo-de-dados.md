@@ -126,6 +126,11 @@ erDiagram
     tesseract_brewstation_mashctrl_session_step {
         int id PK
         int session_id FK
+        string step_type "mash|boil|alert"
+        string status "pending|active|completed|skipped"
+        int duration_seconds "hold — SEM a rampa"
+        int ramp_seconds "rampa até o alvo, separada do hold"
+        int source_recipe_step_id FK "liga de volta ao RecipeStep de origem, pra resync"
         float pid_kp "parâmetro, não loop ativo"
     }
     tesseract_brewstation_mashctrl_session_log {
@@ -192,6 +197,8 @@ erDiagram
 | Tabela | Coluna | Descrição |
 |---|---|---|
 | `..._session_step` | `pid_kp`/`pid_ki`/`pid_kd` | Só parâmetros configurados — loop de controle não portado |
+| `..._session_step` | `duration_seconds`/`ramp_seconds` | Separados desde a conversa do Card de Etapa — `ramp_seconds` é o tempo até chegar na temperatura alvo, `duration_seconds` é só o hold depois disso. Duração total real = soma dos dois |
+| `..._session_step` | `source_recipe_step_id` | Liga de volta ao `RecipeStep` que originou este passo — permite `resync_session_steps()` sem duplicar. Nulo em sessão gerada antes desta coluna existir |
 | `..._recipe` | `origem_receita`/`origem_receita_id`/`versao` | Substituem `brewfather_recipe_id`. `unique(name, versao)`. Toda modificação salva cria nova versão — linhas são imutáveis após criadas |
 | `..._recipe` | `recipe_data` | **Removido** — substituído por `recipe_ingredient` normalizada |
 | `..._recipe_ingredient` | `material_id` | Referência fraca pra `addon_estoque.tesseract_estoque_material.id` — nullable até resolução (de-para ou cadastro) |
@@ -201,7 +208,8 @@ erDiagram
 | `..._water_profile` | `contexto` | Distingue os 5 momentos do cálculo de água do BrewFather (`source`/`target`/`mash`/`sparge`/`total`). `unique(recipe_id, contexto)` — no máximo um registro por contexto por receita |
 | `..._plant_vessel` | `vessel_type` | Um vaso físico da planta (masher, kettle, fermentador...) — a planta pode ter N vasos |
 | `..._plant_mapping` | `device_function_name` | Referência fraca pra `addon_device_manager` — qual função de dispositivo cumpre o papel (`role_key`) naquele vaso |
-| `..._layout`/`..._widget` | (dashboard) | Layout visual do painel de acompanhamento em tempo real — `widget.device_function_name` também é referência fraca cross-Addon |
+| `..._layout`/`..._widget` | (dashboard) | Layout visual do painel de acompanhamento em tempo real — `widget.device_function_name` também é referência fraca cross-Addon. `widget_type` aceita `vessel`/`toggle`/`gauge`/`digital`/`alarm_list`/`chart`/`step_card`/`text`/`image` — os 3 últimos não exigem `vessel_id`/`device_function_name` (etapa é lida da sessão ativa da Planta, texto/imagem são conteúdo estático em `config_json`) |
+| `..._layout` (via `..._plant.plant_schema_json`) | `connections[].from_anchor`/`to_anchor`/`waypoints` | Geometria da tubulação (editor CAD-like) — JSON livre, não coluna própria; ausente = âncora padrão (centro-base → centro-topo, comportamento anterior ao editor com curvas) |
 | `..._rule` | `sensor_function_id`/`actor_function_id` | Referência fraca cross-Addon (`device_manager` foi promovido a Addon independente, skill 05) — coluna não é FK de banco, é `Integer` solto resolvido via `device_function_lookup` |
 | `..._rule_log` | `sensor_value_at_trigger` | Valor que disparou a regra, guardado junto do log — auditoria sem precisar consultar o histórico de leitura do sensor |
 | (todas) | `is_deleted`/`deleted_at` | Soft-delete padrão (skill 02) |
@@ -215,7 +223,9 @@ erDiagram
 `plant_vessel.plant_id`, `session.plant_id` → `plant.id`;
 `plant_mapping.vessel_id` → `plant_vessel.id`;
 `session_step.session_id`, `session_log.session_id`,
-`session_alarm.session_id` → `session.id`; `widget.layout_id` →
+`session_alarm.session_id` → `session.id`;
+`session_step.source_recipe_step_id` → `recipe_step.id` (mesmo Addon,
+liga sessão em execução de volta à receita-modelo); `widget.layout_id` →
 `layout.id`; `rule_log.rule_id` → `rule.id`;
 `feature_envase.envase.lote_id` → `session.id` (Feature externa a
 este documento, ver `features/feature_envase/docs/technical/04-modelo-de-dados.md`).

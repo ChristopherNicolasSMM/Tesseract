@@ -17,9 +17,17 @@ deliberadamente CRUD nesta fase** (decisão registrada no BACKLOG.md).
 
 ## Fora do escopo desta fase (decisão registrada)
 
-A lógica de controle em tempo real do BrewStation original —
-controlador PID, motor de automação que avalia sensores continuamente,
-scheduler de processo — **não foi portada**. Ver BACKLOG.md.
+O loop de controle PID em tempo real (controlador contínuo de
+temperatura, ex. termostato automático) **não foi portado** — só os
+parâmetros (`pid_kp`/`pid_ki`/`pid_kd`) existem, configuráveis, sem
+loop ativo por trás. Ver BACKLOG.md.
+
+**Atualização**: o motor de automação (`AutomationRule` →
+`automation_engine.py`) **foi implementado** numa rodada posterior a
+esta seção original — é event-driven (reage a
+`device_manager.actor.value_changed` via EventBus do Core, sem
+polling/scheduler próprio), não um controlador PID contínuo. Ver
+`03-fluxos.md`.
 
 ## Dependências
 

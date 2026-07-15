@@ -10,5 +10,9 @@
 4. Se quiser automação, crie uma Regra de Automação (ex.: "se a
    temperatura do vasilhame cair abaixo de X, ligue o aquecedor").
 5. Crie uma Sessão de Brassagem vinculando planta + receita, e
-   acompanhe pelos Logs/Alarmes — ou monte um Dashboard visual com os
-   widgets que quiser acompanhar em tempo real.
+   acompanhe pelos Logs/Alarmes — ou monte um Dashboard: entre em
+   "Modo Edição", arraste da paleta os elementos que quiser (card de
+   Etapa pra ver o progresso da brassagem, Tanques pros vasilhames,
+   Gráficos/Botões pros sensores e atuadores), clique em cada um pra
+   ligá-lo ao sensor/atuador certo no painel lateral, e ligue a
+   tubulação entre os vasilhames se quiser ver o fluxo animado.
