@@ -82,8 +82,8 @@ mesmos dois partials sem `{% extends %}`, pra ser devolvido bruto por
    function () {...}` antes de terminar seu próprio `<script>`; a
    casca chama isso (se existir) antes de carregar a próxima aba.
 
-**Como adicionar uma aba nova** (Sessões/Planta/Receita
-Mash/Automação, próximas rodadas):
+**Como adicionar uma aba nova** (Planta/Receita Mash/Automação
+faltam; Dashboard e Sessões já implementadas):
 1. Nova rota `GET /plant-workspace/<plant_id>/tab/<chave>` no
    `plant_workspace.py`, devolvendo um template SEM `{% extends %}`
    (bruto).
@@ -93,6 +93,18 @@ Mash/Automação, próximas rodadas):
 3. Se a tela de origem já existe como página cheia (ex.: telas de
    Sessão hoje), o caminho de menor esforço é o mesmo desta fase —
    extrair o conteúdo dela pra um partial reaproveitado pelos dois
-   lados (tela cheia + fragmento), não duplicar a lógica.
+   lados (tela cheia + fragmento), não duplicar a lógica. **Achado
+   real na aba Sessões**: nem sempre vale a pena — a visão de "Passos
+   da Sessão" dentro do workspace é deliberadamente mais enxuta que o
+   CRUD completo (`brew_session_steps`), então virou um template novo
+   do zero em vez de extração; extração só compensa quando o
+   workspace quer o MESMO conteúdo da tela cheia.
 4. Se a tela nova tiver `setInterval`/listener global, seguir a
-   convenção do item 2 das armadilhas acima.
+   convenção do item 2 das armadilhas acima (`window.__tabCleanup`).
+5. **Terceira armadilha, achada na aba Sessões**: se a aba tem
+   sub-navegação PRÓPRIA (ex.: trocar de sessão sem sair da aba,
+   sem passar pela casca), o mesmo problema do `<script>` que não
+   executa sozinho via `innerHTML` se repete — a casca expõe
+   `window.__executeScripts` justamente pra isso, chame-o depois de
+   qualquer `innerHTML =` feito de dentro do próprio fragmento da
+   aba, não só a casca faz isso pela troca de aba top-level.

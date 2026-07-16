@@ -34,6 +34,7 @@
   const tabContent = document.getElementById('pwTabContent');
   const tabUrls = {
     dashboard: "{{ url_for('plant_workspace.tab_dashboard', plant_id=plant.id) }}",
+    sessions: "{{ url_for('plant_workspace.tab_sessions', plant_id=plant.id) }}",
   };
 
   // Convenção (conversa — workspace consolidado): cada fragmento de aba
@@ -50,7 +51,9 @@
   }
 
   // <script> injetado via innerHTML não executa sozinho (comportamento
-  // padrão do browser) — recria cada tag pra forçar a execução.
+  // padrão do browser) — recria cada tag pra forçar a execução. Exposto
+  // em window pra ser reaproveitado por sub-navegações DENTRO de uma
+  // aba (ex.: trocar de sessão na aba Sessões, sem passar pela casca).
   function executeScripts(container) {
     container.querySelectorAll('script').forEach(function (oldScript) {
       const newScript = document.createElement('script');
@@ -61,6 +64,7 @@
       oldScript.parentNode.replaceChild(newScript, oldScript);
     });
   }
+  window.__executeScripts = executeScripts;
 
   function loadTab(key) {
     const url = tabUrls[key];

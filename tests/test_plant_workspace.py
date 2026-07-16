@@ -16,6 +16,11 @@ from model.core.user import User
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant import BrewPlant
 from addons.addon_brewstation.features.feature_mash_control.model.dashboard_layout import DashboardLayout
 from addons.addon_brewstation.features.feature_mash_control.model.dashboard_widget import DashboardWidget
+from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
+from addons.addon_brewstation.features.feature_mash_control.model.brew_session_step import BrewSessionStep
+from addons.addon_brewstation.features.feature_mash_control.model.brew_session_log import BrewSessionLog
+from addons.addon_brewstation.features.feature_mash_control.model.brew_session_alarm import BrewSessionAlarm
+from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
 
 
 @pytest.fixture
@@ -207,3 +212,133 @@ def test_view_cheia_continua_mostrando_todos_os_layouts_do_sistema(app, client):
     html = resp.data.decode("utf-8")
     assert "Layout A View Cheia" in html
     assert "Layout B View Cheia" in html  # tela cheia = todos os layouts, comportamento inalterado
+
+
+# ── Aba Sessões (fragmento AJAX) ─────────────────────────────────────────────
+
+def test_tab_sessions_sem_sessao_mostra_estado_vazio(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Sem Sessao")
+        db.session.add(plant)
+        db.session.commit()
+        plant_id = plant.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/sessions")
+    assert resp.status_code == 200
+    html = resp.data.decode("utf-8")
+    assert "Nenhuma sessão cadastrada" in html
+    assert "<html" not in html.lower()
+
+
+def test_tab_sessions_seleciona_active_automaticamente(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Sessao Auto")
+        db.session.add(plant)
+        db.session.commit()
+        s1 = BrewSession(name="Sessão Draft Antiga", plant_id=plant.id, status="draft")
+        db.session.add(s1)
+        db.session.commit()
+        s2 = BrewSession(name="Sessão Active Nova", plant_id=plant.id, status="active")
+        db.session.add(s2)
+        db.session.commit()
+        plant_id = plant.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/sessions")
+    html = resp.data.decode("utf-8")
+    assert "Sessão Active Nova" in html
+    # confirma que é a sessão ACTIVE selecionada (aparece no cabeçalho de detalhe), não a draft
+    assert html.count("Sessão Active Nova") >= 2  # aparece na lista lateral + no cabeçalho
+
+
+def test_tab_sessions_session_id_troca_selecao(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Troca Sessao")
+        db.session.add(plant)
+        db.session.commit()
+        s1 = BrewSession(name="Sessão A Troca", plant_id=plant.id, status="completed")
+        s2 = BrewSession(name="Sessão B Troca", plant_id=plant.id, status="completed")
+        db.session.add_all([s1, s2])
+        db.session.commit()
+        plant_id, s1_id = plant.id, s1.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/sessions?session_id={s1_id}")
+    html = resp.data.decode("utf-8")
+    assert html.count("Sessão A Troca") >= 2
+
+
+def test_tab_sessions_mostra_passos_logs_e_alarmes(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Passos Logs Alarmes")
+        db.session.add(plant)
+        db.session.commit()
+        session = BrewSession(name="Sessão Completa Tab", plant_id=plant.id, status="active")
+        db.session.add(session)
+        db.session.commit()
+        step = BrewSessionStep(session_id=session.id, step_index=0, name="Mostura Principal", step_type="mash", status="active", target_temp=66.0, duration_seconds=3600, ramp_seconds=600)
+        log = BrewSessionLog(session_id=session.id, log_level="warning", message="Temperatura acima do esperado")
+        alarm = BrewSessionAlarm(session_id=session.id, severity="high", message="Lúpulo: Magnum - 22g")
+        db.session.add_all([step, log, alarm])
+        db.session.commit()
+        plant_id = plant.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/sessions")
+    html = resp.data.decode("utf-8")
+    assert "Mostura Principal" in html
+    assert "Temperatura acima do esperado" in html
+    assert "Lúpulo: Magnum - 22g" in html
+
+
+def test_tab_sessions_adicionar_etapa_linka_pra_recipe_timeline(app, client):
+    """Confirma o entendimento alinhado em conversa: 'Adicionar Etapa'
+    ainda não abre popup de edição nesta fase — leva pro editor de
+    timeline completo, até a aba Receita Mash existir."""
+    _login_admin(app, client)
+    with app.app_context():
+        recipe = MashRecipe(name="Receita Pra Sessao Tab")
+        db.session.add(recipe)
+        db.session.commit()
+        plant = BrewPlant(name="Planta Adicionar Etapa")
+        db.session.add(plant)
+        db.session.commit()
+        session = BrewSession(name="Sessão Com Receita", plant_id=plant.id, recipe_id=recipe.id, status="active")
+        db.session.add(session)
+        db.session.commit()
+        plant_id, recipe_id = plant.id, recipe.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/sessions")
+    html = resp.data.decode("utf-8")
+    assert f"/brewstation/recipe-timeline/{recipe_id}" in html
+    assert "Adicionar Etapa" in html
+
+
+def test_tab_sessions_planta_inexistente_devolve_fragmento_de_erro(app, client):
+    _login_admin(app, client)
+    resp = client.get("/brewstation/plant-workspace/999999/tab/sessions")
+    assert resp.status_code == 200
+    html = resp.data.decode("utf-8")
+    assert "Planta não encontrada" in html
+    assert "<html" not in html.lower()
+
+
+def test_tab_sessions_troca_de_sessao_reexecuta_scripts_via_helper_global(app, client):
+    """Achado real: a sub-navegação de troca de sessão dentro da aba
+    também usa innerHTML — sem reexecutar o <script> novo via helper
+    global, a segunda troca de sessão em diante perderia o listener de
+    clique. Confirma que a casca expõe window.__executeScripts e que o
+    fragmento da aba o reaproveita."""
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Reexecuta Script")
+        db.session.add(plant)
+        db.session.commit()
+        plant_id = plant.id
+
+    shell_html = client.get(f"/brewstation/plant-workspace/{plant_id}").data.decode("utf-8")
+    assert "window.__executeScripts = executeScripts;" in shell_html
+
+    tab_html = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/sessions").data.decode("utf-8")
+    assert "window.__executeScripts" in tab_html

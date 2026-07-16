@@ -22,11 +22,15 @@ Arquitetura decidida em conversa:
 """
 from __future__ import annotations
 
-from flask import Blueprint, render_template, redirect, url_for, flash
+from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required
 
 from core.permissions import permission_required
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant import BrewPlant
+from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
+from addons.addon_brewstation.features.feature_mash_control.model.brew_session_step import BrewSessionStep
+from addons.addon_brewstation.features.feature_mash_control.model.brew_session_log import BrewSessionLog
+from addons.addon_brewstation.features.feature_mash_control.model.brew_session_alarm import BrewSessionAlarm
 from addons.addon_brewstation.features.feature_mash_control.model.dashboard_layout import DashboardLayout
 from addons.addon_brewstation.features.feature_mash_control.controller.dashboard_runtime import (
     _build_dashboard_view_context,
@@ -39,7 +43,7 @@ plant_workspace_bp = Blueprint(
 # Abas da fase 1 — só "dashboard" tem rota de fragmento real ainda.
 _TABS = [
     {"key": "dashboard", "label": "Dashboard", "icon": "bi-speedometer2", "enabled": True},
-    {"key": "sessions", "label": "Sessões", "icon": "bi-collection-play", "enabled": False},
+    {"key": "sessions", "label": "Sessões", "icon": "bi-collection-play", "enabled": True},
     {"key": "plant", "label": "Planta", "icon": "bi-diagram-3", "enabled": False},
     {"key": "recipe", "label": "Receita Mash", "icon": "bi-journal-text", "enabled": False},
     {"key": "automation", "label": "Automação", "icon": "bi-lightning-charge", "enabled": False},
@@ -89,3 +93,63 @@ def tab_dashboard(plant_id: int):
         DashboardLayout.query.filter_by(plant_id=plant_id, is_deleted=False).order_by(DashboardLayout.name).all()
     )
     return render_template("dashboards/_fragment.html", **context)
+
+
+@plant_workspace_bp.route("/<int:plant_id>/tab/sessions", methods=["GET"])
+@login_required
+@permission_required("brew_sessions.list")
+def tab_sessions(plant_id: int):
+    """Aba Sessões (conversa): consolida Sessões de Brassagem + Passos
+    da Sessão (visão ENXUTA, só acompanhamento — não é o CRUD completo
+    de `brew_session_steps`, de propósito) + Logs + Alarmes recentes.
+
+    "Adicionar Etapa" aqui não abre um popup de edição de verdade
+    ainda (isso mora na receita-modelo, não na sessão — mesma regra do
+    step_card do Dashboard) — leva pro editor de timeline completo
+    (`recipe_timeline`) numa aba nova, até a aba "Receita Mash" deste
+    workspace existir (fase futura)."""
+    plant = BrewPlant.query.get(plant_id)
+    if not plant or plant.is_deleted:
+        return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada.")
+
+    sessions = (
+        BrewSession.query.filter_by(plant_id=plant_id, is_deleted=False)
+        .order_by(BrewSession.id.desc())
+        .limit(20)
+        .all()
+    )
+
+    session_id = request.args.get("session_id", type=int)
+    selected_session = None
+    if session_id:
+        selected_session = next((s for s in sessions if s.id == session_id), None)
+    if selected_session is None and sessions:
+        selected_session = (
+            next((s for s in sessions if s.status == "active"), None) or sessions[0]
+        )
+
+    steps, logs, alarms = [], [], []
+    if selected_session:
+        steps = (
+            BrewSessionStep.query.filter_by(session_id=selected_session.id, is_deleted=False)
+            .order_by(BrewSessionStep.step_index)
+            .all()
+        )
+        logs = (
+            BrewSessionLog.query.filter_by(session_id=selected_session.id, is_deleted=False)
+            .order_by(BrewSessionLog.created_at.desc())
+            .limit(20)
+            .all()
+        )
+        alarms = (
+            BrewSessionAlarm.query.filter_by(session_id=selected_session.id, is_deleted=False)
+            .order_by(BrewSessionAlarm.created_at.desc())
+            .limit(20)
+            .all()
+        )
+
+    return render_template(
+        "plant_workspace/_tab_sessions.html",
+        plant=plant, sessions=sessions, selected_session=selected_session,
+        steps=steps, logs=logs, alarms=alarms,
+    )

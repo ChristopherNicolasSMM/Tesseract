@@ -3033,3 +3033,44 @@ contagem mudou de 6 pra 7 com a transação nova). Catálogo de
 transações regenerado (77, era 76). Sem migration. Suíte completa
 rodada em lotes — tudo passou (só a mesma falha de ambiente
 pré-existente).
+
+## Workspace consolidado por Planta — aba Sessões: CONCLUÍDO
+
+Segunda aba do workspace (depois de Dashboard). Diferente da aba
+Dashboard, **não é extração de partial** de uma tela existente — é um
+template novo do zero, porque a visão de "Passos da Sessão" dentro do
+workspace é deliberadamente mais enxuta que o CRUD completo
+(`brew_session_steps`), conforme alinhado em conversa.
+
+**Consolida**: Sessões de Brassagem (lista lateral + seleção) + Passos
+da Sessão (tabela enxuta: índice, nome, tipo, alvo, duração, status —
+sem edição inline) + Logs recentes (últimos 20) + Alarmes recentes
+(últimos 20).
+
+**"Adicionar Etapa"**: nesta fase ainda não abre popup de edição
+própria — leva pro editor de timeline completo (`recipe_timeline`,
+mesma tela que o card de Etapa do Dashboard já usa) numa aba nova.
+Vira popup/edição in-place quando a aba "Receita Mash" existir.
+
+**Seleção de sessão dentro da aba**: lista lateral com `?session_id=`
+via query string, interceptado por um script próprio que só troca o
+conteúdo da aba (sem navegar a página, sem passar pela troca de aba
+top-level da casca).
+
+**Achado de arquitetura real**: a troca de sessão dentro da aba TAMBÉM
+sofre do problema de `<script>` que não executa via `innerHTML` — a
+casca (`shell.html`) já resolvia isso pra troca de aba top-level, mas
+a sub-navegação dentro de uma aba precisa da MESMA solução. Resolvido
+expondo o helper como `window.__executeScripts` (em vez de uma função
+local presa ao escopo da casca), reaproveitado pelo fragmento da aba
+Sessões. Documentado como a "terceira armadilha" no guia de expansão
+(`06-manutencao-e-expansao.md`), pra não repetir o mesmo erro nas
+próximas abas.
+
+Auto-seleção: sessão com `status="active"` da Planta, ou a mais
+recente se não houver nenhuma ativa (mesma regra do
+`_get_active_session_for_plant()` do Dashboard).
+
+7 testes novos. Sem migration. Suíte completa rodada em lotes — tudo
+passou, 100% verde (nem a falha de ambiente conhecida apareceu desta
+vez).

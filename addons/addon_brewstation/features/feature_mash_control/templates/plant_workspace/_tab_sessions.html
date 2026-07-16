@@ -1,0 +1,135 @@
+{# Fragmento AJAX da aba Sessões (conversa — workspace consolidado):
+   consolida Sessões de Brassagem + Passos da Sessão (visão ENXUTA, só
+   acompanhamento) + Logs + Alarmes recentes. Sem <script>/setInterval
+   nesta aba — não precisa do hook window.__tabCleanup. #}
+
+<div class="row g-3">
+  <div class="col-md-3">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Sessões</span>
+        <a href="{{ url_for('recipe_timeline.picker') }}" target="_blank" class="small" title="Gerar uma sessão nova a partir de uma Receita">
+          <i class="bi bi-plus-lg"></i> Nova
+        </a>
+      </div>
+      <div class="list-group list-group-flush" style="max-height: 480px; overflow-y: auto;">
+        {% for s in sessions %}
+        <a href="?session_id={{ s.id }}"
+           class="list-group-item list-group-item-action bg-dark text-light {{ 'active' if selected_session and s.id == selected_session.id else '' }}"
+           data-workspace-tab-link="sessions">
+          <div class="d-flex justify-content-between">
+            <span>{{ s.name }}</span>
+            <span class="badge {{ 'bg-success' if s.status == 'active' else ('bg-secondary' if s.status == 'draft' else 'bg-info') }}">{{ s.status }}</span>
+          </div>
+        </a>
+        {% else %}
+        <div class="list-group-item bg-dark text-muted small">Nenhuma sessão cadastrada pra esta Planta ainda.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-9">
+    {% if not selected_session %}
+    <div class="alert alert-info">Selecione uma sessão à esquerda pra ver os detalhes.</div>
+    {% else %}
+    <div class="card bg-dark border-secondary mb-3">
+      <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <h5 class="mb-0">{{ selected_session.name }}</h5>
+          <span class="badge {{ 'bg-success' if selected_session.status == 'active' else ('bg-secondary' if selected_session.status == 'draft' else 'bg-info') }}">{{ selected_session.status }}</span>
+        </div>
+        <a href="{{ url_for('brew_sessions.detail', id=selected_session.id) }}" target="_blank" class="btn btn-sm btn-outline-light">
+          <i class="bi bi-box-arrow-up-right"></i> Editar sessão (tela completa)
+        </a>
+      </div>
+    </div>
+
+    <div class="card bg-dark border-secondary mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-list-check"></i> Passos da Sessão</span>
+        {% if selected_session.recipe_id %}
+        <a href="{{ url_for('recipe_timeline.view', recipe_id=selected_session.recipe_id) }}" target="_blank" class="btn btn-sm btn-outline-success" title="Abre o editor de timeline completo da receita — a aba Receita Mash vai trazer isso pra dentro do workspace numa fase futura">
+          <i class="bi bi-plus-lg"></i> Adicionar Etapa
+        </a>
+        {% endif %}
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-sm mb-0">
+          <thead><tr><th>#</th><th>Nome</th><th>Tipo</th><th>Alvo</th><th>Duração</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for step in steps %}
+            <tr>
+              <td>{{ step.step_index }}</td>
+              <td>{{ step.name }}</td>
+              <td>{{ step.step_type or '—' }}</td>
+              <td>{{ (step.target_temp ~ '°C') if step.target_temp is not none else '—' }}</td>
+              <td>{{ ((step.ramp_seconds + step.duration_seconds) // 60) }} min</td>
+              <td><span class="badge {{ 'bg-success' if step.status == 'active' else ('bg-secondary' if step.status == 'pending' else ('bg-info' if step.status == 'completed' else 'bg-warning')) }}">{{ step.status }}</span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-muted small">Nenhum passo cadastrado ainda.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="card bg-dark border-secondary">
+          <div class="card-header"><i class="bi bi-journal-text"></i> Logs recentes</div>
+          <div class="list-group list-group-flush" style="max-height: 260px; overflow-y: auto;">
+            {% for log in logs %}
+            <div class="list-group-item bg-dark text-light small">
+              <span class="badge {{ 'bg-danger' if log.log_level == 'error' else ('bg-warning' if log.log_level in ('warning', 'alarm') else 'bg-secondary') }}">{{ log.log_level }}</span>
+              {{ log.message }}
+              <div class="text-muted" style="font-size: 0.75rem;">{{ log.created_at.strftime('%d/%m %H:%M:%S') if log.created_at else '' }}</div>
+            </div>
+            {% else %}
+            <div class="list-group-item bg-dark text-muted small">Nenhum log ainda.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card bg-dark border-secondary">
+          <div class="card-header"><i class="bi bi-bell"></i> Alarmes recentes</div>
+          <div class="list-group list-group-flush" style="max-height: 260px; overflow-y: auto;">
+            {% for alarm in alarms %}
+            <div class="list-group-item bg-dark text-light small">
+              <span class="badge {{ 'bg-danger' if alarm.severity in ('high', 'critical') else ('bg-warning' if alarm.severity == 'medium' else 'bg-secondary') }}">{{ alarm.severity }}</span>
+              {{ alarm.message }}
+              {% if alarm.is_acknowledged %}<i class="bi bi-check-circle text-success" title="Reconhecido"></i>{% endif %}
+              <div class="text-muted" style="font-size: 0.75rem;">{{ alarm.created_at.strftime('%d/%m %H:%M:%S') if alarm.created_at else '' }}</div>
+            </div>
+            {% else %}
+            <div class="list-group-item bg-dark text-muted small">Nenhum alarme ainda.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+// Trocar de sessão dentro da aba não pode navegar a página inteira
+// (perderia o contexto do workspace) — intercepta o clique e recarrega
+// só o fragmento desta aba, igual ao mecanismo de troca de aba da casca.
+(function () {
+  document.querySelectorAll('[data-workspace-tab-link="sessions"]').forEach(function (link) {
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      const url = "{{ url_for('plant_workspace.tab_sessions', plant_id=plant.id) }}" + link.getAttribute('href');
+      const tabContent = document.getElementById('pwTabContent');
+      if (!tabContent) return;
+      fetch(url).then(function (r) { return r.text(); }).then(function (html) {
+        tabContent.innerHTML = html;
+        if (window.__executeScripts) window.__executeScripts(tabContent);
+      });
+    });
+  });
+})();
+</script>
