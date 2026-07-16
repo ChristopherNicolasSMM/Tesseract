@@ -4,7 +4,7 @@ addons/addon_brewstation/features/feature_mash_control/controller/bridge_import.
 Tela do "cadastro primário" (conversa — arquitetura de dashboard
 consolidada): sobe devices.yml (+ recipe.yml opcional) no formato do
 tesseract-device-bridge e monta o cadastro inicial de Devices/Functions/
-Actors + Planta/Vasilhames/Mapeamentos + Dashboard, sem precisar
+Actors + Planta/Tanques/Mapeamentos + Dashboard, sem precisar
 cadastrar tudo na mão pelas telas de CRUD.
 
 NÃO gerado pelo CrudGen — mesmo padrão de dashboard_runtime.py.

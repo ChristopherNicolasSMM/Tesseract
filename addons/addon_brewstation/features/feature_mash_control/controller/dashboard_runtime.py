@@ -10,7 +10,10 @@ existindo à parte, pra cadastrar os dados — este arquivo é só o
 """
 from __future__ import annotations
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+import os
+import uuid
+
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
 from flask_login import login_required
 
 from core.permissions import permission_required
@@ -82,7 +85,8 @@ def snapshot(layout_id: int):
     layout = DashboardLayout.query.get(layout_id)
     if not layout or layout.is_deleted:
         return jsonify({"error": "Layout não encontrado."}), 404
-    return jsonify(svc.get_layout_snapshot(layout))
+    session_id_override = request.args.get("session_id", type=int)
+    return jsonify(svc.get_layout_snapshot(layout, session_id_override=session_id_override))
 
 
 @dashboard_runtime_bp.route("/widgets/<int:widget_id>/set-value", methods=["POST"])
@@ -232,3 +236,41 @@ def update_connections(layout_id: int):
     except svc.DashboardEditorError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
     return jsonify({"ok": True})
+
+
+# ── Upload de imagem pro widget "image" (conversa — Ponto 3 + ajustes) ──────
+# Salva em feature_mash_control/imgs/ (fora do static/ compartilhado do
+# Core, por pedido explícito) — não em /static/ porque essas imagens são
+# conteúdo do usuário, não asset versionado do código.
+_IMGS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "imgs")
+_ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp", "svg"}
+
+
+def _allowed_image_filename(filename: str) -> bool:
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in _ALLOWED_IMAGE_EXTENSIONS
+
+
+@dashboard_runtime_bp.route("/upload-image", methods=["POST"])
+@login_required
+@permission_required("dashboard_widgets.update")
+def upload_image():
+    """Recebe o arquivo do painel lateral do widget Imagem, salva com
+    nome gerado (uuid — nunca confia no nome original, evita colisão
+    e path traversal) e devolve a URL já pronta pra preencher o campo
+    de URL sozinho."""
+    file = request.files.get("image")
+    if not file or not file.filename:
+        return jsonify({"ok": False, "error": "Nenhum arquivo enviado."}), 400
+    if not _allowed_image_filename(file.filename):
+        return jsonify({"ok": False, "error": "Formato não permitido. Use png, jpg, jpeg, gif, webp ou svg."}), 400
+    os.makedirs(_IMGS_DIR, exist_ok=True)
+    ext = file.filename.rsplit(".", 1)[1].lower()
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    file.save(os.path.join(_IMGS_DIR, filename))
+    return jsonify({"ok": True, "url": url_for("dashboard_runtime.serve_image", filename=filename)})
+
+
+@dashboard_runtime_bp.route("/imgs/<path:filename>", methods=["GET"])
+@login_required
+def serve_image(filename: str):
+    return send_from_directory(_IMGS_DIR, filename)

@@ -4,7 +4,7 @@ tests/test_bridge_import.py
 Cobre o "cadastro primário" (conversa — arquitetura de dashboard
 consolidada): importação de devices.yml + recipe.yml no formato real
 do tesseract-device-bridge (github.com/ChristopherNicolasSMM/Tesseract-Device-Bridge)
-pra Device/Function/Actor + Planta/Vasilhame/Mapeamento + Dashboard.
+pra Device/Function/Actor + Planta/Tanque/Mapeamento + Dashboard.
 
 Os YAMLs de teste são os arquivos reais enviados na conversa (Lager
 com mostura em 2 etapas + fervura), não simplificados — cobre o caso

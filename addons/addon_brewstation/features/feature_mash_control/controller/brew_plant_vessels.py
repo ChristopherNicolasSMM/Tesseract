@@ -151,7 +151,7 @@ def manage():
 
     return render_template(
         "brew_plant_vessels/manage.html",
-        items=items, label="Vasilhame", fields=_EDITABLE_FIELDS, summary_field=_SUMMARY_FIELD,
+        items=items, label="Tanque", fields=_EDITABLE_FIELDS, summary_field=_SUMMARY_FIELD,
         page=page, pages=pages, total=total, per_page=per_page, search=search,
         visible_columns=_get_column_prefs(),
         boolean_fields=_BOOLEAN_FIELDS, choices_fields=_CHOICES_FIELDS,
@@ -214,7 +214,7 @@ def export_xlsx():
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Vasilhame"[:31]  # limite do Excel pro nome da aba
+    ws.title = "Tanque"[:31]  # limite do Excel pro nome da aba
     ws.append(["id"] + _EDITABLE_FIELDS)
     for item in items:
         data = item.to_dict()
@@ -241,7 +241,7 @@ def detail(id: int):
         return redirect(url_for("brew_plant_vessels.manage"))
     return render_template(
         "brew_plant_vessels/detail.html",
-        item=item, label="Vasilhame", fields=_EDITABLE_FIELDS,
+        item=item, label="Tanque", fields=_EDITABLE_FIELDS,
         field_rules=_get_field_rules(),
         enum_field_options=_ENUM_FIELD_OPTIONS,
     )

@@ -46,7 +46,7 @@ FK cross-Feature existente hoje (mesmo Addon, permitida pela skill 02):
 ## Referências fracas cross-Addon (skill 02 — nunca FK)
 
 - `feature_mash_control` → `addon_device_manager` (sensor/atuador de
-  regra de automação, mapeamento de vasilhame, widget de dashboard)
+  regra de automação, mapeamento de tanque, widget de dashboard)
 - `feature_mash_control` → `addon_estoque` (resolução de ingrediente
   de receita, `RecipeIngredient.material_id`)
 - `feature_ingredientes` → `addon_estoque` (`material_id` de

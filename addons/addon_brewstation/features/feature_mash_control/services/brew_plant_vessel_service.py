@@ -52,7 +52,7 @@ class ServiceResult:
 
 
 class BrewPlantVesselService:
-    """Camada de negócio para Vasilhame."""
+    """Camada de negócio para Tanque."""
 
     def list(self, *, include_deleted: bool = False):
         query = BrewPlantVessel.query

@@ -7,11 +7,11 @@ Cadastro de receitas de brassagem — etapas de mostura, perfil de
 Material do Estoque). Cada alteração salva gera uma nova versão; o
 histórico de versões fica disponível para consulta/comparação.
 
-## Plantas e Vasilhames
+## Plantas e Tanques
 
 Sua estrutura física — panela de mostura, caldeira, fermentador — e o
 mapeamento de qual sensor/atuador (Função de Dispositivo) cada
-vasilhame usa para cada papel (leitura de temperatura, controle de
+tanque usa para cada papel (leitura de temperatura, controle de
 aquecimento, etc.).
 
 ## Sessões de Brassagem
@@ -46,7 +46,7 @@ lado esquerdo com os elementos disponíveis:
 | Gauge | Valor atual de um sensor, em mostrador circular |
 | Gráfico | Histórico de um sensor ao longo do tempo |
 | Botão | Liga/desliga de um atuador |
-| Tanque | Desenho de vasilhame (panela, fermentador) com nível de líquido |
+| Tanque | Desenho de tanque (panela, fermentador) com nível de líquido |
 | Etapa | Card com a etapa atual da brassagem — ver seção própria abaixo |
 | Alarme | Lista de alertas já disparados e agendados |
 | Texto | Texto livre — título, aviso, instrução |
@@ -56,7 +56,7 @@ Arraste o ícone da paleta pra qualquer lugar do painel. O elemento
 aparece **sem estar ligado a nada ainda** — um selo cinza "Não
 configurado" avisa disso. Clique nele (sem arrastar) pra abrir o
 **painel de configuração** do lado direito: escolha ali o
-sensor/atuador/vasilhame que ele deve mostrar, ajuste legenda, cor,
+sensor/atuador/tanque que ele deve mostrar, ajuste legenda, cor,
 faixa de valores, etc. O selo some assim que salvar. O mesmo painel
 também tem o botão "Remover", pra tirar o elemento do painel.
 
@@ -65,19 +65,19 @@ redimensionar, arraste o cantinho inferior direito. Saia do Modo
 Edição quando terminar — a tela volta a só mostrar os valores, sem as
 alças de edição.
 
-### Tubulação entre vasilhames
+### Tubulação entre tanques
 
 Com Planta vinculada ao Dashboard, o botão "Tubulação" abre um editor
-onde você liga um vasilhame a outro (ex.: panela de mostura → caldeira
+onde você liga um tanque a outro (ex.: panela de mostura → caldeira
 de fervura), escolhendo a bomba/válvula que controla esse fluxo — a
 linha acende quando o atuador está ligado.
 
 A linha nasce reta, mas você pode dar forma a ela: com a tubulação
 selecionada (clique nela em Modo Edição), arraste o meio de qualquer
 trecho pra criar uma curva, arraste os pontos verdes nas pontas pra
-mudar onde ela sai/entra do vasilhame, e selecione um ponto de curva +
+mudar onde ela sai/entra do tanque, e selecione um ponto de curva +
 tecla Delete pra removê-lo. Isso é útil principalmente pra
-**recirculação** (um vasilhame ligado a ele mesmo) — nesse caso a
+**recirculação** (um tanque ligado a ele mesmo) — nesse caso a
 tubulação já nasce com uma alcinha pronta pro lado de fora, em vez de
 ficar escondida atrás do próprio desenho.
 

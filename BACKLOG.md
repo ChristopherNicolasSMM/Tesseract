@@ -2897,3 +2897,64 @@ migration. Suíte completa rodada em lotes — tudo passou.
 - Consolidar as telas de Planta numa página só com abas.
 - Log admin: filtro por tempo, cor por nível, customização via
   `system_config`.
+
+## Dashboard: ajustes reportados em uso real (sessão, edição, botão, ícone, Tanque, texto/imagem): CONCLUÍDO
+
+Lote de achados reais depois de usar o Dashboard na prática. Três
+bugs confirmados por investigação de código + cinco melhorias
+combinadas em conversa.
+
+**Bugs:**
+1. **Sessão ativa "não aparecia"**: `_get_active_session_for_plant()`
+   fazia `.first()` sem `ORDER BY` — se já existia uma sessão `active`
+   mais antiga pra mesma Planta, o Dashboard continuava mostrando ela
+   em vez da nova. Corrigido (`ORDER BY id DESC`) + **seletor manual de
+   sessão** novo no Dashboard (dropdown alimentado pelo próprio
+   snapshot, sem round-trip extra) — `get_layout_snapshot()` ganhou
+   `session_id_override` (valida que a sessão pertence à mesma Planta,
+   nunca deixa "vazar" sessão de outra).
+2. **Modo edição resetava ao salvar**: criar widget e salvar o painel
+   faziam `window.location.reload()`, perdendo o estado de edição.
+   Corrigido salvando o estado em `sessionStorage` (por `layoutId`) e
+   restaurando no carregamento — mais simples que eliminar o reload
+   (que ainda existe, só não derruba mais o modo edição).
+3. **Botão travava depois de configurado**: o mousedown de
+   seleção/arrasto excluía QUALQUER `<button>` (pra não conflitar com
+   o clique de ligar/desligar) — como o widget Botão É um `<button>`
+   por dentro, ficava impossível selecioná-lo ou arrastá-lo depois de
+   vinculado. Trocado por uma classe específica (`db-no-drag`) nos
+   botões utilitários (Gerenciar Etapas/Avançar/Voltar do
+   `step_card`), que nunca deveriam iniciar arrasto — o widget Botão
+   em si não leva mais essa classe.
+
+**Melhorias:**
+4. **Ícone do Botão configurável** — lista curada de 12 ícones de
+   cervejaria (energia, fogo, gota, água, termômetro, bomba, tomada,
+   engrenagem, xícara quente, neve, liga/desliga genérico, toggle
+   genérico) no painel lateral. `config_json.icon`, sem migration.
+5. **"Vasilhame" → "Tanque"** em todo label PT-BR do sistema (model,
+   controllers, templates, docs, catálogo de transações regenerado) —
+   nomes de código (`BrewPlantVessel`, `vessel_id`, `vessel_type`,
+   rota `/brew-plant-vessels`) continuam em inglês, só o texto exibido
+   mudou (skill 00).
+6. **Etapas/Alarmes** — confirmado que já funciona via "Gerenciar
+   Etapas" (nenhuma mudança de código; usuário só não sabia).
+7. **Texto com estilo básico** — tamanho, cor, negrito, itálico e
+   fonte (5 opções: padrão/serifada/monoespaçada/Trebuchet/cursiva)
+   aplicados ao texto inteiro do widget (decisão da conversa: não é
+   editor rico por trecho, é estilo do widget inteiro).
+8. **Upload de imagem** — botão no painel abre o seletor de arquivo do
+   sistema, envia pro servidor (`POST /brewstation/dashboards/upload-image`),
+   salva em `feature_mash_control/imgs/` com nome gerado (uuid — nunca
+   confia no nome original) e preenche a URL sozinho. Pasta nova
+   versionada só via `.gitkeep` (mesmo padrão de `addon_device_manager/logs/`),
+   conteúdo enviado fica fora do git (`.gitignore` novo).
+
+**Fora de escopo desta rodada** (usuário pediu conversa à parte): tela
+consolidada em abas juntando Dashboard + Etapas + Sessões +
+Configuração/Criação de Planta, com remoção posterior do menu inicial
+— ainda não desenhado, aguardando a próxima conversa.
+
+14 testes novos. Sem migration. Suíte completa rodada em lotes — tudo
+passou (só a mesma falha de ambiente pré-existente, já confirmada em
+rodadas anteriores).

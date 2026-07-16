@@ -45,7 +45,7 @@ Total: 76 transação(ões), 76 ativa(s).
 | Código | Label | Rota | Permissão | Origem | Status |
 |---|---|---|---|---|---|
 | `TX_BREW_PLANTS` | Plantas de Brassagem | `/brewstation/brew-plants` | `brew_plants.list` | brewstation | Ativa |
-| `TX_BREW_PLANT_VESSELS` | Vasilhames | `/brewstation/brew-plant-vessels` | `brew_plant_vessels.list` | brewstation | Ativa |
+| `TX_BREW_PLANT_VESSELS` | Tanques | `/brewstation/brew-plant-vessels` | `brew_plant_vessels.list` | brewstation | Ativa |
 | `TX_BREW_PLANT_MAPPINGS` | Mapeamentos de Planta | `/brewstation/brew-plant-mappings` | `brew_plant_mappings.list` | brewstation | Ativa |
 
 ##### Sessões / Batches

@@ -3,9 +3,9 @@
 ## UC01 — Cadastrar receita
 - **Ator**: usuário com `mash_recipes.create`
 
-## UC02 — Cadastrar planta e vasilhames
+## UC02 — Cadastrar planta e tanques
 - **Ator**: usuário com `brew_plants.create`/`brew_plant_vessels.create`
-- **Fluxo**: planta → vasilhame → mapeamento pra uma Função do
+- **Fluxo**: planta → tanque → mapeamento pra uma Função do
   device_manager (referência fraca, cross-Addon)
 
 ## UC03 — Acompanhar uma sessão de brassagem
@@ -74,6 +74,6 @@
   aparece no canvas → seleciona a linha → arrasta trechos pra curvar,
   pontas pra reancorar, `Delete` num ponto selecionado pra remover
 - **Caso especial — recirculação**: origem == destino → nasce com uma
-  alcinha padrão pra fora do vasilhame, em vez de reta escondida atrás
+  alcinha padrão pra fora do tanque, em vez de reta escondida atrás
   do próprio widget
 - **Permissão RBAC**: `dashboard_widgets.create`, `dashboard_widgets.update`, `dashboard_widgets.trash`

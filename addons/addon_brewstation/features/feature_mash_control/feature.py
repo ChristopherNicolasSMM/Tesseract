@@ -169,9 +169,9 @@ class FeatureMashControl(FeatureBase):
             },
             {
                 "code": "TX_BREW_PLANT_VESSELS",
-                "label": "Vasilhames",
+                "label": "Tanques",
                 "parent_code": "TX_GROUP_MASH_PLANT_SESSION",
-                "description": "Vasilhames de uma planta de brassagem.",
+                "description": "Tanques de uma planta de brassagem.",
                 "icon": "bi-cup-straw",
                 "route": "/brewstation/brew-plant-vessels",
                 "permission_required": "brew_plant_vessels.list",

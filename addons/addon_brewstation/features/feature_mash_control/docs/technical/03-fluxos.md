@@ -4,8 +4,8 @@
 
 ```mermaid
 flowchart TD
-    A[Cadastrar Receita + timeline de Etapas mash/boil/alert] --> B[Cadastrar Planta + Vasilhames]
-    B --> C[Mapear Vasilhame a uma DeviceFunction]
+    A[Cadastrar Receita + timeline de Etapas mash/boil/alert] --> B[Cadastrar Planta + Tanques]
+    B --> C[Mapear Tanque a uma DeviceFunction]
     C --> D[Gerar Sessão a partir da Receita — status active]
     D --> E["Passos da sessão nascem 'pending', copiados da timeline (ver skill 02, regra de PK)"]
     E --> F[Operar pelo Dashboard: card de Etapa avança/volta — ver fluxo próprio abaixo]
@@ -96,15 +96,15 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A[Modo Edição → botão 'Tubulação'] --> B[Escolhe vasilhame origem + destino + atuador de fluxo]
+    A[Modo Edição → botão 'Tubulação'] --> B[Escolhe tanque origem + destino + atuador de fluxo]
     B --> C{Origem == Destino?}
-    C -- sim, recirculação --> C1[Nasce com alcinha automática pra fora do vasilhame]
+    C -- sim, recirculação --> C1[Nasce com alcinha automática pra fora do tanque]
     C -- não --> C2[Nasce reta, centro-base → centro-topo]
     C1 --> D[Salvar]
     C2 --> D
     D --> E[Clicar na linha no canvas seleciona a tubulação]
     E --> F[Arrastar o meio de um trecho cria uma curva ali]
-    E --> G[Arrastar ponto verde nas pontas reposiciona a âncora na borda do vasilhame]
+    E --> G[Arrastar ponto verde nas pontas reposiciona a âncora na borda do tanque]
     E --> H[Selecionar um ponto de curva + Delete remove]
     F & G & H --> I[Geometria salva automaticamente a cada solta do mouse]
 ```
@@ -119,7 +119,7 @@ flowchart TD
     D -- "vessel/toggle/gauge/digital/chart" --> D1[Badge cinza 'Não configurado' aparece]
     D -- "step_card/alarm_list/text/image" --> E
     D1 --> E[Clicar no widget abre o painel lateral direito]
-    E --> F[Escolher vasilhame/função/texto/imagem conforme o tipo]
+    E --> F[Escolher tanque/função/texto/imagem conforme o tipo]
     F --> G[Salvar — painel grava e o badge some, se havia]
     G --> H[Arrastar move, puxar o canto redimensiona]
 ```

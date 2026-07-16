@@ -38,7 +38,7 @@ def get_plant(plant_id: int | None) -> dict | None:
 
 
 def get_vessel(vessel_id: int | None) -> dict | None:
-    return _resolve(BrewPlantVessel, vessel_id, not_found_label="Vasilhame")
+    return _resolve(BrewPlantVessel, vessel_id, not_found_label="Tanque")
 
 
 def get_layout(layout_id: int | None) -> dict | None:

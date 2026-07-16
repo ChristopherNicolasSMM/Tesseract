@@ -71,10 +71,24 @@ def _resolve_vessel_snapshot(vessel_id: int) -> dict:
     return roles
 
 
-def get_layout_snapshot(layout: DashboardLayout) -> dict:
+def get_layout_snapshot(layout: DashboardLayout, session_id_override: Optional[int] = None) -> dict:
     """1 chamada só, devolve o valor atual de TODOS os widgets do
-    layout — o front-end faz polling nisso, não 1 request por widget."""
-    active_session = _get_active_session_for_plant(layout.plant_id) if layout.plant_id else None
+    layout — o front-end faz polling nisso, não 1 request por widget.
+
+    `session_id_override` (conversa — seletor de sessão no Dashboard):
+    quando informado, força a sessão usada pros widgets/step_card em
+    vez da resolução automática por `status="active"` — útil quando
+    há mais de uma sessão pra mesma Planta (histórico, ou duas
+    marcadas active por engano) e o usuário quer ver uma específica."""
+    active_session = None
+    if session_id_override and layout.plant_id:
+        candidate = BrewSession.query.filter_by(
+            id=session_id_override, plant_id=layout.plant_id, is_deleted=False,
+        ).first()
+        if candidate:
+            active_session = candidate
+    if active_session is None and layout.plant_id:
+        active_session = _get_active_session_for_plant(layout.plant_id)
 
     # Disparo automático de alertas (conversa — timeline de etapas):
     # reaproveita este mesmo polling de 3s, sem scheduler novo.
@@ -95,9 +109,20 @@ def get_layout_snapshot(layout: DashboardLayout) -> dict:
             widgets_out[widget.id] = recipe_timeline_service.get_step_card_data(active_session)
         # "chart" widgets buscam via get_session_readings() à parte (histórico, não snapshot pontual)
 
+    available_sessions = []
+    if layout.plant_id:
+        recent = (
+            BrewSession.query.filter_by(plant_id=layout.plant_id, is_deleted=False)
+            .order_by(BrewSession.id.desc())
+            .limit(20)
+            .all()
+        )
+        available_sessions = [{"id": s.id, "name": s.name, "status": s.status} for s in recent]
+
     return {
         "widgets": widgets_out,
         "connections": get_plant_connections(layout),
+        "available_sessions": available_sessions,
         "active_session_id": active_session.id if active_session else None,
         "active_recipe_id": active_session.recipe_id if active_session else None,
     }
@@ -245,7 +270,16 @@ def _get_active_alarms(layout: DashboardLayout, widget: DashboardWidget) -> dict
 
 
 def _get_active_session_for_plant(plant_id: int) -> Optional[BrewSession]:
-    return BrewSession.query.filter_by(plant_id=plant_id, status="active", is_deleted=False).first()
+    """Achado real da conversa: sem ORDER BY, `.first()` podia devolver
+    uma sessão `active` antiga em vez da mais recente, quando havia
+    mais de uma pra mesma Planta (ex.: usuário cria sessão nova e a
+    antiga nunca foi encerrada) — sessão nova "não aparecia" no
+    Dashboard mesmo estando `active` de verdade."""
+    return (
+        BrewSession.query.filter_by(plant_id=plant_id, status="active", is_deleted=False)
+        .order_by(BrewSession.id.desc())
+        .first()
+    )
 
 
 def set_widget_value(widget: DashboardWidget, value, *, role_key: Optional[str] = None) -> bool:

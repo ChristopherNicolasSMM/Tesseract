@@ -16,6 +16,10 @@ ignore_path/
 
 # Logs de integração locais por Addon (skill 01/03 - Fase A)
 addons/*/logs/*.log*
+# Imagens enviadas via upload no widget "Imagem" do Dashboard (conversa)
+# — conteúdo do usuário, não asset versionado; pasta mantida via .gitkeep
+addons/addon_brewstation/features/feature_mash_control/imgs/*
+!addons/addon_brewstation/features/feature_mash_control/imgs/.gitkeep
 
 # Log global do Core (skill 08)
 /logs/*.log*

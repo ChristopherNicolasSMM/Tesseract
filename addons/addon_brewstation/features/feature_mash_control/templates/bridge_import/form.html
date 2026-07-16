@@ -68,8 +68,8 @@
           {% if result.plant_id %}
           <hr>
           <h6>Planta e Dashboard</h6>
-          <p class="small mb-1"><strong>Vasilhames criados:</strong> {{ result.vessels_created | join(', ') or '—' }}</p>
-          <p class="small mb-1"><strong>Vasilhames reaproveitados:</strong> {{ result.vessels_reused | join(', ') or '—' }}</p>
+          <p class="small mb-1"><strong>Tanques criados:</strong> {{ result.vessels_created | join(', ') or '—' }}</p>
+          <p class="small mb-1"><strong>Tanques reaproveitados:</strong> {{ result.vessels_reused | join(', ') or '—' }}</p>
           <p class="small mb-1"><strong>Mapeamentos criados:</strong> {{ result.mappings_created | join(', ') or '—' }}</p>
           <p class="small mb-1"><strong>Mapeamentos reaproveitados:</strong> {{ result.mappings_reused | join(', ') or '—' }}</p>
           <p class="small mb-1"><strong>Widgets criados:</strong> {{ result.widgets_created | join(', ') or '—' }}</p>
@@ -78,7 +78,7 @@
             <i class="bi bi-grid-1x2-fill"></i> Ver Dashboard
           </a>
           {% else %}
-          <p class="small text-muted">Nenhum <code>recipe.yml</code> enviado — planta/vasilhames/dashboard não foram criados.</p>
+          <p class="small text-muted">Nenhum <code>recipe.yml</code> enviado — planta/tanques/dashboard não foram criados.</p>
           {% endif %}
         </div>
       </div>
@@ -88,9 +88,9 @@
           <h5 class="card-title">O que a importação faz</h5>
           <ol class="small">
             <li>Cada device do <code>devices.yml</code> vira uma <strong>Function</strong> + um <strong>Ator</strong> de dispositivo (<code>addon_device_manager</code>).</li>
-            <li>Cada <code>vessel</code> do <code>recipe.yml</code> vira um <strong>Vasilhame</strong>, com os <strong>Mapeamentos</strong> (sensor/aquecedor/bombas) já ligados às Functions certas — é o "de-para" pronto.</li>
-            <li>As bombas usadas entre etapas de vasilhames diferentes viram uma tentativa de <strong>tubulação</strong> (editável depois).</li>
-            <li>Um <strong>Layout de Dashboard</strong> é criado com um widget "vasilhame" por vasilhame + uma lista de alarmes.</li>
+            <li>Cada <code>vessel</code> do <code>recipe.yml</code> vira um <strong>Tanque</strong>, com os <strong>Mapeamentos</strong> (sensor/aquecedor/bombas) já ligados às Functions certas — é o "de-para" pronto.</li>
+            <li>As bombas usadas entre etapas de tanques diferentes viram uma tentativa de <strong>tubulação</strong> (editável depois).</li>
+            <li>Um <strong>Layout de Dashboard</strong> é criado com um widget "tanque" por tanque + uma lista de alarmes.</li>
           </ol>
           <p class="small text-muted mb-0">Nada é sobrescrito — rodar de novo só acrescenta o que ainda não existe.</p>
         </div>

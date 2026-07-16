@@ -1254,3 +1254,256 @@ def test_view_nao_referencia_modal_removido(app, client):
     assert 'id="dbConfigModal"' not in html
     assert 'id="dbSidePanel"' in html
     assert 'id="dbPalette"' in html
+
+
+# ── Ajustes reportados em uso (sessão ativa, botão travado, ícone,
+# Tanque, texto/imagem) ──────────────────────────────────────────────────
+
+def test_get_active_session_pega_a_mais_recente_quando_ha_duas_active(app):
+    """Achado real: .first() sem ORDER BY podia devolver a sessão active
+    ANTIGA em vez da nova — sessão nova "não aparecia" no Dashboard."""
+    with app.app_context():
+        plant = BrewPlant(name="Planta Duas Active")
+        db.session.add(plant)
+        db.session.commit()
+        antiga = BrewSession(name="Antiga", plant_id=plant.id, status="active")
+        db.session.add(antiga)
+        db.session.commit()
+        nova = BrewSession(name="Nova", plant_id=plant.id, status="active")
+        db.session.add(nova)
+        db.session.commit()
+
+        resolved = svc._get_active_session_for_plant(plant.id)
+        assert resolved.id == nova.id
+
+
+def test_snapshot_expoe_available_sessions_ordenadas_por_recente(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Available Sessions")
+        db.session.add(plant)
+        db.session.commit()
+        s1 = BrewSession(name="S1", plant_id=plant.id, status="completed")
+        db.session.add(s1)
+        db.session.commit()
+        s2 = BrewSession(name="S2", plant_id=plant.id, status="active")
+        db.session.add(s2)
+        db.session.commit()
+        layout = DashboardLayout(name="L Available Sessions", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+        layout_id, s1_id, s2_id = layout.id, s1.id, s2.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/snapshot")
+    data = resp.get_json()
+    ids = [s["id"] for s in data["available_sessions"]]
+    assert ids[0] == s2_id  # mais recente primeiro
+    assert s1_id in ids
+
+
+def test_snapshot_session_id_override_forca_sessao_especifica(app, client):
+    """Seletor manual de sessão (conversa): passar ?session_id= força
+    aquela sessão, mesmo que não seja a "active" auto-detectada."""
+    _login_admin(app, client)
+    with app.app_context():
+        recipe = MashRecipe(name="Receita Override")
+        db.session.add(recipe)
+        db.session.commit()
+        step = RecipeStep(recipe_id=recipe.id, step_type="mash", ordem=0, nome="Mash Override", temperatura=66, tempo_min=30)
+        db.session.add(step)
+        db.session.commit()
+
+        plant = BrewPlant(name="Planta Override")
+        db.session.add(plant)
+        db.session.commit()
+
+        active_session = rt_svc.generate_session_from_recipe(recipe.id, plant_id=plant.id, name="Active", status="active")
+        draft_session = rt_svc.generate_session_from_recipe(recipe.id, plant_id=plant.id, name="Draft", status="draft")
+
+        layout = DashboardLayout(name="L Override", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="step_card")
+        db.session.add(widget)
+        db.session.commit()
+        layout_id, widget_id, draft_id = layout.id, widget.id, draft_session.id
+
+    # Sem override: usa a "active" automática.
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/snapshot")
+    assert resp.get_json()["active_session_id"] != draft_id
+
+    # Com override: força a draft, mesmo ela não sendo "active".
+    resp2 = client.get(f"/brewstation/dashboards/{layout_id}/snapshot?session_id={draft_id}")
+    assert resp2.get_json()["active_session_id"] == draft_id
+
+
+def test_snapshot_session_id_override_de_outra_planta_e_ignorado(app, client):
+    """Override não pode "vazar" sessão de outra Planta pro Dashboard."""
+    _login_admin(app, client)
+    with app.app_context():
+        plant_a = BrewPlant(name="Planta A Override")
+        plant_b = BrewPlant(name="Planta B Override")
+        db.session.add_all([plant_a, plant_b])
+        db.session.commit()
+        session_b = BrewSession(name="Sessão da Planta B", plant_id=plant_b.id, status="active")
+        db.session.add(session_b)
+        db.session.commit()
+        layout = DashboardLayout(name="L Override Cross Plant", plant_id=plant_a.id)
+        db.session.add(layout)
+        db.session.commit()
+        layout_id, session_b_id = layout.id, session_b.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/snapshot?session_id={session_b_id}")
+    assert resp.get_json()["active_session_id"] != session_b_id
+
+
+def test_view_botoes_utilitarios_do_step_card_tem_classe_no_drag(app, client):
+    """Achado real: botão configurado ficava impossível de selecionar/
+    arrastar porque o mousedown excluía QUALQUER <button>. Corrigido pra
+    excluir só os utilitários (classe db-no-drag), não o widget Botão."""
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L No Drag")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="step_card")
+        db.session.add(widget)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "db-steps-manage-btn db-no-drag" in html
+    assert "db-step-back-btn db-no-drag" in html
+    assert "db-step-advance-btn db-no-drag" in html
+
+
+def test_view_renderiza_seletor_de_icone_do_botao_com_12_opcoes(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Icon Picker")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert html.count('data-icon="') == 12
+    for icon in ["bi-power", "bi-fire", "bi-droplet-fill", "bi-snow", "bi-cup-hot-fill"]:
+        assert f'data-icon="{icon}"' in html
+
+
+def test_toggle_widget_usa_icone_configurado(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Icone Configurado")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="toggle", config_json={"icon": "bi-fire"})
+        db.session.add(widget)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert '<i class="bi bi-fire fs-4">' in html
+
+
+def test_text_widget_aplica_negrito_italico_fonte(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Texto Estilizado")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(
+            layout_id=layout.id, widget_type="text",
+            config_json={"content": "Aviso", "bold": True, "italic": True, "font_family": "Georgia, serif", "color": "#ff0000", "font_size": 24},
+        )
+        db.session.add(widget)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "font-weight:bold" in html
+    assert "font-style:italic" in html
+    assert "font-family:Georgia, serif" in html
+    assert "color:#ff0000" in html
+    assert "font-size:24px" in html
+
+
+def test_view_renderiza_seletor_de_sessao_quando_layout_tem_planta(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Seletor Sessao")
+        db.session.add(plant)
+        db.session.commit()
+        layout = DashboardLayout(name="L Com Planta", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert 'id="dbSessionSelector"' in html
+
+
+def test_view_nao_renderiza_seletor_de_sessao_sem_planta(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Sem Planta Seletor")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert 'id="dbSessionSelector"' not in html
+
+
+def test_view_usa_tanque_em_vez_de_vasilhame(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Tanque Label")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "Vasilhame" not in html
+    assert "Tanque" in html
+
+
+# ── Upload de imagem (widget Imagem) ────────────────────────────────────────
+
+def test_upload_image_salva_arquivo_e_devolve_url(app, client):
+    import io
+    _login_admin(app, client)
+    data = {"image": (io.BytesIO(b"fake-png-bytes"), "logo.png")}
+    resp = client.post("/brewstation/dashboards/upload-image", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["ok"] is True
+    assert "/brewstation/dashboards/imgs/" in body["url"]
+    assert body["url"].endswith(".png")
+
+    # o arquivo servido de volta deve funcionar
+    resp2 = client.get(body["url"])
+    assert resp2.status_code == 200
+    assert resp2.data == b"fake-png-bytes"
+
+
+def test_upload_image_rejeita_extensao_nao_permitida(app, client):
+    import io
+    _login_admin(app, client)
+    data = {"image": (io.BytesIO(b"fake"), "malware.exe")}
+    resp = client.post("/brewstation/dashboards/upload-image", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 400
+    assert resp.get_json()["ok"] is False
+
+
+def test_upload_image_sem_arquivo_falha(app, client):
+    _login_admin(app, client)
+    resp = client.post("/brewstation/dashboards/upload-image", data={}, content_type="multipart/form-data")
+    assert resp.status_code == 400
