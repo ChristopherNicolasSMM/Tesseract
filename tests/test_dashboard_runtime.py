@@ -1507,3 +1507,20 @@ def test_upload_image_sem_arquivo_falha(app, client):
     _login_admin(app, client)
     resp = client.post("/brewstation/dashboards/upload-image", data={}, content_type="multipart/form-data")
     assert resp.status_code == 400
+
+
+def test_view_js_esconde_atuador_do_tanque_quando_manual_desligado(app, client):
+    """Achado da conversa: com acionamento manual desligado, o atuador
+    não deve mais aparecer (nem travado com cadeado) no widget Tanque —
+    o usuário controla ele por um widget Botão separado."""
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Tanque Sem Manual")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "if (isActuator && !manualEnabled) return;" in html
+    assert "lockSuffix" not in html

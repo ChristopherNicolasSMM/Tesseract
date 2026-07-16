@@ -540,14 +540,15 @@
     Object.keys(roles).forEach(function (roleKey) {
       const r = roles[roleKey];
       const isActuator = roleKey.indexOf('actor_') === 0;
-      const clickable = isActuator && manualEnabled;
-      const badge = document.createElement(clickable ? 'button' : 'span');
-      badge.className = 'badge ' + (r.value ? 'bg-success' : 'bg-secondary') + (clickable ? ' border-0' : '');
-      badge.style.cursor = clickable ? 'pointer' : 'default';
-      const lockSuffix = isActuator && !manualEnabled ? ' \uD83D\uDD12' : '';
-      badge.textContent = r.label + lockSuffix + (isActuator ? '' : ': ' + fmtValue(r.value, 1) + (r.unit || ''));
-      if (isActuator && !manualEnabled) badge.title = 'Acionamento manual desativado nas Configurações deste widget';
-      if (clickable) {
+      // Achado da conversa: com acionamento manual desligado, o atuador
+      // não aparece mais aqui (nem travado) — o usuário controla ele por
+      // um widget Botão à parte. Leitura de sensor continua sempre.
+      if (isActuator && !manualEnabled) return;
+      const badge = document.createElement(isActuator ? 'button' : 'span');
+      badge.className = 'badge ' + (r.value ? 'bg-success' : 'bg-secondary') + (isActuator ? ' border-0' : '');
+      badge.style.cursor = isActuator ? 'pointer' : 'default';
+      badge.textContent = r.label + (isActuator ? '' : ': ' + fmtValue(r.value, 1) + (r.unit || ''));
+      if (isActuator) {
         badge.addEventListener('click', function () {
           maybeConfirmAndSetValue(el, !r.value, roleKey);
         });
