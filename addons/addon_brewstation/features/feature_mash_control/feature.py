@@ -91,6 +91,15 @@ class FeatureMashControl(FeatureBase):
                 "route": "/brewstation/bridge-import/",
                 "permission_required": "device_actors.create",
             },
+            {
+                "code": "TX_PLANT_WORKSPACE",
+                "label": "Workspace de Planta",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
+                "description": "Painel consolidado por Planta (conversa) — Dashboard, Sessões, Planta e demais abas numa tela só. Fase 1: só a aba Dashboard funciona; as telas individuais de sempre continuam existindo em paralelo até o workspace ser validado na prática.",
+                "icon": "bi-grid-1x2",
+                "route": "/brewstation/plant-workspace/",
+                "permission_required": "brew_plants.list",
+            },
 
             # ── Receitas ──────────────────────────────────────────────
             {

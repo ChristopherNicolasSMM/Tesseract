@@ -1,0 +1,9 @@
+{# Fragmento AJAX (conversa — workspace consolidado em abas por Planta):
+   mesmo conteúdo de dashboards/view.html, sem o layout do Core em volta
+   (sem <html>/base.html) — pensado pra ser injetado via fetch() dentro
+   de um container já existente noutra página. `is_fragment=True` é
+   passado pelo controller pra ajustar o seletor de layouts (ver
+   _content.html) — dentro do workspace, trocar de layout não pode
+   navegar a página inteira, senão sai do contexto da aba. #}
+{% include "dashboards/_content.html" %}
+{% include "dashboards/_scripts.html" %}

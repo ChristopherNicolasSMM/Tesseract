@@ -45,15 +45,11 @@ def index():
     return redirect(url_for("dashboard_runtime.view", layout_id=layout.id))
 
 
-@dashboard_runtime_bp.route("/<int:layout_id>/view", methods=["GET"])
-@login_required
-@permission_required("dashboard_layouts.list")
-def view(layout_id: int):
-    layout = DashboardLayout.query.get(layout_id)
-    if not layout or layout.is_deleted:
-        flash("Layout não encontrado.", "error")
-        return redirect(url_for("dashboard_layouts.manage"))
-
+def _build_dashboard_view_context(layout: DashboardLayout, *, is_fragment: bool = False) -> dict:
+    """Contexto de `dashboards/view.html`/`_fragment.html` — extraído
+    pra função própria porque agora tem dois consumidores: a rota
+    `view()` (tela cheia) e a aba Dashboard do workspace consolidado
+    por Planta (`plant_workspace.py`, fragmento AJAX)."""
     widgets = DashboardWidget.query.filter_by(layout_id=layout.id, is_deleted=False, is_visible=True).all()
     vessels_by_id = {}
     if layout.plant_id:
@@ -67,15 +63,26 @@ def view(layout_id: int):
     actuator_functions = DeviceFunction.query.filter_by(category="actuator", is_deleted=False).order_by(DeviceFunction.display_name).all()
     device_functions = DeviceFunction.query.filter_by(is_deleted=False).order_by(DeviceFunction.category, DeviceFunction.display_name).all()
 
-    return render_template(
-        "dashboards/view.html",
+    return dict(
         layout=layout,
         widgets=widgets,
         vessels_by_id=vessels_by_id,
         actuator_functions=actuator_functions,
         device_functions=device_functions,
         all_layouts=DashboardLayout.query.filter_by(is_deleted=False).order_by(DashboardLayout.name).all(),
+        is_fragment=is_fragment,
     )
+
+
+@dashboard_runtime_bp.route("/<int:layout_id>/view", methods=["GET"])
+@login_required
+@permission_required("dashboard_layouts.list")
+def view(layout_id: int):
+    layout = DashboardLayout.query.get(layout_id)
+    if not layout or layout.is_deleted:
+        flash("Layout não encontrado.", "error")
+        return redirect(url_for("dashboard_layouts.manage"))
+    return render_template("dashboards/view.html", **_build_dashboard_view_context(layout))
 
 
 @dashboard_runtime_bp.route("/<int:layout_id>/snapshot", methods=["GET"])

@@ -1,0 +1,99 @@
+{% extends "core/base.html" %}
+{% block title %}{{ plant.name }} - Workspace{% endblock %}
+{% block content %}
+<div class="pagetitle d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <h1><i class="bi bi-diagram-3"></i> {{ plant.name }}</h1>
+  <a href="{{ url_for('plant_workspace.landing') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Trocar de Planta
+  </a>
+</div>
+
+<ul class="nav nav-tabs mb-3" id="pwTabBar">
+  {% for tab in tabs %}
+  <li class="nav-item">
+    <button type="button"
+            class="nav-link {{ 'active' if loop.first else '' }} {{ 'disabled' if not tab.enabled else '' }}"
+            id="pwTab-{{ tab.key }}"
+            data-tab-key="{{ tab.key }}"
+            {% if not tab.enabled %}disabled title="Em breve"{% endif %}>
+      <i class="bi {{ tab.icon }}"></i> {{ tab.label }}
+    </button>
+  </li>
+  {% endfor %}
+</ul>
+
+<div id="pwTabContent">
+  <div class="text-center text-muted p-5"><div class="spinner-border spinner-border-sm"></div> Carregando...</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const plantId = {{ plant.id }};
+  const tabContent = document.getElementById('pwTabContent');
+  const tabUrls = {
+    dashboard: "{{ url_for('plant_workspace.tab_dashboard', plant_id=plant.id) }}",
+  };
+
+  // Convenção (conversa — workspace consolidado): cada fragmento de aba
+  // que precisa de limpeza (polling, listeners globais) expõe
+  // window.__tabCleanup antes de terminar de rodar. A casca chama isso
+  // sempre ANTES de trocar de aba — sem isso, o setInterval do
+  // Dashboard (por exemplo) continuaria rodando escondido pra sempre a
+  // cada reabertura da aba.
+  function teardownCurrentTab() {
+    if (window.__tabCleanup) {
+      try { window.__tabCleanup(); } catch (e) { console.warn('erro ao limpar aba anterior', e); }
+      window.__tabCleanup = null;
+    }
+  }
+
+  // <script> injetado via innerHTML não executa sozinho (comportamento
+  // padrão do browser) — recria cada tag pra forçar a execução.
+  function executeScripts(container) {
+    container.querySelectorAll('script').forEach(function (oldScript) {
+      const newScript = document.createElement('script');
+      Array.from(oldScript.attributes).forEach(function (attr) {
+        newScript.setAttribute(attr.name, attr.value);
+      });
+      newScript.textContent = oldScript.textContent;
+      oldScript.parentNode.replaceChild(newScript, oldScript);
+    });
+  }
+
+  function loadTab(key) {
+    const url = tabUrls[key];
+    if (!url) return; // aba ainda não tem rota de fragmento (fase seguinte)
+    teardownCurrentTab();
+    tabContent.innerHTML = '<div class="text-center text-muted p-5"><div class="spinner-border spinner-border-sm"></div> Carregando...</div>';
+    fetch(url)
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        tabContent.innerHTML = html;
+        executeScripts(tabContent);
+      })
+      .catch(function () {
+        tabContent.innerHTML = '<div class="alert alert-danger">Erro ao carregar esta aba.</div>';
+      });
+  }
+
+  document.querySelectorAll('#pwTabBar .nav-link').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (btn.disabled) return;
+      document.querySelectorAll('#pwTabBar .nav-link').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      loadTab(btn.dataset.tabKey);
+    });
+  });
+
+  // Aba inicial: a primeira habilitada na lista (Dashboard, fase 1).
+  const firstEnabled = document.querySelector('#pwTabBar .nav-link:not(.disabled)');
+  if (firstEnabled) loadTab(firstEnabled.dataset.tabKey);
+
+  // Se o usuário sair do workspace (navegar pra outra página de
+  // verdade), garante que o polling da aba atual não fica pra trás.
+  window.addEventListener('beforeunload', teardownCurrentTab);
+})();
+</script>
+{% endblock %}

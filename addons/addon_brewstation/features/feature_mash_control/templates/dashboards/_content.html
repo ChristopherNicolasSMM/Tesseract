@@ -1,0 +1,460 @@
+<div class="pagetitle d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <h1>{{ layout.name }}</h1>
+  <div class="d-flex align-items-center gap-2">
+    {% if not is_fragment and all_layouts|length > 1 %}
+    <select class="form-select form-select-sm" style="width:auto;" onchange="window.location.href=this.value">
+      {% for l in all_layouts %}
+      <option value="{{ url_for('dashboard_runtime.view', layout_id=l.id) }}" {{ 'selected' if l.id == layout.id else '' }}>{{ l.name }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+    {% if is_fragment and all_layouts|length > 1 %}
+    <a href="{{ url_for('dashboard_runtime.view', layout_id=layout.id) }}" target="_blank" class="small text-muted" title="Esta Planta tem mais de um Dashboard — trocar de layout abre a tela completa em outra aba">
+      <i class="bi bi-box-arrow-up-right"></i> Ver dashboard completo
+    </a>
+    {% endif %}
+    {% if layout.plant_id %}
+    <select id="dbSessionSelector" class="form-select form-select-sm" style="width:auto; max-width:220px;" title="Sessão exibida neste Dashboard">
+      <option value="">Detecção automática</option>
+    </select>
+    {% endif %}
+    <button type="button" id="dbEditToggle" class="btn btn-sm btn-outline-warning">
+      <i class="bi bi-unlock"></i> Modo Edição
+    </button>
+    <div id="dbEditToolbar" class="d-none d-flex gap-2">
+      {% if layout.plant_id %}
+      <button type="button" id="dbEditPipesBtn" class="btn btn-sm btn-info"><i class="bi bi-share"></i> Tubulação</button>
+      {% endif %}
+    </div>
+    <a href="{{ url_for('recipe_timeline.picker') }}" class="btn btn-sm btn-success">
+      <i class="bi bi-signpost-split"></i> Importar Receita para Brassar
+    </a>
+    <a href="{{ url_for('dashboard_layouts.manage') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-gear"></i> Configurar layouts
+    </a>
+    <a href="{{ url_for('dashboard_widgets.manage') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-table"></i> Ver tabela de widgets
+    </a>
+  </div>
+</div>
+
+{% if not layout.plant_id %}
+<div class="alert alert-warning">
+  <i class="bi bi-exclamation-triangle"></i>
+  Este layout ainda não tem uma <strong>Planta</strong> associada — os widgets tipo "tanque" e a
+  tubulação não funcionam sem isso. Vá em
+  <a href="{{ url_for('dashboard_layouts.detail', id=layout.id) }}">Configurações deste layout</a>
+  e escolha a Planta.
+</div>
+{% endif %}
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="section">
+  <div class="d-flex gap-2 align-items-start">
+    <!-- Paleta de widgets (conversa — Ponto 3): arrastar pro canvas cria
+         widget SOLTO (sem vínculo) na posição do drop; painel lateral
+         faz a configuração/vínculo depois, sem tela de cadastro. -->
+    <div id="dbPalette" class="d-none flex-shrink-0 bg-dark border border-secondary rounded p-2" style="width:90px;">
+      <div class="small text-muted text-center mb-2">Paleta</div>
+      {% for wtype, wicon, wlabel in [
+        ('digital', 'bi-thermometer-half', 'Temp.'),
+        ('gauge', 'bi-speedometer2', 'Gauge'),
+        ('chart', 'bi-graph-up', 'Gráfico'),
+        ('toggle', 'bi-toggle-on', 'Botão'),
+        ('vessel', 'bi-cup-straw', 'Tanque'),
+        ('step_card', 'bi-list-check', 'Etapa'),
+        ('alarm_list', 'bi-bell', 'Alarme'),
+        ('text', 'bi-fonts', 'Texto'),
+        ('image', 'bi-image', 'Imagem'),
+      ] %}
+      <div class="db-palette-item text-center p-2 mb-1 rounded" data-widget-type="{{ wtype }}"
+           style="cursor:grab; user-select:none;" title="{{ wlabel }}">
+        <i class="bi {{ wicon }} fs-4 d-block"></i>
+        <span class="small">{{ wlabel }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div id="dbCanvas" class="position-relative mx-auto"
+         style="width:{{ layout.canvas_width }}px; max-width:100%; min-height:{{ layout.canvas_height }}px;
+                background-color:{{ layout.background_color }}; border-radius:12px; overflow:hidden;">
+
+      <svg id="dbPipesLayer" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:1;"></svg>
+
+      {% for w in widgets %}
+      <div class="db-widget" id="db-widget-{{ w.id }}" data-widget-id="{{ w.id }}" data-widget-type="{{ w.widget_type }}"
+           data-label-text="{{ w.label_text or '' }}" data-config-json='{{ (w.config_json or {}) | tojson }}'
+           {% if w.vessel_id %}data-vessel-id="{{ w.vessel_id }}"{% endif %}
+           {% if w.device_function_name %}data-device-function-name="{{ w.device_function_name }}"{% endif %}
+           {% if (w.config_json or {}).get('fill_role_key') %}data-fill-role-key="{{ w.config_json.fill_role_key }}"{% endif %}
+           style="position:absolute; left:{{ w.x }}px; top:{{ w.y }}px; width:{{ w.width }}px; height:{{ w.height }}px;
+                  transform:rotate({{ w.rotation or 0 }}deg); z-index:{{ (w.z_index or 1) + 1 }};">
+
+        {% set needs_vessel = w.widget_type == 'vessel' and not w.vessel_id %}
+      {% set needs_function = w.widget_type in ('toggle', 'gauge', 'digital', 'chart') and not w.device_function_name %}
+      {% if needs_vessel or needs_function %}
+      <span class="badge bg-secondary position-absolute top-0 start-0 m-1" style="z-index:10;">
+        <i class="bi bi-exclamation-triangle"></i> Não configurado
+      </span>
+      {% endif %}
+
+      {% if w.widget_type == 'vessel' %}
+        {% set shape = (w.config_json or {}).get('svg_shape', 'mash_tun') %}
+        <div class="h-100 d-flex flex-column">
+          <div class="small text-uppercase text-muted text-center">{{ w.label_text or (vessels_by_id[w.vessel_id].label_text if w.vessel_id in vessels_by_id else '') }}</div>
+          <div class="flex-grow-1 position-relative">
+            <svg viewBox="0 0 100 120" preserveAspectRatio="none" class="w-100 h-100 db-vessel-svg">
+              <defs>
+                <clipPath id="db-clip-{{ w.id }}">
+                  {% if shape == 'fermenter' %}
+                  <path d="M15,8 L85,8 L85,75 L50,116 L15,75 Z"/>
+                  {% else %}
+                  <path d="M8,12 L92,12 L92,100 Q92,116 76,116 L24,116 Q8,116 8,100 Z"/>
+                  {% endif %}
+                </clipPath>
+              </defs>
+              {% if shape == 'fermenter' %}
+              <path d="M15,8 L85,8 L85,75 L50,116 L15,75 Z" fill="#22262c" stroke="#666" stroke-width="2"/>
+              {% else %}
+              <path d="M8,12 L92,12 L92,100 Q92,116 76,116 L24,116 Q8,116 8,100 Z" fill="#22262c" stroke="#666" stroke-width="2"/>
+              <ellipse cx="50" cy="12" rx="42" ry="5" fill="none" stroke="#666" stroke-width="2"/>
+              <rect x="0" y="32" width="7" height="18" rx="3" fill="#444"/>
+              <rect x="93" y="32" width="7" height="18" rx="3" fill="#444"/>
+              {% endif %}
+              <rect class="db-vessel-fill-rect" x="0" y="55" width="100" height="65" fill="#c0392b" clip-path="url(#db-clip-{{ w.id }})" style="transition: y .6s, fill .6s;"/>
+            </svg>
+            <div class="position-absolute top-50 start-50 translate-middle text-center">
+              <span class="db-vessel-temp fw-bold fs-5 text-white" style="text-shadow:0 1px 3px #000;">—</span>
+            </div>
+          </div>
+          <div class="db-vessel-roles d-flex flex-wrap gap-1 justify-content-center mt-1"></div>
+        </div>
+
+      {% elif w.widget_type == 'toggle' %}
+        <button type="button" class="db-toggle btn btn-outline-light w-100 h-100 d-flex flex-column align-items-center justify-content-center">
+          <i class="bi {{ (w.config_json or {}).get('icon', 'bi-power') }} fs-4"></i>
+          <span class="small">{{ w.label_text }}</span>
+          <span class="db-toggle-state small text-muted">—</span>
+        </button>
+
+      {% elif w.widget_type == 'gauge' %}
+        <div class="card h-100 bg-dark text-light border-secondary">
+          <div class="card-body p-2 text-center">
+            <div class="small text-muted">{{ w.label_text }}</div>
+            <div class="progress bg-secondary my-2" style="height:10px;">
+              <div class="db-gauge-bar progress-bar bg-warning" style="width:0%;"></div>
+            </div>
+            <div class="db-gauge-value fw-bold">—</div>
+          </div>
+        </div>
+
+      {% elif w.widget_type == 'digital' %}
+        <div class="card h-100 bg-dark text-light border-secondary text-center">
+          <div class="card-body p-2 d-flex flex-column justify-content-center">
+            <div class="small text-muted">{{ w.label_text }}</div>
+            <div class="db-digital-value fs-3 fw-bold">—</div>
+          </div>
+        </div>
+
+      {% elif w.widget_type == 'alarm_list' %}
+        <div class="card h-100 bg-dark text-light border-secondary">
+          <div class="card-body p-2">
+            <div class="small text-muted mb-1"><i class="bi bi-bell-fill"></i> {{ w.label_text or 'Alarmes' }}</div>
+            <ul class="db-alarm-list list-unstyled small mb-0" style="max-height:100%; overflow:auto;"></ul>
+          </div>
+        </div>
+
+      {% elif w.widget_type == 'chart' %}
+        <div class="card h-100 bg-dark text-light border-secondary">
+          <div class="card-body p-2">
+            <div class="small text-muted mb-1">{{ w.label_text }}</div>
+            <canvas class="db-chart" data-function-name="{{ w.device_function_name }}"
+                    data-session-id="{{ (w.config_json or {}).get('session_id') or '' }}"
+                    data-window-minutes="{{ (w.config_json or {}).get('window_minutes', 60) }}"></canvas>
+          </div>
+        </div>
+
+      {% elif w.widget_type == 'step_card' %}
+        <div class="card h-100 bg-dark text-light border-secondary">
+          <div class="card-body p-2 d-flex flex-column">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <div class="small text-muted">{{ w.label_text or 'Etapa Atual' }}</div>
+              <button type="button" class="btn btn-sm btn-outline-secondary db-steps-manage-btn db-no-drag py-0 px-1" title="Gerenciar etapas">
+                <i class="bi bi-list-check"></i>
+              </button>
+            </div>
+            <div class="db-step-empty small text-muted">Sem sessão ativa.</div>
+            <div class="db-step-current d-none flex-grow-1 d-flex flex-column">
+              <div class="fw-bold db-step-current-name">—</div>
+              <div class="small text-muted db-step-current-meta">—</div>
+              <div class="text-center fw-bold fs-4 my-1 db-step-countdown">—:—</div>
+              <div class="db-step-ramp-wrap">
+                <div class="small text-muted">Rampa</div>
+                <div class="progress bg-secondary mb-2" style="height:8px;">
+                  <div class="db-step-ramp-bar progress-bar bg-warning" style="width:0%;"></div>
+                </div>
+              </div>
+              <div class="small text-muted">Patamar (hold)</div>
+              <div class="progress bg-secondary mb-2" style="height:8px;">
+                <div class="db-step-hold-bar progress-bar bg-info" style="width:0%;"></div>
+              </div>
+              <div class="small text-muted">Próxima: <span class="db-step-next-name">—</span></div>
+              <div class="d-flex gap-2 mt-2">
+                <button type="button" class="btn btn-sm btn-outline-light db-step-back-btn db-no-drag" title="Voltar pra etapa anterior">
+                  <i class="bi bi-skip-backward-fill"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success flex-grow-1 db-step-advance-btn db-no-drag">
+                  <i class="bi bi-check-lg"></i> Concluir e Avançar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      {% elif w.widget_type == 'text' %}
+        {% set tcfg = w.config_json or {} %}
+        <div class="h-100 d-flex align-items-center justify-content-center p-2 text-center"
+             style="color:{{ tcfg.get('color', '#e9ecef') }}; font-size:{{ tcfg.get('font_size', 16) }}px;
+                    {% if tcfg.get('font_family') %}font-family:{{ tcfg.font_family }};{% endif %}
+                    {% if tcfg.get('bold') %}font-weight:bold;{% endif %}
+                    {% if tcfg.get('italic') %}font-style:italic;{% endif %}">
+          {{ tcfg.get('content') or w.label_text or 'Texto' }}
+        </div>
+
+      {% elif w.widget_type == 'image' %}
+        {% set image_url = (w.config_json or {}).get('image_url') %}
+        <div class="h-100 d-flex align-items-center justify-content-center bg-black bg-opacity-25">
+          {% if image_url %}
+          <img src="{{ image_url }}" class="w-100 h-100" style="object-fit:contain;" alt="{{ w.label_text or '' }}">
+          {% else %}
+          <div class="text-muted small text-center"><i class="bi bi-image fs-3"></i><br>Sem imagem</div>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      <div class="db-resize-handle d-none"></div>
+    </div>
+    {% endfor %}
+    </div>
+
+    <!-- Painel lateral (conversa — Ponto 3): substitui o modal de
+         'Configurações' de vez. Aparece ao selecionar um widget em modo
+         edição; some ao clicar em área vazia. -->
+    <div id="dbSidePanel" class="d-none flex-shrink-0 bg-dark border border-secondary rounded p-3" style="width:280px;">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <strong id="dbPanelTitle">Widget</strong>
+        <button type="button" id="dbPanelCloseBtn" class="btn-close btn-close-white"></button>
+      </div>
+      <input type="hidden" id="dbPanelWidgetId">
+      <div class="mb-2">
+        <label class="form-label small">Legenda / Nome</label>
+        <input type="text" id="dbPanelLabel" class="form-control form-control-sm">
+      </div>
+      <div class="mb-2 db-panel-field" data-field="vessel_ref">
+        <label class="form-label small">Tanque</label>
+        <select id="dbPanelVessel" class="form-select form-select-sm">
+          <option value="">— nenhum —</option>
+          {% for vid, v in vessels_by_id.items() %}
+          <option value="{{ vid }}">{{ v.label_text }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="mb-2 db-panel-field" data-field="function_ref">
+        <label class="form-label small">Function do dispositivo</label>
+        <select id="dbPanelFunction" class="form-select form-select-sm">
+          <option value="">— nenhuma —</option>
+          {% for f in device_functions %}
+          <option value="{{ f.name }}">{{ f.display_name or f.name }} ({{ f.category }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="mb-2 db-panel-field" data-field="svg_shape">
+        <label class="form-label small">Formato do tanque</label>
+        <select id="dbPanelSvgShape" class="form-select form-select-sm">
+          <option value="mash_tun">Panela / Caldeira</option>
+          <option value="fermenter">Fermentador (fundo cônico)</option>
+        </select>
+      </div>
+      <div class="mb-2 db-panel-field" data-field="fill_role_key">
+        <label class="form-label small">Papel do nível de líquido <span class="text-muted">(opcional)</span></label>
+        <input type="text" id="dbPanelFillRoleKey" class="form-control form-control-sm" placeholder="ex.: sensor_volume">
+      </div>
+      <div class="mb-2 db-panel-field" data-field="min_max">
+        <div class="row g-2">
+          <div class="col-6"><label class="form-label small">Mínimo</label><input type="number" id="dbPanelMin" class="form-control form-control-sm"></div>
+          <div class="col-6"><label class="form-label small">Máximo</label><input type="number" id="dbPanelMax" class="form-control form-control-sm"></div>
+        </div>
+      </div>
+      <div class="mb-2 db-panel-field" data-field="decimal_places">
+        <label class="form-label small">Casas decimais</label>
+        <input type="number" id="dbPanelDecimalPlaces" class="form-control form-control-sm" value="1" min="0" max="4">
+      </div>
+      <div class="mb-2 db-panel-field" data-field="session_window">
+        <div class="row g-2">
+          <div class="col-6"><label class="form-label small">Sessão (opcional)</label><input type="number" id="dbPanelSessionId" class="form-control form-control-sm"></div>
+          <div class="col-6"><label class="form-label small">Janela (min)</label><input type="number" id="dbPanelWindowMinutes" class="form-control form-control-sm" value="60"></div>
+        </div>
+      </div>
+      <div class="mb-2 db-panel-field" data-field="icon_picker">
+        <label class="form-label small">Ícone</label>
+        <div class="d-flex flex-wrap gap-1" id="dbPanelIconPicker">
+          {% for icon_name in ['bi-power', 'bi-toggle-on', 'bi-lightning-charge-fill', 'bi-fire',
+                                'bi-droplet-fill', 'bi-water', 'bi-thermometer-half', 'bi-arrow-repeat',
+                                'bi-plug-fill', 'bi-gear-fill', 'bi-cup-hot-fill', 'bi-snow'] %}
+          <button type="button" class="btn btn-outline-light btn-sm db-panel-icon-option" data-icon="{{ icon_name }}" title="{{ icon_name }}">
+            <i class="bi {{ icon_name }}"></i>
+          </button>
+          {% endfor %}
+        </div>
+        <input type="hidden" id="dbPanelIcon" value="bi-power">
+      </div>
+      <div class="mb-2 db-panel-field" data-field="content">
+        <label class="form-label small">Texto</label>
+        <textarea id="dbPanelContent" class="form-control form-control-sm" rows="2"></textarea>
+      </div>
+      <div class="mb-2 db-panel-field" data-field="content">
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label small">Tamanho (px)</label>
+            <input type="number" id="dbPanelFontSize" class="form-control form-control-sm" value="16" min="8" max="96">
+          </div>
+          <div class="col-6">
+            <label class="form-label small">Cor</label>
+            <input type="color" id="dbPanelColor" class="form-control form-control-sm form-control-color" value="#e9ecef">
+          </div>
+        </div>
+        <label class="form-label small mt-2">Fonte</label>
+        <select id="dbPanelFontFamily" class="form-select form-select-sm">
+          <option value="">Padrão do sistema</option>
+          <option value="Georgia, serif">Georgia (serifada)</option>
+          <option value="'Courier New', monospace">Monoespaçada</option>
+          <option value="'Trebuchet MS', sans-serif">Trebuchet</option>
+          <option value="cursive">Cursiva</option>
+        </select>
+        <div class="d-flex gap-2 mt-2">
+          <button type="button" id="dbPanelBold" class="btn btn-outline-light btn-sm"><i class="bi bi-type-bold"></i></button>
+          <button type="button" id="dbPanelItalic" class="btn btn-outline-light btn-sm"><i class="bi bi-type-italic"></i></button>
+        </div>
+      </div>
+      <div class="mb-2 db-panel-field" data-field="image_url">
+        <label class="form-label small">URL da imagem</label>
+        <div class="input-group input-group-sm">
+          <input type="text" id="dbPanelImageUrl" class="form-control" placeholder="https://...">
+          <button type="button" class="btn btn-outline-light" id="dbPanelImagePickBtn" title="Escolher arquivo do computador"><i class="bi bi-upload"></i></button>
+        </div>
+        <input type="file" id="dbPanelImageFile" class="d-none" accept=".png,.jpg,.jpeg,.gif,.webp,.svg">
+        <div class="small text-muted mt-1 d-none" id="dbPanelImageUploading">Enviando...</div>
+      </div>
+      <div class="form-check db-panel-field" data-field="confirm_before_actuate">
+        <input class="form-check-input" type="checkbox" id="dbPanelConfirm">
+        <label class="form-check-label small" for="dbPanelConfirm">Pedir confirmação antes de acionar</label>
+      </div>
+      <div class="form-check db-panel-field mb-2" data-field="manual_control_enabled">
+        <input class="form-check-input" type="checkbox" id="dbPanelManualControl">
+        <label class="form-check-label small" for="dbPanelManualControl">Permitir acionamento manual</label>
+      </div>
+      <div class="d-flex gap-2 mt-3">
+        <button type="button" id="dbPanelSaveBtn" class="btn btn-sm btn-primary flex-grow-1">Salvar</button>
+        <button type="button" id="dbPanelRemoveBtn" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+      </div>
+    </div>
+  </div>
+  <p class="small text-muted text-center mt-2">Atualiza a cada 3s — sem tempo real via WebSocket ainda (ver BACKLOG.md).</p>
+</section>
+
+
+<!-- Modal: Editar Tubulação -->
+{% if layout.plant_id %}
+<div class="modal fade" id="dbPipesModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar Tubulação</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="dbPipesRows"></div>
+        <button type="button" id="dbPipesAddRowBtn" class="btn btn-sm btn-outline-secondary mt-2"><i class="bi bi-plus"></i> Adicionar conexão</button>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" id="dbPipesSaveBtn" class="btn btn-primary">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Modal: Gerenciar Etapas (conversa — Ponto 2) — mesmo formulário de
+     /brewstation/recipe-timeline/, embutido pra não sair do Dashboard.
+     Edita a receita-modelo (RecipeStep); "Ressincronizar" reflete na
+     sessão em execução. -->
+<div class="modal fade" id="dbStepsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Gerenciar Etapas da Receita</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted">
+          Isto edita a <strong>receita</strong> (afeta futuras sessões geradas a partir dela).
+          Pra refletir na brassagem em andamento, use "Ressincronizar com a sessão" abaixo.
+        </p>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="mb-0">Etapas</h6>
+          <button type="button" id="dbStepsResyncBtn" class="btn btn-sm btn-outline-info">
+            <i class="bi bi-arrow-repeat"></i> Ressincronizar com a sessão
+          </button>
+        </div>
+        <table class="table table-sm table-striped">
+          <thead><tr><th>Tipo</th><th>Nome</th><th>°C</th><th>Tempo</th><th>Rampa</th><th>Alerta</th><th></th></tr></thead>
+          <tbody id="dbStepsTbody"></tbody>
+        </table>
+        <hr>
+        <h6 id="dbStepFormTitle">Adicionar Etapa</h6>
+        <form id="dbStepForm" class="row g-2">
+          <input type="hidden" id="dbStepFormId" value="">
+          <div class="col-md-2">
+            <label class="form-label small">Tipo</label>
+            <select id="dbStepFormType" class="form-select form-select-sm">
+              <option value="mash">Mostura</option>
+              <option value="boil">Fervura</option>
+              <option value="alert">Alerta</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small">Nome</label>
+            <input type="text" id="dbStepFormNome" class="form-control form-control-sm" required>
+          </div>
+          <div class="col-md-2 db-step-field" data-field="temperatura">
+            <label class="form-label small">°C</label>
+            <input type="number" step="0.1" id="dbStepFormTemperatura" class="form-control form-control-sm">
+          </div>
+          <div class="col-md-2 db-step-field" data-field="tempo_min">
+            <label class="form-label small">Tempo (min)</label>
+            <input type="number" id="dbStepFormTempoMin" class="form-control form-control-sm">
+          </div>
+          <div class="col-md-2 db-step-field" data-field="ramp_time_min">
+            <label class="form-label small">Rampa (min)</label>
+            <input type="number" id="dbStepFormRampTimeMin" class="form-control form-control-sm">
+          </div>
+          <div class="col-md-2 db-step-field d-none" data-field="trigger_minutes_remaining">
+            <label class="form-label small">Min. restantes p/ disparar</label>
+            <input type="number" id="dbStepFormTrigger" class="form-control form-control-sm">
+          </div>
+          <div class="col-12">
+            <button type="submit" id="dbStepFormSaveBtn" class="btn btn-sm btn-primary"><i class="bi bi-plus-lg"></i> Adicionar</button>
+            <button type="button" id="dbStepFormCancelBtn" class="btn btn-sm btn-outline-secondary d-none">Cancelar edição</button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>

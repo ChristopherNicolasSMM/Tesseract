@@ -2958,3 +2958,78 @@ Configuração/Criação de Planta, com remoção posterior do menu inicial
 14 testes novos. Sem migration. Suíte completa rodada em lotes — tudo
 passou (só a mesma falha de ambiente pré-existente, já confirmada em
 rodadas anteriores).
+
+## Workspace consolidado por Planta — Fase 1 (casca + aba Dashboard): CONCLUÍDO
+
+Primeira rodada do plano alinhado em conversa ("Dashboard + Etapas +
+Sessões + Planta numa tela só"). Decisões fechadas na conversa antes
+de codar:
+
+- **Abas de verdade via fragmento AJAX** (não iframe) — mais nativo
+  visualmente, mas exige que cada tela envolvida saiba devolver só o
+  conteúdo, sem `core/base.html` em volta.
+- **Escopadas por Planta** — escolhe/cria a Planta primeiro
+  (`/brewstation/plant-workspace/`), todas as abas passam a filtrar
+  por ela.
+- **5 abas no desenho final**: Dashboard, Sessões (consolida Sessões +
+  Passos da Sessão em visão enxuta + Logs + Alarmes), Planta
+  (consolida Plantas + Tanques + Mapeamentos), Receita Mash
+  (consolida Receitas + Ingredientes + Importar Receita + Etapas da
+  Receita), Automação (Regras + Histórico). "Passos da Sessão" dentro
+  de Sessões é só acompanhamento — o botão "Adicionar Etapa" abre
+  popup rápido ou leva pra aba Receita Mash (edição completa).
+- **Telas antigas continuam existindo em paralelo** — a remoção do
+  menu de hoje fica pra depois de validar o workspace na prática.
+
+**Esta rodada (fase 1)**: casca completa (`plant_workspace.py` novo,
+não gerado pelo CrudGen — mesmo espírito de `dashboard_runtime.py`) +
+aba Dashboard funcionando de ponta a ponta:
+- `/brewstation/plant-workspace/` — lista Plantas existentes + link
+  pra cadastrar uma nova.
+- `/brewstation/plant-workspace/<plant_id>` — barra de 5 abas (só
+  Dashboard habilitada nesta fase, as outras aparecem desabilitadas
+  com "Em breve").
+- `/brewstation/plant-workspace/<plant_id>/tab/dashboard` — fragmento
+  AJAX de verdade, resolve o Dashboard padrão daquela Planta (ou
+  mostra estado vazio com link pra cadastrar um, se não houver
+  nenhum).
+- Nova transação de menu `TX_PLANT_WORKSPACE` — paralela às telas
+  antigas, não substitui nada ainda.
+
+**Refactor que viabilizou o fragmento**: `dashboards/view.html`
+(1579 linhas) foi dividido em `_content.html` (HTML) + `_scripts.html`
+(JS), reincluídos por `view.html` (tela cheia, comportamento
+inalterado — testado) e por `_fragment.html` (novo, bruto, sem
+`{% extends %}`). Duas armadilhas técnicas resolvidas (documentadas em
+`docs/technical/06-manutencao-e-expansao.md` da feature, pra reaplicar
+nas próximas abas): `<script>` injetado via `innerHTML` não executa
+sozinho (a casca recria as tags); `setInterval` do Dashboard precisa
+de um jeito de desligar ao trocar de aba (convenção
+`window.__tabCleanup`).
+
+**Achado no meio do caminho**: dentro do fragmento, o seletor de
+"trocar de layout" não pode mais navegar a página inteira (perderia o
+contexto da aba) — vira um link "abrir em nova aba" quando há mais de
+um layout pra mesma Planta; a tela cheia continua com o comportamento
+de sempre (navegação direta), sem mudança.
+
+**Cuidado de processo registrado**: a extração dos partials foi feita
+duas vezes nesta rodada — a primeira em cima de um clone que não
+tinha o patch anterior ("atuador some no Tanque") ainda aplicado,
+gerando risco real de conflito quando os dois patches fossem
+aplicados em sequência. Refeito do zero sobre a base correta antes de
+entregar. Lição: sempre conferir `git log origin/main` antes de
+reclonar no meio de uma sequência de patches ainda não aplicados pelo
+usuário.
+
+**Fora de escopo desta rodada** (próximas fases, já desenhadas): as 4
+abas restantes (Sessões, Planta, Receita Mash, Automação) — cada uma
+exige o mesmo tipo de extração de partial das telas envolvidas antes
+de virar fragmento.
+
+10 testes novos (`tests/test_plant_workspace.py`) + 1 teste de
+regressão corrigido (`test_grupo_controle_de_mostura_tem_7_filhos_diretos`,
+contagem mudou de 6 pra 7 com a transação nova). Catálogo de
+transações regenerado (77, era 76). Sem migration. Suíte completa
+rodada em lotes — tudo passou (só a mesma falha de ambiente
+pré-existente).

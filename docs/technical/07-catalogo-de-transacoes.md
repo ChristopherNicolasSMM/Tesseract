@@ -2,7 +2,7 @@
 
 > Gerado automaticamente por `python run.py transactions-doc` a partir do banco real — não editar manualmente, as edições se perdem na próxima geração. Para mudar uma transação vinda do código, edite o `get_transactions()`/`transactions_catalog.py` correspondente. Para uma transação manual, use a tela `/admin/transactions/`. Árvore de profundidade arbitrária (skill 10) — cada nível vira uma seção aninhada.
 
-Total: 76 transação(ões), 76 ativa(s).
+Total: 77 transação(ões), 77 ativa(s).
 
 ## BrewStation
 
@@ -25,6 +25,7 @@ Total: 76 transação(ões), 76 ativa(s).
 | Código | Label | Rota | Permissão | Origem | Status |
 |---|---|---|---|---|---|
 | `TX_BRIDGE_IMPORT` | Cadastro Primário (Bridge) | `/brewstation/bridge-import/` | `device_actors.create` | brewstation | Ativa |
+| `TX_PLANT_WORKSPACE` | Workspace de Planta | `/brewstation/plant-workspace/` | `brew_plants.list` | brewstation | Ativa |
 | `TX_DASHBOARD_LAYOUTS` | Layouts de Dashboard | `/brewstation/dashboard-layouts` | `dashboard_layouts.list` | brewstation | Ativa |
 | `TX_DASHBOARD_WIDGETS` | Widgets de Dashboard | `/brewstation/dashboard-widgets` | `dashboard_widgets.list` | brewstation | Ativa |
 
