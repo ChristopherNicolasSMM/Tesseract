@@ -82,8 +82,10 @@ mesmos dois partials sem `{% extends %}`, pra ser devolvido bruto por
    function () {...}` antes de terminar seu próprio `<script>`; a
    casca chama isso (se existir) antes de carregar a próxima aba.
 
-**Como adicionar uma aba nova** (só Automação falta; Dashboard,
-Sessões, Planta e Receita Mash já implementadas):
+**Como adicionar uma aba nova** (todas as 5 planejadas em conversa —
+Dashboard, Sessões, Planta, Receita Mash, Automação — já
+implementadas; segue como referência pra qualquer aba futura que
+apareça):
 1. Nova rota `GET /plant-workspace/<plant_id>/tab/<chave>` no
    `plant_workspace.py`, devolvendo um template SEM `{% extends %}`
    (bruto).

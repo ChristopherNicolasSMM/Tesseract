@@ -1,0 +1,61 @@
+{# Fragmento AJAX da aba Automação (conversa — workspace consolidado):
+   consolida Regras de Automação + Histórico de disparo. Sem
+   <script>/setInterval nesta aba — não precisa do hook
+   window.__tabCleanup. #}
+
+<div class="card bg-dark border-secondary mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-lightning-charge"></i> Regras de Automação</span>
+    <a href="{{ url_for('automation_rules.manage') }}" target="_blank" class="btn btn-sm btn-outline-success">
+      <i class="bi bi-plus-lg"></i> Nova Regra
+    </a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-dark table-sm mb-0">
+      <thead><tr><th>Nome</th><th>Condição</th><th>Ação</th><th>Status</th><th>Disparos</th><th>Último disparo</th><th></th></tr></thead>
+      <tbody>
+        {% for rule in rules %}
+        <tr>
+          <td>{{ rule.name }}</td>
+          <td class="small">{{ rule.sensor_function_name }} {{ rule.condition_operator }} {{ rule.condition_value }}{{ rule.condition_unit or '' }}</td>
+          <td class="small">{{ rule.actor_function_name }} → {{ rule.actor_action }}{{ (' (' ~ rule.actor_value ~ ')') if rule.actor_value is not none else '' }}</td>
+          <td><span class="badge {{ 'bg-success' if rule.is_active else 'bg-secondary' }}">{{ 'Ativa' if rule.is_active else 'Inativa' }}</span></td>
+          <td>{{ rule.trigger_count or 0 }}</td>
+          <td class="small text-muted">{{ rule.last_triggered_at.strftime('%d/%m %H:%M:%S') if rule.last_triggered_at else '—' }}</td>
+          <td>
+            <a href="{{ url_for('automation_rules.detail', id=rule.id) }}" target="_blank" class="small">
+              <i class="bi bi-pencil"></i>
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-muted small">Nenhuma regra de automação cadastrada ainda pra esta Planta.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card bg-dark border-secondary">
+  <div class="card-header"><i class="bi bi-clock-history"></i> Histórico de disparo (últimos 20)</div>
+  <div class="list-group list-group-flush">
+    {% for log in logs %}
+    <div class="list-group-item bg-dark text-light small">
+      <div class="d-flex justify-content-between">
+        <span>
+          <span class="badge {{ 'bg-success' if log.success else 'bg-danger' }}">{{ 'ok' if log.success else 'erro' }}</span>
+          <strong>{{ rules_by_id.get(log.rule_id).name if rules_by_id.get(log.rule_id) else ('Regra #' ~ log.rule_id) }}</strong>
+          — {{ log.action_taken or '—' }}
+          {% if log.sensor_value_at_trigger is not none %}(sensor: {{ log.sensor_value_at_trigger }}){% endif %}
+        </span>
+        <span class="text-muted">{{ log.triggered_at.strftime('%d/%m %H:%M:%S') if log.triggered_at else '' }}</span>
+      </div>
+      {% if not log.success and log.error_message %}
+      <div class="text-danger" style="font-size: 0.75rem;">{{ log.error_message }}</div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="list-group-item bg-dark text-muted small">Nenhum disparo registrado ainda.</div>
+    {% endfor %}
+  </div>
+</div>

@@ -24,6 +24,8 @@ from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_ves
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_mapping import BrewPlantMapping
 from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
 from addons.addon_brewstation.features.feature_mash_control.model.recipe_step import RecipeStep
+from addons.addon_brewstation.features.feature_mash_control.model.automation_rule import AutomationRule
+from addons.addon_brewstation.features.feature_mash_control.model.automation_rule_log import AutomationRuleLog
 
 
 @pytest.fixture
@@ -73,6 +75,8 @@ def test_landing_sem_planta_nenhuma_mostra_aviso(app, client):
 # ── Casca (shell) ────────────────────────────────────────────────────────────
 
 def test_shell_renderiza_barra_de_abas(app, client):
+    """[ATUALIZADO] As 5 abas planejadas em conversa agora estão TODAS
+    habilitadas — não sobra nenhum atributo 'disabled' na barra."""
     _login_admin(app, client)
     with app.app_context():
         plant = BrewPlant(name="Planta Workspace Shell")
@@ -89,8 +93,8 @@ def test_shell_renderiza_barra_de_abas(app, client):
     assert 'id="pwTab-plant"' in html
     assert 'id="pwTab-recipe"' in html
     assert 'id="pwTab-automation"' in html
-    # só a aba Dashboard vem habilitada nesta fase
-    assert html.count("disabled") >= 4
+    tab_bar_html = html.split('id="pwTabBar"')[1].split("</ul>")[0]
+    assert "disabled" not in tab_bar_html
 
 
 def test_shell_planta_inexistente_redireciona(app, client):
@@ -570,3 +574,136 @@ def test_tab_recipe_planta_inexistente_devolve_fragmento_de_erro(app, client):
     html = resp.data.decode("utf-8")
     assert "Planta não encontrada" in html
     assert "<html" not in html.lower()
+
+
+# ── Aba Automação (fragmento AJAX) ───────────────────────────────────────────
+
+def test_tab_automation_sem_regra_mostra_aviso(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Sem Regra")
+        db.session.add(plant)
+        db.session.commit()
+        plant_id = plant.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/automation")
+    assert resp.status_code == 200
+    html = resp.data.decode("utf-8")
+    assert "Nenhuma regra de automação cadastrada" in html
+    assert "<html" not in html.lower()
+
+
+def test_tab_automation_mostra_regra_global_sem_sessao(app, client):
+    """Regra sem session_id (nullable) é "global" — vale pra
+    qualquer Planta, sempre aparece."""
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Regra Global")
+        db.session.add(plant)
+        db.session.commit()
+        rule = AutomationRule(
+            name="Regra Global Teste", sensor_function_name="temp_mash", condition_operator=">=",
+            condition_value=68.0, actor_function_name="heater_mash", actor_action="OFF",
+        )
+        db.session.add(rule)
+        db.session.commit()
+        plant_id = plant.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/automation")
+    html = resp.data.decode("utf-8")
+    assert "Regra Global Teste" in html
+
+
+def test_tab_automation_mostra_regra_vinculada_a_sessao_da_planta(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Regra Sessao")
+        db.session.add(plant)
+        db.session.commit()
+        session = BrewSession(name="Sessão Pra Regra", plant_id=plant.id, status="active")
+        db.session.add(session)
+        db.session.commit()
+        rule = AutomationRule(
+            name="Regra Da Sessao", sensor_function_name="temp_boil", condition_operator="<",
+            condition_value=95.0, actor_function_name="heater_boil", actor_action="ON",
+            session_id=session.id,
+        )
+        db.session.add(rule)
+        db.session.commit()
+        plant_id = plant.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/automation")
+    html = resp.data.decode("utf-8")
+    assert "Regra Da Sessao" in html
+
+
+def test_tab_automation_nao_mostra_regra_de_sessao_de_outra_planta(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant_a = BrewPlant(name="Planta A Regra")
+        plant_b = BrewPlant(name="Planta B Regra")
+        db.session.add_all([plant_a, plant_b])
+        db.session.commit()
+        session_b = BrewSession(name="Sessão Planta B", plant_id=plant_b.id, status="active")
+        db.session.add(session_b)
+        db.session.commit()
+        rule_b = AutomationRule(
+            name="Regra Exclusiva Planta B", sensor_function_name="temp_x", condition_operator=">",
+            condition_value=50.0, actor_function_name="actor_x", actor_action="ON",
+            session_id=session_b.id,
+        )
+        db.session.add(rule_b)
+        db.session.commit()
+        plant_a_id = plant_a.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_a_id}/tab/automation")
+    html = resp.data.decode("utf-8")
+    assert "Regra Exclusiva Planta B" not in html
+
+
+def test_tab_automation_mostra_historico_de_disparo(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Historico")
+        db.session.add(plant)
+        db.session.commit()
+        rule = AutomationRule(
+            name="Regra Com Historico", sensor_function_name="temp_y", condition_operator=">=",
+            condition_value=70.0, actor_function_name="actor_y", actor_action="OFF",
+        )
+        db.session.add(rule)
+        db.session.commit()
+        log = AutomationRuleLog(rule_id=rule.id, sensor_value_at_trigger=71.5, action_taken="OFF", success=True)
+        db.session.add(log)
+        db.session.commit()
+        plant_id = plant.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/automation")
+    html = resp.data.decode("utf-8")
+    assert "Regra Com Historico" in html
+    assert "71.5" in html
+
+
+def test_tab_automation_planta_inexistente_devolve_fragmento_de_erro(app, client):
+    _login_admin(app, client)
+    resp = client.get("/brewstation/plant-workspace/999999/tab/automation")
+    assert resp.status_code == 200
+    html = resp.data.decode("utf-8")
+    assert "Planta não encontrada" in html
+    assert "<html" not in html.lower()
+
+
+def test_shell_todas_as_5_abas_habilitadas(app, client):
+    """Fecha o desenho original: as 5 abas planejadas em conversa
+    (Dashboard, Sessões, Planta, Receita Mash, Automação) agora
+    funcionam de ponta a ponta."""
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Todas Abas")
+        db.session.add(plant)
+        db.session.commit()
+        plant_id = plant.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}")
+    html = resp.data.decode("utf-8")
+    assert "disabled" not in html.split('id="pwTabBar"')[1].split("</ul>")[0]

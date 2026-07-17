@@ -3145,3 +3145,31 @@ corrente, em vez de tentar encaixar em AJAX.
 8 testes novos (mais 2 testes já existentes atualizados pro novo
 mecanismo genérico de reload). Sem migration. Suíte completa rodada
 em lotes — tudo passou, 100% verde.
+
+## Workspace consolidado por Planta — aba Automação: CONCLUÍDO (fecha o plano original das 5 abas)
+
+Quinta e última aba planejada em conversa. **Padrão enxuto** (igual
+Sessões/Planta) — lista/mostra aqui, edição de verdade continua na
+tela cheia. Sem sub-navegação própria, sem `<script>` nesta aba.
+
+**Consolida**: Regras de Automação (nome, condição sensor→operador→valor,
+ação atuador, status ativa/inativa, contador de disparos, último
+disparo) + Histórico de disparo (últimos 20 — sucesso/erro, ação
+tomada, valor do sensor no momento, mensagem de erro se falhou).
+
+**Achado real de modelagem**: `AutomationRule` não tem `plant_id`
+direto — só `session_id` (opcional/nullable). Filtro adotado: regra
+"global" (sem sessão vinculada — vale pra qualquer sessão desta
+Planta) OU vinculada a uma sessão que pertence a esta Planta
+especificamente. Testado que uma regra de sessão de OUTRA Planta
+nunca aparece.
+
+**Fecha o plano original completo**: as 5 abas (Dashboard, Sessões,
+Planta, Receita Mash, Automação) alinhadas no início desta conversa
+agora funcionam de ponta a ponta, todas habilitadas na barra. Próximo
+passo natural (fora do escopo desta rodada, decisão explícita de
+quando fazer): remover as telas individuais do menu inicial, depois
+de validar o workspace na prática — como combinado desde o começo.
+
+7 testes novos. Sem migration. Suíte completa rodada em lotes — tudo
+passou, 100% verde.

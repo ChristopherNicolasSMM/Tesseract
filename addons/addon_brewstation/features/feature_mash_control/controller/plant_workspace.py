@@ -26,6 +26,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required
 
 from core.permissions import permission_required
+from core.db import db
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant import BrewPlant
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session_step import BrewSessionStep
@@ -33,6 +34,8 @@ from addons.addon_brewstation.features.feature_mash_control.model.brew_session_l
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session_alarm import BrewSessionAlarm
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_vessel import BrewPlantVessel
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_mapping import BrewPlantMapping
+from addons.addon_brewstation.features.feature_mash_control.model.automation_rule import AutomationRule
+from addons.addon_brewstation.features.feature_mash_control.model.automation_rule_log import AutomationRuleLog
 from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
 from addons.addon_brewstation.features.feature_mash_control.model.dashboard_layout import DashboardLayout
 from addons.addon_brewstation.features.feature_mash_control.controller.dashboard_runtime import (
@@ -52,7 +55,7 @@ _TABS = [
     {"key": "sessions", "label": "Sessões", "icon": "bi-collection-play", "enabled": True},
     {"key": "plant", "label": "Planta", "icon": "bi-diagram-3", "enabled": True},
     {"key": "recipe", "label": "Receita Mash", "icon": "bi-journal-text", "enabled": True},
-    {"key": "automation", "label": "Automação", "icon": "bi-lightning-charge", "enabled": False},
+    {"key": "automation", "label": "Automação", "icon": "bi-lightning-charge", "enabled": True},
 ]
 
 
@@ -223,3 +226,46 @@ def tab_recipe(plant_id: int):
 
     recipes = MashRecipe.query.filter_by(is_deleted=False, is_active=True).order_by(MashRecipe.name).all()
     return render_template("plant_workspace/_tab_recipe_picker.html", plant=plant, recipes=recipes)
+
+
+@plant_workspace_bp.route("/<int:plant_id>/tab/automation", methods=["GET"])
+@login_required
+@permission_required("automation_rules.list")
+def tab_automation(plant_id: int):
+    """Aba Automação (conversa): consolida Regras de Automação +
+    Histórico de disparo. `AutomationRule` não tem `plant_id` direto
+    — só `session_id` (opcional, nullable). Filtro: regra "global"
+    (sem sessão vinculada, vale pra qualquer sessão desta Planta) OU
+    vinculada a uma sessão desta Planta especificamente."""
+    plant = BrewPlant.query.get(plant_id)
+    if not plant or plant.is_deleted:
+        return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada.")
+
+    session_ids = [
+        s.id for s in BrewSession.query.filter_by(plant_id=plant_id, is_deleted=False).all()
+    ]
+    rules = (
+        AutomationRule.query.filter(
+            AutomationRule.is_deleted == False,  # noqa: E712
+            db.or_(AutomationRule.session_id.is_(None), AutomationRule.session_id.in_(session_ids)),
+        )
+        .order_by(AutomationRule.id.desc())
+        .all()
+    )
+    rule_ids = [r.id for r in rules]
+    logs = []
+    if rule_ids:
+        logs = (
+            AutomationRuleLog.query.filter(
+                AutomationRuleLog.rule_id.in_(rule_ids), AutomationRuleLog.is_deleted == False,  # noqa: E712
+            )
+            .order_by(AutomationRuleLog.triggered_at.desc())
+            .limit(20)
+            .all()
+        )
+    rules_by_id = {r.id: r for r in rules}
+
+    return render_template(
+        "plant_workspace/_tab_automation.html",
+        plant=plant, rules=rules, logs=logs, rules_by_id=rules_by_id,
+    )

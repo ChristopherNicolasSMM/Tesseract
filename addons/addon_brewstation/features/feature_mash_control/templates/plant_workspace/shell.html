@@ -37,6 +37,7 @@
     sessions: "{{ url_for('plant_workspace.tab_sessions', plant_id=plant.id) }}",
     plant: "{{ url_for('plant_workspace.tab_plant', plant_id=plant.id) }}",
     recipe: "{{ url_for('plant_workspace.tab_recipe', plant_id=plant.id) }}",
+    automation: "{{ url_for('plant_workspace.tab_automation', plant_id=plant.id) }}",
   };
 
   // Convenção (conversa — workspace consolidado): cada fragmento de aba
