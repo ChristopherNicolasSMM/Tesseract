@@ -3074,3 +3074,29 @@ recente se não houver nenhuma ativa (mesma regra do
 7 testes novos. Sem migration. Suíte completa rodada em lotes — tudo
 passou, 100% verde (nem a falha de ambiente conhecida apareceu desta
 vez).
+
+## Workspace consolidado por Planta — aba Planta: CONCLUÍDO
+
+Terceira aba do workspace. Mesmo padrão enxuto das duas anteriores —
+lista/mostra aqui, edição de verdade continua na tela cheia de cada
+entidade (link "abrir em nova aba").
+
+**Consolida**: dados da própria Planta (nome, capacidade, contagem de
+tanques prevista, ativa/inativa, descrição) + Tanques (tabela: ordem,
+nome, tipo, descrição) + Mapeamentos de Planta (tabela: tanque, papel,
+function do dispositivo, obrigatório).
+
+Diferente da aba Sessões, não precisou de nenhuma sub-navegação
+própria (sem seletor lateral, sem `<script>` nesta aba) — cada linha
+das tabelas de Tanque/Mapeamento já linka direto pra tela de detalhe
+correspondente, então as duas armadilhas de `<script>`/`innerHTML`
+não se aplicam aqui.
+
+**Nota de escopo registrada**: os links "Novo Tanque"/"Novo
+Mapeamento" levam pro formulário genérico de criação (sem pré-encher
+a Planta) — mesma limitação já registrada pra "Nova Sessão" na aba
+anterior. Melhorar isso (pré-selecionar a Planta do workspace) fica
+pra uma passada de polimento depois que as 5 abas existirem.
+
+5 testes novos. Sem migration. Suíte completa rodada em lotes — tudo
+passou, 100% verde.

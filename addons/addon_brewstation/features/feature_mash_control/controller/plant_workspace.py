@@ -31,6 +31,8 @@ from addons.addon_brewstation.features.feature_mash_control.model.brew_session i
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session_step import BrewSessionStep
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session_log import BrewSessionLog
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session_alarm import BrewSessionAlarm
+from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_vessel import BrewPlantVessel
+from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_mapping import BrewPlantMapping
 from addons.addon_brewstation.features.feature_mash_control.model.dashboard_layout import DashboardLayout
 from addons.addon_brewstation.features.feature_mash_control.controller.dashboard_runtime import (
     _build_dashboard_view_context,
@@ -44,7 +46,7 @@ plant_workspace_bp = Blueprint(
 _TABS = [
     {"key": "dashboard", "label": "Dashboard", "icon": "bi-speedometer2", "enabled": True},
     {"key": "sessions", "label": "Sessões", "icon": "bi-collection-play", "enabled": True},
-    {"key": "plant", "label": "Planta", "icon": "bi-diagram-3", "enabled": False},
+    {"key": "plant", "label": "Planta", "icon": "bi-diagram-3", "enabled": True},
     {"key": "recipe", "label": "Receita Mash", "icon": "bi-journal-text", "enabled": False},
     {"key": "automation", "label": "Automação", "icon": "bi-lightning-charge", "enabled": False},
 ]
@@ -152,4 +154,39 @@ def tab_sessions(plant_id: int):
         "plant_workspace/_tab_sessions.html",
         plant=plant, sessions=sessions, selected_session=selected_session,
         steps=steps, logs=logs, alarms=alarms,
+    )
+
+
+@plant_workspace_bp.route("/<int:plant_id>/tab/plant", methods=["GET"])
+@login_required
+@permission_required("brew_plants.list")
+def tab_plant(plant_id: int):
+    """Aba Planta (conversa): consolida os dados da própria Planta +
+    Tanques + Mapeamentos de Planta. Mesmo padrão enxuto da aba
+    Sessões — lista/mostra aqui, edição de verdade continua na tela
+    cheia de cada entidade (link "abrir em nova aba")."""
+    plant = BrewPlant.query.get(plant_id)
+    if not plant or plant.is_deleted:
+        return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada.")
+
+    vessels = (
+        BrewPlantVessel.query.filter_by(plant_id=plant_id, is_deleted=False)
+        .order_by(BrewPlantVessel.position_order, BrewPlantVessel.id)
+        .all()
+    )
+    vessel_ids = [v.id for v in vessels]
+    mappings = []
+    if vessel_ids:
+        mappings = (
+            BrewPlantMapping.query.filter(
+                BrewPlantMapping.vessel_id.in_(vessel_ids), BrewPlantMapping.is_deleted == False,  # noqa: E712
+            )
+            .order_by(BrewPlantMapping.vessel_id)
+            .all()
+        )
+    vessels_by_id = {v.id: v for v in vessels}
+
+    return render_template(
+        "plant_workspace/_tab_plant.html",
+        plant=plant, vessels=vessels, mappings=mappings, vessels_by_id=vessels_by_id,
     )

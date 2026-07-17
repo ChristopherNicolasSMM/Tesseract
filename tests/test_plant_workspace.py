@@ -20,6 +20,8 @@ from addons.addon_brewstation.features.feature_mash_control.model.brew_session i
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session_step import BrewSessionStep
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session_log import BrewSessionLog
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session_alarm import BrewSessionAlarm
+from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_vessel import BrewPlantVessel
+from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_mapping import BrewPlantMapping
 from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
 
 
@@ -342,3 +344,84 @@ def test_tab_sessions_troca_de_sessao_reexecuta_scripts_via_helper_global(app, c
 
     tab_html = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/sessions").data.decode("utf-8")
     assert "window.__executeScripts" in tab_html
+
+
+# ── Aba Planta (fragmento AJAX) ──────────────────────────────────────────────
+
+def test_tab_plant_mostra_dados_da_planta(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Aba Dados", capacity_liters=50.0, vessel_count=2, is_active=True)
+        db.session.add(plant)
+        db.session.commit()
+        plant_id = plant.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/plant")
+    assert resp.status_code == 200
+    html = resp.data.decode("utf-8")
+    assert "Planta Aba Dados" in html
+    assert "50.0 L" in html
+    assert "<html" not in html.lower()
+
+
+def test_tab_plant_lista_tanques_sem_nenhum_mostra_aviso(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Sem Tanque")
+        db.session.add(plant)
+        db.session.commit()
+        plant_id = plant.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/plant")
+    html = resp.data.decode("utf-8")
+    assert "Nenhum Tanque cadastrado" in html
+
+
+def test_tab_plant_lista_tanques_e_mapeamentos(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Com Tanques Mapeamentos")
+        db.session.add(plant)
+        db.session.commit()
+        vessel = BrewPlantVessel(plant_id=plant.id, vessel_type="mash_tun", label_text="Panela Principal")
+        db.session.add(vessel)
+        db.session.commit()
+        mapping = BrewPlantMapping(vessel_id=vessel.id, role_key="sensor_temp", device_function_name="temp_mash_sensor")
+        db.session.add(mapping)
+        db.session.commit()
+        plant_id = plant.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/plant")
+    html = resp.data.decode("utf-8")
+    assert "Panela Principal" in html
+    assert "Mash Tun" in html  # vessel_type formatado (mash_tun -> Mash Tun)
+    assert "sensor_temp" in html
+    assert "temp_mash_sensor" in html
+
+
+def test_tab_plant_nao_mistura_tanques_de_outra_planta(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant_a = BrewPlant(name="Planta A Tanques")
+        plant_b = BrewPlant(name="Planta B Tanques")
+        db.session.add_all([plant_a, plant_b])
+        db.session.commit()
+        vessel_a = BrewPlantVessel(plant_id=plant_a.id, vessel_type="fermenter", label_text="Fermentador A")
+        vessel_b = BrewPlantVessel(plant_id=plant_b.id, vessel_type="fermenter", label_text="Fermentador B")
+        db.session.add_all([vessel_a, vessel_b])
+        db.session.commit()
+        plant_a_id = plant_a.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_a_id}/tab/plant")
+    html = resp.data.decode("utf-8")
+    assert "Fermentador A" in html
+    assert "Fermentador B" not in html
+
+
+def test_tab_plant_planta_inexistente_devolve_fragmento_de_erro(app, client):
+    _login_admin(app, client)
+    resp = client.get("/brewstation/plant-workspace/999999/tab/plant")
+    assert resp.status_code == 200
+    html = resp.data.decode("utf-8")
+    assert "Planta não encontrada" in html
+    assert "<html" not in html.lower()
