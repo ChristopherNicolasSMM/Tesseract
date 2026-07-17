@@ -3173,3 +3173,46 @@ de validar o workspace na prática — como combinado desde o começo.
 
 7 testes novos. Sem migration. Suíte completa rodada em lotes — tudo
 passou, 100% verde.
+
+## Workspace consolidado por Planta — desativação do menu legado: CONCLUÍDO
+
+Fecha o plano do workspace por completo — comando CLI de uso único
+que desativa no menu as transações individuais já absorvidas pelas 5
+abas, deixando `/brewstation/plant-workspace/` como o caminho
+principal de navegação.
+
+**Achado real de arquitetura**: isso NÃO podia ser um patch de código
+comum. `sync_transaction()` (`core/transactions_sync.py`) tem uma
+regra explícita — "atualiza metadados descritivos, mas nunca a flag
+`is_active` (controlada manualmente via UI, não pelo sync de
+código)". É assim de propósito (skill 10): nenhum deploy de código
+pode reativar sozinho algo que o usuário desativou manualmente. Por
+isso a solução é um **comando `flask` de uso único**
+(`hide-legacy-mash-control-menu`), não uma migration nem uma mudança
+em `feature.py`.
+
+**`flask hide-legacy-mash-control-menu`** (com `--dry-run` opcional):
+desativa 14 transações — Sessões de Brassagem, Passos/Logs/Alarmes da
+Sessão, Plantas, Tanques, Mapeamentos de Planta, Receitas de
+Brassagem, Etapas da Receita, Importar Receita para Brassar, Regras
+de Automação, Histórico de Regras, Dashboard (avulso), Widgets de
+Dashboard (tabela crua). Idempotente — rodar de novo não faz nada nas
+já desativadas.
+
+**Decisão explícita do usuário registrada**: `TX_RECIPE_INGREDIENTS`
+(Ingredientes de Receita) fica de fora — a aba Receita Mash não
+mostra ingrediente de verdade, só a timeline de etapas, então
+permanece no menu. `TX_DASHBOARD_LAYOUTS` também fica ativa de
+propósito — ainda é o link usado quando uma Planta não tem nenhum
+Dashboard ("Cadastre um Layout" na aba). Fermentação, Perfis de Água,
+Histórico de Receitas e De-Para de Ingredientes nunca foram
+absorvidos por nenhuma aba — continuam no menu normalmente.
+
+**As telas e rotas em si nunca deixam de existir** — só saem da
+navegação do menu lateral/home. Reversível a qualquer momento por
+`/admin/menu-settings`, sem precisar de novo deploy.
+
+7 testes novos (`tests/test_hide_legacy_mash_control_menu.py`),
+incluindo idempotência, dry-run, e confirmação de que as rotas
+antigas continuam respondendo 200 depois de saírem do menu. Sem
+migration. Suíte completa rodada em lotes — tudo passou, 100% verde.

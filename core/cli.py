@@ -223,3 +223,68 @@ def register_cli_commands(app) -> None:
         click.echo(f"Hooks preservados: {len(result['skipped_hooks'])}")
         click.echo(f"Permissões novas: {result['permissions']['created']}")
         click.echo(f"FieldRules semeadas: {result['field_rules_created']}")
+
+    @app.cli.command("hide-legacy-mash-control-menu")
+    @click.option("--dry-run", is_flag=True, help="Só mostra o que seria feito, não grava nada.")
+    @with_appcontext
+    def hide_legacy_mash_control_menu(dry_run):
+        """
+        Comando de uso ÚNICO (conversa — workspace consolidado por
+        Planta): desativa no menu as transações individuais que já
+        foram totalmente absorvidas pelas 5 abas do
+        `/brewstation/plant-workspace/`. Não é (e nunca vai ser)
+        automático via `sync_transaction()` — `is_active` é campo
+        controlado manualmente por design (skill 10,
+        `core/transactions_sync.py`), pra nenhum deploy de código
+        reativar algo que o usuário desativou de propósito.
+
+        As telas em si e as rotas continuam existindo e funcionando
+        normalmente — só saem da navegação do menu lateral/home.
+        Reversível a qualquer momento por `/admin/menu-settings`.
+        """
+        from core.db import db
+        from model.core.transaction import Transaction
+
+        # Mapeamento explícito código -> aba que absorveu (documentação
+        # inline, pra quem ler o output do comando entender o motivo de
+        # cada um sem precisar ir atrás da conversa original).
+        codes_to_hide = {
+            "TX_BREW_SESSIONS": "aba Sessões",
+            "TX_BREW_SESSION_STEPS": "aba Sessões",
+            "TX_BREW_SESSION_LOGS": "aba Sessões",
+            "TX_BREW_SESSION_ALARMS": "aba Sessões",
+            "TX_BREW_PLANTS": "aba Planta",
+            "TX_BREW_PLANT_VESSELS": "aba Planta",
+            "TX_BREW_PLANT_MAPPINGS": "aba Planta",
+            "TX_MASH_RECIPES": "aba Receita Mash",
+            "TX_RECIPE_STEPS": "aba Receita Mash",
+            "TX_RECIPE_TIMELINE": "aba Receita Mash",
+            "TX_AUTOMATION_RULES": "aba Automação",
+            "TX_AUTOMATION_RULE_LOGS": "aba Automação",
+            "TX_DASHBOARD_VIEW": "aba Dashboard",
+            "TX_DASHBOARD_WIDGETS": "editor visual do Dashboard (Pontos 1-3, tabela crua redundante)",
+        }
+
+        hidden, already_hidden, not_found = [], [], []
+        for code, reason in codes_to_hide.items():
+            tx = Transaction.query.filter_by(code=code).first()
+            if tx is None:
+                not_found.append(code)
+                continue
+            if not tx.is_active:
+                already_hidden.append(code)
+                continue
+            hidden.append((code, tx.label, reason))
+            if not dry_run:
+                tx.is_active = False
+
+        if not dry_run and hidden:
+            db.session.commit()
+
+        click.echo(("[DRY RUN] " if dry_run else "") + f"Desativadas: {len(hidden)}")
+        for code, label, reason in hidden:
+            click.echo(f"  - {code} ({label}) -> coberto por {reason}")
+        if already_hidden:
+            click.echo(f"Já estavam inativas (nenhuma mudança): {', '.join(already_hidden)}")
+        if not_found:
+            click.echo(f"AVISO — código não encontrado no banco (rode a app pelo menos uma vez pra sincronizar): {', '.join(not_found)}")
