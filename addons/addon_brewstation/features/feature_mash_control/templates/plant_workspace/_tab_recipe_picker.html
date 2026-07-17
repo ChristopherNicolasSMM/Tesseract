@@ -1,0 +1,43 @@
+{# Fragmento AJAX da aba Receita Mash — picker (sem receita
+   selecionada ainda). Ao escolher uma, o fragmento inteiro é trocado
+   pelo editor de timeline completo (recipe_timeline/_fragment.html),
+   via window.__workspaceLoadUrl — mesmo mecanismo da troca de sessão
+   na aba Sessões. #}
+
+<div class="card bg-dark border-secondary">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-journal-text"></i> Receitas de Brassagem</span>
+    <a href="{{ url_for('mash_recipes.manage') }}" target="_blank" class="btn btn-sm btn-outline-success">
+      <i class="bi bi-plus-lg"></i> Nova Receita
+    </a>
+  </div>
+  {% if not recipes %}
+  <div class="card-body text-muted small">
+    Nenhuma receita cadastrada ainda — cadastre uma pra montar a timeline.
+  </div>
+  {% else %}
+  <div class="list-group list-group-flush">
+    {% for r in recipes %}
+    <a href="?recipe_id={{ r.id }}" class="list-group-item list-group-item-action bg-dark text-light" data-workspace-tab-link="recipe">
+      <div class="d-flex justify-content-between">
+        <span><strong>{{ r.name }}</strong> <span class="text-muted small">v{{ r.versao }}</span></span>
+        <span class="badge bg-secondary">{{ r.origem_receita }}</span>
+      </div>
+      {% if r.description %}<div class="small text-muted">{{ r.description[:120] }}</div>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  document.querySelectorAll('[data-workspace-tab-link="recipe"]').forEach(function (link) {
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      const url = "{{ url_for('plant_workspace.tab_recipe', plant_id=plant.id) }}" + link.getAttribute('href');
+      if (window.__workspaceLoadUrl) window.__workspaceLoadUrl(url);
+    });
+  });
+})();
+</script>

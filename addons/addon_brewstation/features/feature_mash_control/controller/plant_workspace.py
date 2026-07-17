@@ -33,9 +33,13 @@ from addons.addon_brewstation.features.feature_mash_control.model.brew_session_l
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session_alarm import BrewSessionAlarm
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_vessel import BrewPlantVessel
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_mapping import BrewPlantMapping
+from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
 from addons.addon_brewstation.features.feature_mash_control.model.dashboard_layout import DashboardLayout
 from addons.addon_brewstation.features.feature_mash_control.controller.dashboard_runtime import (
     _build_dashboard_view_context,
+)
+from addons.addon_brewstation.features.feature_mash_control.controller.recipe_timeline import (
+    _build_recipe_view_context,
 )
 
 plant_workspace_bp = Blueprint(
@@ -47,7 +51,7 @@ _TABS = [
     {"key": "dashboard", "label": "Dashboard", "icon": "bi-speedometer2", "enabled": True},
     {"key": "sessions", "label": "Sessões", "icon": "bi-collection-play", "enabled": True},
     {"key": "plant", "label": "Planta", "icon": "bi-diagram-3", "enabled": True},
-    {"key": "recipe", "label": "Receita Mash", "icon": "bi-journal-text", "enabled": False},
+    {"key": "recipe", "label": "Receita Mash", "icon": "bi-journal-text", "enabled": True},
     {"key": "automation", "label": "Automação", "icon": "bi-lightning-charge", "enabled": False},
 ]
 
@@ -190,3 +194,32 @@ def tab_plant(plant_id: int):
         "plant_workspace/_tab_plant.html",
         plant=plant, vessels=vessels, mappings=mappings, vessels_by_id=vessels_by_id,
     )
+
+
+@plant_workspace_bp.route("/<int:plant_id>/tab/recipe", methods=["GET"])
+@login_required
+@permission_required("recipe_steps.list")
+def tab_recipe(plant_id: int):
+    """Aba Receita Mash (conversa): sem `?recipe_id=`, mostra a lista
+    de receitas ativas pra escolher (mesmo papel do
+    `recipe_timeline.picker`). Com `?recipe_id=`, embute o editor de
+    timeline completo (`recipe_timeline/_fragment.html`) — o MESMO
+    editor que a tela cheia usa, reaproveitado via extração de
+    partial (padrão já usado na aba Dashboard). Fecha a promessa
+    registrada na aba Sessões: "Adicionar Etapa" agora tem, de
+    verdade, uma aba própria pra editar a timeline sem sair do
+    workspace."""
+    plant = BrewPlant.query.get(plant_id)
+    if not plant or plant.is_deleted:
+        return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada.")
+
+    recipe_id = request.args.get("recipe_id", type=int)
+    if recipe_id:
+        recipe = MashRecipe.query.get(recipe_id)
+        if not recipe or recipe.is_deleted:
+            return render_template("plant_workspace/_tab_error.html", message="Receita não encontrada.")
+        context = _build_recipe_view_context(recipe, is_fragment=True, default_plant_id=plant_id)
+        return render_template("recipe_timeline/_fragment.html", **context)
+
+    recipes = MashRecipe.query.filter_by(is_deleted=False, is_active=True).order_by(MashRecipe.name).all()
+    return render_template("plant_workspace/_tab_recipe_picker.html", plant=plant, recipes=recipes)

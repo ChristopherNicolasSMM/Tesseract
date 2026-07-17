@@ -23,6 +23,7 @@ from addons.addon_brewstation.features.feature_mash_control.model.brew_session_a
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_vessel import BrewPlantVessel
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_mapping import BrewPlantMapping
 from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
+from addons.addon_brewstation.features.feature_mash_control.model.recipe_step import RecipeStep
 
 
 @pytest.fixture
@@ -294,10 +295,11 @@ def test_tab_sessions_mostra_passos_logs_e_alarmes(app, client):
     assert "Lúpulo: Magnum - 22g" in html
 
 
-def test_tab_sessions_adicionar_etapa_linka_pra_recipe_timeline(app, client):
-    """Confirma o entendimento alinhado em conversa: 'Adicionar Etapa'
-    ainda não abre popup de edição nesta fase — leva pro editor de
-    timeline completo, até a aba Receita Mash existir."""
+def test_tab_sessions_adicionar_etapa_navega_pra_aba_receita_mash(app, client):
+    """[ATUALIZADO] A aba Receita Mash agora existe de verdade — o
+    botão 'Adicionar Etapa' não abre mais link externo, navega DENTRO
+    do workspace (via window.__workspaceLoadUrl) pra
+    plant_workspace.tab_recipe com a receita certa pré-selecionada."""
     _login_admin(app, client)
     with app.app_context():
         recipe = MashRecipe(name="Receita Pra Sessao Tab")
@@ -313,8 +315,9 @@ def test_tab_sessions_adicionar_etapa_linka_pra_recipe_timeline(app, client):
 
     resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/sessions")
     html = resp.data.decode("utf-8")
-    assert f"/brewstation/recipe-timeline/{recipe_id}" in html
+    assert f"/brewstation/plant-workspace/{plant_id}/tab/recipe?recipe_id={recipe_id}" in html
     assert "Adicionar Etapa" in html
+    assert "dbGoToRecipeTabBtn" in html
 
 
 def test_tab_sessions_planta_inexistente_devolve_fragmento_de_erro(app, client):
@@ -330,8 +333,10 @@ def test_tab_sessions_troca_de_sessao_reexecuta_scripts_via_helper_global(app, c
     """Achado real: a sub-navegação de troca de sessão dentro da aba
     também usa innerHTML — sem reexecutar o <script> novo via helper
     global, a segunda troca de sessão em diante perderia o listener de
-    clique. Confirma que a casca expõe window.__executeScripts e que o
-    fragmento da aba o reaproveita."""
+    clique. [ATUALIZADO] o mecanismo virou genérico
+    (window.__workspaceLoadUrl/window.__workspaceReloadCurrent),
+    reaproveitado por qualquer aba com sub-navegação própria (Sessões
+    e, agora, Receita Mash)."""
     _login_admin(app, client)
     with app.app_context():
         plant = BrewPlant(name="Planta Reexecuta Script")
@@ -340,10 +345,11 @@ def test_tab_sessions_troca_de_sessao_reexecuta_scripts_via_helper_global(app, c
         plant_id = plant.id
 
     shell_html = client.get(f"/brewstation/plant-workspace/{plant_id}").data.decode("utf-8")
-    assert "window.__executeScripts = executeScripts;" in shell_html
+    assert "window.__workspaceLoadUrl = loadUrl;" in shell_html
+    assert "window.__workspaceReloadCurrent = function" in shell_html
 
     tab_html = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/sessions").data.decode("utf-8")
-    assert "window.__executeScripts" in tab_html
+    assert "window.__workspaceLoadUrl" in tab_html
 
 
 # ── Aba Planta (fragmento AJAX) ──────────────────────────────────────────────
@@ -421,6 +427,145 @@ def test_tab_plant_nao_mistura_tanques_de_outra_planta(app, client):
 def test_tab_plant_planta_inexistente_devolve_fragmento_de_erro(app, client):
     _login_admin(app, client)
     resp = client.get("/brewstation/plant-workspace/999999/tab/plant")
+    assert resp.status_code == 200
+    html = resp.data.decode("utf-8")
+    assert "Planta não encontrada" in html
+    assert "<html" not in html.lower()
+
+
+# ── Aba Receita Mash (fragmento AJAX) ────────────────────────────────────────
+
+def test_tab_recipe_sem_recipe_id_mostra_picker(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Receita Picker")
+        db.session.add(plant)
+        db.session.commit()
+        recipe = MashRecipe(name="Receita Pra Picker")
+        db.session.add(recipe)
+        db.session.commit()
+        plant_id = plant.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/recipe")
+    assert resp.status_code == 200
+    html = resp.data.decode("utf-8")
+    assert "Receita Pra Picker" in html
+    assert "<html" not in html.lower()
+
+
+def test_tab_recipe_picker_sem_receita_nenhuma_mostra_aviso(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Sem Receita")
+        db.session.add(plant)
+        db.session.commit()
+        plant_id = plant.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/recipe")
+    html = resp.data.decode("utf-8")
+    assert "Nenhuma receita cadastrada" in html
+
+
+def test_tab_recipe_com_recipe_id_embute_editor_de_timeline(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Receita Editor")
+        db.session.add(plant)
+        db.session.commit()
+        recipe = MashRecipe(name="Receita Editor Timeline")
+        db.session.add(recipe)
+        db.session.commit()
+        step = RecipeStep(recipe_id=recipe.id, step_type="mash", ordem=0, nome="Mostura Editor")
+        db.session.add(step)
+        db.session.commit()
+        plant_id, recipe_id = plant.id, recipe.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/recipe?recipe_id={recipe_id}")
+    assert resp.status_code == 200
+    html = resp.data.decode("utf-8")
+    assert "<html" not in html.lower()
+    assert 'id="timelineTable"' in html
+    assert "Mostura Editor" in html
+
+
+def test_tab_recipe_pre_seleciona_planta_do_workspace_no_gerar_sessao(app, client):
+    """Achado real: dentro do workspace já sabemos qual Planta é —
+    pré-seleciona ela no select de 'Gerar Sessão', em vez de deixar o
+    usuário escolher de novo."""
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Pre Selecionada")
+        db.session.add(plant)
+        db.session.commit()
+        recipe = MashRecipe(name="Receita Pre Selecao")
+        db.session.add(recipe)
+        db.session.commit()
+        plant_id, recipe_id = plant.id, recipe.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/recipe?recipe_id={recipe_id}")
+    html = resp.data.decode("utf-8")
+    assert f'<option value="{plant_id}" selected>' in html
+
+
+def test_tab_recipe_reload_view_usa_helper_do_workspace_nao_reload_de_pagina(app, client):
+    """Achado real: os 3 pontos que faziam window.location.reload()
+    direto (adicionar etapa, resync lúpulo, remover etapa) sairiam do
+    contexto da aba. Substituídos por reloadView(), que reaproveita
+    window.__workspaceReloadCurrent quando existe."""
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Reload View")
+        db.session.add(plant)
+        db.session.commit()
+        recipe = MashRecipe(name="Receita Reload View")
+        db.session.add(recipe)
+        db.session.commit()
+        plant_id, recipe_id = plant.id, recipe.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/recipe?recipe_id={recipe_id}")
+    html = resp.data.decode("utf-8")
+    assert "function reloadView()" in html
+    assert html.count("window.location.reload();") == 1
+    assert "reloadView();" in html
+
+
+def test_tab_recipe_view_cheia_continua_funcionando_sem_is_fragment(app, client):
+    """A extração dos partials não pode mudar a tela cheia de
+    recipe_timeline — reload direto continua valendo lá (não tem
+    window.__workspaceReloadCurrent fora do workspace)."""
+    _login_admin(app, client)
+    with app.app_context():
+        recipe = MashRecipe(name="Receita Tela Cheia")
+        db.session.add(recipe)
+        db.session.commit()
+        recipe_id = recipe.id
+
+    resp = client.get(f"/brewstation/recipe-timeline/{recipe_id}")
+    assert resp.status_code == 200
+    html = resp.data.decode("utf-8")
+    assert "Trocar receita" in html
+    assert "Ver Dashboard" in html
+    assert 'id="timelineTable"' in html
+
+
+def test_tab_recipe_receita_inexistente_devolve_fragmento_de_erro(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Receita Inexistente")
+        db.session.add(plant)
+        db.session.commit()
+        plant_id = plant.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/recipe?recipe_id=999999")
+    assert resp.status_code == 200
+    html = resp.data.decode("utf-8")
+    assert "Receita não encontrada" in html
+    assert "<html" not in html.lower()
+
+
+def test_tab_recipe_planta_inexistente_devolve_fragmento_de_erro(app, client):
+    _login_admin(app, client)
+    resp = client.get("/brewstation/plant-workspace/999999/tab/recipe")
     assert resp.status_code == 200
     html = resp.data.decode("utf-8")
     assert "Planta não encontrada" in html

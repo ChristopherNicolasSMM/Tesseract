@@ -36,6 +36,7 @@
     dashboard: "{{ url_for('plant_workspace.tab_dashboard', plant_id=plant.id) }}",
     sessions: "{{ url_for('plant_workspace.tab_sessions', plant_id=plant.id) }}",
     plant: "{{ url_for('plant_workspace.tab_plant', plant_id=plant.id) }}",
+    recipe: "{{ url_for('plant_workspace.tab_recipe', plant_id=plant.id) }}",
   };
 
   // Convenção (conversa — workspace consolidado): cada fragmento de aba
@@ -67,10 +68,9 @@
   }
   window.__executeScripts = executeScripts;
 
-  function loadTab(key) {
-    const url = tabUrls[key];
-    if (!url) return; // aba ainda não tem rota de fragmento (fase seguinte)
+  function loadUrl(url) {
     teardownCurrentTab();
+    currentTabUrl = url;
     tabContent.innerHTML = '<div class="text-center text-muted p-5"><div class="spinner-border spinner-border-sm"></div> Carregando...</div>';
     fetch(url)
       .then(function (r) { return r.text(); })
@@ -81,6 +81,28 @@
       .catch(function () {
         tabContent.innerHTML = '<div class="alert alert-danger">Erro ao carregar esta aba.</div>';
       });
+  }
+
+  // Rastreia a URL do fragmento atualmente carregado (pode ter sido
+  // trocada por sub-navegação DENTRO da aba, não só pela troca de aba
+  // top-level — ex.: escolher uma sessão diferente, escolher uma
+  // receita diferente). Exposto pra qualquer fragmento reaproveitar:
+  // - window.__workspaceLoadUrl(url): navega a aba atual pra outra URL
+  //   (ex.: escolher outra sessão/receita), sem sair do workspace.
+  // - window.__workspaceReloadCurrent(): recarrega a MESMA URL já
+  //   carregada (ex.: depois de adicionar/remover algo), sem precisar
+  //   saber qual URL é — útil pra scripts compartilhados entre a tela
+  //   cheia (onde fariam window.location.reload()) e o fragmento.
+  let currentTabUrl = null;
+  window.__workspaceLoadUrl = loadUrl;
+  window.__workspaceReloadCurrent = function () {
+    if (currentTabUrl) loadUrl(currentTabUrl);
+  };
+
+  function loadTab(key) {
+    const url = tabUrls[key];
+    if (!url) return; // aba ainda não tem rota de fragmento (fase seguinte)
+    loadUrl(url);
   }
 
   document.querySelectorAll('#pwTabBar .nav-link').forEach(function (btn) {

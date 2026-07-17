@@ -3100,3 +3100,48 @@ pra uma passada de polimento depois que as 5 abas existirem.
 
 5 testes novos. Sem migration. Suíte completa rodada em lotes — tudo
 passou, 100% verde.
+
+## Workspace consolidado por Planta — aba Receita Mash: CONCLUÍDO
+
+Quarta aba do workspace. Diferente da aba Sessões, desta vez a
+**extração de partial compensou** — o editor de timeline completo
+(`recipe_timeline/view.html`, 216 linhas) já era exatamente o que o
+workspace queria embutir, sem versão enxuta separada. Mesmo padrão
+exato da aba Dashboard: dividido em `_content.html`/`_scripts.html`,
+reincluídos pela tela cheia (comportamento inalterado — testado) e
+por um `_fragment.html` novo (bruto), com `_build_recipe_view_context()`
+extraído do controller pra ser reutilizado pelos dois lados.
+
+**Fecha a promessa registrada na aba Sessões**: "Adicionar Etapa"
+não abre mais link externo — navega DENTRO do workspace pra esta
+aba, com a receita certa já carregada, sem sair do contexto.
+
+**Sem `?recipe_id=`**: mostra o picker de receitas ativas (mesmo
+papel do `recipe_timeline.picker`). **Com `?recipe_id=`**: embute o
+editor de timeline completo — adicionar/remover/reordenar etapa,
+resync de alertas de lúpulo, tudo funcionando como na tela cheia.
+
+**Achado real que generalizou um padrão**: o editor de timeline tinha
+3 pontos fazendo `window.location.reload()` direto (adicionar etapa,
+resync lúpulo, remover etapa) — dentro do fragmento isso sairia do
+workspace inteiro. Em vez de resolver só pra esta aba, generalizei o
+mecanismo que a aba Sessões já tinha implementado ad-hoc: a casca
+agora expõe `window.__workspaceLoadUrl(url)` (navega o conteúdo da
+aba atual pra outra URL, sem sair do workspace) e
+`window.__workspaceReloadCurrent()` (recarrega a mesma URL já
+carregada, sem precisar saber qual é). O script do editor de timeline
+(compartilhado entre tela cheia e fragmento) ganhou um `reloadView()`
+que usa o helper quando existe, e cai pro `window.location.reload()`
+de sempre quando não existe (tela cheia). A aba Sessões também foi
+simplificada pra reaproveitar o mesmo helper genérico, em vez do
+fetch bespoke que tinha antes.
+
+**Formulário "Gerar Sessão"**: pré-seleciona a Planta do workspace
+(já sabemos qual é, não faz sentido perguntar de novo) e abre em
+nova aba (`target="_blank"` quando `is_fragment`) — criar uma sessão
+de verdade é uma ação grande o bastante pra justificar sair do fluxo
+corrente, em vez de tentar encaixar em AJAX.
+
+8 testes novos (mais 2 testes já existentes atualizados pro novo
+mecanismo genérico de reload). Sem migration. Suíte completa rodada
+em lotes — tudo passou, 100% verde.

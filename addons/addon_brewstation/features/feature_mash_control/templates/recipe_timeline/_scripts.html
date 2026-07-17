@@ -1,0 +1,85 @@
+<script>
+(function () {
+  'use strict';
+  const recipeId = {{ recipe.id }};
+  const addStepUrl = "{{ url_for('recipe_timeline.add_step', recipe_id=recipe.id) }}";
+  const reorderUrl = "{{ url_for('recipe_timeline.reorder_steps', recipe_id=recipe.id) }}";
+  const resyncUrl = "{{ url_for('recipe_timeline.resync_hop_alerts', recipe_id=recipe.id) }}";
+  const deleteUrlTemplate = "{{ url_for('recipe_timeline.delete_step', step_id=0) }}";
+
+  // Achado da conversa (workspace consolidado): dentro do fragmento da
+  // aba Receita Mash, um reload de página inteira sairia do contexto
+  // da aba. Reaproveita o mecanismo genérico da casca
+  // (window.__workspaceReloadCurrent) quando existir; sozinho (tela
+  // cheia de sempre) continua recarregando a página normalmente.
+  function reloadView() {
+    if (window.__workspaceReloadCurrent) { window.__workspaceReloadCurrent(); } else { window.location.reload(); }
+  }
+
+  const stepTypeFieldsMap = {
+    mash: ['temperatura', 'tempo_min', 'ramp_time_min'],
+    boil: ['temperatura', 'tempo_min'],
+    alert: ['trigger_minutes_remaining'],
+  };
+
+  function syncStepTypeFields() {
+    const type = document.getElementById('newStepType').value;
+    const visible = stepTypeFieldsMap[type] || [];
+    document.querySelectorAll('.js-step-field').forEach(function (field) {
+      field.classList.toggle('d-none', visible.indexOf(field.dataset.field) === -1);
+    });
+  }
+  document.getElementById('newStepType').addEventListener('change', syncStepTypeFields);
+  syncStepTypeFields();
+
+  document.getElementById('addStepForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const form = e.target;
+    const payload = {
+      step_type: form.step_type.value,
+      nome: form.nome.value,
+      temperatura: form.temperatura.value ? parseFloat(form.temperatura.value) : null,
+      tempo_min: form.tempo_min.value ? parseInt(form.tempo_min.value, 10) : null,
+      ramp_time_min: form.ramp_time_min.value ? parseInt(form.ramp_time_min.value, 10) : null,
+      trigger_minutes_remaining: form.trigger_minutes_remaining.value ? parseInt(form.trigger_minutes_remaining.value, 10) : null,
+    };
+    fetch(addStepUrl, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (data.ok) { reloadView(); } else { alert(data.error || 'Erro ao adicionar etapa.'); }
+    });
+  });
+
+  document.getElementById('resyncHopBtn').addEventListener('click', function () {
+    fetch(resyncUrl, { method: 'POST' }).then(function (r) { return r.json(); }).then(function () {
+      reloadView();
+    });
+  });
+
+  document.querySelectorAll('.js-delete-step-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (!confirm('Remover esta etapa da timeline?')) return;
+      const url = deleteUrlTemplate.replace('/0/', '/' + btn.dataset.stepId + '/');
+      fetch(url, { method: 'POST' }).then(function () { reloadView(); });
+    });
+  });
+
+  // Arrastar e soltar pra reordenar
+  const tbody = document.getElementById('timelineTbody');
+  let dragSrcRow = null;
+  tbody.querySelectorAll('.js-step-row').forEach(function (row) {
+    row.addEventListener('dragstart', function () { dragSrcRow = row; });
+    row.addEventListener('dragover', function (e) { e.preventDefault(); });
+    row.addEventListener('drop', function (e) {
+      e.preventDefault();
+      if (!dragSrcRow || dragSrcRow === row) return;
+      const rows = Array.from(tbody.querySelectorAll('.js-step-row'));
+      if (rows.indexOf(dragSrcRow) < rows.indexOf(row)) { row.after(dragSrcRow); } else { row.before(dragSrcRow); }
+      const orderedIds = Array.from(tbody.querySelectorAll('.js-step-row')).map(function (r) { return parseInt(r.dataset.stepId, 10); });
+      fetch(reorderUrl, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ordered_ids: orderedIds }),
+      });
+    });
+  });
+})();
+</script>

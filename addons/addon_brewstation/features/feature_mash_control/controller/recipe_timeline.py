@@ -31,6 +31,24 @@ def picker():
     return render_template("recipe_timeline/picker.html", recipes=recipes)
 
 
+def _build_recipe_view_context(recipe: MashRecipe, *, is_fragment: bool = False, default_plant_id: int | None = None) -> dict:
+    """Contexto de `recipe_timeline/view.html`/`_fragment.html` —
+    extraído pra função própria porque agora tem dois consumidores: a
+    rota `view()` (tela cheia) e a aba Receita Mash do workspace
+    consolidado por Planta (`plant_workspace.py`, fragmento AJAX)."""
+    sync_result = svc.sync_hop_alerts(recipe)
+    if sync_result["created"]:
+        flash(f"Alertas de lupulagem criados automaticamente: {', '.join(sync_result['created'])}", "success")
+
+    timeline = svc.get_timeline(recipe.id)
+    plants = BrewPlant.query.filter_by(is_deleted=False).order_by(BrewPlant.name).all()
+
+    return dict(
+        recipe=recipe, timeline=timeline, plants=plants,
+        is_fragment=is_fragment, default_plant_id=default_plant_id,
+    )
+
+
 @recipe_timeline_bp.route("/<int:recipe_id>", methods=["GET"])
 @login_required
 @permission_required("recipe_steps.list")
@@ -39,18 +57,7 @@ def view(recipe_id: int):
     if not recipe or recipe.is_deleted:
         flash("Receita não encontrada.", "error")
         return redirect(url_for("recipe_timeline.picker"))
-
-    sync_result = svc.sync_hop_alerts(recipe)
-    if sync_result["created"]:
-        flash(f"Alertas de lupulagem criados automaticamente: {', '.join(sync_result['created'])}", "success")
-
-    timeline = svc.get_timeline(recipe_id)
-    plants = BrewPlant.query.filter_by(is_deleted=False).order_by(BrewPlant.name).all()
-
-    return render_template(
-        "recipe_timeline/view.html",
-        recipe=recipe, timeline=timeline, plants=plants,
-    )
+    return render_template("recipe_timeline/view.html", **_build_recipe_view_context(recipe))
 
 
 @recipe_timeline_bp.route("/<int:recipe_id>/steps", methods=["POST"])

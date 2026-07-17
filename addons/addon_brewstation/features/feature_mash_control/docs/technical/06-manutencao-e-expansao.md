@@ -82,29 +82,48 @@ mesmos dois partials sem `{% extends %}`, pra ser devolvido bruto por
    function () {...}` antes de terminar seu próprio `<script>`; a
    casca chama isso (se existir) antes de carregar a próxima aba.
 
-**Como adicionar uma aba nova** (Planta/Receita Mash/Automação
-faltam; Dashboard e Sessões já implementadas):
+**Como adicionar uma aba nova** (só Automação falta; Dashboard,
+Sessões, Planta e Receita Mash já implementadas):
 1. Nova rota `GET /plant-workspace/<plant_id>/tab/<chave>` no
    `plant_workspace.py`, devolvendo um template SEM `{% extends %}`
    (bruto).
 2. Marca `"enabled": True` na entrada correspondente de `_TABS`
    (`plant_workspace.py`) e adiciona a URL no dicionário `tabUrls` do
    JS de `shell.html`.
-3. Se a tela de origem já existe como página cheia (ex.: telas de
-   Sessão hoje), o caminho de menor esforço é o mesmo desta fase —
-   extrair o conteúdo dela pra um partial reaproveitado pelos dois
-   lados (tela cheia + fragmento), não duplicar a lógica. **Achado
-   real na aba Sessões**: nem sempre vale a pena — a visão de "Passos
-   da Sessão" dentro do workspace é deliberadamente mais enxuta que o
-   CRUD completo (`brew_session_steps`), então virou um template novo
-   do zero em vez de extração; extração só compensa quando o
-   workspace quer o MESMO conteúdo da tela cheia.
+3. Se a tela de origem já existe como página cheia, decida entre
+   **extrair** (partial reaproveitado pelos dois lados) ou
+   **reescrever enxuto** — depende do quanto o workspace quer do
+   MESMO conteúdo da tela cheia. **Achado na aba Sessões**: "Passos da
+   Sessão" virou template novo (visão deliberadamente mais enxuta que
+   o CRUD completo). **Achado na aba Receita Mash**: o editor de
+   timeline (`recipe_timeline/view.html`) já era exatamente o que o
+   workspace queria — extração compensou, mesmo padrão exato do
+   Dashboard (`_content.html`/`_scripts.html`/`_fragment.html` +
+   `_build_*_view_context(is_fragment=True)` reutilizável).
 4. Se a tela nova tiver `setInterval`/listener global, seguir a
    convenção do item 2 das armadilhas acima (`window.__tabCleanup`).
-5. **Terceira armadilha, achada na aba Sessões**: se a aba tem
-   sub-navegação PRÓPRIA (ex.: trocar de sessão sem sair da aba,
-   sem passar pela casca), o mesmo problema do `<script>` que não
-   executa sozinho via `innerHTML` se repete — a casca expõe
-   `window.__executeScripts` justamente pra isso, chame-o depois de
-   qualquer `innerHTML =` feito de dentro do próprio fragmento da
-   aba, não só a casca faz isso pela troca de aba top-level.
+5. **Terceira armadilha, achada na aba Sessões, generalizada na aba
+   Receita Mash**: se a aba tem sub-navegação PRÓPRIA (trocar de
+   sessão/receita sem sair da aba, sem passar pela troca de aba
+   top-level da casca), o problema do `<script>` que não executa
+   sozinho via `innerHTML` se repete. A casca expõe dois helpers
+   genéricos, pensados pra qualquer aba futura:
+   - `window.__workspaceLoadUrl(url)` — navega o conteúdo da aba atual
+     pra outra URL (ex.: escolher outra sessão/receita), sem sair do
+     workspace nem duplicar a lógica de fetch+executeScripts.
+   - `window.__workspaceReloadCurrent()` — recarrega a MESMA URL já
+     carregada, sem precisar saber qual é. Serve pra JS
+     **compartilhado** entre a tela cheia e o fragmento (ex.: um
+     formulário que hoje faz `window.location.reload()` direto) — o
+     padrão é embrulhar num `reloadView()` que chama
+     `window.__workspaceReloadCurrent()` se existir, senão cai pro
+     `window.location.reload()` de sempre. Ver
+     `recipe_timeline/_scripts.html` pro exemplo real (3 pontos
+     trocados: adicionar etapa, resync lúpulo, remover etapa).
+6. **Ação que cria/edita um registro "grande" (não é só refresh de
+   dado)**: considerar `target="_blank"` no formulário/link em vez de
+   navegar a página inteira ou tentar embrulhar em AJAX — visto na aba
+   Receita Mash pro formulário "Gerar Sessão" (`is_fragment` controla
+   isso no template). Preserva o contexto do workspace sem esforço de
+   engenharia extra pra uma ação que já é, por natureza, uma saída
+   do fluxo corrente.
