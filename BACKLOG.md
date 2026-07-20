@@ -3294,3 +3294,38 @@ represada (sensores parciais).
 
 10 testes novos. Sem migration. Suíte relacionada rodada — tudo
 passou.
+
+## Dashboard: alarmes com borda por severidade (terceira e última peça combinada da referência visual): CONCLUÍDO
+
+Fecha as 3 peças que a conversa sobre a imagem de referência
+combinou tackle: cards de vasilhame → barra de topo → alarmes. Mesma
+decisão de arquitetura das duas rodadas anteriores: CSS escopado só
+ao Dashboard.
+
+**Mudança**: lista de alarmes deixou de ser `<li>` com badge solto na
+frente do texto — virou cartão com **borda colorida à esquerda por
+severidade** (crítico/alto = vermelho, médio = âmbar, baixo = azul,
+agendado/não disparado ainda = cinza), ícone por tipo, horário
+formatado (`created_at` já vinha no payload, só não era usado) e
+mensagem em destaque abaixo — mais fácil de escanear numa lista longa
+que fica sempre visível no Dashboard.
+
+**Achado de segurança no meio do caminho**: a mensagem do alarme (e o
+nome da etapa agendada) iam direto pra `innerHTML` sem escapar —
+dado que pode vir de fora (nome de etapa cadastrado pelo usuário,
+mensagem de alarme). Trocado por `textContent` nesses dois pontos
+específicos (o resto do HTML construído — badge, ícone — continua
+sendo string minha, controlada, sem risco). Não era uma vulnerabilidade
+nova desta rodada, já existia antes; corrigida porque eu estava
+mexendo nessa área mesmo.
+
+3 testes novos. Sem migration. Suíte relacionada rodada — tudo
+passou.
+
+### Fecha o ciclo de redesenho visual desta conversa
+
+As 3 peças combinadas (cards de vasilhame, barra de topo, alarmes)
+estão prontas. Continua represado, se quiser retomar depois: linha de
+estatísticas (Volume/Densidade/pH/Potência/Consumo — precisa mapear
+sensores primeiro) e qualquer ajuste fino depois de ver tudo
+funcionando junto na prática.

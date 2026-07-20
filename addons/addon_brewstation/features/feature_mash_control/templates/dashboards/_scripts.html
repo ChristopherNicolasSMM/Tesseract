@@ -183,32 +183,55 @@
       const fired = (data && data.fired) || [];
       const upcoming = (data && data.upcoming) || [];
 
+      function fmtTime(iso) {
+        if (!iso) return '';
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '';
+        return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      }
+
       fired.forEach(function (a) {
-        const li = document.createElement('li');
-        li.className = 'mb-1';
-        li.innerHTML = '<span class="badge bg-' + (a.severity === 'critical' || a.severity === 'high' ? 'danger' : 'warning') + '">' + a.severity + '</span> ' + a.message;
-        list.appendChild(li);
+        const sev = a.severity || 'medium';
+        const item = document.createElement('div');
+        item.className = 'db-alarm-item db-alarm-sev-' + sev;
+        const icon = (sev === 'critical' || sev === 'high') ? 'bi-exclamation-triangle-fill' : 'bi-info-circle-fill';
+        const top = document.createElement('div');
+        top.className = 'db-alarm-item-top';
+        top.innerHTML = '<span class="db-alarm-sev-badge"><i class="bi ' + icon + '"></i> ' + sev + '</span>' +
+          (a.created_at ? '<span class="db-alarm-time">' + fmtTime(a.created_at) + '</span>' : '');
+        const msg = document.createElement('div');
+        msg.className = 'db-alarm-message';
+        msg.textContent = a.message || '';
+        item.appendChild(top);
+        item.appendChild(msg);
+        list.appendChild(item);
       });
 
       upcoming.forEach(function (u) {
-        const li = document.createElement('li');
-        li.className = 'mb-1 text-muted';
+        const item = document.createElement('div');
+        item.className = 'db-alarm-item db-alarm-sev-upcoming';
         let timeLabel;
         if (u.seconds_until === null || u.seconds_until === undefined) {
           timeLabel = 'agendado';
         } else if (u.seconds_until <= 0) {
           timeLabel = 'agora';
         } else {
-          const mins = Math.ceil(u.seconds_until / 60);
-          timeLabel = 'em ' + mins + ' min';
+          timeLabel = 'em ' + Math.ceil(u.seconds_until / 60) + ' min';
         }
-        li.innerHTML = '<span class="badge bg-secondary">' + timeLabel + '</span> ' + u.name;
-        list.appendChild(li);
+        const top = document.createElement('div');
+        top.className = 'db-alarm-item-top';
+        top.innerHTML = '<span class="db-alarm-sev-badge"><i class="bi bi-clock-history"></i> ' + timeLabel + '</span>';
+        const msg = document.createElement('div');
+        msg.className = 'db-alarm-message';
+        msg.textContent = u.name || '';
+        item.appendChild(top);
+        item.appendChild(msg);
+        list.appendChild(item);
       });
 
       if (!list.children.length) {
         const statusHint = (data && data.session_status) ? '' : ' (nenhuma Sessão associada a esta Planta ainda)';
-        list.innerHTML = '<li class="text-muted">Sem alarmes ativos ou agendados' + statusHint + '.</li>';
+        list.innerHTML = '<div class="text-muted small p-2">Sem alarmes ativos ou agendados' + statusHint + '.</div>';
       }
     } else if (type === 'step_card') {
       const current = data && data.current;
@@ -1230,4 +1253,40 @@
 .db-header-status-badge { text-transform: capitalize; font-weight: 600; }
 .db-header-status-active { background-color: #27ae60 !important; }
 .db-header-status-paused { background-color: #e6a417 !important; color: #1a1d22 !important; }
+
+/* Card de Alarmes (conversa — terceira peça da referência visual):
+   borda colorida por severidade em vez de badge solto na frente do
+   texto — mais fácil de escanear numa lista longa. */
+.db-alarm-card {
+  background: linear-gradient(165deg, #1d2129 0%, #14171d 100%);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.35);
+}
+.db-alarm-header {
+  font-size: .78rem; font-weight: 700; color: #d7dbe4; margin-bottom: 6px;
+}
+.db-alarm-item {
+  border-left: 3px solid #6b7280;
+  background: rgba(255,255,255,.03);
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+}
+.db-alarm-item:last-child { margin-bottom: 0; }
+.db-alarm-sev-critical, .db-alarm-sev-high { border-left-color: #e74c3c; }
+.db-alarm-sev-medium { border-left-color: #f0932b; }
+.db-alarm-sev-low { border-left-color: #3498db; }
+.db-alarm-sev-upcoming { border-left-color: #6b7280; }
+.db-alarm-item-top {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: .68rem; text-transform: uppercase; letter-spacing: .04em;
+  font-weight: 700; color: #9aa1b0; margin-bottom: 2px;
+}
+.db-alarm-sev-critical .db-alarm-sev-badge, .db-alarm-sev-high .db-alarm-sev-badge { color: #f18b7f; }
+.db-alarm-sev-medium .db-alarm-sev-badge { color: #f5b26b; }
+.db-alarm-sev-low .db-alarm-sev-badge { color: #7fb8e6; }
+.db-alarm-time { font-weight: 500; text-transform: none; letter-spacing: 0; }
+.db-alarm-message { font-size: .8rem; color: #e8eaef; }
 </style>

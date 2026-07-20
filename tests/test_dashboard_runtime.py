@@ -1767,3 +1767,53 @@ def test_pause_stop_sessao_inexistente_404(app, client):
     assert resp1.status_code == 404
     resp2 = client.post("/brewstation/dashboards/sessions/999999/stop")
     assert resp2.status_code == 404
+
+
+# ── Alarmes com borda por severidade (terceira peça da referência visual) ──
+
+def test_view_renderiza_card_de_alarmes_redesenhado(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Alarmes Redesenhado")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="alarm_list")
+        db.session.add(widget)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert 'class="db-alarm-card' in html
+    assert "db-alarm-header" in html
+    assert 'class="db-alarm-list' in html
+
+
+def test_view_js_alarmes_usa_textcontent_pra_mensagem(app, client):
+    """Achado da conversa: mensagem/nome do alarme são dado externo —
+    trocado de innerHTML (risco de XSS) pra textContent."""
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Alarmes TextContent")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "msg.textContent = a.message" in html
+    assert "msg.textContent = u.name" in html
+
+
+def test_view_js_alarmes_tem_classes_de_severidade(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Alarmes Severidade CSS")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    for cls in ["db-alarm-sev-critical", "db-alarm-sev-high", "db-alarm-sev-medium", "db-alarm-sev-low", "db-alarm-sev-upcoming"]:
+        assert cls in html
