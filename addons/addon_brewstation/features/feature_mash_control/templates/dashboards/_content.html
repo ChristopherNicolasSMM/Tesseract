@@ -103,10 +103,11 @@
 
       {% if w.widget_type == 'vessel' %}
         {% set shape = (w.config_json or {}).get('svg_shape', 'mash_tun') %}
-        <div class="h-100 d-flex flex-column">
-          <div class="small text-uppercase text-muted text-center">{{ w.label_text or (vessels_by_id[w.vessel_id].label_text if w.vessel_id in vessels_by_id else '') }}</div>
-          <div class="flex-grow-1 position-relative">
-            <svg viewBox="0 0 100 120" preserveAspectRatio="none" class="w-100 h-100 db-vessel-svg">
+        {% set setpoint = (w.config_json or {}).get('setpoint') %}
+        <div class="db-vessel-card h-100 d-flex flex-column">
+          <div class="db-vessel-label">{{ w.label_text or (vessels_by_id[w.vessel_id].label_text if w.vessel_id in vessels_by_id else '') }}</div>
+          <div class="db-vessel-graphic-wrap flex-grow-1 position-relative">
+            <svg viewBox="0 0 100 120" preserveAspectRatio="xMidYMid meet" class="w-100 h-100 db-vessel-svg">
               <defs>
                 <clipPath id="db-clip-{{ w.id }}">
                   {% if shape == 'fermenter' %}
@@ -115,19 +116,45 @@
                   <path d="M8,12 L92,12 L92,100 Q92,116 76,116 L24,116 Q8,116 8,100 Z"/>
                   {% endif %}
                 </clipPath>
+                <linearGradient id="db-shell-{{ w.id }}" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#343a44"/>
+                  <stop offset="14%" stop-color="#454c57"/>
+                  <stop offset="32%" stop-color="#262a31"/>
+                  <stop offset="100%" stop-color="#1a1d22"/>
+                </linearGradient>
+                <linearGradient id="db-fill-cold-{{ w.id }}" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#6ab6ea"/>
+                  <stop offset="100%" stop-color="#2e86c1"/>
+                </linearGradient>
+                <linearGradient id="db-fill-warm-{{ w.id }}" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#f5a742"/>
+                  <stop offset="100%" stop-color="#d35400"/>
+                </linearGradient>
+                <linearGradient id="db-fill-hot-{{ w.id }}" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#eb5a48"/>
+                  <stop offset="100%" stop-color="#a93226"/>
+                </linearGradient>
               </defs>
               {% if shape == 'fermenter' %}
-              <path d="M15,8 L85,8 L85,75 L50,116 L15,75 Z" fill="#22262c" stroke="#666" stroke-width="2"/>
+              <path d="M15,8 L85,8 L85,75 L50,116 L15,75 Z" fill="url(#db-shell-{{ w.id }})" stroke="#5a616c" stroke-width="1.5"/>
               {% else %}
-              <path d="M8,12 L92,12 L92,100 Q92,116 76,116 L24,116 Q8,116 8,100 Z" fill="#22262c" stroke="#666" stroke-width="2"/>
-              <ellipse cx="50" cy="12" rx="42" ry="5" fill="none" stroke="#666" stroke-width="2"/>
-              <rect x="0" y="32" width="7" height="18" rx="3" fill="#444"/>
-              <rect x="93" y="32" width="7" height="18" rx="3" fill="#444"/>
+              <path d="M8,12 L92,12 L92,100 Q92,116 76,116 L24,116 Q8,116 8,100 Z" fill="url(#db-shell-{{ w.id }})" stroke="#5a616c" stroke-width="1.5"/>
+              <ellipse cx="50" cy="12" rx="42" ry="5" fill="none" stroke="#5a616c" stroke-width="1.5"/>
+              <rect x="0" y="32" width="7" height="18" rx="3" fill="#454c57"/>
+              <rect x="93" y="32" width="7" height="18" rx="3" fill="#454c57"/>
               {% endif %}
-              <rect class="db-vessel-fill-rect" x="0" y="55" width="100" height="65" fill="#c0392b" clip-path="url(#db-clip-{{ w.id }})" style="transition: y .6s, fill .6s;"/>
+              <rect class="db-vessel-fill-rect" x="0" y="55" width="100" height="65"
+                    fill="url(#db-fill-cold-{{ w.id }})" data-widget-id="{{ w.id }}"
+                    clip-path="url(#db-clip-{{ w.id }})" style="transition: y .6s;"/>
+              <rect x="15" y="15" width="5" height="{{ '92' if shape != 'fermenter' else '58' }}" rx="2.5"
+                    fill="rgba(255,255,255,.07)" clip-path="url(#db-clip-{{ w.id }})"/>
             </svg>
-            <div class="position-absolute top-50 start-50 translate-middle text-center">
-              <span class="db-vessel-temp fw-bold fs-5 text-white" style="text-shadow:0 1px 3px #000;">—</span>
+          </div>
+          <div class="db-vessel-readout text-center">
+            <div class="db-vessel-temp">—</div>
+            <div class="db-vessel-setpoint">
+              <span class="db-vessel-setpoint-label">Setpoint</span>
+              <span class="db-vessel-setpoint-value">{{ (setpoint ~ '°C') if setpoint is not none else '—' }}</span>
             </div>
           </div>
           <div class="db-vessel-roles d-flex flex-wrap gap-1 justify-content-center mt-1"></div>
@@ -281,6 +308,10 @@
       <div class="mb-2 db-panel-field" data-field="fill_role_key">
         <label class="form-label small">Papel do nível de líquido <span class="text-muted">(opcional)</span></label>
         <input type="text" id="dbPanelFillRoleKey" class="form-control form-control-sm" placeholder="ex.: sensor_volume">
+      </div>
+      <div class="mb-2 db-panel-field" data-field="setpoint">
+        <label class="form-label small">Setpoint (°C) <span class="text-muted">(opcional, referência visual)</span></label>
+        <input type="number" step="0.1" id="dbPanelSetpoint" class="form-control form-control-sm" placeholder="ex.: 65">
       </div>
       <div class="mb-2 db-panel-field" data-field="min_max">
         <div class="row g-2">

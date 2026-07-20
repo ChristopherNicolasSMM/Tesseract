@@ -43,11 +43,13 @@
     return String(v);
   }
 
-  function fillColorForTemp(temp) {
-    if (temp === null || temp === undefined) return '#c0392b';
-    if (temp < 35) return '#3498db';
-    if (temp < 75) return '#e67e22';
-    return '#c0392b';
+  function fillGradientUrlForTemp(temp, widgetId) {
+    let bucket = 'hot';
+    if (temp === null || temp === undefined) bucket = 'hot';
+    else if (temp < 35) bucket = 'cold';
+    else if (temp < 75) bucket = 'warm';
+    else bucket = 'hot';
+    return 'url(#db-fill-' + bucket + '-' + widgetId + ')';
   }
 
   function renderVessel(el, data) {
@@ -71,7 +73,7 @@
       }
       const totalHeight = 120 - 4;
       fillRect.setAttribute('y', String(4 + totalHeight * (1 - pct)));
-      fillRect.setAttribute('fill', fillColorForTemp(tempRole ? tempRole.value : null));
+      fillRect.setAttribute('fill', fillGradientUrlForTemp(tempRole ? tempRole.value : null, fillRect.dataset.widgetId));
     }
 
     const rolesWrap = el.querySelector('.db-vessel-roles');
@@ -706,7 +708,7 @@
   let selectedWidgetEl = null;
 
   const panelFieldsByType = {
-    vessel: ['vessel_ref', 'svg_shape', 'fill_role_key', 'manual_control_enabled'],
+    vessel: ['vessel_ref', 'svg_shape', 'fill_role_key', 'setpoint', 'manual_control_enabled'],
     toggle: ['function_ref', 'icon_picker', 'confirm_before_actuate', 'manual_control_enabled'],
     gauge: ['function_ref', 'min_max'],
     digital: ['function_ref', 'decimal_places'],
@@ -728,6 +730,7 @@
     document.getElementById('dbPanelFunction').value = el.dataset.deviceFunctionName || '';
     document.getElementById('dbPanelSvgShape').value = config.svg_shape || 'mash_tun';
     document.getElementById('dbPanelFillRoleKey').value = config.fill_role_key || '';
+    document.getElementById('dbPanelSetpoint').value = config.setpoint !== undefined && config.setpoint !== null ? config.setpoint : '';
     document.getElementById('dbPanelMin').value = config.min !== undefined ? config.min : '';
     document.getElementById('dbPanelMax').value = config.max !== undefined ? config.max : '';
     document.getElementById('dbPanelDecimalPlaces').value = config.decimal_places !== undefined ? config.decimal_places : 1;
@@ -826,6 +829,8 @@
     if (type === 'vessel') {
       configJson.svg_shape = document.getElementById('dbPanelSvgShape').value;
       configJson.fill_role_key = document.getElementById('dbPanelFillRoleKey').value || null;
+      const setpointRaw = document.getElementById('dbPanelSetpoint').value;
+      configJson.setpoint = setpointRaw !== '' ? parseFloat(setpointRaw) : null;
       configJson.manual_control_enabled = document.getElementById('dbPanelManualControl').checked;
     } else if (type === 'toggle') {
       configJson.confirm_before_actuate = document.getElementById('dbPanelConfirm').checked;
@@ -1122,4 +1127,31 @@
   background: #f0932b; border-radius: 3px; cursor: nwse-resize; z-index: 999;
 }
 
+/* Card do Tanque (conversa — redesenho inspirado em referência visual):
+   card com leve elevação, gradiente sutil, número/setpoint abaixo do
+   desenho (não mais sobreposto) — mesmo espírito do card premium de
+   dashboard de brassagem, escopado só a esta tela via este <style>,
+   sem tocar no tema global do Core (usado em todas as outras telas). */
+.db-vessel-card {
+  background: linear-gradient(165deg, #1d2129 0%, #14171d 100%);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  padding: 10px 8px 8px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.35);
+}
+.db-vessel-label {
+  font-size: .68rem; letter-spacing: .09em; text-transform: uppercase;
+  color: #8b93a5; text-align: center; font-weight: 700; margin-bottom: 2px;
+}
+.db-vessel-graphic-wrap { min-height: 0; }
+.db-vessel-readout { margin-top: 4px; line-height: 1.15; }
+.db-vessel-temp {
+  font-size: 1.55rem; font-weight: 700; color: #f4f6fa; letter-spacing: -.01em;
+}
+.db-vessel-setpoint { font-size: .72rem; color: #6b7280; margin-top: 1px; }
+.db-vessel-setpoint-value { color: #f0a94e; font-weight: 600; }
+.db-vessel-roles .badge {
+  font-weight: 500; font-size: .68rem; padding: .32em .55em;
+  border-radius: 999px; border: 1px solid rgba(255,255,255,.08);
+}
 </style>

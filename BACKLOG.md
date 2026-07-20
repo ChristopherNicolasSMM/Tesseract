@@ -3216,3 +3216,46 @@ navegação do menu lateral/home. Reversível a qualquer momento por
 incluindo idempotência, dry-run, e confirmação de que as rotas
 antigas continuam respondendo 200 depois de saírem do menu. Sem
 migration. Suíte completa rodada em lotes — tudo passou, 100% verde.
+
+## Dashboard: redesenho visual do card de Tanque (inspirado em referência): CONCLUÍDO (fase 1)
+
+Usuário trouxe uma imagem de referência (mockup de produto premium de
+dashboard de brassagem) pedindo pra melhorar o layout/design. Escopo
+combinado em conversa: começar pelos cards de vasilhame (o elemento
+mais visível), com a linha de estatísticas (Volume/Densidade/pH/
+Potência/Consumo) fora de escopo por enquanto (sensores só
+parcialmente mapeados).
+
+**Decisão de arquitetura**: CSS novo escopado só ao Dashboard (dentro
+do `<style>` já existente em `_scripts.html`), sem tocar no tema
+Bootstrap escuro compartilhado com as outras 40+ telas do sistema
+(`style_dark.css`).
+
+**Mudanças**:
+- Card do Tanque ganhou container próprio (`.db-vessel-card`) com
+  gradiente sutil, borda e sombra — visual "elevado", não mais um
+  bloco plano.
+- SVG do vasilhame: casco (shell) agora com gradiente metálico em vez
+  de cor sólida; adicionado um reflexo de vidro (retângulo semi-
+  transparente) pro efeito "cilindro real".
+- Preenchimento de líquido: já existia troca de cor por faixa de
+  temperatura (`fillColorForTemp` — achado: essa lógica já estava lá
+  de antes, só precisava de polimento visual) — virou gradiente de
+  verdade (`fillGradientUrlForTemp`) com 3 gradientes pré-definidos no
+  SVG (frio/morno/quente) em vez de cor sólida.
+- Número da temperatura e badges de atuador saíram de cima do desenho
+  (sobreposição) pra uma área própria abaixo — mesmo espírito da
+  referência, mais legível.
+- **Setpoint novo**: campo opcional no painel lateral
+  (`config_json.setpoint`) — decorativo/manual por enquanto (não
+  puxa automaticamente da etapa ativa da sessão; isso exigiria
+  modelar qual Tanque corresponde a qual `step_type` da receita —
+  registrado como próxima melhoria natural, não implementado ainda).
+
+**Fora de escopo desta rodada, registrado pra próximas fases** (mesma
+conversa, próximos elementos da referência visual): barra de topo
+unificada (receita + etapa + timer), linha de estatísticas, alarmes
+com borda colorida por severidade.
+
+6 testes novos. Sem migration. Suíte relacionada rodada — tudo
+passou.

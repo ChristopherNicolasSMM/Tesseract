@@ -1524,3 +1524,107 @@ def test_view_js_esconde_atuador_do_tanque_quando_manual_desligado(app, client):
     html = resp.data.decode("utf-8")
     assert "if (isActuator && !manualEnabled) return;" in html
     assert "lockSuffix" not in html
+
+
+# ── Redesenho do card de Tanque (conversa — inspiração visual) ──────────────
+
+def test_view_renderiza_card_de_tanque_redesenhado(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Tanque Redesenhado")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="vessel")
+        db.session.add(widget)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert 'class="db-vessel-card' in html
+    assert "db-vessel-label" in html
+    assert "db-vessel-readout" in html
+    assert "db-vessel-setpoint" in html
+
+
+def test_view_tanque_tem_gradientes_por_faixa_de_temperatura(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Tanque Gradiente")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="vessel")
+        db.session.add(widget)
+        db.session.commit()
+        layout_id, widget_id = layout.id, widget.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert f"db-fill-cold-{widget_id}" in html
+    assert f"db-fill-warm-{widget_id}" in html
+    assert f"db-fill-hot-{widget_id}" in html
+    assert "fillGradientUrlForTemp" in html
+
+
+def test_view_tanque_sem_setpoint_mostra_travessao(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Tanque Sem Setpoint")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="vessel")
+        db.session.add(widget)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert '<span class="db-vessel-setpoint-value">—</span>' in html
+
+
+def test_view_tanque_com_setpoint_configurado_mostra_valor(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Tanque Com Setpoint")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="vessel", config_json={"setpoint": 65.5})
+        db.session.add(widget)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert '<span class="db-vessel-setpoint-value">65.5°C</span>' in html
+
+
+def test_view_painel_lateral_tem_campo_setpoint_pro_tanque(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Painel Setpoint")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert 'id="dbPanelSetpoint"' in html
+    assert "'setpoint'" in html  # presente em panelFieldsByType.vessel
+
+
+def test_update_config_salva_setpoint(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Salva Setpoint")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="vessel")
+        db.session.add(widget)
+        db.session.commit()
+        widget_id = widget.id
+
+    resp = client.post(f"/brewstation/dashboards/widgets/{widget_id}/config", json={"config_json": {"setpoint": 68}})
+    assert resp.status_code == 200
+    with app.app_context():
+        widget = DashboardWidget.query.get(widget_id)
+        assert widget.config_json["setpoint"] == 68
