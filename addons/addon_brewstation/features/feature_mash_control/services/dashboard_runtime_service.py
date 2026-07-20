@@ -92,9 +92,14 @@ def get_layout_snapshot(layout: DashboardLayout, session_id_override: Optional[i
 
     # Disparo automático de alertas (conversa — timeline de etapas):
     # reaproveita este mesmo polling de 3s, sem scheduler novo.
+    step_card_data = None
     if active_session:
         from addons.addon_brewstation.features.feature_mash_control.services import recipe_timeline_service
         recipe_timeline_service.check_and_fire_alerts(active_session)
+        # Calculado uma vez só — reaproveitado pelo header (novo, conversa
+        # — barra de topo unificada) e por qualquer widget step_card no
+        # layout, evita rodar a mesma query duas vezes por poll.
+        step_card_data = recipe_timeline_service.get_step_card_data(active_session)
 
     widgets_out = {}
     for widget in DashboardWidget.query.filter_by(layout_id=layout.id, is_deleted=False, is_visible=True).all():
@@ -105,8 +110,7 @@ def get_layout_snapshot(layout: DashboardLayout, session_id_override: Optional[i
         elif widget.widget_type == "alarm_list":
             widgets_out[widget.id] = _get_active_alarms(layout, widget)
         elif widget.widget_type == "step_card":
-            from addons.addon_brewstation.features.feature_mash_control.services import recipe_timeline_service
-            widgets_out[widget.id] = recipe_timeline_service.get_step_card_data(active_session)
+            widgets_out[widget.id] = step_card_data or {"current": None, "next": None}
         # "chart" widgets buscam via get_session_readings() à parte (histórico, não snapshot pontual)
 
     available_sessions = []
@@ -119,12 +123,23 @@ def get_layout_snapshot(layout: DashboardLayout, session_id_override: Optional[i
         )
         available_sessions = [{"id": s.id, "name": s.name, "status": s.status} for s in recent]
 
+    header = None
+    if active_session:
+        header = {
+            "session_id": active_session.id,
+            "session_name": active_session.name,
+            "session_status": active_session.status,
+            "recipe_name": active_session.recipe.name if active_session.recipe else None,
+            "current_step": step_card_data["current"] if step_card_data else None,
+        }
+
     return {
         "widgets": widgets_out,
         "connections": get_plant_connections(layout),
         "available_sessions": available_sessions,
         "active_session_id": active_session.id if active_session else None,
         "active_recipe_id": active_session.recipe_id if active_session else None,
+        "header": header,
     }
 
 

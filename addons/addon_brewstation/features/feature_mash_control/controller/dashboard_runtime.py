@@ -20,7 +20,9 @@ from core.permissions import permission_required
 from addons.addon_brewstation.features.feature_mash_control.model.dashboard_layout import DashboardLayout
 from addons.addon_brewstation.features.feature_mash_control.model.dashboard_widget import DashboardWidget
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_vessel import BrewPlantVessel
+from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
 from addons.addon_brewstation.features.feature_mash_control.services import dashboard_runtime_service as svc
+from core.db import db
 
 dashboard_runtime_bp = Blueprint(
     "dashboard_runtime", __name__, url_prefix="/brewstation/dashboards"
@@ -281,3 +283,43 @@ def upload_image():
 @login_required
 def serve_image(filename: str):
     return send_from_directory(_IMGS_DIR, filename)
+
+
+@dashboard_runtime_bp.route("/sessions/<int:session_id>/toggle-pause", methods=["POST"])
+@login_required
+@permission_required("brew_sessions.update")
+def toggle_pause_session(session_id: int):
+    """Barra de topo unificada (conversa — referência visual): botão de
+    pausar/retomar. Alterna só entre `active`/`paused` — não mexe em
+    nenhum outro status (`draft`/`completed`/`aborted` ficam de fora,
+    o botão nem aparece nesses casos no front). Reversível a qualquer
+    momento, sem confirmação (diferente de "parar")."""
+    session = BrewSession.query.get(session_id)
+    if not session or session.is_deleted:
+        return jsonify({"ok": False, "error": "Sessão não encontrada."}), 404
+    if session.status not in ("active", "paused"):
+        return jsonify({"ok": False, "error": f"Sessão está '{session.status}', não dá pra pausar/retomar."}), 400
+    session.status = "paused" if session.status == "active" else "active"
+    db.session.commit()
+    return jsonify({"ok": True, "status": session.status})
+
+
+@dashboard_runtime_bp.route("/sessions/<int:session_id>/stop", methods=["POST"])
+@login_required
+@permission_required("brew_sessions.update")
+def stop_session(session_id: int):
+    """Barra de topo unificada — botão "Parar". Marca a sessão como
+    `completed` (a brassagem terminou, não foi abortada por erro —
+    diferente de `aborted`, que continua só disponível pela tela
+    completa de Sessões pra quando for de fato um problema). O
+    front-end pede confirmação antes de chamar esta rota — ação não
+    reversível pelo botão (dá pra reverter manualmente via
+    /brew-sessions/<id>, mudando o status de novo)."""
+    session = BrewSession.query.get(session_id)
+    if not session or session.is_deleted:
+        return jsonify({"ok": False, "error": "Sessão não encontrada."}), 404
+    if session.status not in ("active", "paused"):
+        return jsonify({"ok": False, "error": f"Sessão está '{session.status}', não dá pra parar."}), 400
+    session.status = "completed"
+    db.session.commit()
+    return jsonify({"ok": True, "status": session.status})

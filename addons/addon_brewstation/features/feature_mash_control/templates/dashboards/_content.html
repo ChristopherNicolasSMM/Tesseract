@@ -38,6 +38,43 @@
   </div>
 </div>
 
+{# Barra de topo unificada (conversa — referência visual): receita
+   ativa + etapa atual + timer + pausar/parar, tudo junto. Começa
+   escondida (d-none) — só aparece via JS quando há sessão ativa pra
+   esta Planta (data.header vindo do snapshot). #}
+<div id="dbHeaderBar" class="db-header-bar d-none mb-3">
+  <div class="db-header-item">
+    <i class="bi bi-cup-straw db-header-icon"></i>
+    <div>
+      <div class="db-header-label">Receita ativa</div>
+      <div class="db-header-value" id="dbHeaderRecipeName">—</div>
+    </div>
+  </div>
+  <div class="db-header-item">
+    <i class="bi bi-list-check db-header-icon"></i>
+    <div>
+      <div class="db-header-label">Etapa atual</div>
+      <div class="db-header-value" id="dbHeaderStepName">—</div>
+    </div>
+  </div>
+  <div class="db-header-item">
+    <i class="bi bi-stopwatch db-header-icon"></i>
+    <div>
+      <div class="db-header-label">Tempo restante</div>
+      <div class="db-header-value" id="dbHeaderTimerValue">—:—</div>
+    </div>
+  </div>
+  <div class="db-header-actions">
+    <span class="badge db-header-status-badge" id="dbHeaderStatusBadge">—</span>
+    <button type="button" id="dbHeaderPauseBtn" class="btn btn-sm btn-outline-light" title="Pausar/retomar sessão">
+      <i class="bi bi-pause-fill"></i>
+    </button>
+    <button type="button" id="dbHeaderStopBtn" class="btn btn-sm btn-outline-danger" title="Parar sessão (marca como concluída)">
+      <i class="bi bi-stop-fill"></i>
+    </button>
+  </div>
+</div>
+
 {% if not layout.plant_id %}
 <div class="alert alert-warning">
   <i class="bi bi-exclamation-triangle"></i>

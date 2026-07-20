@@ -1628,3 +1628,142 @@ def test_update_config_salva_setpoint(app, client):
     with app.app_context():
         widget = DashboardWidget.query.get(widget_id)
         assert widget.config_json["setpoint"] == 68
+
+
+# ── Barra de topo unificada (conversa — referência visual) ──────────────────
+
+def test_snapshot_sem_sessao_ativa_header_e_none(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Header Sem Sessao")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/snapshot")
+    data = resp.get_json()
+    assert data["header"] is None
+
+
+def test_snapshot_com_sessao_ativa_popula_header(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        recipe = MashRecipe(name="Receita Header Bar")
+        db.session.add(recipe)
+        db.session.commit()
+        step = RecipeStep(recipe_id=recipe.id, step_type="mash", ordem=0, nome="Mash Header", temperatura=66, tempo_min=30)
+        db.session.add(step)
+        db.session.commit()
+
+        plant = BrewPlant(name="Planta Header Bar")
+        db.session.add(plant)
+        db.session.commit()
+
+        session = rt_svc.generate_session_from_recipe(recipe.id, plant_id=plant.id, name="Sessão Header Bar", status="active")
+
+        layout = DashboardLayout(name="L Header Com Sessao", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/snapshot")
+    data = resp.get_json()
+    assert data["header"] is not None
+    assert data["header"]["recipe_name"] == "Receita Header Bar"
+    assert data["header"]["session_status"] == "active"
+    assert data["header"]["current_step"] is not None
+    assert data["header"]["current_step"]["name"] == "Mash Header"
+
+
+def test_view_renderiza_barra_de_topo(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Barra Topo HTML")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert 'id="dbHeaderBar"' in html
+    assert 'id="dbHeaderRecipeName"' in html
+    assert 'id="dbHeaderStepName"' in html
+    assert 'id="dbHeaderTimerValue"' in html
+    assert 'id="dbHeaderPauseBtn"' in html
+    assert 'id="dbHeaderStopBtn"' in html
+
+
+def test_toggle_pause_session_active_para_paused(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        session = BrewSession(name="Sessão Pausar", status="active")
+        db.session.add(session)
+        db.session.commit()
+        session_id = session.id
+
+    resp = client.post(f"/brewstation/dashboards/sessions/{session_id}/toggle-pause")
+    assert resp.status_code == 200
+    assert resp.get_json()["status"] == "paused"
+    with app.app_context():
+        assert BrewSession.query.get(session_id).status == "paused"
+
+
+def test_toggle_pause_session_paused_para_active(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        session = BrewSession(name="Sessão Retomar", status="paused")
+        db.session.add(session)
+        db.session.commit()
+        session_id = session.id
+
+    resp = client.post(f"/brewstation/dashboards/sessions/{session_id}/toggle-pause")
+    assert resp.status_code == 200
+    assert resp.get_json()["status"] == "active"
+
+
+def test_toggle_pause_session_draft_falha(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        session = BrewSession(name="Sessão Draft Pausar", status="draft")
+        db.session.add(session)
+        db.session.commit()
+        session_id = session.id
+
+    resp = client.post(f"/brewstation/dashboards/sessions/{session_id}/toggle-pause")
+    assert resp.status_code == 400
+    assert resp.get_json()["ok"] is False
+
+
+def test_stop_session_marca_completed(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        session = BrewSession(name="Sessão Parar", status="active")
+        db.session.add(session)
+        db.session.commit()
+        session_id = session.id
+
+    resp = client.post(f"/brewstation/dashboards/sessions/{session_id}/stop")
+    assert resp.status_code == 200
+    assert resp.get_json()["status"] == "completed"
+    with app.app_context():
+        assert BrewSession.query.get(session_id).status == "completed"
+
+
+def test_stop_session_ja_completed_falha(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        session = BrewSession(name="Sessão Ja Completa", status="completed")
+        db.session.add(session)
+        db.session.commit()
+        session_id = session.id
+
+    resp = client.post(f"/brewstation/dashboards/sessions/{session_id}/stop")
+    assert resp.status_code == 400
+
+
+def test_pause_stop_sessao_inexistente_404(app, client):
+    _login_admin(app, client)
+    resp1 = client.post("/brewstation/dashboards/sessions/999999/toggle-pause")
+    assert resp1.status_code == 404
+    resp2 = client.post("/brewstation/dashboards/sessions/999999/stop")
+    assert resp2.status_code == 404

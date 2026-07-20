@@ -3259,3 +3259,38 @@ com borda colorida por severidade.
 
 6 testes novos. Sem migration. Suíte relacionada rodada — tudo
 passou.
+
+## Dashboard: barra de topo unificada (segunda peça da referência visual): CONCLUÍDO
+
+Segunda peça do redesenho inspirado na imagem de referência trazida em
+conversa. Mesma decisão de arquitetura da rodada anterior: CSS
+escopado só ao Dashboard, sem tocar no tema compartilhado.
+
+**Consolida numa barra só, no topo do Dashboard**: receita ativa da
+sessão em andamento, etapa atual (nome + temperatura alvo), tempo
+restante da etapa (reaproveita `fmtCountdown()` já existente), status
+da sessão (badge colorido), e dois botões de ação.
+
+**Achado real de reaproveitamento**: `get_step_card_data()` já
+calculava tudo que a barra precisa — antes só era chamada quando
+havia um widget `step_card` no layout. Agora é calculada uma vez por
+poll (se há sessão ativa) e reaproveitada tanto pela barra quanto por
+qualquer widget `step_card`, evitando rodar a mesma query duas vezes.
+Novo dict `header` no `get_layout_snapshot()`.
+
+**Duas ações novas, com risco calibrado diferente**:
+- **Pausar/Retomar** (`POST /dashboards/sessions/<id>/toggle-pause`):
+  alterna só `active`↔`paused`, sem confirmação — reversível a
+  qualquer momento pelo mesmo botão.
+- **Parar** (`POST /dashboards/sessions/<id>/stop`): marca a sessão
+  como `completed`, com confirmação obrigatória no front (`confirm()`
+  antes de chamar a rota) — decisão registrada: não usei `aborted`
+  aqui de propósito, esse status continua reservado pra quando for de
+  fato um problema, editável só pela tela completa de Sessões.
+
+**Fora de escopo desta rodada, próxima peça da referência**: alarmes
+com borda colorida por severidade. Linha de estatísticas continua
+represada (sensores parciais).
+
+10 testes novos. Sem migration. Suíte relacionada rodada — tudo
+passou.
