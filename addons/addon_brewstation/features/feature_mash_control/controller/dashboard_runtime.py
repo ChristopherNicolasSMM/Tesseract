@@ -293,15 +293,19 @@ def toggle_pause_session(session_id: int):
     pausar/retomar. Alterna só entre `active`/`paused` — não mexe em
     nenhum outro status (`draft`/`completed`/`aborted` ficam de fora,
     o botão nem aparece nesses casos no front). Reversível a qualquer
-    momento, sem confirmação (diferente de "parar")."""
+    momento, sem confirmação (diferente de "parar"). A lógica real de
+    congelar/deslocar o tempo mora em
+    `recipe_timeline_service.toggle_pause_session()` — achado real:
+    só trocar o status aqui não bastava, o timer da etapa continuava
+    correndo enquanto "pausada"."""
+    from addons.addon_brewstation.features.feature_mash_control.services import recipe_timeline_service
     session = BrewSession.query.get(session_id)
     if not session or session.is_deleted:
         return jsonify({"ok": False, "error": "Sessão não encontrada."}), 404
     if session.status not in ("active", "paused"):
         return jsonify({"ok": False, "error": f"Sessão está '{session.status}', não dá pra pausar/retomar."}), 400
-    session.status = "paused" if session.status == "active" else "active"
-    db.session.commit()
-    return jsonify({"ok": True, "status": session.status})
+    new_status = recipe_timeline_service.toggle_pause_session(session)
+    return jsonify({"ok": True, "status": new_status})
 
 
 @dashboard_runtime_bp.route("/sessions/<int:session_id>/stop", methods=["POST"])

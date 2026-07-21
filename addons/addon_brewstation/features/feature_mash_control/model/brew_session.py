@@ -34,6 +34,7 @@ class BrewSession(db.Model):
     status = db.Column(db.String(20), default="draft", nullable=False)  # draft, active, paused, completed, aborted
     started_at = db.Column(db.DateTime, nullable=True)
     completed_at = db.Column(db.DateTime, nullable=True)
+    paused_at = db.Column(db.DateTime, nullable=True)
     notes = db.Column(db.Text, nullable=True)
     current_step_index = db.Column(db.Integer, default=0, nullable=True)
     operator_id = db.Column(db.Integer, db.ForeignKey("tesseract_user.id"), nullable=True)
@@ -58,6 +59,7 @@ class BrewSession(db.Model):
             "status": self.status,
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "paused_at": self.paused_at.isoformat() if self.paused_at else None,
             "notes": self.notes,
             "current_step_index": self.current_step_index,
             "operator_id": self.operator_id,

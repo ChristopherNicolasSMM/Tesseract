@@ -245,6 +245,10 @@
       }
       emptyEl.classList.add('d-none');
       currentBox.classList.remove('d-none');
+
+      const pausedBadge = el.querySelector('.db-step-paused-badge');
+      if (pausedBadge) pausedBadge.classList.toggle('d-none', data.session_status !== 'paused');
+
       const typeLabel = current.step_type === 'boil' ? 'Fervura' : 'Mostura';
       const tempLabel = (current.target_temp === null || current.target_temp === undefined) ? '' : (current.target_temp + '°C');
       el.querySelector('.db-step-current-name').textContent = current.name;

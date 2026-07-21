@@ -257,8 +257,9 @@ def _get_active_alarms(layout: DashboardLayout, widget: DashboardWidget) -> dict
 
     elapsed_seconds = None
     if session.started_at:
+        from addons.addon_brewstation.features.feature_mash_control.services.recipe_timeline_service import get_effective_now
         started_at = session.started_at.replace(tzinfo=None) if session.started_at.tzinfo else session.started_at
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = get_effective_now(session).replace(tzinfo=None)
         elapsed_seconds = (now - started_at).total_seconds()
 
     upcoming_steps = (

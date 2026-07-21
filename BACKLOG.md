@@ -3329,3 +3329,47 @@ estão prontas. Continua represado, se quiser retomar depois: linha de
 estatísticas (Volume/Densidade/pH/Potência/Consumo — precisa mapear
 sensores primeiro) e qualquer ajuste fino depois de ver tudo
 funcionando junto na prática.
+
+## Dashboard: pausar sessão não congelava o tempo da etapa (bug reportado em uso real): CONCLUÍDO
+
+Achado direto de uso: com a sessão pausada (barra de topo unificada),
+o tempo da etapa continuava passando — o card de Etapa mostrava o
+cronômetro correndo normalmente, e alertas agendados podiam disparar
+mesmo com a brassagem pausada.
+
+**Causa raiz**: todo cálculo de tempo decorrido (`_phase_progress()`
+dentro de `get_step_card_data()`, `check_and_fire_alerts()`, contagem
+regressiva de alertas agendados em `_get_active_alarms()`) usava
+`datetime.now(timezone.utc)` direto, sem checar o status da sessão.
+"Pausar" só mudava o texto do badge — o relógio de verdade nunca
+parava.
+
+**Correção** — coluna nova + helper compartilhado + deslocamento ao
+retomar:
+- `BrewSession.paused_at` (DateTime nullable) — migration
+  `13b65e703ad9`, **validada de verdade** (não só `py_compile`):
+  simulei o estado pré-migration removendo a coluna via SQL direto,
+  rodei o `upgrade()` real contra o banco, inseri e consultei um
+  registro de verdade, rodei o `downgrade()` e confirmei a coluna
+  sumindo de novo — ciclo completo, não só sintaxe.
+- `recipe_timeline_service.get_effective_now(session)` — "agora" pra
+  qualquer cálculo de tempo da sessão: congela em `paused_at` quando
+  `status="paused"`, senão usa o relógio real. Usado nos 3 pontos que
+  tinham o bug.
+- `recipe_timeline_service.toggle_pause_session(session)` — ao
+  pausar, grava `paused_at`. Ao retomar, desloca `started_at` da
+  sessão E de toda etapa já iniciada pra frente pela duração EXATA da
+  pausa — sem isso, mesmo com o congelamento durante a pausa, o
+  tempo "perdido" continuaria contando contra a etapa quando a
+  brassagem voltasse a rodar. A rota do controller
+  (`toggle_pause_session` em `dashboard_runtime.py`) agora só delega
+  pro service.
+- Badge "Pausado" novo no próprio card de Etapa (`step_card`), não só
+  na barra de topo — antes só a barra de topo indicava o estado
+  pausado, o card ficava sem nenhum sinal visual.
+
+11 testes novos (`test_recipe_timeline.py` e `test_dashboard_runtime.py`),
+incluindo o teste mais direto pro bug reportado: chamar
+`get_step_card_data()` duas vezes seguidas durante a pausa devolve o
+MESMO `remaining_seconds` nas duas chamadas. Suíte completa rodada em
+lotes — tudo passou (só a mesma falha de ambiente pré-existente).

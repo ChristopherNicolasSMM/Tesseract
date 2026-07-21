@@ -1817,3 +1817,58 @@ def test_view_js_alarmes_tem_classes_de_severidade(app, client):
     html = resp.data.decode("utf-8")
     for cls in ["db-alarm-sev-critical", "db-alarm-sev-high", "db-alarm-sev-medium", "db-alarm-sev-low", "db-alarm-sev-upcoming"]:
         assert cls in html
+
+
+# ── Achado real: pausar não congelava o tempo da etapa (bug reportado) ──────
+
+def test_view_step_card_tem_badge_pausado_no_html(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Badge Pausado")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="step_card")
+        db.session.add(widget)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "db-step-paused-badge" in html
+    assert "data.session_status !== 'paused'" in html
+
+
+def test_toggle_pause_session_via_rota_congela_o_timer_ao_retomar(app, client):
+    """Teste de ponta a ponta via HTTP: pausa, avança o relógio
+    artificialmente (fixando paused_at no passado), retoma pela rota,
+    e confirma que started_at foi deslocado — não é só a unidade do
+    service, é a rota real que o botão da barra de topo chama."""
+    _login_admin(app, client)
+    with app.app_context():
+        session = BrewSession(name="Sessao Rota Pausa", status="active",
+                               started_at=datetime.now(timezone.utc) - timedelta(hours=1))
+        db.session.add(session)
+        db.session.commit()
+        session_id = session.id
+        original_started_at = session.started_at
+        if original_started_at.tzinfo is None:
+            original_started_at = original_started_at.replace(tzinfo=timezone.utc)
+
+    resp1 = client.post(f"/brewstation/dashboards/sessions/{session_id}/toggle-pause")
+    assert resp1.get_json()["status"] == "paused"
+
+    with app.app_context():
+        session = BrewSession.query.get(session_id)
+        session.paused_at = datetime.now(timezone.utc) - timedelta(minutes=5)
+        db.session.commit()
+
+    resp2 = client.post(f"/brewstation/dashboards/sessions/{session_id}/toggle-pause")
+    assert resp2.get_json()["status"] == "active"
+
+    with app.app_context():
+        session = BrewSession.query.get(session_id)
+        new_started_at = session.started_at
+        if new_started_at.tzinfo is None:
+            new_started_at = new_started_at.replace(tzinfo=timezone.utc)
+        delta_minutes = (new_started_at - original_started_at).total_seconds() / 60
+        assert 4.5 <= delta_minutes <= 5.5

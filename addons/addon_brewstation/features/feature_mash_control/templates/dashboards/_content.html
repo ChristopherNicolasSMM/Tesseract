@@ -244,9 +244,12 @@
           <div class="card-body p-2 d-flex flex-column">
             <div class="d-flex justify-content-between align-items-center mb-1">
               <div class="small text-muted">{{ w.label_text or 'Etapa Atual' }}</div>
-              <button type="button" class="btn btn-sm btn-outline-secondary db-steps-manage-btn db-no-drag py-0 px-1" title="Gerenciar etapas">
-                <i class="bi bi-list-check"></i>
-              </button>
+              <div class="d-flex align-items-center gap-1">
+                <span class="badge db-header-status-paused db-step-paused-badge d-none">Pausado</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary db-steps-manage-btn db-no-drag py-0 px-1" title="Gerenciar etapas">
+                  <i class="bi bi-list-check"></i>
+                </button>
+              </div>
             </div>
             <div class="db-step-empty small text-muted">Sem sessão ativa.</div>
             <div class="db-step-current d-none flex-grow-1 d-flex flex-column">

@@ -30,6 +30,59 @@ class RecipeTimelineError(Exception):
 
 # ── Timeline da receita (planejamento) ───────────────────────────────────────
 
+def get_effective_now(session: BrewSession) -> datetime:
+    """"Agora" usado por qualquer cálculo de tempo decorrido da sessão
+    (rampa/hold do card de Etapa, disparo de alerta agendado). Achado
+    real (conversa): pausar a sessão (`status="paused"`) não tinha
+    efeito nenhum nesses cálculos — todos usavam `datetime.now()` sem
+    olhar o status, então o timer continuava correndo mesmo pausado.
+    Enquanto pausada, "agora" fica congelado no instante exato da
+    pausa (`session.paused_at`); ao retomar,
+    `toggle_pause_session()` desloca os timestamps armazenados pra
+    frente pela duração da pausa, então o cálculo volta a usar o
+    relógio real sem perder nem ganhar tempo."""
+    if session.status == "paused" and session.paused_at:
+        paused_at = session.paused_at
+        if paused_at.tzinfo is None:
+            paused_at = paused_at.replace(tzinfo=timezone.utc)
+        return paused_at
+    return datetime.now(timezone.utc)
+
+
+def toggle_pause_session(session: BrewSession) -> str:
+    """Barra de topo unificada (conversa) — botão pausar/retomar.
+    Achado real: só trocar o status não bastava, o timer da etapa
+    continuava correndo. Ao pausar, grava `paused_at` (usado por
+    `get_effective_now()` pra congelar qualquer cálculo de tempo
+    decorrido). Ao retomar, desloca `started_at` da sessão e de toda
+    etapa já iniciada pra frente pela duração EXATA da pausa — assim
+    o relógio real volta a valer sem ter "roubado" nem "sobrado"
+    tempo enquanto pausada."""
+    if session.status == "active":
+        session.status = "paused"
+        session.paused_at = datetime.now(timezone.utc)
+    elif session.status == "paused":
+        now = datetime.now(timezone.utc)
+        paused_at = session.paused_at or now
+        if paused_at.tzinfo is None:
+            paused_at = paused_at.replace(tzinfo=timezone.utc)
+        pause_duration = now - paused_at
+
+        if session.started_at:
+            base = session.started_at if session.started_at.tzinfo else session.started_at.replace(tzinfo=timezone.utc)
+            session.started_at = base + pause_duration
+
+        for step in BrewSessionStep.query.filter_by(session_id=session.id, is_deleted=False).all():
+            if step.started_at:
+                base = step.started_at if step.started_at.tzinfo else step.started_at.replace(tzinfo=timezone.utc)
+                step.started_at = base + pause_duration
+
+        session.status = "active"
+        session.paused_at = None
+    db.session.commit()
+    return session.status
+
+
 def get_timeline(recipe_id: int) -> list[RecipeStep]:
     return (
         RecipeStep.query
@@ -226,7 +279,7 @@ def check_and_fire_alerts(session: BrewSession) -> list[BrewSessionAlarm]:
     started_at = session.started_at
     if started_at.tzinfo is not None:
         started_at = started_at.replace(tzinfo=None)
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = get_effective_now(session).replace(tzinfo=None)
     elapsed_seconds = (now - started_at).total_seconds()
 
     due_steps = (
@@ -520,7 +573,7 @@ def get_step_card_data(session: Optional[BrewSession]) -> dict:
         started = step.started_at
         if started.tzinfo is None:
             started = started.replace(tzinfo=timezone.utc)
-        elapsed = (datetime.now(timezone.utc) - started).total_seconds()
+        elapsed = (get_effective_now(session) - started).total_seconds()
 
         if ramp_s and elapsed < ramp_s:
             return {
@@ -558,4 +611,4 @@ def get_step_card_data(session: Optional[BrewSession]) -> dict:
             "ramp_seconds": next_step.ramp_seconds,
         }
 
-    return {"current": current_out, "next": next_out}
+    return {"current": current_out, "next": next_out, "session_status": session.status}

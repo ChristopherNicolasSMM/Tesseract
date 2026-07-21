@@ -859,3 +859,207 @@ def test_brew_session_detail_renderiza_select_para_status(app, client):
     assert 'value="paused"' in html
     assert 'value="completed"' in html
     assert 'value="aborted"' in html
+
+
+# ── Achado real (conversa): pausar não congelava o tempo da etapa ──────────
+
+def test_get_effective_now_paused_congela_no_instante_da_pausa(app):
+    """get_effective_now() devolve paused_at quando a sessão está
+    pausada, não datetime.now() — é isso que faz o timer "congelar"."""
+    with app.app_context():
+        paused_instant = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        session = BrewSession(name="Sessao Congelada", status="paused", paused_at=paused_instant)
+        db.session.add(session)
+        db.session.commit()
+
+        effective_now = svc.get_effective_now(session)
+        assert effective_now == paused_instant
+
+
+def test_get_effective_now_active_usa_relogio_real(app):
+    with app.app_context():
+        session = BrewSession(name="Sessao Ativa Relogio", status="active")
+        db.session.add(session)
+        db.session.commit()
+
+        before = datetime.now(timezone.utc)
+        effective_now = svc.get_effective_now(session)
+        after = datetime.now(timezone.utc)
+        assert before <= effective_now <= after
+
+
+def test_toggle_pause_session_active_para_paused_grava_paused_at(app):
+    with app.app_context():
+        session = BrewSession(name="Sessao Vai Pausar", status="active")
+        db.session.add(session)
+        db.session.commit()
+
+        new_status = svc.toggle_pause_session(session)
+        assert new_status == "paused"
+        assert session.paused_at is not None
+
+
+def test_toggle_pause_session_retomar_desloca_started_at_da_sessao(app):
+    """O achado do bug: sem esse deslocamento, o tempo "perdido" durante
+    a pausa continuaria contando contra a etapa quando a sessão
+    voltasse a rodar (elapsed = now - started_at cresceria demais)."""
+    with app.app_context():
+        session = BrewSession(
+            name="Sessao Retomar Desloca", status="active",
+            started_at=datetime.now(timezone.utc) - timedelta(hours=1),
+        )
+        db.session.add(session)
+        db.session.commit()
+        original_started_at = session.started_at
+        if original_started_at.tzinfo is None:
+            original_started_at = original_started_at.replace(tzinfo=timezone.utc)
+
+        svc.toggle_pause_session(session)
+        assert session.status == "paused"
+
+        # Simula 5 minutos de pausa "de verdade" — empurra paused_at 5
+        # min pro passado, equivalente a ter pausado há 5 minutos.
+        session.paused_at = datetime.now(timezone.utc) - timedelta(minutes=5)
+        db.session.commit()
+
+        svc.toggle_pause_session(session)
+        assert session.status == "active"
+        assert session.paused_at is None
+
+        new_started_at = session.started_at
+        if new_started_at.tzinfo is None:
+            new_started_at = new_started_at.replace(tzinfo=timezone.utc)
+        delta_minutes = (new_started_at - original_started_at).total_seconds() / 60
+        assert 4.5 <= delta_minutes <= 5.5
+
+
+def test_toggle_pause_session_desloca_started_at_das_etapas_ja_iniciadas(app):
+    with app.app_context():
+        session = BrewSession(
+            name="Sessao Etapas Deslocam", status="active",
+            started_at=datetime.now(timezone.utc) - timedelta(hours=1),
+        )
+        db.session.add(session)
+        db.session.commit()
+
+        step = BrewSessionStep(
+            session_id=session.id, step_index=0, name="Etapa Em Andamento",
+            status="active", started_at=datetime.now(timezone.utc) - timedelta(minutes=20),
+            duration_seconds=3600, ramp_seconds=0,
+        )
+        db.session.add(step)
+        db.session.commit()
+        original_step_started_at = step.started_at
+        if original_step_started_at.tzinfo is None:
+            original_step_started_at = original_step_started_at.replace(tzinfo=timezone.utc)
+
+        svc.toggle_pause_session(session)
+        session.paused_at = datetime.now(timezone.utc) - timedelta(minutes=3)
+        db.session.commit()
+        svc.toggle_pause_session(session)
+
+        new_step_started_at = step.started_at
+        if new_step_started_at.tzinfo is None:
+            new_step_started_at = new_step_started_at.replace(tzinfo=timezone.utc)
+        delta_minutes = (new_step_started_at - original_step_started_at).total_seconds() / 60
+        assert 2.5 <= delta_minutes <= 3.5
+
+
+def test_check_and_fire_alerts_nao_dispara_durante_pausa(app):
+    """O achado do bug, no ponto mais crítico: um alerta agendado não
+    pode disparar enquanto a sessão está pausada, mesmo que o relógio
+    real já tenha passado do tempo de disparo."""
+    with app.app_context():
+        recipe = MashRecipe(name="Receita Alerta Pausa")
+        db.session.add(recipe)
+        db.session.commit()
+
+        session = BrewSession(
+            name="Sessao Alerta Pausa", recipe_id=recipe.id, status="paused",
+            started_at=datetime.now(timezone.utc) - timedelta(minutes=10),
+            paused_at=datetime.now(timezone.utc) - timedelta(minutes=9),  # pausou 1min (60s) depois do inicio
+        )
+        db.session.add(session)
+        db.session.commit()
+
+        alert_step = BrewSessionStep(
+            session_id=session.id, step_index=1, name="Alerta Teste Pausa",
+            step_type="alert", trigger_at_seconds=120, alarm_fired=False,
+        )
+        db.session.add(alert_step)
+        db.session.commit()
+
+        fired = svc.check_and_fire_alerts(session)
+        assert fired == []
+        assert BrewSessionAlarm.query.filter_by(session_id=session.id).count() == 0
+
+
+def test_check_and_fire_alerts_dispara_normalmente_quando_ativa(app):
+    """Controle positivo — confirma que o achado acima não quebrou o
+    disparo normal quando a sessão está ativa de verdade."""
+    with app.app_context():
+        recipe = MashRecipe(name="Receita Alerta Normal")
+        db.session.add(recipe)
+        db.session.commit()
+
+        session = BrewSession(
+            name="Sessao Alerta Normal", recipe_id=recipe.id, status="active",
+            started_at=datetime.now(timezone.utc) - timedelta(minutes=5),
+        )
+        db.session.add(session)
+        db.session.commit()
+
+        alert_step = BrewSessionStep(
+            session_id=session.id, step_index=1, name="Alerta Dispara Normal",
+            step_type="alert", trigger_at_seconds=60, alarm_fired=False,
+        )
+        db.session.add(alert_step)
+        db.session.commit()
+
+        fired = svc.check_and_fire_alerts(session)
+        assert len(fired) == 1
+
+
+def test_get_step_card_data_remaining_seconds_congela_durante_pausa(app):
+    """Regressão exata do bug reportado: chamar get_step_card_data()
+    duas vezes seguidas (simulando tempo real passando entre as
+    chamadas) tem que devolver o MESMO remaining_seconds enquanto a
+    sessão está pausada."""
+    with app.app_context():
+        recipe = MashRecipe(name="Receita Card Pausa")
+        db.session.add(recipe)
+        db.session.commit()
+
+        session = BrewSession(
+            name="Sessao Card Pausa", recipe_id=recipe.id, status="paused",
+            started_at=datetime.now(timezone.utc) - timedelta(minutes=20),
+            paused_at=datetime.now(timezone.utc) - timedelta(minutes=15),
+        )
+        db.session.add(session)
+        db.session.commit()
+
+        step = BrewSessionStep(
+            session_id=session.id, step_index=0, name="Etapa Card Pausa", step_type="mash",
+            status="active", started_at=datetime.now(timezone.utc) - timedelta(minutes=20),
+            duration_seconds=3600, ramp_seconds=0,
+        )
+        db.session.add(step)
+        db.session.commit()
+
+        data1 = svc.get_step_card_data(session)
+        data2 = svc.get_step_card_data(session)
+        assert data1["current"]["remaining_seconds"] == data2["current"]["remaining_seconds"]
+        assert data1["session_status"] == "paused"
+
+
+def test_get_step_card_data_expoe_session_status(app):
+    with app.app_context():
+        recipe = MashRecipe(name="Receita Session Status")
+        db.session.add(recipe)
+        db.session.commit()
+        session = BrewSession(name="Sessao Session Status", recipe_id=recipe.id, status="active")
+        db.session.add(session)
+        db.session.commit()
+
+        data = svc.get_step_card_data(session)
+        assert data["session_status"] == "active"
