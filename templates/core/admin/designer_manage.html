@@ -49,7 +49,7 @@
               {% if page.is_published %}
               <a href="{{ url_for('designer_view.view', slug=page.slug) }}" class="btn btn-sm btn-outline-success">Abrir</a>
               {% endif %}
-              <form method="post" action="{{ url_for('designer.delete', page_id=page.id) }}" class="d-inline" onsubmit="return confirm('Excluir esta página e todos os componentes?');">
+              <form method="post" action="{{ url_for('designer.delete', page_id=page.id) }}" class="d-inline" data-confirm-key="core.confirm.delete_designer_page">
                 <button type="submit" class="btn btn-sm btn-outline-danger">Excluir</button>
               </form>
             </td>

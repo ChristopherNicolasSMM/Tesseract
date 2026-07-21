@@ -339,10 +339,14 @@
   }
 
   window.runTask = async (id) => {
-    if (!confirm('Executar esta tarefa agora?')) return;
+    const ok = await window.__tesseractConfirm({ key: 'core.confirm.execute_task_now' });
+    if (!ok) return;
     const res  = await fetch(`${API}/${id}/run`, { method: 'POST' });
     const data = await res.json();
-    alert(data.success ? '✅ Executado: ' + (data.data?.result || 'ok') : '❌ ' + data.error);
+    window.__tesseractToast.show(
+      data.success ? 'Executado: ' + (data.data?.result || 'ok') : data.error,
+      data.success ? 'success' : 'error'
+    );
     loadTasks(tasksPage);
     loadStats();
   };
@@ -352,7 +356,8 @@
   window.approveTask  = async (id) => { await fetch(`${API}/${id}/approve`,  { method: 'POST' }); loadTasks(tasksPage); };
 
   window.deleteTask = async (id) => {
-    if (!confirm('Excluir esta tarefa?')) return;
+    const ok = await window.__tesseractConfirm({ key: 'core.confirm.delete_task' });
+    if (!ok) return;
     await fetch(`${API}/${id}`, { method: 'DELETE' });
     loadTasks(tasksPage);
   };
@@ -401,7 +406,7 @@
       bootstrap.Modal.getInstance(document.getElementById('taskModal'))?.hide();
       loadTasks(tasksPage);
     } else {
-      alert('Erro: ' + result.error);
+      window.__tesseractToast.show('Erro: ' + result.error, 'error');
     }
   });
 

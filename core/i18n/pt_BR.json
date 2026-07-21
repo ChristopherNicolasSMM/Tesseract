@@ -1,4 +1,20 @@
 {
   "core.confirm.trash_generic": "Mover para a lixeira?",
-  "core.confirm.delete_permanent_generic": "Excluir PERMANENTEMENTE? Esta ação não pode ser desfeita."
+  "core.confirm.delete_permanent_generic": "Excluir PERMANENTEMENTE? Esta ação não pode ser desfeita.",
+  "core.confirm.delete_role": "Excluir este Role? Só é possível se nenhum usuário o tiver atribuído.",
+  "core.confirm.remove_field_rule": "Remover esta regra?",
+  "core.confirm.restore_version": "Restaurar esta versão? Isso sobrescreve o arquivo atual no disco.",
+  "core.confirm.delete_playground_folder": "Apagar esta pasta? Só funciona se estiver vazia.",
+  "core.confirm.delete_playground_request": "Apagar esta requisição definitivamente?",
+  "core.confirm.delete_playground_query": "Apagar esta consulta definitivamente?",
+  "core.confirm.remove_model_field": "Remover este campo{extra}?",
+  "core.confirm.generate_model_code": "Gerar código a partir deste rascunho?",
+  "core.confirm.remove_transaction": "Remover esta transação?",
+  "core.confirm.deactivate_user": "Desativar este usuário?",
+  "core.confirm.remove_odata_connection": "Remover esta conexão?",
+  "core.confirm.delete_designer_page": "Excluir esta página e todos os componentes?",
+  "core.confirm.delete_log_file": "Apagar este arquivo de log? Ele é recriado na próxima escrita.",
+  "core.confirm.delete_designer_component": "Excluir este componente?",
+  "core.confirm.execute_task_now": "Executar esta tarefa agora?",
+  "core.confirm.delete_task": "Excluir esta tarefa?"
 }

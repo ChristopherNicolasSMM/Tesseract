@@ -28,7 +28,7 @@
 
           <hr>
 
-          <form method="post" action="{{ url_for('admin_roles.delete', role_id=role.id) }}" onsubmit="return confirm('Excluir este Role? Só é possível se nenhum usuário o tiver atribuído.');">
+          <form method="post" action="{{ url_for('admin_roles.delete', role_id=role.id) }}" data-confirm-key="core.confirm.delete_role">
             <button type="submit" class="btn btn-outline-danger">Excluir Role</button>
           </form>
         </div>

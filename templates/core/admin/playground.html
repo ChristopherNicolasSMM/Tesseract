@@ -23,7 +23,7 @@
       {% endfor %}
       {% if current_folder_id %}
       <form method="post" action="{{ url_for('playground.delete_folder', folder_id=current_folder_id) }}"
-            onsubmit="return confirm('Apagar esta pasta? Só funciona se estiver vazia.');" class="d-inline">
+            data-confirm-key="core.confirm.delete_playground_folder" class="d-inline">
         <button class="btn btn-sm btn-outline-danger" type="submit" title="Apagar pasta atual (só se vazia)">
           <i class="bi bi-trash"></i> pasta
         </button>
@@ -222,7 +222,7 @@
             <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-archive"></i> Arquivar</button>
           </form>
           {% endif %}
-          <form method="post" action="{{ url_for('playground.delete_request', request_id=req.id) }}" onsubmit="return confirm('Apagar esta requisição definitivamente?');">
+          <form method="post" action="{{ url_for('playground.delete_request', request_id=req.id) }}" data-confirm-key="core.confirm.delete_playground_request">
             <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash"></i> Apagar</button>
           </form>
         </div>
@@ -292,7 +292,7 @@
             <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-archive"></i> Arquivar</button>
           </form>
           {% endif %}
-          <form method="post" action="{{ url_for('playground.delete_request', request_id=req.id) }}" onsubmit="return confirm('Apagar esta consulta definitivamente?');">
+          <form method="post" action="{{ url_for('playground.delete_request', request_id=req.id) }}" data-confirm-key="core.confirm.delete_playground_query">
             <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash"></i> Apagar</button>
           </form>
         </div>

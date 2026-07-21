@@ -89,7 +89,7 @@
             {% endif %}
           </p>
           {% if user.is_active %}
-          <form method="post" action="{{ url_for('admin_users.deactivate', user_id=user.id) }}" onsubmit="return confirm('Desativar este usuário?');">
+          <form method="post" action="{{ url_for('admin_users.deactivate', user_id=user.id) }}" data-confirm-key="core.confirm.deactivate_user">
             <button type="submit" class="btn btn-warning w-100">Desativar</button>
           </form>
           {% else %}

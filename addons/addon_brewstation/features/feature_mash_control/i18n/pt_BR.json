@@ -1,3 +1,7 @@
 {
-  "brewstation_mashctrl.dashboard.confirm_actuate": "Confirma acionar \"{label}\"?"
+  "brewstation_mashctrl.dashboard.confirm_actuate": "Confirma acionar \"{label}\"?",
+  "brewstation_mashctrl.dashboard.confirm_stop_session": "Parar esta sessão? Ela será marcada como concluída — dá pra reverter depois na tela de Sessões, mas não por aqui.",
+  "brewstation_mashctrl.dashboard.confirm_remove_widget": "Remover este widget do dashboard?",
+  "brewstation_mashctrl.dashboard.confirm_remove_recipe_step": "Remover esta etapa da receita?",
+  "brewstation_mashctrl.recipe_timeline.confirm_remove_step": "Remover esta etapa da timeline?"
 }

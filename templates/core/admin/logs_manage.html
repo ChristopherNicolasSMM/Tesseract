@@ -39,7 +39,7 @@
               </a>
               <form method="post" action="{{ url_for('admin_logs.delete', source_id=s.id) }}"
                     class="d-inline"
-                    onsubmit="return confirm('Apagar este arquivo de log? Ele é recriado na próxima escrita.');">
+                    data-confirm-key="core.confirm.delete_log_file">
                 <button type="submit" class="btn btn-sm btn-outline-danger" {{ 'disabled' if not s.exists }}>
                   Apagar
                 </button>

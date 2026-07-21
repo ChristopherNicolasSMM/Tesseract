@@ -153,7 +153,7 @@
     fetch(widgetIdUrl(goBackStepUrlTemplate, sessionId), { method: 'POST' })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        if (!data.ok) alert(data.error || 'Não foi possível voltar.');
+        if (!data.ok) window.__tesseractToast.show(data.error || 'Não foi possível voltar.', 'error');
         refresh();
       })
       .finally(function () { backBtn.disabled = false; });
@@ -168,18 +168,18 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.ok) {
-          alert(data.error || 'Não foi possível acionar este atuador.');
+          window.__tesseractToast.show(data.error || 'Não foi possível acionar este atuador.', 'error');
         } else if (data.mqtt_connected === false) {
           // Achado da conversa: antes disso, o botão "acionava" (o
           // valor mudava na tela) mesmo sem o broker MQTT conectado —
           // o comando nunca saía do Tesseract de verdade, mas nada
           // avisava. Agora avisa explicitamente.
-          alert('Comando aplicado no painel, mas o broker MQTT não está conectado agora — o dispositivo físico pode não ter recebido o comando de verdade.');
+          window.__tesseractToast.show('Comando aplicado no painel, mas o broker MQTT não está conectado agora — o dispositivo físico pode não ter recebido o comando de verdade.', 'warning');
         }
         refresh();
       })
       .catch(function () {
-        alert('Erro de rede ao tentar acionar — tente de novo.');
+        window.__tesseractToast.show('Erro de rede ao tentar acionar — tente de novo.', 'error');
       });
   }
 
@@ -537,17 +537,19 @@
     if (!sessionId) return;
     fetch("{{ url_for('dashboard_runtime.toggle_pause_session', session_id=0) }}".replace('/0/', '/' + sessionId + '/'), { method: 'POST' })
       .then(function (r) { return r.json(); })
-      .then(function (data) { if (data.ok) refresh(); else alert(data.error || 'Erro ao pausar/retomar.'); });
+      .then(function (data) { if (data.ok) refresh(); else window.__tesseractToast.show(data.error || 'Erro ao pausar/retomar.', 'error'); });
   });
 
   document.getElementById('dbHeaderStopBtn').addEventListener('click', function () {
     const bar = document.getElementById('dbHeaderBar');
     const sessionId = bar.dataset.sessionId;
     if (!sessionId) return;
-    if (!confirm('Parar esta sessão? Ela será marcada como concluída — dá pra reverter depois na tela de Sessões, mas não por aqui.')) return;
-    fetch("{{ url_for('dashboard_runtime.stop_session', session_id=0) }}".replace('/0/', '/' + sessionId + '/'), { method: 'POST' })
-      .then(function (r) { return r.json(); })
-      .then(function (data) { if (data.ok) refresh(); else alert(data.error || 'Erro ao parar a sessão.'); });
+    window.__tesseractConfirm({ key: 'brewstation_mashctrl.dashboard.confirm_stop_session' }).then(function (ok) {
+      if (!ok) return;
+      fetch("{{ url_for('dashboard_runtime.stop_session', session_id=0) }}".replace('/0/', '/' + sessionId + '/'), { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) { if (data.ok) refresh(); else window.__tesseractToast.show(data.error || 'Erro ao parar a sessão.', 'error'); });
+    });
   });
 
   // Seletor de sessão (conversa — "selecionar sessão ativa de forma mais
@@ -810,7 +812,7 @@
     fetch(createWidgetUrl, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     }).then(function (r) { return r.json(); }).then(function (data) {
-      if (data.ok) { window.location.reload(); } else { alert(data.error || 'Erro ao criar widget.'); }
+      if (data.ok) { window.location.reload(); } else { window.__tesseractToast.show(data.error || 'Erro ao criar widget.', 'error'); }
     });
   }
 
@@ -926,12 +928,12 @@
         if (data.ok) {
           document.getElementById('dbPanelImageUrl').value = data.url;
         } else {
-          alert(data.error || 'Erro ao enviar imagem.');
+          window.__tesseractToast.show(data.error || 'Erro ao enviar imagem.', 'error');
         }
       })
       .catch(function () {
         uploadingEl.classList.add('d-none');
-        alert('Erro ao enviar imagem.');
+        window.__tesseractToast.show('Erro ao enviar imagem.', 'error');
       });
   });
 
@@ -983,9 +985,11 @@
 
   document.getElementById('dbPanelRemoveBtn').addEventListener('click', function () {
     if (!selectedWidgetEl) return;
-    if (!confirm('Remover este widget do dashboard?')) return;
-    fetch(widgetIdUrl(deleteUrlTemplate, selectedWidgetEl.dataset.widgetId), { method: 'POST' })
-      .then(function () { selectedWidgetEl.remove(); deselectWidget(); });
+    window.__tesseractConfirm({ key: 'brewstation_mashctrl.dashboard.confirm_remove_widget' }).then(function (ok) {
+      if (!ok) return;
+      fetch(widgetIdUrl(deleteUrlTemplate, selectedWidgetEl.dataset.widgetId), { method: 'POST' })
+        .then(function () { selectedWidgetEl.remove(); deselectWidget(); });
+    });
   });
 
   {% if layout.plant_id %}
@@ -1163,8 +1167,10 @@
         delBtn.className = 'btn btn-sm btn-outline-danger';
         delBtn.innerHTML = '<i class="bi bi-trash"></i>';
         delBtn.addEventListener('click', function () {
-          if (!confirm('Remover esta etapa da receita?')) return;
-          fetch(widgetIdUrl(recipeDeleteStepUrlTemplate, s.id), { method: 'POST' }).then(loadStepsList);
+          window.__tesseractConfirm({ key: 'brewstation_mashctrl.dashboard.confirm_remove_recipe_step' }).then(function (ok) {
+            if (!ok) return;
+            fetch(widgetIdUrl(recipeDeleteStepUrlTemplate, s.id), { method: 'POST' }).then(loadStepsList);
+          });
         });
         actionsTd.appendChild(editBtn);
         actionsTd.appendChild(delBtn);
@@ -1202,17 +1208,17 @@
     fetch(url, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     }).then(function (r) { return r.json(); }).then(function (data) {
-      if (data.ok) { resetStepForm(); loadStepsList(); } else { alert(data.error || 'Erro ao salvar etapa.'); }
+      if (data.ok) { resetStepForm(); loadStepsList(); } else { window.__tesseractToast.show(data.error || 'Erro ao salvar etapa.', 'error'); }
     });
   });
 
   document.getElementById('dbStepsResyncBtn').addEventListener('click', function () {
     const sessionId = lastSnapshot && lastSnapshot.active_session_id;
-    if (!sessionId) { alert('Sem sessão ativa pra ressincronizar.'); return; }
+    if (!sessionId) { window.__tesseractToast.show('Sem sessão ativa pra ressincronizar.', 'warning'); return; }
     fetch(widgetIdUrl(resyncStepsUrlTemplate, sessionId), { method: 'POST' })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        if (data.ok) { refresh(); } else { alert(data.error || 'Erro ao ressincronizar.'); }
+        if (data.ok) { refresh(); } else { window.__tesseractToast.show(data.error || 'Erro ao ressincronizar.', 'error'); }
       });
   });
 

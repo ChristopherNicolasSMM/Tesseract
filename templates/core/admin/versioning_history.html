@@ -26,7 +26,7 @@
                   <span class="badge bg-secondary ms-1">{{ snap.origin }}</span>
                 </div>
                 {% if not snap.is_current %}
-                <form method="post" action="{{ url_for('admin_versioning.restore', snapshot_id=snap.id) }}" onsubmit="return confirm('Restaurar esta versão? Isso sobrescreve o arquivo atual no disco.');" class="d-inline">
+                <form method="post" action="{{ url_for('admin_versioning.restore', snapshot_id=snap.id) }}" data-confirm-key="core.confirm.restore_version" class="d-inline">
                   <input type="hidden" name="file_path" value="{{ file_path }}">
                   <button type="submit" class="btn btn-sm btn-outline-warning">Restaurar</button>
                 </form>

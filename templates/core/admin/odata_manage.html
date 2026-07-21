@@ -66,7 +66,7 @@
                 <button type="submit" class="btn btn-sm btn-outline-primary">Testar</button>
               </form>
               <a href="{{ url_for('admin_odata.entities', conn_id=conn.id) }}" class="btn btn-sm btn-outline-secondary">Ver entidades</a>
-              <form method="post" action="{{ url_for('admin_odata.delete', conn_id=conn.id) }}" class="d-inline" onsubmit="return confirm('Remover esta conexão?');">
+              <form method="post" action="{{ url_for('admin_odata.delete', conn_id=conn.id) }}" class="d-inline" data-confirm-key="core.confirm.remove_odata_connection">
                 <button type="submit" class="btn btn-sm btn-outline-danger">Remover</button>
               </form>
             </td>

@@ -95,7 +95,7 @@
                 <button type="submit" class="btn btn-sm btn-outline-warning">↓</button>
               </form>
               <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#edit-{{ tx.id }}">Editar</button>
-              <form method="post" action="{{ url_for('admin_transactions.delete', tx_id=tx.id) }}" class="d-inline" onsubmit="return confirm('Remover esta transação?');">
+              <form method="post" action="{{ url_for('admin_transactions.delete', tx_id=tx.id) }}" class="d-inline" data-confirm-key="core.confirm.remove_transaction">
                 <button type="submit" class="btn btn-sm btn-outline-danger">Remover</button>
               </form>
               {% endif %}

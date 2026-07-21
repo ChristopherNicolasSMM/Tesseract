@@ -46,7 +46,7 @@
     fetch(addStepUrl, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     }).then(function (r) { return r.json(); }).then(function (data) {
-      if (data.ok) { reloadView(); } else { alert(data.error || 'Erro ao adicionar etapa.'); }
+      if (data.ok) { reloadView(); } else { window.__tesseractToast.show(data.error || 'Erro ao adicionar etapa.', 'error'); }
     });
   });
 
@@ -58,9 +58,11 @@
 
   document.querySelectorAll('.js-delete-step-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      if (!confirm('Remover esta etapa da timeline?')) return;
-      const url = deleteUrlTemplate.replace('/0/', '/' + btn.dataset.stepId + '/');
-      fetch(url, { method: 'POST' }).then(function () { reloadView(); });
+      window.__tesseractConfirm({ key: 'brewstation_mashctrl.recipe_timeline.confirm_remove_step' }).then(function (ok) {
+        if (!ok) return;
+        const url = deleteUrlTemplate.replace('/0/', '/' + btn.dataset.stepId + '/');
+        fetch(url, { method: 'POST' }).then(function () { reloadView(); });
+      });
     });
   });
 

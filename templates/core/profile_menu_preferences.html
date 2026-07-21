@@ -166,10 +166,11 @@
       const prevLi = li.previousElementSibling;
       if (!prevLi || !prevLi.hasAttribute('data-code')) return; // sem irmão anterior
       if (prevLi.getAttribute('data-is-folder') !== 'true') {
-        alert(
+        window.__tesseractToast.show(
           "O item anterior não é pasta (tem rota própria) — rebaixar " +
           'pra dentro dele esconderia isso na navegação. Só é possível ' +
-          'rebaixar pra dentro de uma pasta.'
+          'rebaixar pra dentro de uma pasta.',
+          'warning'
         );
         return;
       }

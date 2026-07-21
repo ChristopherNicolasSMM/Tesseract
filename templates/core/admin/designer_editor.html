@@ -247,12 +247,14 @@
     });
 
     document.getElementById('deleteCompBtn').addEventListener('click', function () {
-      if (!confirm('Excluir este componente?')) return;
-      fetch('/admin/designer/component/' + compId + '/delete', { method: 'POST' }).then(function () {
-        const el = document.getElementById('comp-' + compId);
-        if (el) el.remove();
-        componentsData = componentsData.filter(function (c) { return c.id !== compId; });
-        propertiesPanel.innerHTML = 'Selecione um componente no canvas.';
+      window.__tesseractConfirm({ key: 'core.confirm.delete_designer_component' }).then(function (ok) {
+        if (!ok) return;
+        fetch('/admin/designer/component/' + compId + '/delete', { method: 'POST' }).then(function () {
+          const el = document.getElementById('comp-' + compId);
+          if (el) el.remove();
+          componentsData = componentsData.filter(function (c) { return c.id !== compId; });
+          propertiesPanel.innerHTML = 'Selecione um componente no canvas.';
+        });
       });
     });
   }
