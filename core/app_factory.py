@@ -52,6 +52,30 @@ def create_app(env: str | None = None) -> Flask:
     init_auth(app)
     register_cli_commands(app)
 
+    # Motor de i18n (skill 00, adendo) — primeiro global Jinja do
+    # projeto. Cache em memória é limpo a cada TESTING=True (cada app
+    # de teste monta seu próprio conjunto de módulos ativos, e reusar
+    # cache entre eles mostraria chave de um módulo que não está ativo
+    # no teste seguinte).
+    from services.core.i18n_service import translate as _t, reset_cache as _i18n_reset_cache
+    if app.config.get("TESTING", False):
+        _i18n_reset_cache()
+    app.jinja_env.globals["t"] = _t
+
+    # tojson_utf8 (skill 15): o filtro nativo `tojson` do Jinja escapa
+    # acentuação como \u00e1 — o JS decodifica isso normalmente, mas
+    # deixa de existir texto humano legível em resp.data, quebrando
+    # qualquer teste que verifique a mensagem de flash (ex.: "Já
+    # existe") direto nos bytes crus da resposta. Escapa só "</" (evita
+    # fechar a tag <script> prematuramente).
+    import json as _json
+    from markupsafe import Markup as _Markup
+
+    def _tojson_utf8(value):
+        return _Markup(_json.dumps(value, ensure_ascii=False).replace("</", "<\\/"))
+
+    app.jinja_env.filters["tojson_utf8"] = _tojson_utf8
+
     register_example_listener()
 
     app.module_manager = ModuleManager(app)
@@ -149,6 +173,18 @@ def create_app(env: str | None = None) -> Flask:
     if not app.config.get("TESTING") and os.environ.get("TASK_SCHEDULER_ENABLED", "false").lower() == "true":
         from services.core.task_service import TaskService
         TaskService.init_scheduler(app)
+
+    @app.context_processor
+    def inject_i18n_translations():
+        """
+        Disponível em TODO template (autenticado ou não — diferente de
+        inject_transactions_menu, que só roda logado) porque o diálogo
+        de confirmação (skill 15) também pode aparecer em telas sem
+        sidebar. `tojson` no template escapa para uso seguro dentro de
+        <script>.
+        """
+        from services.core.i18n_service import all_translations
+        return {"i18n_translations": all_translations()}
 
     @app.context_processor
     def inject_transactions_menu():

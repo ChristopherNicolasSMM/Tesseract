@@ -1,0 +1,134 @@
+/**
+ * static/css/core_popups.css
+ *
+ * Skill 15 — estilo compartilhado do diálogo de confirmação
+ * (#core-confirm-modal) e do toast (#core-toast-container).
+ *
+ * Segue o padrão de tema REAL do projeto (style.css claro por padrão +
+ * style_dark.css sobrescrevendo via [data-theme="dark"] com as
+ * variáveis --dark-*/--bs-dark-* já existentes) — não o conjunto de
+ * variáveis de components.css/themes.css, que não está linkado em
+ * lugar nenhum hoje (achado da investigação da skill 15).
+ */
+
+/* ===== Diálogo de confirmação ===== */
+
+.core-popup-modal .modal-content {
+  border: none;
+  border-radius: 0.75rem;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+
+.core-popup-modal .modal-body {
+  padding: 1.75rem 1.5rem 1rem;
+  font-size: 1rem;
+  color: #444444;
+}
+
+.core-popup-modal .modal-footer {
+  border-top: none;
+  padding: 0.75rem 1.5rem 1.5rem;
+}
+
+[data-theme="dark"] .core-popup-modal .modal-content {
+  background: var(--dark-surface, #111a2e);
+  border: 1px solid var(--dark-border, #334155);
+}
+
+[data-theme="dark"] .core-popup-modal .modal-body {
+  color: var(--dark-text, #e5e7eb);
+}
+
+/* ===== Toast ===== */
+
+#core-toast-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 380px;
+  pointer-events: none;
+}
+
+.core-toast {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #444444;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  border-left: 4px solid #717ff5;
+  opacity: 0;
+  transform: translateX(16px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: auto;
+}
+
+.core-toast.core-toast-show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.core-toast-message {
+  flex: 1 1 auto;
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+.core-toast-close {
+  border: none;
+  background: transparent;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: inherit;
+  opacity: 0.55;
+  cursor: pointer;
+  padding: 0;
+}
+
+.core-toast-close:hover {
+  opacity: 1;
+}
+
+.core-toast-success { border-left-color: #2eca6a; }
+.core-toast-success > .bi { color: #2eca6a; }
+
+.core-toast-error { border-left-color: #dc3545; }
+.core-toast-error > .bi { color: #dc3545; }
+
+.core-toast-warning { border-left-color: #ffc107; }
+.core-toast-warning > .bi { color: #ffc107; }
+
+.core-toast-info { border-left-color: #4154f1; }
+.core-toast-info > .bi { color: #4154f1; }
+
+[data-theme="dark"] .core-toast {
+  background: var(--dark-surface, #111a2e);
+  color: var(--dark-text, #e5e7eb);
+  box-shadow: var(--bs-dark-shadow, 0px 0 30px rgba(68, 67, 67, 0.35));
+}
+
+[data-theme="dark"] .core-toast-success { border-left-color: var(--bs-dark-success, #3fe28f); }
+[data-theme="dark"] .core-toast-success > .bi { color: var(--bs-dark-success, #3fe28f); }
+
+[data-theme="dark"] .core-toast-error { border-left-color: var(--bs-dark-danger, #ff6b6b); }
+[data-theme="dark"] .core-toast-error > .bi { color: var(--bs-dark-danger, #ff6b6b); }
+
+[data-theme="dark"] .core-toast-warning { border-left-color: var(--bs-dark-warning, #ffcc66); }
+[data-theme="dark"] .core-toast-warning > .bi { color: var(--bs-dark-warning, #ffcc66); }
+
+[data-theme="dark"] .core-toast-info { border-left-color: var(--bs-dark-info, #68d4ff); }
+[data-theme="dark"] .core-toast-info > .bi { color: var(--bs-dark-info, #68d4ff); }
+
+@media (max-width: 480px) {
+  #core-toast-container {
+    left: 1rem;
+    right: 1rem;
+    max-width: none;
+  }
+}

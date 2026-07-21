@@ -100,10 +100,16 @@
 
   function maybeConfirmAndSetValue(el, value, roleKey) {
     const config = JSON.parse(el.dataset.configJson || '{}');
-    if (config.confirm_before_actuate && !confirm('Confirma acionar "' + (el.dataset.labelText || 'este atuador') + '"?')) {
+    if (!config.confirm_before_actuate) {
+      postSetValue(el.dataset.widgetId, value, roleKey);
       return;
     }
-    postSetValue(el.dataset.widgetId, value, roleKey);
+    window.__tesseractConfirm({
+      key: 'brewstation_mashctrl.dashboard.confirm_actuate',
+      params: { label: el.dataset.labelText || 'este atuador' },
+    }).then(function (ok) {
+      if (ok) postSetValue(el.dataset.widgetId, value, roleKey);
+    });
   }
 
   // Achado real: o widget "toggle" dedicado nunca teve clique conectado —

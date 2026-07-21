@@ -20,6 +20,7 @@
   <link href="{{ url_for('static', filename='vendor/boxicons/css/boxicons.min.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='vendor/simple-datatables/style.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/core_popups.css') }}" rel="stylesheet">
   {% if _theme == 'dark' %}
   <link href="{{ url_for('static', filename='css/style_dark.css') }}" rel="stylesheet" id="theme-dark-css">
   {% endif %}
@@ -27,6 +28,12 @@
   {% block extra_css %}{% endblock %}
 </head>
 <body class="theme-{{ _theme }}{% if menu_sidebar_collapsed %} toggle-sidebar{% endif %}" data-theme="{{ _theme }}">
+  <!-- Container único de toast (skill 15) — nunca duplicar isso em
+       manage.html/detail.html individual; os dois caminhos de disparo
+       (flash tradicional + resposta AJAX) escrevem aqui via
+       window.__tesseractToast. -->
+  <div id="core-toast-container"></div>
+
   <!-- ======= Header ======= -->
   <header id="header" class="header fixed-top d-flex align-items-center">
     <!--
@@ -173,6 +180,22 @@
   <script src="{{ url_for('static', filename='vendor/simple-datatables/simple-datatables.js') }}"></script>
   <script src="{{ url_for('static', filename='js/web.js') }}"></script>
 
+  <!-- Skill 15 (pop-ups padrão): window.__tesseractTranslations serve o
+       diálogo de confirmação (i18n_service, skill 00);
+       window.__tesseractFlashMessages é o único lugar do projeto que
+       lê get_flashed_messages() — nunca duplicar esse loop em
+       manage.html/detail.html individual. -->
+  <script>
+    window.__tesseractTranslations = {{ i18n_translations | tojson_utf8 }};
+    window.__tesseractFlashMessages = [
+      {% for category, message in get_flashed_messages(with_categories=true) %}
+      { category: {{ category | tojson_utf8 }}, message: {{ message | tojson_utf8 }} }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ];
+  </script>
+  <script src="{{ url_for('static', filename='js/core_toast.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/core_confirm_dialog.js') }}"></script>
+
   <script>
 
     document.getElementById('logoutBtn').addEventListener('click', function (e) {
@@ -220,7 +243,7 @@
             window.location.href = data.route;
           } else {
             // Se não encontrou ou não tem permissão, mostra o erro
-            alert(data.message);
+            window.__tesseractToast.show(data.message, 'error');
           }
         })
         .catch(error => {

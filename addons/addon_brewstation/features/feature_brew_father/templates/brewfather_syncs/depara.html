@@ -5,10 +5,6 @@
   <p class="text-muted">Ingredientes importados do BrewFather que ainda não foram associados a um Material do estoque.</p>
 </div>
 
-{% for category, message in get_flashed_messages(with_categories=true) %}
-  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' if category == 'success' else 'warning' }}">{{ message }}</div>
-{% endfor %}
-
 <section class="section">
 
   <div class="d-flex align-items-center gap-3 mb-3">
@@ -17,9 +13,8 @@
     </a>
     <span class="text-muted small">{{ total_pendentes }} ingrediente(s) pendente(s) de resolução</span>
     {% if grupos %}
-    <form method="post" action="{{ url_for('brewfather_syncs.cadastrar_todos_automaticamente') }}" class="ms-auto">
-      <button type="submit" class="btn btn-success btn-sm"
-              onclick="return confirm('Criar um Material no estoque para cada ingrediente pendente? Os dados de spec (EBC, alpha, etc.) do BrewFather serão usados.')">
+    <form method="post" action="{{ url_for('brewfather_syncs.cadastrar_todos_automaticamente') }}" class="ms-auto" data-confirm-key="brewstation_bf.depara.confirm_create_materials">
+      <button type="submit" class="btn btn-success btn-sm">
         <i class="bi bi-lightning-fill"></i> Cadastrar todos automaticamente
       </button>
     </form>

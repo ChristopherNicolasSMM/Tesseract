@@ -9,10 +9,6 @@
   </p>
 </div>
 
-{% for category, message in get_flashed_messages(with_categories=true) %}
-  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
-{% endfor %}
-
 <div class="row mb-3">
   <div class="col-md-8">
     <div class="d-flex flex-wrap gap-2 align-items-center">

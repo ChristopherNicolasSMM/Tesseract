@@ -4,10 +4,6 @@
   <h1>Tanque</h1>
 </div>
 
-{% for category, message in get_flashed_messages(with_categories=true) %}
-  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
-{% endfor %}
-
 <section class="section">
   <div class="card">
     <div class="card-body">
@@ -134,7 +130,7 @@
               {% for col in visible_columns %}<td>{{ data.get(col) }}</td>{% endfor %}
               <td>
                 <a href="{{ url_for('brew_plant_vessels.detail', id=item.id) }}" class="btn btn-sm btn-outline-primary">Ver / Editar</a>
-                <form method="post" action="{{ url_for('brew_plant_vessels.trash', id=item.id) }}" class="d-inline" onsubmit="return confirm('Mover para a lixeira?');">
+                <form method="post" action="{{ url_for('brew_plant_vessels.trash', id=item.id) }}" class="d-inline" data-confirm-key="core.confirm.trash_generic">
                   <button type="submit" class="btn btn-sm btn-outline-danger">Lixeira</button>
                 </form>
               </td>

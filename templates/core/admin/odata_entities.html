@@ -6,10 +6,6 @@
   <a href="{{ url_for('admin_odata.manage') }}">&larr; Voltar</a>
 </div>
 
-{% for category, message in get_flashed_messages(with_categories=true) %}
-  <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">{{ message }}</div>
-{% endfor %}
-
 <section class="section">
   {% if error %}
   <div class="alert alert-danger">

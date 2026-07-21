@@ -13,10 +13,13 @@
   <link href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='vendor/boxicons/css/boxicons.min.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/core_popups.css') }}" rel="stylesheet">
 
   {% block extra_css %}{% endblock %}
 </head>
 <body>
+  <div id="core-toast-container"></div>
+
   <main id="main" class="main">
     {% block content %}{% endblock %}
   </main>
@@ -26,6 +29,16 @@
   </footer>
 
   <script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+  <script>
+    window.__tesseractTranslations = {{ i18n_translations | tojson_utf8 }};
+    window.__tesseractFlashMessages = [
+      {% for category, message in get_flashed_messages(with_categories=true) %}
+      { category: {{ category | tojson_utf8 }}, message: {{ message | tojson_utf8 }} }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ];
+  </script>
+  <script src="{{ url_for('static', filename='js/core_toast.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/core_confirm_dialog.js') }}"></script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>
