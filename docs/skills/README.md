@@ -64,6 +64,12 @@ Ordem de leitura recomendada:
     real dos 2 eventos em uso hoje, e 2 achados de manutenção (nome de
     evento duplicado como string literal em publisher/subscriber;
     docstring desatualizada em `register_example_listener()`).
+16. **15-popups-e-dialogos-padrao.md** — padrão de diálogo de
+    confirmação e toast/alert (Core), substituindo `confirm()`/
+    `alert()` nativos e o `flash()` duplicado por template; primeiro
+    uso real do motor de resolução de i18n (adendo da skill 00),
+    delegação de evento obrigatória para sobreviver a fragmento AJAX
+    (Plant Workspace/Dashboard).
 
 ## Status
 
@@ -93,6 +99,14 @@ A skill 11 (referência fraca / `@display_field` / `@weak_ref`) está em
 tinha sido portado (Fase 4) mas nunca usado nem consumido; `@weak_ref`
 é anotação nova, sem equivalente no PyTeca (que não tem o conceito de
 referência fraca — lá toda relação é FK real).
+
+A skill 15 (pop-ups/diálogos) está em **[DECIDIDO], pendente de
+implementação** — nasceu de revisão real do código (`confirm()` nativo
+sem estilo, `flash()` duplicado por template, sem centralização em
+`base.html`), e é o gatilho para a primeira implementação real do motor
+de i18n (skill 00, que até aqui era só regra, nunca teve `t()`/
+`i18n_service.py` de fato). Adendas nas skills 00 (motor de i18n) e 01
+(`static/` confirmado como global, sem `static/core/`).
 
 Cada novo documento deve seguir o mesmo padrão: sem código de implementação,
 só regra, schema e exemplo — pronto para ser citado por uma IA ou

@@ -43,6 +43,39 @@ tesseract/
 > versionada (entra no `.gitignore`), só a estrutura em si é garantida
 > pelo boot do Core.
 
+## Adendo: `static/` é global, não segue a hierarquia Core/Addon/Feature [DECIDIDO]
+
+> Divergência real encontrada (mesma natureza do achado `core/`→`root/`
+> registrado nesta skill): o texto original desta seção listava
+> `static/core/` como parte da estrutura do Core, mas o projeto real
+> sempre teve `static/css/`, `static/js/`, `static/vendor/` **flat**, sem
+> nenhum namespacing por módulo — nenhum Addon jamais teve sua própria
+> pasta `static/`. Diferente do caso `core/`→`root/` (que foi corrigido
+> porque a intenção real era `root/`), aqui a decisão foi a oposta:
+> **manter a realidade** e ajustar a regra, não o código.
+
+- `static/` é compartilhado por todo o Tesseract — Core, Addons, Features
+  e Plugins publicam CSS/JS no mesmo espaço flat, sem prefixo de pasta
+  por módulo.
+- Isso **não dispensa** convenção de nome de arquivo: um asset genérico
+  de Core usa prefixo `core_` no nome do arquivo (ex.:
+  `static/js/core_toast.js`, `static/css/core_popups.css`) para deixar
+  claro que é infraestrutura compartilhada, não algo de um domínio
+  específico — a convenção vira nome de arquivo, não estrutura de pasta.
+- Assets específicos de um Addon/Feature (ex.: JS de um dashboard do
+  `mash_control`) continuam sem prefixo obrigatório, já que hoje vivem
+  fisicamente dentro da própria árvore do módulo quando servidos via
+  Jinja (`templates/feature_[nome]/...`), e só recorrem a `static/`
+  compartilhado quando o asset é genérico o bastante para ser
+  reaproveitado — nesse caso, mesma regra do prefixo acima se aplica.
+- **`templates/` continua seguindo a hierarquia Core/Addon/Feature**
+  normalmente (`templates/core/`, `templates/feature_[nome]/`, etc.) —
+  o ajuste desta seção vale só para `static/`. Isso é intencional:
+  template tem escopo de string de import Jinja (precisa de
+  namespace para não colidir), asset estático é servido por path de URL
+  plano (não colide da mesma forma, já resolvido por nome de arquivo
+  único).
+
 ## Estrutura obrigatória de um Addon
 
 ```

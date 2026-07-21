@@ -131,6 +131,57 @@ arquivo gigante central.
 > descrito nas skills 01–03, a geração/PR é rejeitada — não existe exceção
 > "por agora resolve assim". Ajustar a skill antes de violar a convenção.
 
+## Adendo: Motor de resolução de i18n — primeiro corte [DECIDIDO]
+
+> Contexto: até esta adenda, a seção "Preparação para internacionalização"
+> acima descrevia **regra**, não implementação — não existia nenhum código
+> que lesse `i18n/pt_BR.json` em runtime. A primeira implementação real
+> nasceu escopada para servir a skill 15 (pop-ups/diálogos), não para
+> migrar o sistema inteiro de uma vez.
+
+### O que passa a existir
+
+- **Serviço**: `services/core/i18n_service.py`, expõe `translate(key, locale=None, **params) -> str`.
+- **Carregamento**: no boot, faz merge de `core/i18n/[locale].json` +
+  `i18n/[locale].json` de todo módulo (Addon/Feature/Plugin) **ativo**,
+  em cache de memória — invalidado quando o `ModuleManager` ativa/desativa
+  um módulo. Sem leitura de disco por request.
+- **Registro no Jinja**: `app.jinja_env.globals["t"] = i18n_service.translate`,
+  em `core/app_factory.py` — primeiro global Jinja do projeto.
+- **`core/i18n/pt_BR.json`**: novo arquivo, mesma convenção de chave já
+  definida acima (`[modulo].[entidade_ou_tela].[campo_ou_contexto]`,
+  namespace `core.*` para chaves do próprio Core).
+
+### Escopo do primeiro corte (o que NÃO faz ainda)
+
+- **Locale por usuário**: não cria `User.locale`. Como `available_locales`
+  continua `["pt_BR"]` em todo manifesto existente, `translate()` resolve
+  sempre `pt_BR` fixo. Locale por usuário só entra quando um segundo
+  idioma real for implementado em algum módulo — não é retrabalho
+  arquitetural quando chegar essa hora, só um parâmetro a mais no service.
+- **Migração retroativa de strings**: templates/controllers que já
+  concatenam texto direto continuam como estão. Este corte não varre o
+  projeto — só as strings tocadas pela skill 15 (diálogo de confirmação,
+  toast) passam a usar `translate()`.
+
+### Interpolação
+
+Chave pode conter placeholders `{param}` na string armazenada em
+`pt_BR.json`; `translate("chave", label="Bomba 1")` substitui `{label}`
+no resultado. Necessário para mensagens de confirmação com valor
+dinâmico (ex.: nome do atuador sendo acionado).
+
+### Regra de chave ausente (adendo à regra de ouro de i18n)
+
+A regra já existente ("se a chave não existe no idioma ativo, cai para
+`pt_BR`, nunca mostra a chave bruta") cobre o caso de **locale
+secundário sem tradução**. Ela não cobre o caso de a chave **não existir
+em locale nenhum** (erro de digitação, chave esquecida) — para esse
+caso: `translate()` loga aviso no log global do Core e retorna a
+própria chave como fallback visível. É comportamento intencional de
+desenvolvimento (torna o erro visível em vez de mascarado), não uma
+exceção à regra de ouro original.
+
 ## Adendo (Fase 7a): Transação como tabela de Core
 
 A definição original de "Transação" (tabela acima) ganhou
