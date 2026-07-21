@@ -110,10 +110,14 @@ def set_value(widget_id: int):
     value = payload.get("value")
     role_key = payload.get("role_key")
 
-    ok = svc.set_widget_value(widget, value, role_key=role_key)
-    if not ok:
-        return jsonify({"ok": False, "error": "Não foi possível acionar — verifique o mapeamento do dispositivo."}), 400
-    return jsonify({"ok": True})
+    result = svc.set_widget_value(widget, value, role_key=role_key)
+    if not result["ok"]:
+        return jsonify({
+            "ok": False,
+            "error": result["error"] or "Não foi possível acionar — verifique o mapeamento do dispositivo.",
+            "mqtt_connected": result["mqtt_connected"],
+        }), 400
+    return jsonify({"ok": True, "mqtt_connected": result["mqtt_connected"]})
 
 
 @dashboard_runtime_bp.route("/sessions/<int:session_id>/readings", methods=["GET"])

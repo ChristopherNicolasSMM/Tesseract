@@ -298,33 +298,45 @@ def _get_active_session_for_plant(plant_id: int) -> Optional[BrewSession]:
     )
 
 
-def set_widget_value(widget: DashboardWidget, value, *, role_key: Optional[str] = None) -> bool:
+def set_widget_value(widget: DashboardWidget, value, *, role_key: Optional[str] = None) -> dict:
     """
     Aciona um atuador a partir de um clique na tela. Pra widget tipo
     'vessel', `role_key` diz qual papel (ex.: "actor_heat") do
     vasilhame está sendo acionado — resolvido via BrewPlantMapping,
     igual a leitura.
+
+    Devolve um dict, não só bool (achado real — conversa): antes disso,
+    o front nunca sabia se o comando realmente saiu pro broker MQTT ou
+    só atualizou o cache local (device_service.set_value() sempre
+    aplica o cache, publica no MQTT só se best-effort — nunca falha por
+    causa do MQTT desligado, por design). Sem essa informação, o botão
+    "acionava" visualmente mesmo com o broker desconectado, sem avisar
+    ninguém que o comando não chegou no hardware de verdade.
     """
-    from addons.addon_device_manager.root.services import device_service
+    from addons.addon_device_manager.root.services import device_service, mqtt_client_service
 
     function_name = widget.device_function_name
     if widget.widget_type == "vessel" and widget.vessel_id:
         if not role_key:
-            return False
+            return {"ok": False, "mqtt_connected": None, "error": "Papel do atuador (role_key) não informado."}
         mapping = BrewPlantMapping.query.filter_by(
             vessel_id=widget.vessel_id, role_key=role_key, is_deleted=False,
         ).first()
         if not mapping:
-            return False
+            return {"ok": False, "mqtt_connected": None, "error": "Mapeamento não encontrado pra este papel do Tanque."}
         function_name = mapping.device_function_name
 
     if not function_name:
-        return False
+        return {"ok": False, "mqtt_connected": None, "error": "Este widget não tem uma function de dispositivo configurada."}
 
     external_id = device_service.find_actor_external_id_by_function_name(function_name)
     if not external_id:
-        return False
-    return device_service.set_value(external_id, value)
+        return {"ok": False, "mqtt_connected": None, "error": f"Atuador '{function_name}' não encontrado."}
+
+    ok = device_service.set_value(external_id, value)
+    mqtt_connected = mqtt_client_service.is_connected()
+    error = None if ok else "Valor fora da faixa permitida pra este atuador."
+    return {"ok": ok, "mqtt_connected": mqtt_connected, "error": error}
 
 
 def get_session_readings(session_id: int, function_name: str, window_minutes: int = 60) -> dict:

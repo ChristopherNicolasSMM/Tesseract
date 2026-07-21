@@ -3373,3 +3373,48 @@ incluindo o teste mais direto pro bug reportado: chamar
 `get_step_card_data()` duas vezes seguidas durante a pausa devolve o
 MESMO `remaining_seconds` nas duas chamadas. Suíte completa rodada em
 lotes — tudo passou (só a mesma falha de ambiente pré-existente).
+
+## Dashboard: botão não acionava + sem aviso de MQTT desconectado (bug reportado em uso real): CONCLUÍDO
+
+Achado direto de uso: clicar nos widgets "Botão" do Dashboard parava
+de funcionar (nem visualmente mudava mais). Investigação revelou
+**três problemas reais** no mesmo trecho de JS, nenhum deles
+relacionado a MQTT de fato estar desconectado — mas o usuário também
+pediu, com razão, um aviso pra quando esse REALMENTE for o motivo.
+
+**Bug 1 — clique lia o `widgetId` do elemento errado**: o listener de
+clique fazia `e.target.closest('.db-toggle')` (pega o `<button>` de
+dentro) e lia `toggleBtn.dataset.widgetId` direto dele — mas esse
+atributo só existe no `<div class="db-widget">` que ENVOLVE o botão,
+não no botão em si. O comando saía com id `"undefined"` e nunca
+acionava nada.
+
+**Bug 2 — `renderWidget` aplicava cor/disabled no elemento errado**:
+pro tipo `toggle`, o código fazia `el.classList.toggle('btn-success', ...)`
+e `el.disabled = ...` em `el`, que é sempre o `<div class="db-widget">`
+wrapper (não tem CSS de botão nenhum, e `.disabled` num `<div>` não
+faz nada) — o botão nunca mudava de cor mesmo quando o comando
+funcionava, e o "Permitir acionamento manual" desligado nunca
+desabilitava o clique de verdade (o clique checava
+`toggleBtn.disabled`, que nunca era setado).
+
+**Pedido do usuário — aviso de MQTT desconectado**: antes desta
+rodada, `device_service.set_value()` sempre atualiza o cache local e
+devolve sucesso, MESMO sem broker conectado (publica o MQTT em modo
+best-effort, por design — ver skill 05). Isso significa que o botão
+podia "acionar" (mudar de cor) sem o comando físico ter saído do
+Tesseract, sem avisar ninguém. `dashboard_runtime_service.set_widget_value()`
+agora devolve um dict (`{ok, mqtt_connected, error}`) em vez de só
+bool — expõe `mqtt_client_service.is_connected()` — e o front mostra
+um popup explícito quando `mqtt_connected === false`.
+
+**Mudança de contrato registrada**: `set_widget_value()` deixou de
+devolver `bool` — só tem um chamador (a rota `/widgets/<id>/set-value`,
+atualizada junto). `device_service.set_value()` (API pública do
+addon_device_manager, usada também por `automation_engine.py`) **não
+foi tocada** — mudar o contrato dela quebraria o motor de automação.
+
+8 testes novos + 3 testes existentes atualizados pro novo contrato de
+retorno. Sem migration. Suíte completa rodada em lotes (dividida por
+`-k` desta vez — o arquivo já tem quase 100 testes e passou do
+orçamento de tempo de uma chamada só) — tudo passou.

@@ -202,8 +202,9 @@ def test_set_widget_value_widget_simples(app):
         db.session.add(widget)
         db.session.commit()
 
-        ok = svc.set_widget_value(widget, True)
-        assert ok is True
+        result = svc.set_widget_value(widget, True)
+        assert result["ok"] is True
+        assert result["mqtt_connected"] is False  # sem broker rodando nos testes
         assert device_service.get_value("bomba1_actor") is True
 
 
@@ -221,8 +222,8 @@ def test_set_widget_value_vessel_com_role_key(app):
         db.session.add(widget)
         db.session.commit()
 
-        ok = svc.set_widget_value(widget, True, role_key="actor_heat")
-        assert ok is True
+        result = svc.set_widget_value(widget, True, role_key="actor_heat")
+        assert result["ok"] is True
         assert device_service.get_value("resistencia1_actor") is True
 
 
@@ -236,8 +237,9 @@ def test_set_widget_value_role_key_inexistente_falha(app):
         db.session.add(widget)
         db.session.commit()
 
-        ok = svc.set_widget_value(widget, True, role_key="actor_nao_existe")
-        assert ok is False
+        result = svc.set_widget_value(widget, True, role_key="actor_nao_existe")
+        assert result["ok"] is False
+        assert result["error"]
 
 
 # ── Conexões de tubulação (plant_schema_json) ────────────────────────────────
@@ -1872,3 +1874,109 @@ def test_toggle_pause_session_via_rota_congela_o_timer_ao_retomar(app, client):
             new_started_at = new_started_at.replace(tzinfo=timezone.utc)
         delta_minutes = (new_started_at - original_started_at).total_seconds() / 60
         assert 4.5 <= delta_minutes <= 5.5
+
+
+# ── Achado real (conversa): botão Botão não acionava + sem aviso de MQTT ──
+
+def test_view_click_le_widgetid_do_wrapper_nao_do_botao(app, client):
+    """Achado real: o clique lia widgetId/config direto do <button>
+    .db-toggle, que não tem esses atributos (ficam no wrapper
+    .db-widget) — o comando ia com id "undefined" e nunca acionava
+    nada de verdade."""
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Click Wrapper")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "const widgetEl = toggleBtn.closest('.db-widget');" in html
+    assert "lastSnapshot.widgets[widgetEl.dataset.widgetId]" in html
+    assert "maybeConfirmAndSetValue(widgetEl, !currentValue, null);" in html
+
+
+def test_view_renderwidget_aplica_estado_no_botao_nao_no_wrapper(app, client):
+    """Achado real: renderWidget aplicava btn-success/disabled no
+    wrapper .db-widget (um <div>), nunca no <button> de verdade — o
+    botão nunca mudava de cor nem ficava desabilitado de verdade."""
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L RenderWidget Botao")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "const toggleEl = el.querySelector('.db-toggle') || el;" in html
+    assert "toggleEl.classList.toggle('btn-success', !!state);" in html
+    assert "toggleEl.disabled = !manualEnabled;" in html
+
+
+def test_view_postsetvalue_avisa_quando_mqtt_desconectado(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Aviso MQTT")
+        db.session.add(layout)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    html = resp.data.decode("utf-8")
+    assert "data.mqtt_connected === false" in html
+    assert "broker MQTT não está conectado" in html
+
+
+def test_set_widget_value_expoe_mqtt_connected_false_sem_broker(app):
+    """Sem broker rodando nos testes, mqtt_connected sempre vem False —
+    o cache local ainda é atualizado (comportamento já existente), mas
+    agora o chamador sabe que não publicou de verdade."""
+    with app.app_context():
+        _criar_actor(name="mqtt_status_actor", function_name="mqtt_status_fn", category="actuator", actor_type="actuator")
+        layout = DashboardLayout(name="L MQTT Status")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="toggle", device_function_name="mqtt_status_fn")
+        db.session.add(widget)
+        db.session.commit()
+
+        result = svc.set_widget_value(widget, True)
+        assert result["ok"] is True
+        assert result["mqtt_connected"] is False
+
+
+def test_set_value_rota_web_expoe_mqtt_connected(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        _criar_actor(name="mqtt_rota_actor", function_name="mqtt_rota_fn", category="actuator", actor_type="actuator")
+        layout = DashboardLayout(name="L MQTT Rota")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="toggle", device_function_name="mqtt_rota_fn")
+        db.session.add(widget)
+        db.session.commit()
+        widget_id = widget.id
+
+    resp = client.post(f"/brewstation/dashboards/widgets/{widget_id}/set-value", json={"value": True})
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert "mqtt_connected" in data
+    assert data["mqtt_connected"] is False
+
+
+def test_set_widget_value_sem_function_devolve_erro_descritivo(app):
+    with app.app_context():
+        layout = DashboardLayout(name="L Sem Function")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="toggle")
+        db.session.add(widget)
+        db.session.commit()
+
+        result = svc.set_widget_value(widget, True)
+        assert result["ok"] is False
+        assert result["error"]
+        assert result["mqtt_connected"] is None

@@ -107,14 +107,20 @@
   }
 
   // Achado real: o widget "toggle" dedicado nunca teve clique conectado —
-  // só os badges de atuador dentro do tanque funcionavam.
+  // só os badges de atuador dentro do tanque funcionavam. E, mesmo
+  // depois desse fix, o clique lia widgetId/config direto do <button>
+  // .db-toggle — que não tem esses atributos (eles ficam no wrapper
+  // .db-widget que o envolve) — então o comando ia com id "undefined"
+  // e nunca acionava nada de verdade.
   document.addEventListener('click', function (e) {
     const toggleBtn = e.target.closest('.db-toggle');
     if (!toggleBtn || toggleBtn.disabled) return;
     if (editMode) return; // no modo edição, clicar é pra arrastar/selecionar, não acionar
-    const data = lastSnapshot && lastSnapshot.widgets ? lastSnapshot.widgets[toggleBtn.dataset.widgetId] : null;
+    const widgetEl = toggleBtn.closest('.db-widget');
+    if (!widgetEl) return;
+    const data = lastSnapshot && lastSnapshot.widgets ? lastSnapshot.widgets[widgetEl.dataset.widgetId] : null;
     const currentValue = data ? data.value : null;
-    maybeConfirmAndSetValue(toggleBtn, !currentValue, null);
+    maybeConfirmAndSetValue(widgetEl, !currentValue, null);
   });
 
   // Card de Etapa (conversa — Ponto 2): "Concluir e Avançar" sempre
@@ -152,7 +158,23 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ value: value, role_key: roleKey || null }),
-    }).then(function () { refresh(); });
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) {
+          alert(data.error || 'Não foi possível acionar este atuador.');
+        } else if (data.mqtt_connected === false) {
+          // Achado da conversa: antes disso, o botão "acionava" (o
+          // valor mudava na tela) mesmo sem o broker MQTT conectado —
+          // o comando nunca saía do Tesseract de verdade, mas nada
+          // avisava. Agora avisa explicitamente.
+          alert('Comando aplicado no painel, mas o broker MQTT não está conectado agora — o dispositivo físico pode não ter recebido o comando de verdade.');
+        }
+        refresh();
+      })
+      .catch(function () {
+        alert('Erro de rede ao tentar acionar — tente de novo.');
+      });
   }
 
   function renderWidget(el, data) {
@@ -160,14 +182,19 @@
     if (type === 'vessel') {
       renderVessel(el, data);
     } else if (type === 'toggle') {
+      // Achado real (conversa): `el` aqui é o wrapper .db-widget (tem
+      // os data-* usados no resto do arquivo), não o <button> em si —
+      // aplicar classe/disabled em `el` não tinha efeito visual
+      // nenhum no botão de verdade.
+      const toggleEl = el.querySelector('.db-toggle') || el;
       const config = JSON.parse(el.dataset.configJson || '{}');
       const manualEnabled = config.manual_control_enabled !== false;
       const state = data ? data.value : null;
       el.querySelector('.db-toggle-state').textContent = fmtValue(state) + (manualEnabled ? '' : ' \uD83D\uDD12');
-      el.classList.toggle('btn-success', !!state);
-      el.classList.toggle('btn-outline-light', !state);
-      el.disabled = !manualEnabled;
-      el.title = manualEnabled ? '' : 'Acionamento manual desativado nas Configurações deste widget';
+      toggleEl.classList.toggle('btn-success', !!state);
+      toggleEl.classList.toggle('btn-outline-light', !state);
+      toggleEl.disabled = !manualEnabled;
+      toggleEl.title = manualEnabled ? '' : 'Acionamento manual desativado nas Configurações deste widget';
     } else if (type === 'gauge') {
       const v = data ? data.value : null;
       const min = (data && data.min_value) || 0;
