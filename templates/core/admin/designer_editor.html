@@ -92,10 +92,12 @@
 <script>
 (function () {
   const PAGE_ID = {{ page.id }};
+  const ACTION_CATALOG = {{ action_catalog | tojson }};
+  const DATA_ACTIONS = [{% for da in data_actions %}{id: {{ da.id }}, name: {{ da.name | tojson }}}{{ ',' if not loop.last }}{% endfor %}];
   const canvas = document.getElementById('designerCanvas');
   const propertiesPanel = document.getElementById('propertiesPanel');
   let selectedId = null;
-  let componentsData = {{ (page.components | map('tojson') | list) | tojson }};
+  let componentsData = {{ components_json | tojson }};
 
   function renderComponent(comp) {
     let el = document.getElementById('comp-' + comp.id);
@@ -201,6 +203,102 @@
     });
   }
 
+  function actionDef(actionType) {
+    return ACTION_CATALOG.find(function (a) { return a.id === actionType; });
+  }
+
+  function paramInputHtml(actionIndex, param, value) {
+    const val = value === undefined || value === null ? param.default : value;
+    const base = 'data-action-index="' + actionIndex + '" data-param-name="' + param.name + '"';
+    if (param.type === 'select') {
+      let opts = '';
+      (param.options || []).forEach(function (opt) {
+        opts += '<option value="' + opt + '"' + (opt === val ? ' selected' : '') + '>' + opt + '</option>';
+      });
+      return '<select class="form-select form-select-sm action-param-input" ' + base + '>' + opts + '</select>';
+    }
+    if (param.type === 'data_action_select') {
+      let opts = '<option value="">— selecione —</option>';
+      DATA_ACTIONS.forEach(function (da) {
+        opts += '<option value="' + da.id + '"' + (String(da.id) === String(val) ? ' selected' : '') + '>' + escapeHtml(da.name) + '</option>';
+      });
+      return '<select class="form-select form-select-sm action-param-input" ' + base + '>' + opts + '</select>';
+    }
+    if (param.type === 'textarea') {
+      return '<textarea class="form-control form-control-sm action-param-input" ' + base + ' rows="2">' + escapeHtml(val || '') + '</textarea>';
+    }
+    return '<input type="' + (param.type === 'number' ? 'number' : 'text') + '" class="form-control form-control-sm action-param-input" ' + base + ' value="' + escapeHtml(val || '') + '">';
+  }
+
+  function renderEventsPanel(compId, comp) {
+    const eventsDiv = document.getElementById('eventsPanel');
+    let actions = ((comp.events || {}).onClick || []).slice();
+
+    function redraw() {
+      let html = '';
+      actions.forEach(function (action, idx) {
+        const def = actionDef(action.action_type) || ACTION_CATALOG[0];
+        html += '<div class="border rounded p-2 mb-2">' +
+          '<div class="d-flex justify-content-between align-items-center mb-1">' +
+          '<select class="form-select form-select-sm action-type-select" data-action-index="' + idx + '" style="width:auto;flex:1;">' +
+          ACTION_CATALOG.map(function (a) { return '<option value="' + a.id + '"' + (a.id === action.action_type ? ' selected' : '') + '>' + a.label + '</option>'; }).join('') +
+          '</select>' +
+          '<button class="btn btn-sm btn-link text-danger remove-action-btn" data-action-index="' + idx + '">&times;</button>' +
+          '</div>';
+        (def.params || []).forEach(function (param) {
+          html += '<label class="form-label small mb-0 mt-1">' + param.label + '</label>' +
+            paramInputHtml(idx, param, (action.params || {})[param.name]);
+        });
+        html += '</div>';
+      });
+      eventsDiv.innerHTML = html || '<p class="small text-muted">Nenhuma ação configurada.</p>';
+
+      eventsDiv.querySelectorAll('.action-type-select').forEach(function (sel) {
+        sel.addEventListener('change', function () {
+          const idx = parseInt(sel.getAttribute('data-action-index'), 10);
+          actions[idx] = { action_type: sel.value, params: {} };
+          redraw();
+        });
+      });
+      eventsDiv.querySelectorAll('.remove-action-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          actions.splice(parseInt(btn.getAttribute('data-action-index'), 10), 1);
+          redraw();
+        });
+      });
+      eventsDiv.querySelectorAll('.action-param-input').forEach(function (input) {
+        input.addEventListener('input', function () {
+          const idx = parseInt(input.getAttribute('data-param-name') !== null ? input.getAttribute('data-action-index') : -1, 10);
+          if (!actions[idx].params) actions[idx].params = {};
+          actions[idx].params[input.getAttribute('data-param-name')] = input.value;
+        });
+      });
+    }
+
+    redraw();
+
+    document.getElementById('addActionBtn').addEventListener('click', function () {
+      actions.push({ action_type: ACTION_CATALOG[0].id, params: {} });
+      redraw();
+    });
+
+    document.getElementById('saveEventsBtn').addEventListener('click', function () {
+      fetch('/admin/designer/component/' + compId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ events: { onClick: actions } }),
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data.success) {
+          const idx = componentsData.findIndex(function (c) { return c.id === compId; });
+          componentsData[idx] = data.component;
+          window.__tesseractToast && window.__tesseractToast.show('Eventos salvos.', 'success');
+        } else {
+          window.__tesseractToast && window.__tesseractToast.show(data.error || 'Falha ao salvar eventos.', 'error');
+        }
+      });
+    });
+  }
+
   function selectComponent(compId) {
     selectedId = compId;
     document.querySelectorAll('.dsg-component').forEach(function (e) { e.classList.remove('selected'); });
@@ -226,7 +324,14 @@
       '<p class="small mb-2"><strong>' + comp.type + '</strong> — ' + comp.name + '</p>' +
       fieldsHtml +
       '<button class="btn btn-sm btn-primary w-100 mt-2" id="savePropsBtn">Salvar propriedades</button>' +
-      '<button class="btn btn-sm btn-outline-danger w-100 mt-2" id="deleteCompBtn">Excluir componente</button>';
+      '<button class="btn btn-sm btn-outline-danger w-100 mt-2" id="deleteCompBtn">Excluir componente</button>' +
+      (comp.type === 'button' ? '<hr><h6 class="small">Eventos (onClick)</h6><div id="eventsPanel"></div>' +
+        '<button class="btn btn-sm btn-outline-primary w-100 mt-1" id="addActionBtn">+ Ação</button>' +
+        '<button class="btn btn-sm btn-success w-100 mt-2" id="saveEventsBtn">Salvar eventos</button>' : '');
+
+    if (comp.type === 'button') {
+      renderEventsPanel(compId, comp);
+    }
 
     document.getElementById('savePropsBtn').addEventListener('click', function () {
       const newProps = {};

@@ -31,7 +31,8 @@
         <input type="text" class="form-control" name="{{ p.field_name or comp.name }}" placeholder="{{ p.placeholder or '' }}"
                {% if comp.rules %}data-rules='{{ comp.rules | tojson }}'{% endif %}>
       {% elif comp.type == 'button' %}
-        <button class="btn btn-{{ p.variant or 'primary' }} w-100">{{ p.text or 'Botão' }}</button>
+        <button class="btn btn-{{ p.variant or 'primary' }} w-100"
+                {% if comp.events %}data-events='{{ comp.events | tojson }}'{% endif %}>{{ p.text or 'Botão' }}</button>
       {% elif comp.type == 'image' %}
         {% if p.src %}<img src="{{ p.src }}" alt="{{ p.alt or '' }}" style="max-width:100%; max-height:100%;">{% endif %}
       {% elif comp.type == 'divider' %}
@@ -43,14 +44,21 @@
 </section>
 
 <script src="{{ url_for('static', filename='js/rule_engine.js') }}"></script>
+<script src="{{ url_for('static', filename='js/actions_engine.js') }}"></script>
 <script>
   document.querySelectorAll('#runtimeCanvas button').forEach(function (btn) {
     btn.addEventListener('click', function (e) {
       const canvas = document.getElementById('runtimeCanvas');
       if (!RuleEngine.validateForm(canvas)) {
         e.preventDefault();
+        return;
+      }
+      if (btn.hasAttribute('data-events')) {
+        e.preventDefault();
+        ActionsEngine.fire(btn, 'onClick');
       }
     });
   });
+  ActionsEngine.attachRuntimeListeners(document.getElementById('runtimeCanvas'));
 </script>
 {% endblock %}

@@ -16,8 +16,11 @@ from flask_login import login_required, current_user
 from core.db import db
 from core.permissions import permission_required
 from core.admin_list_helpers import paginate, export_csv_response, export_xlsx_response
+from core.actions_catalog import ACTION_CATALOG, EVENT_TYPES, get_action_def
+from core.odata.connection_manager import ODataConnectionManager
 from model.core.designer_page import DesignerPage
 from model.core.designer_component import DesignerComponent, COMPONENT_TYPES
+from model.core.designer_data_action import DesignerDataAction
 
 designer_bp = Blueprint("designer", __name__, url_prefix="/admin/designer")
 designer_view_bp = Blueprint("designer_view", __name__, url_prefix="/designer")
@@ -149,6 +152,9 @@ def edit(page_id: int):
     return render_template(
         "core/admin/designer_editor.html",
         page=page, component_types=COMPONENT_TYPES,
+        action_catalog=ACTION_CATALOG, event_types=EVENT_TYPES,
+        data_actions=DesignerDataAction.query.order_by(DesignerDataAction.name).all(),
+        components_json=[c.to_dict() for c in page.components],
     )
 
 
@@ -198,6 +204,14 @@ def update_component(component_id: int):
         component.properties = data["properties"]
     if "rules" in data and isinstance(data["rules"], list):
         component.rules = data["rules"]
+    if "events" in data and isinstance(data["events"], dict):
+        for event_name, actions in data["events"].items():
+            if event_name not in EVENT_TYPES or not isinstance(actions, list):
+                return jsonify(success=False, error=f"Evento inválido: {event_name}."), 422
+            for action in actions:
+                if not isinstance(action, dict) or get_action_def(action.get("action_type")) is None:
+                    return jsonify(success=False, error=f"Tipo de ação inválido: {action}."), 422
+        component.events = data["events"]
     if "name" in data:
         component.name = str(data["name"])[:100]
 
@@ -214,6 +228,51 @@ def delete_component(component_id: int):
         db.session.delete(component)
         db.session.commit()
     return jsonify(success=True)
+
+
+# ── Execução de Ação de Dado (única peça server-side do motor de Ações) ──────
+# Decisão registrada em BACKLOG.md, Fase 10: toda Ação que toca dado/API
+# roda sempre no servidor — o navegador só manda qual Ação de Dado disparar
+# e, se for update, a chave/payload; quem decide a conexão/credencial é
+# sempre este endpoint. Só @login_required (não @permission_required
+# "admin") porque é chamado a partir de PÁGINAS PUBLICADAS em runtime,
+# não só do editor — o controle de acesso de verdade é o
+# `permission_required` da própria DesignerDataAction (ou público, se
+# não configurado), igual já funciona para DesignerPage.
+@designer_bp.route("/data-action/<int:action_id>/execute", methods=["POST"])
+@login_required
+def execute_data_action(action_id: int):
+    action = DesignerDataAction.query.get(action_id)
+    if not action:
+        return jsonify(success=False, error="Ação de Dado não encontrada."), 404
+
+    if action.permission_required and not current_user.has_permission(action.permission_required):
+        return jsonify(success=False, error="Permissão necessária para executar esta ação."), 403
+
+    body = request.get_json(silent=True) or {}
+    manager = ODataConnectionManager(action.connection)
+
+    try:
+        if action.operation == "query":
+            params = dict(action.static_params or {})
+            params.update(body.get("params") or {})
+            result = manager.query(action.entity_name, params)
+        elif action.operation == "update":
+            key = body.get("key")
+            if not key:
+                return jsonify(success=False, error="'key' é obrigatório para operation='update'."), 422
+            result = manager.patch(action.entity_name, key, body.get("payload") or {})
+        else:
+            # create/delete: schema já prevê (Patch 1), mas
+            # ODataConnectionManager ainda não tem query()/patch()
+            # equivalentes (nem para conexão externa) — não finjo que
+            # funciona, devolvo 501 explícito em vez de tentar e
+            # quebrar de um jeito confuso pro autor da página.
+            return jsonify(success=False, error=f"operation='{action.operation}' ainda não suportada pelo motor de execução."), 501
+    except RuntimeError as exc:
+        return jsonify(success=False, error=str(exc)), 502
+
+    return jsonify(success=True, result=result)
 
 
 # ── Execução (runtime) ──────────────────────────────────────────────────────
