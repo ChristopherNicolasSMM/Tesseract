@@ -160,6 +160,8 @@ def delete(page_id: int):
     if page:
         db.session.delete(page)
         db.session.commit()
+        from core.designer_menu_override import resolve_designer_page_menu_overrides
+        resolve_designer_page_menu_overrides()
         flash("Página excluída.", "success")
     return redirect(url_for("designer.manage"))
 
@@ -174,6 +176,34 @@ def publish(page_id: int):
         return redirect(url_for("designer.manage"))
     page.is_published = not page.is_published
     db.session.commit()
+    from core.designer_menu_override import resolve_designer_page_menu_overrides
+    resolve_designer_page_menu_overrides()
+    return redirect(url_for("designer.edit", page_id=page_id))
+
+
+@designer_bp.route("/<int:page_id>/settings", methods=["POST"])
+@login_required
+@permission_required("admin")
+def update_settings(page_id: int):
+    """Configura substituição de tela CrudGen (Fase 10, Patch 6) —
+    replaces_entity_key/replaces_view/replace_in_menu existiam desde o
+    Patch 1, mas não tinham nenhuma rota que os escrevesse até agora."""
+    page = DesignerPage.query.get(page_id)
+    if not page:
+        flash("Página não encontrada.", "error")
+        return redirect(url_for("designer.manage"))
+
+    page.permission_required = (request.form.get("permission_required") or "").strip() or None
+    page.replaces_entity_key = (request.form.get("replaces_entity_key") or "").strip() or None
+    replaces_view = (request.form.get("replaces_view") or "").strip()
+    page.replaces_view = replaces_view if replaces_view in ("manage", "detail") else None
+    page.replace_in_menu = request.form.get("replace_in_menu") == "on"
+    db.session.commit()
+
+    from core.designer_menu_override import resolve_designer_page_menu_overrides
+    resolve_designer_page_menu_overrides()
+
+    flash("Configurações da página salvas.", "success")
     return redirect(url_for("designer.edit", page_id=page_id))
 
 

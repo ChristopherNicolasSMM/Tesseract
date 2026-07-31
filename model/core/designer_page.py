@@ -30,18 +30,23 @@ class DesignerPage(db.Model):
     is_published = db.Column(db.Boolean, default=False, nullable=False)
     permission_required = db.Column(db.String(150), nullable=True)
 
-    # Fase 10 (Patch 1) — substituição de tela CrudGen (schema apenas
-    # nesta etapa; o resolver que troca Transaction.route de fato é o
-    # Patch 6, skill 16). Referência fraca (nunca FK — skill 02),
-    # mesmo padrão de FieldRule.entity_key: identifica a entidade pelo
-    # nome lógico usado pelo CrudGen, não pelo id de uma tabela de
-    # outro Addon.
+    # Fase 10 (Patch 1, schema; Patch 6, resolver real — skill 16).
+    # Referência fraca (nunca FK — skill 02). Achado real corrigido no
+    # Patch 6: o valor esperado é o PLURAL — mesmo formato de
+    # FieldRule.entity_key, UserListPreference.list_key e do prefixo
+    # de Permission de toda entidade do CrudGen (ex.: "yeast_strains",
+    # não "yeast_strain") — é contra essa convenção que
+    # core/designer_menu_override.py resolve a Transaction a trocar
+    # (via permission_required == "<replaces_entity_key>.list").
     replaces_entity_key = db.Column(db.String(150), nullable=True)
     replaces_view = db.Column(db.String(20), nullable=True)  # "manage" | "detail"
-    # Checkbox: só tem efeito com replaces_entity_key preenchido. True
-    # = a rota original do CrudGen some do MENU (nunca da aplicação —
-    # continua acessível direto, por decisão registrada em
-    # BACKLOG.md/skill 16, para permitir debug/conferência de valores).
+    # Checkbox: só tem efeito com replaces_entity_key preenchido e
+    # replaces_view == "manage" (só a tela de listagem vira item de
+    # menu por conta própria — "detail" nunca tem Transaction própria
+    # pra trocar). True = a rota original do CrudGen some do MENU
+    # (nunca da aplicação — continua acessível direto, por decisão
+    # registrada em BACKLOG.md/skill 16, para permitir debug/
+    # conferência de valores).
     replace_in_menu = db.Column(db.Boolean, default=False, nullable=False)
 
     created_by_user_id = db.Column(db.Integer, db.ForeignKey("tesseract_user.id"), nullable=True)

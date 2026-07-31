@@ -118,6 +118,9 @@ def create_app(env: str | None = None) -> Flask:
         from core.odata_local_seed import ensure_local_odata_connection
         ensure_local_odata_connection()
 
+        from core.designer_menu_override import resolve_designer_page_menu_overrides
+        resolve_designer_page_menu_overrides()
+
         # Lookups padrão de addon_estoque (Origem "A definir" / TipoProduto
         # "Insumo") - usados pela resolução automática do autocreate de
         # feature_brew_father. Import local porque é específico do Addon

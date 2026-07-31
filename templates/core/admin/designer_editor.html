@@ -60,6 +60,53 @@
 </div>
 
 <section class="section">
+  <div class="card mb-3">
+    <div class="card-body">
+      <h6 class="card-title">
+        <a data-bs-toggle="collapse" href="#pageSettingsPanel" role="button" class="text-decoration-none">
+          <i class="bi bi-gear"></i> Configurações da página
+        </a>
+      </h6>
+      <div class="collapse" id="pageSettingsPanel">
+        <form method="post" action="{{ url_for('designer.update_settings', page_id=page.id) }}" class="row g-2">
+          <div class="col-md-3">
+            <label class="form-label small mb-0">Permissão exigida</label>
+            <input type="text" class="form-control form-control-sm" name="permission_required" value="{{ page.permission_required or '' }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-0">Substitui entidade (plural, ex.: yeast_strains)</label>
+            <input type="text" class="form-control form-control-sm" name="replaces_entity_key" value="{{ page.replaces_entity_key or '' }}">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small mb-0">Tela substituída</label>
+            <select class="form-select form-select-sm" name="replaces_view">
+              <option value="" {% if not page.replaces_view %}selected{% endif %}>—</option>
+              <option value="manage" {% if page.replaces_view == 'manage' %}selected{% endif %}>manage</option>
+              <option value="detail" {% if page.replaces_view == 'detail' %}selected{% endif %}>detail</option>
+            </select>
+          </div>
+          <div class="col-md-2 d-flex align-items-end">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" name="replace_in_menu" id="replaceInMenuCheck" {% if page.replace_in_menu %}checked{% endif %}>
+              <label class="form-check-label small" for="replaceInMenuCheck">Substituir no menu</label>
+            </div>
+          </div>
+          <div class="col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-sm btn-primary w-100">Salvar</button>
+          </div>
+          <div class="col-12">
+            <p class="small text-muted mb-0">
+              Só tem efeito com "Tela substituída" = manage. A rota original do CrudGen nunca é removida —
+              continua acessível direto pra debug, mesmo com a substituição de menu ativa.
+            </p>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
   <div class="row">
     <div class="col-md-2">
       <div class="card">
