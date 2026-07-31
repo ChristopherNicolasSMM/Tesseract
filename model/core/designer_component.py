@@ -16,11 +16,15 @@ from datetime import datetime, timezone
 
 from core.db import db
 
-# Tipos de componente suportados nesta fase — escopo deliberadamente
-# menor que o catálogo completo do DEVStationFlask (sem datagrid/
-# pagination/groupbox ainda, que dependem de binding OData mais
-# elaborado — ver BACKLOG.md).
-COMPONENT_TYPES = ("heading", "label", "textbox", "button", "image", "divider")
+# Tipos de componente suportados nesta fase. Tier 1 (Fase 10, Patch 4)
+# acrescenta select/checkbox/radio/form_container/datagrid — os
+# mínimos pra substituir uma tela CrudGen de verdade (mapeamento em
+# mapeamento_niceadmin_designer.md, entregue antes do Patch 1). Tier 2
+# (card/alert/badge/progress_bar/list) e Tier 3 ficam pra depois.
+COMPONENT_TYPES = (
+    "heading", "label", "textbox", "button", "image", "divider",
+    "select", "checkbox", "radio", "form_container", "datagrid",
+)
 
 
 class DesignerComponent(db.Model):

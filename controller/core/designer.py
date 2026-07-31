@@ -32,6 +32,11 @@ _DEFAULT_SIZE = {
     "button": (140, 40),
     "image": (200, 150),
     "divider": (600, 4),
+    "select": (280, 60),
+    "checkbox": (220, 30),
+    "radio": (280, 100),
+    "form_container": (420, 320),
+    "datagrid": (600, 320),
 }
 
 _DEFAULT_PROPERTIES = {
@@ -41,6 +46,23 @@ _DEFAULT_PROPERTIES = {
     "button": {"text": "Botão", "variant": "primary"},
     "image": {"src": "", "alt": ""},
     "divider": {"color": "#ced4da"},
+    # options_source: "static" (usa static_options) ou "data_action"
+    # (busca via Ação de Dado, casando value_field/label_field nas
+    # colunas do registro retornado).
+    "select": {
+        "label": "Selecione", "field_name": "",
+        "options_source": "static", "static_options": "Opção 1,Opção 2",
+        "data_action_id": "", "value_field": "id", "label_field": "name",
+    },
+    "checkbox": {"label": "Marcar", "field_name": "", "checked_default": "false"},
+    "radio": {"label": "Escolha", "field_name": "", "options": "Opção 1,Opção 2", "default_value": ""},
+    # key_param: nome do parâmetro de query string da URL (?id=42) que
+    # informa qual registro carregar — sempre filtra pela coluna "id"
+    # (skill 02: PK é sempre Integer chamada "id" em todo model).
+    "form_container": {"title": "Formulário", "data_action_id": "", "key_param": "id"},
+    # columns vazio = usa todas as colunas do primeiro registro
+    # retornado (exceto is_deleted/deleted_at).
+    "datagrid": {"data_action_id": "", "columns": "", "title": "Lista"},
 }
 
 

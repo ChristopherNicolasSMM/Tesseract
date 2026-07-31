@@ -134,6 +134,23 @@
       inner = p.src ? '<img src="' + escapeHtml(p.src) + '" style="max-width:100%;max-height:100%;">' : '<div class="text-muted small text-center">Imagem (sem src)</div>';
     } else if (comp.type === 'divider') {
       inner = '<hr style="margin:0;border-color:' + (p.color || '#ced4da') + ';">';
+    } else if (comp.type === 'select') {
+      inner = '<label class="form-label small mb-0">' + escapeHtml(p.label || '') + '</label><select class="form-select form-select-sm" disabled><option>' +
+        (p.options_source === 'data_action' ? '(carrega via Ação de Dado)' : '(opções estáticas)') + '</option></select>';
+    } else if (comp.type === 'checkbox') {
+      inner = '<div class="form-check"><input type="checkbox" class="form-check-input" disabled' +
+        (p.checked_default === 'true' ? ' checked' : '') + '><label class="form-check-label small">' + escapeHtml(p.label || '') + '</label></div>';
+    } else if (comp.type === 'radio') {
+      inner = '<div class="small text-muted mb-1">' + escapeHtml(p.label || '') + '</div>' +
+        (p.options || '').split(',').map(function (o) { return o.trim(); }).filter(Boolean).map(function (o) {
+          return '<div class="form-check"><input type="radio" class="form-check-input" disabled><label class="form-check-label small">' + escapeHtml(o) + '</label></div>';
+        }).join('');
+    } else if (comp.type === 'form_container') {
+      inner = '<fieldset class="border rounded p-2 h-100"><legend class="small w-auto px-1">' + escapeHtml(p.title || 'Formulário') +
+        '</legend><span class="small text-muted">Ação de Dado: ' + escapeHtml(p.data_action_id || '(nenhuma)') + '</span></fieldset>';
+    } else if (comp.type === 'datagrid') {
+      inner = '<div class="small text-muted mb-1">' + escapeHtml(p.title || 'Lista') + '</div>' +
+        '<table class="table table-sm table-bordered"><thead><tr><th>(colunas carregadas em runtime)</th></tr></thead></table>';
     }
     const handle = el.querySelector('.dsg-resize-handle');
     el.innerHTML = inner;
