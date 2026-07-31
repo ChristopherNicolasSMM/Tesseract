@@ -44,7 +44,19 @@ class ODataConnectionManager:
     # ── Metadados (ponto de entrada público) ────────────────────────────
 
     def fetch_metadata(self, force_refresh: bool = False) -> dict:
-        """Retorna os metadados do servidor OData, com cache de 5 minutos."""
+        """Retorna os metadados do servidor OData, com cache de 5 minutos.
+
+        Fase 10 (Patch 2): quando `self.conn.is_local`, pula cache e
+        descoberta HTTP inteiramente — o metadata é montado ao vivo a
+        partir dos models @odata_expose já carregados em memória
+        (core/odata_provider/metadata.py), então cachear só
+        acrescentaria a chance de servir schema desatualizado depois
+        de um Model Builder mudar um model em runtime, sem nenhum
+        ganho de performance real (é só um dict comprehension)."""
+        if self.conn.is_local:
+            from core.odata_provider.metadata import build_metadata_json
+            return build_metadata_json()
+
         from core.db import db
 
         if not force_refresh and self.conn.metadata_cache and self.conn.metadata_cached_at:
@@ -258,12 +270,22 @@ class ODataConnectionManager:
     def query(self, entity: str, params: dict | None = None) -> dict:
         """GET na coleção com parâmetros OData ($filter, $orderby, $top, etc.).
 
+        Fase 10 (Patch 2): quando `self.conn.is_local`, chama
+        core/odata_provider/service.py direto, em processo — sem HTTP,
+        sem a heurística de pluralização abaixo (ela só existe porque
+        servidores externos podem nomear a rota diferente do
+        EntityType; aqui o provedor local controla os dois lados do
+        nome, então nunca diverge).
+
         Bugfix (BACKLOG.md, "Bugs de OData"): se `entity` der 404 e o
         formato de metadata não tinha como declarar o nome real da
         rota (sem EntitySet), tenta uma pluralização simples como
         último recurso e, se funcionar, persiste como override — não
         tenta adivinhar de novo nas próximas chamadas.
         """
+        if self.conn.is_local:
+            return self._query_local(entity, params)
+
         try:
             return self._query_raw(entity, params)
         except urllib.error.HTTPError as original_error:
@@ -278,6 +300,17 @@ class ODataConnectionManager:
                 raise original_error
             self._persist_route_override(entity, guess)
             return result
+
+    def _query_local(self, entity: str, params: dict | None) -> dict:
+        from flask_login import current_user
+        from core.odata_provider.service import query_local, EntityNotExposedError, PermissionDeniedError
+
+        try:
+            return query_local(entity, params, user=current_user)
+        except EntityNotExposedError as exc:
+            raise RuntimeError(f"Entidade '{exc}' não exposta pelo provedor local (@odata_expose ausente).") from exc
+        except PermissionDeniedError as exc:
+            raise RuntimeError(f"Permissão necessária para acessar '{entity}': {exc}.") from exc
 
     def _query_raw(self, entity: str, params: dict | None) -> dict:
         qs = ""
@@ -303,6 +336,17 @@ class ODataConnectionManager:
         db.session.commit()
 
     def patch(self, entity: str, key: str, data: dict) -> dict:
+        if self.conn.is_local:
+            from flask_login import current_user
+            from core.odata_provider.service import patch_local, EntityNotExposedError, PermissionDeniedError
+
+            try:
+                return patch_local(entity, key, data, user=current_user)
+            except EntityNotExposedError as exc:
+                raise RuntimeError(f"Entidade '{exc}' não exposta pelo provedor local (@odata_expose ausente).") from exc
+            except PermissionDeniedError as exc:
+                raise RuntimeError(f"Permissão necessária para editar '{entity}': {exc}.") from exc
+
         url = self._build_url(f"{entity}({key})")
         raw = self._request("PATCH", url, data)
         return json.loads(raw) if isinstance(raw, (str, bytes)) else {}
