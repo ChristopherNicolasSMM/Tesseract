@@ -16,14 +16,15 @@ from datetime import datetime, timezone
 
 from core.db import db
 
-# Tipos de componente suportados nesta fase. Tier 1 (Fase 10, Patch 4)
-# acrescenta select/checkbox/radio/form_container/datagrid — os
-# mínimos pra substituir uma tela CrudGen de verdade (mapeamento em
-# mapeamento_niceadmin_designer.md, entregue antes do Patch 1). Tier 2
-# (card/alert/badge/progress_bar/list) e Tier 3 ficam pra depois.
+# Tipos de componente suportados nesta fase. Tier 1 (Patch 4) trouxe
+# select/checkbox/radio/form_container/datagrid. Tier 2 (Patch 5)
+# acrescenta card/alert/badge/progress_bar/list — mais baratos, sem
+# exigir bind obrigatório a registro único (mapeamento em
+# mapeamento_niceadmin_designer.md). Tier 3 fica pra depois.
 COMPONENT_TYPES = (
     "heading", "label", "textbox", "button", "image", "divider",
     "select", "checkbox", "radio", "form_container", "datagrid",
+    "card", "alert", "badge", "progress_bar", "list",
 )
 
 

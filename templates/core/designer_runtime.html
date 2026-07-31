@@ -76,6 +76,32 @@
             <tbody></tbody>
           </table>
         </div>
+      {% elif comp.type == 'card' %}
+        <div class="card h-100">
+          {% if p.image_src %}<img src="{{ p.image_src }}" class="card-img-top" alt="">{% endif %}
+          <div class="card-body">
+            {% if p.title %}<h5 class="card-title">{{ p.title }}</h5>{% endif %}
+            {% if p.body_text %}<p class="card-text">{{ p.body_text }}</p>{% endif %}
+          </div>
+          {% if p.footer_text %}<div class="card-footer text-muted small">{{ p.footer_text }}</div>{% endif %}
+        </div>
+      {% elif comp.type == 'alert' %}
+        <div class="alert alert-{{ p.variant or 'info' }}{% if p.dismissible == 'true' %} alert-dismissible fade show{% endif %}" role="alert">
+          {{ p.message or '' }}
+          {% if p.dismissible == 'true' %}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>{% endif %}
+        </div>
+      {% elif comp.type == 'badge' %}
+        <span class="badge bg-{{ p.variant or 'primary' }}">{{ p.text or '' }}</span>
+      {% elif comp.type == 'progress_bar' %}
+        {% set pct = ((p.value or 0) | float - (p.min or 0) | float) / (((p.max or 100) | float - (p.min or 0) | float) or 1) * 100 %}
+        <div class="progress" role="progressbar" aria-valuenow="{{ p.value or 0 }}" aria-valuemin="{{ p.min or 0 }}" aria-valuemax="{{ p.max or 100 }}">
+          <div class="progress-bar bg-{{ p.variant or 'primary' }}" style="width: {{ pct }}%;">
+            {% if p.label_visible == 'true' %}{{ p.value or 0 }}{% endif %}
+          </div>
+        </div>
+      {% elif comp.type == 'list' %}
+        {% if p.title %}<h6 class="small mb-1">{{ p.title }}</h6>{% endif %}
+        <ul class="list-group" data-list-comp data-data-action-id="{{ p.data_action_id or '' }}" data-display-field="{{ p.display_field or 'name' }}"></ul>
       {% endif %}
     </div>
     {% endfor %}

@@ -151,6 +151,19 @@
     } else if (comp.type === 'datagrid') {
       inner = '<div class="small text-muted mb-1">' + escapeHtml(p.title || 'Lista') + '</div>' +
         '<table class="table table-sm table-bordered"><thead><tr><th>(colunas carregadas em runtime)</th></tr></thead></table>';
+    } else if (comp.type === 'card') {
+      inner = '<div class="card h-100"><div class="card-body"><h6 class="card-title">' + escapeHtml(p.title || '') + '</h6>' +
+        '<p class="card-text small">' + escapeHtml(p.body_text || '') + '</p></div></div>';
+    } else if (comp.type === 'alert') {
+      inner = '<div class="alert alert-' + (p.variant || 'info') + ' mb-0 py-2">' + escapeHtml(p.message || '') + '</div>';
+    } else if (comp.type === 'badge') {
+      inner = '<span class="badge bg-' + (p.variant || 'primary') + '">' + escapeHtml(p.text || '') + '</span>';
+    } else if (comp.type === 'progress_bar') {
+      inner = '<div class="progress"><div class="progress-bar bg-' + (p.variant || 'primary') + '" style="width:' + (p.value || 0) + '%;">' +
+        (p.label_visible === 'true' ? (p.value || 0) : '') + '</div></div>';
+    } else if (comp.type === 'list') {
+      inner = '<div class="small text-muted mb-1">' + escapeHtml(p.title || 'Lista') + '</div>' +
+        '<div class="small text-muted">(itens carregados em runtime)</div>';
     }
     const handle = el.querySelector('.dsg-resize-handle');
     el.innerHTML = inner;

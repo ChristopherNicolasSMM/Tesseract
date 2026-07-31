@@ -37,6 +37,11 @@ _DEFAULT_SIZE = {
     "radio": (280, 100),
     "form_container": (420, 320),
     "datagrid": (600, 320),
+    "card": (320, 220),
+    "alert": (400, 60),
+    "badge": (100, 30),
+    "progress_bar": (300, 30),
+    "list": (320, 260),
 }
 
 _DEFAULT_PROPERTIES = {
@@ -63,6 +68,17 @@ _DEFAULT_PROPERTIES = {
     # columns vazio = usa todas as colunas do primeiro registro
     # retornado (exceto is_deleted/deleted_at).
     "datagrid": {"data_action_id": "", "columns": "", "title": "Lista"},
+    "card": {"title": "Título do Card", "body_text": "", "image_src": "", "footer_text": ""},
+    "alert": {"message": "Mensagem de alerta.", "variant": "info", "dismissible": "false"},
+    "badge": {"text": "Novo", "variant": "primary"},
+    # value/min/max são estáticos nesta leva (Tier 2) — vincular a
+    # outro componente em runtime é a regra "Controlar ProgressBar"
+    # do catálogo de Cálculo (core/rules_catalog.py, ainda
+    # connected=False, fora do escopo deste patch).
+    "progress_bar": {"value": 50, "min": 0, "max": 100, "variant": "primary", "label_visible": "true"},
+    # display_field: nome da coluna do registro mostrada em cada item
+    # da lista (mesmo espírito de select.label_field).
+    "list": {"title": "Lista", "data_action_id": "", "display_field": "name"},
 }
 
 

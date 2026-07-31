@@ -163,11 +163,30 @@
     });
   }
 
+  function initLists() {
+    document.querySelectorAll("[data-list-comp]").forEach(function (ul) {
+      const actionId = ul.getAttribute("data-data-action-id");
+      const displayField = ul.getAttribute("data-display-field") || "name";
+      if (!actionId) return;
+      fetchDataAction(actionId).then(function (res) {
+        if (!res.success) return;
+        const rows = res.result.value || [];
+        ul.innerHTML = rows.map(function (row) {
+          const text = row[displayField] == null ? "" : String(row[displayField]);
+          return '<li class="list-group-item">' + text.replace(/[&<>"]/g, function (c) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+          }) + "</li>";
+        }).join("");
+      });
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     initSelects();
     initRadioGroups();
     initFormContainers();
     initDatagrids();
+    initLists();
   });
 
   window.DataBinding = {
@@ -176,5 +195,6 @@
     initRadioGroups: initRadioGroups,
     initFormContainers: initFormContainers,
     initDatagrids: initDatagrids,
+    initLists: initLists,
   };
 })(window);
