@@ -39,6 +39,17 @@ class ODataConnection(db.Model):
     # "Ver entidades". Nunca sobrescrito por um refresh de metadata_cache.
     entity_route_overrides = db.Column(db.JSON, nullable=True)
 
+    # Fase 10 (Patch 1) — marca a conexão auto-seedada (idempotente,
+    # ver core/odata_local_seed.py) que representa o provedor OData do
+    # próprio Tesseract, servindo entidades do CrudGen marcadas com
+    # @odata_expose (annotations/__init__.py). Uma Ação de Dado
+    # (tesseract_designer_data_action) que aponta para uma conexão com
+    # is_local=True pula a chamada HTTP real e executa em processo,
+    # direto contra o provedor local — mesmo contrato de entrada/saída
+    # de ODataConnectionManager.query()/patch(), sem o round-trip de
+    # rede (decisão registrada em BACKLOG.md, Fase 10).
+    is_local = db.Column(db.Boolean, default=False, nullable=False)
+
     created_by_user_id = db.Column(db.Integer, db.ForeignKey("tesseract_user.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -48,6 +59,7 @@ class ODataConnection(db.Model):
             "name": self.name,
             "base_url": self.base_url,
             "auth_type": self.auth_type,
+            "is_local": self.is_local,
             "has_metadata_cache": self.metadata_cache is not None,
             "metadata_cached_at": self.metadata_cached_at.isoformat() if self.metadata_cached_at else None,
             "entity_route_overrides": self.entity_route_overrides or {},

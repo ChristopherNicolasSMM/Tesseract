@@ -320,3 +320,37 @@ def permission(action: str, role_required: str | None = None, description: str |
 def get_permissions_meta(cls) -> list[dict]:
     """Retorna as permissões de negócio (@permission) declaradas no model."""
     return getattr(cls, '_permissions', [])
+
+
+# ---- @odata_expose: Fase 10 (Patch 1) ----
+# Marca uma entidade do CrudGen como exposta pelo provedor OData local
+# (core/odata_local_seed.py + endpoint do Patch 2). Opt-in por entidade
+# (decisão registrada em BACKLOG.md, Fase 10) — sem esta anotação, a
+# entidade não aparece no provedor local, mesmo que o Addon esteja
+# ativo. Mesmo padrão de @permission: metadado em atributo de classe,
+# lido por get_odata_expose_meta(cls); nenhum comportamento de runtime
+# nasce aqui neste patch, só a marcação.
+def odata_expose(entity_name: str, permission_required: str | None = None):
+    """
+    Uso no model:
+        @odata_expose("yeast_strain", permission_required="yeast_strains.list")
+        class YeastStrain(db.Model):
+            ...
+
+    `entity_name` é o nome usado no EntitySet do provedor local — não
+    precisa ser igual ao `__tablename__` (mesmo espírito de
+    DesignerDataAction.entity_name, que referencia esse nome, não a
+    tabela física).
+    """
+    def decorator(cls):
+        cls._odata_expose = {
+            "entity_name": entity_name,
+            "permission_required": permission_required,
+        }
+        return cls
+    return decorator
+
+
+def get_odata_expose_meta(cls) -> dict | None:
+    """Retorna o metadado de @odata_expose declarado no model, ou None se ausente."""
+    return getattr(cls, '_odata_expose', None)

@@ -192,7 +192,7 @@ def test_testar_conexao_pela_tela(app, client, mock_odata_server):
     _login_admin(app, client)
     client.post("/admin/odata/", data={"name": "Mock Test", "base_url": mock_odata_server})
     with app.app_context():
-        conn_id = ODataConnection.query.first().id
+        conn_id = ODataConnection.query.filter_by(name="Mock Test").first().id
 
     resp = client.post(f"/admin/odata/{conn_id}/test", follow_redirects=True)
     assert "entidade".encode() in resp.data
@@ -202,7 +202,7 @@ def test_ver_entidades_pela_tela(app, client, mock_odata_server):
     _login_admin(app, client)
     client.post("/admin/odata/", data={"name": "Mock Test", "base_url": mock_odata_server})
     with app.app_context():
-        conn_id = ODataConnection.query.first().id
+        conn_id = ODataConnection.query.filter_by(name="Mock Test").first().id
 
     resp = client.get(f"/admin/odata/{conn_id}/entities")
     assert resp.status_code == 200
@@ -213,7 +213,7 @@ def test_navegar_dados_mostra_registros_reais(app, client, mock_odata_server):
     _login_admin(app, client)
     client.post("/admin/odata/", data={"name": "Mock Test", "base_url": mock_odata_server})
     with app.app_context():
-        conn_id = ODataConnection.query.first().id
+        conn_id = ODataConnection.query.filter_by(name="Mock Test").first().id
     client.post(f"/admin/odata/{conn_id}/test")
 
     resp = client.get(f"/admin/odata/{conn_id}/browse/Customers")
@@ -226,7 +226,7 @@ def test_navegar_entidade_inexistente_redireciona_com_erro(app, client, mock_oda
     _login_admin(app, client)
     client.post("/admin/odata/", data={"name": "Mock Test", "base_url": mock_odata_server})
     with app.app_context():
-        conn_id = ODataConnection.query.first().id
+        conn_id = ODataConnection.query.filter_by(name="Mock Test").first().id
     client.post(f"/admin/odata/{conn_id}/test")
 
     resp = client.get(f"/admin/odata/{conn_id}/browse/EntidadeFake", follow_redirects=True)
@@ -237,7 +237,7 @@ def test_remover_conexao(app, client, mock_odata_server):
     _login_admin(app, client)
     client.post("/admin/odata/", data={"name": "Mock Test", "base_url": mock_odata_server})
     with app.app_context():
-        conn_id = ODataConnection.query.first().id
+        conn_id = ODataConnection.query.filter_by(name="Mock Test").first().id
 
     client.post(f"/admin/odata/{conn_id}/delete")
 

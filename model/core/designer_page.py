@@ -30,6 +30,20 @@ class DesignerPage(db.Model):
     is_published = db.Column(db.Boolean, default=False, nullable=False)
     permission_required = db.Column(db.String(150), nullable=True)
 
+    # Fase 10 (Patch 1) — substituição de tela CrudGen (schema apenas
+    # nesta etapa; o resolver que troca Transaction.route de fato é o
+    # Patch 6, skill 16). Referência fraca (nunca FK — skill 02),
+    # mesmo padrão de FieldRule.entity_key: identifica a entidade pelo
+    # nome lógico usado pelo CrudGen, não pelo id de uma tabela de
+    # outro Addon.
+    replaces_entity_key = db.Column(db.String(150), nullable=True)
+    replaces_view = db.Column(db.String(20), nullable=True)  # "manage" | "detail"
+    # Checkbox: só tem efeito com replaces_entity_key preenchido. True
+    # = a rota original do CrudGen some do MENU (nunca da aplicação —
+    # continua acessível direto, por decisão registrada em
+    # BACKLOG.md/skill 16, para permitir debug/conferência de valores).
+    replace_in_menu = db.Column(db.Boolean, default=False, nullable=False)
+
     created_by_user_id = db.Column(db.Integer, db.ForeignKey("tesseract_user.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(
@@ -55,6 +69,9 @@ class DesignerPage(db.Model):
             "canvas_bg": self.canvas_bg,
             "is_published": self.is_published,
             "permission_required": self.permission_required,
+            "replaces_entity_key": self.replaces_entity_key,
+            "replaces_view": self.replaces_view,
+            "replace_in_menu": self.replace_in_menu,
         }
         if include_components:
             d["components"] = [c.to_dict() for c in self.components]
