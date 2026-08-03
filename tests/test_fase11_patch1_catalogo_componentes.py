@@ -257,3 +257,74 @@ def test_editor_recebe_catalogo_de_componentes(app, client):
     # paleta agrupada por categoria, com label PT-BR (não o id cru)
     assert "Formulário".encode() in resp.data
     assert "Menu suspenso".encode() in resp.data
+
+
+# ── Patch 1.1 — correções vistas no editor real ──────────────────────
+
+def test_canvas_usa_variaveis_de_tema_nao_cor_hardcoded(app, client):
+    """Fase 11, Patch 1.1: o canvas usava page.canvas_bg (default claro)
+    e grid hardcoded claro, virando uma folha branca dentro do app
+    escuro. Agora segue as variáveis semânticas de themes.css."""
+    _login_admin(app, client)
+    page_id = _create_page(client)
+    resp = client.get(f"/admin/designer/{page_id}/edit")
+    assert b"var(--bg-secondary" in resp.data
+    assert b"#f6f9ff;" not in resp.data.split(b"#designerCanvas")[1][:400]
+
+
+def test_canvas_tem_wrapper_rolavel(app, client):
+    """O canvas tem largura fixa em px; sem wrapper com max-width ele
+    estourava a coluna e empurrava o painel de propriedades pra fora
+    da tela."""
+    _login_admin(app, client)
+    page_id = _create_page(client)
+    resp = client.get(f"/admin/designer/{page_id}/edit")
+    assert b"designerCanvasWrap" in resp.data
+    assert b"max-width: 100%" in resp.data
+
+
+def test_preview_do_editor_honra_estilo_do_label(app, client):
+    """Regressão do Patch 1: o runtime honrava font_size/text_color/
+    bold do label, mas o preview do canvas renderizava <span> puro, e
+    o texto sumia herdando a cor do tema."""
+    _login_admin(app, client)
+    page_id = _create_page(client)
+    resp = client.get(f"/admin/designer/{page_id}/edit")
+    body = resp.data.decode()
+    label_branch = body.split("comp.type === 'label'")[1][:400]
+    assert "text_color" in label_branch
+    assert "font_size" in label_branch
+    assert "bold" in label_branch
+
+
+def test_settings_persiste_dimensoes_do_canvas(app, client):
+    _login_admin(app, client)
+    page_id = _create_page(client)
+
+    client.post(f"/admin/designer/{page_id}/settings", data={
+        "canvas_width": "900", "canvas_height": "600",
+    })
+    with app.app_context():
+        page = DesignerPage.query.get(page_id)
+        assert page.canvas_width == 900
+        assert page.canvas_height == 600
+
+
+def test_settings_dimensao_invalida_mantem_valor_atual(app, client):
+    _login_admin(app, client)
+    page_id = _create_page(client)
+    with app.app_context():
+        original = DesignerPage.query.get(page_id).canvas_width
+
+    client.post(f"/admin/designer/{page_id}/settings", data={"canvas_width": "abc"})
+    with app.app_context():
+        assert DesignerPage.query.get(page_id).canvas_width == original
+
+
+def test_settings_dimensao_fora_da_faixa_e_limitada(app, client):
+    _login_admin(app, client)
+    page_id = _create_page(client)
+
+    client.post(f"/admin/designer/{page_id}/settings", data={"canvas_width": "99999"})
+    with app.app_context():
+        assert DesignerPage.query.get(page_id).canvas_width == 4000

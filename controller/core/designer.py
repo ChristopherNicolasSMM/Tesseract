@@ -143,6 +143,17 @@ def update_settings(page_id: int):
         return redirect(url_for("designer.manage"))
 
     page.permission_required = (request.form.get("permission_required") or "").strip() or None
+
+    # Fase 11, Patch 1.1: canvas_width/canvas_height existiam desde a
+    # Fase 7c mas não tinham nenhuma UI — só dava pra mudar via banco.
+    def _clamp_int(raw, current, low, high):
+        try:
+            return max(low, min(int(raw), high))
+        except (TypeError, ValueError):
+            return current
+
+    page.canvas_width = _clamp_int(request.form.get("canvas_width"), page.canvas_width, 320, 4000)
+    page.canvas_height = _clamp_int(request.form.get("canvas_height"), page.canvas_height, 200, 4000)
     page.replaces_entity_key = (request.form.get("replaces_entity_key") or "").strip() or None
     replaces_view = (request.form.get("replaces_view") or "").strip()
     page.replaces_view = replaces_view if replaces_view in ("manage", "detail") else None

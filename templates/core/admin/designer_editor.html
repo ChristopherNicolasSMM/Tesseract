@@ -2,14 +2,26 @@
 {% block title %}Editando: {{ page.name }} - Tesseract{% endblock %}
 {% block extra_css %}
 <style>
+  /* Fase 11, Patch 1.1 — o canvas seguia `page.canvas_bg` (default
+     claro, #f6f9ff) e grid hardcoded claro, então ficava uma folha
+     branca dentro do app escuro, com os componentes Bootstrap do
+     preview renderizando no tema escuro por cima. Agora usa as
+     variáveis semânticas de themes.css, que já viram sozinhas
+     conforme o tema ativo. */
+  #designerCanvasWrap {
+    max-width: 100%;
+    overflow: auto;
+    border: 1px solid var(--border-color, #ced4da);
+    border-radius: var(--border-radius, 8px);
+  }
   #designerCanvas {
     position: relative;
-    background: {{ page.canvas_bg }};
+    background: var(--bg-secondary, #f6f9ff);
     width: {{ page.canvas_width }}px;
     height: {{ page.canvas_height }}px;
-    border: 1px solid #ced4da;
-    overflow: auto;
-    background-image: linear-gradient(#e9ecef 1px, transparent 1px), linear-gradient(90deg, #e9ecef 1px, transparent 1px);
+    background-image:
+      linear-gradient(var(--border-color, #e9ecef) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border-color, #e9ecef) 1px, transparent 1px);
     background-size: 20px 20px;
   }
   .dsg-component {
@@ -69,6 +81,14 @@
       </h6>
       <div class="collapse" id="pageSettingsPanel">
         <form method="post" action="{{ url_for('designer.update_settings', page_id=page.id) }}" class="row g-2">
+          <div class="col-md-2">
+            <label class="form-label small mb-0">Largura do canvas (px)</label>
+            <input type="number" class="form-control form-control-sm" name="canvas_width" value="{{ page.canvas_width }}" min="320" max="4000">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small mb-0">Altura do canvas (px)</label>
+            <input type="number" class="form-control form-control-sm" name="canvas_height" value="{{ page.canvas_height }}" min="200" max="4000">
+          </div>
           <div class="col-md-3">
             <label class="form-label small mb-0">Permissão exigida</label>
             <input type="text" class="form-control form-control-sm" name="permission_required" value="{{ page.permission_required or '' }}">
@@ -128,7 +148,7 @@
     </div>
 
     <div class="col-md-7">
-      <div id="designerCanvas"></div>
+      <div id="designerCanvasWrap"><div id="designerCanvas"></div></div>
     </div>
 
     <div class="col-md-3">
@@ -178,13 +198,23 @@
     const p = comp.properties || {};
     let inner = '';
     if (comp.type === 'heading') {
-      inner = '<h2 style="margin:0;color:' + (p.text_color || '#012970') + ';font-size:' + (p.font_size || 26) + 'px;">' + escapeHtml(p.text || '') + '</h2>';
+      inner = '<h2 style="margin:0;color:' + (p.text_color || '#012970') + ';font-size:' + (p.font_size || 26) +
+        'px;font-weight:' + (p.bold ? 700 : 400) + ';">' + escapeHtml(p.text || '') + '</h2>';
     } else if (comp.type === 'label') {
-      inner = '<span>' + escapeHtml(p.text || '') + '</span>';
+      // Fase 11, Patch 1.1: o preview ignorava as props de estilo que o
+      // Patch 1 adicionou (o runtime honrava, o editor nao) - o texto
+      // herdava a cor do tema e sumia no canvas.
+      inner = '<span style="color:' + (p.text_color || '#444444') + ';font-size:' + (p.font_size || 14) +
+        'px;font-weight:' + (p.bold ? 700 : 400) + ';">' + escapeHtml(p.text || '') + '</span>';
     } else if (comp.type === 'textbox') {
-      inner = '<label class="form-label small mb-0">' + escapeHtml(p.label || '') + '</label><input class="form-control form-control-sm" placeholder="' + escapeHtml(p.placeholder || '') + '" disabled>';
+      inner = '<label class="form-label small mb-0">' + escapeHtml(p.label || '') + '</label>' +
+        (p.input_type === 'textarea'
+          ? '<textarea class="form-control form-control-sm" placeholder="' + escapeHtml(p.placeholder || '') + '" disabled></textarea>'
+          : '<input type="' + (p.input_type || 'text') + '" class="form-control form-control-sm" placeholder="' + escapeHtml(p.placeholder || '') + '" disabled>');
     } else if (comp.type === 'button') {
-      inner = '<button class="btn btn-' + (p.variant || 'primary') + ' btn-sm w-100" disabled>' + escapeHtml(p.text || 'Botão') + '</button>';
+      inner = '<button class="btn btn-' + (p.outline ? 'outline-' : '') + (p.variant || 'primary') +
+        ' btn-sm w-100" disabled>' + (p.icon ? '<i class="bi ' + escapeHtml(p.icon) + '"></i> ' : '') +
+        escapeHtml(p.text || 'Botão') + '</button>';
     } else if (comp.type === 'image') {
       inner = p.src ? '<img src="' + escapeHtml(p.src) + '" style="max-width:100%;max-height:100%;">' : '<div class="text-muted small text-center">Imagem (sem src)</div>';
     } else if (comp.type === 'divider') {
@@ -193,7 +223,8 @@
       inner = '<label class="form-label small mb-0">' + escapeHtml(p.label || '') + '</label><select class="form-select form-select-sm" disabled><option>' +
         (p.options_source === 'data_action' ? '(carrega via Ação de Dado)' : '(opções estáticas)') + '</option></select>';
     } else if (comp.type === 'checkbox') {
-      inner = '<div class="form-check"><input type="checkbox" class="form-check-input" disabled' +
+      inner = '<div class="form-check' + (p.style === 'switch' ? ' form-switch' : '') +
+        '"><input type="checkbox" class="form-check-input" disabled' +
         (p.checked_default ? ' checked' : '') + '><label class="form-check-label small">' + escapeHtml(p.label || '') + '</label></div>';
     } else if (comp.type === 'radio') {
       inner = '<div class="small text-muted mb-1">' + escapeHtml(p.label || '') + '</div>' +
