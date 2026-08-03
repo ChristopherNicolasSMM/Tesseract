@@ -207,3 +207,54 @@ flowchart TD
   é editável — corrige manualmente, salva, e o Tesseract lembra da
   próxima vez
 - **Permissão**: `admin`
+
+## UC20 — Administrador expõe uma entidade do CrudGen para o Designer (Fase 10)
+
+- **Ator**: Desenvolvedor (anotação no código, não é tela)
+- **Fluxo principal**: adiciona `@odata_expose("<entity_name>",
+  permission_required="<opcional>")` no model → no próximo boot, a
+  entidade aparece no metadata de `/api/odata-provider/$metadata.json`
+  e pode ser referenciada por uma `DesignerDataAction`
+- **Fluxo alternativo**: entidade sem `@odata_expose` → nunca aparece
+  no provedor local, mesmo com o Addon ativo (opt-in, decisão
+  registrada em BACKLOG.md)
+- **Permissão**: n/a (decisão de código, não de runtime)
+
+## UC21 — Administrador configura um botão pra chamar uma Ação de Dado (Fase 10)
+
+- **Ator**: Administrador
+- **Contexto**: já existe uma `DesignerDataAction` cadastrada (nome,
+  conexão, entidade, operação `query`/`update`, permissão opcional)
+- **Fluxo principal**: editor do Designer → seleciona um `button` →
+  painel "Eventos (onClick)" → "+ Ação" → tipo "Chamar Ação de Dado" →
+  escolhe a Ação de Dado, preenche `key`/`payload` se for `update` →
+  salva → publica a página → usuário final clica o botão → o
+  navegador chama `POST /admin/designer/data-action/<id>/execute`
+  (server-side, nunca expõe credencial de conexão)
+- **Fluxo alternativo**: usuário sem a `permission_required` da Ação
+  de Dado → 403, toast de erro mostrado no lugar do botão travar
+  silenciosamente
+- **Permissão**: a de quem edita a página (`admin`) para configurar;
+  a `permission_required` da própria `DesignerDataAction` (ou nenhuma)
+  para o usuário final disparar
+
+## UC22 — Administrador substitui uma tela do CrudGen por uma página do Designer (Fase 10)
+
+- **Ator**: Administrador
+- **Contexto**: já montou uma `DesignerPage` com `form_container`/
+  `datagrid` bind ados via `DesignerDataAction`, cobrindo o que a
+  tela gerada pelo CrudGen mostrava
+- **Fluxo principal**: editor do Designer → painel "Configurações da
+  página" → preenche `replaces_entity_key` (plural da entidade, ex.
+  `yeast_strains`) + `replaces_view=manage` → marca "Substituir no
+  menu" → Salvar/Publicar → o item de menu daquela entidade passa a
+  apontar pra `/designer/<slug>`
+- **Fluxo alternativo**: `replaces_entity_key` sem nenhuma
+  `Transaction` correspondente (`permission_required` não bate com
+  nenhuma) → log de aviso, nada é trocado, sem erro pro usuário;
+  desmarcar o checkbox ou despublicar a página restaura o item de
+  menu original sozinho, no próximo resolver (boot ou qualquer ação
+  de publicar/salvar/apagar página)
+- **Permissão**: `admin`. A rota original do CrudGen nunca é removida
+  — continua acessível direto (não pelo menu) pra debug/conferência
+  de valores, mesmo com a substituição ativa.

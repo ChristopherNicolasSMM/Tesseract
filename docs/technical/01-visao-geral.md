@@ -33,7 +33,11 @@ reaproveitável para outros domínios.
 | Preferência pessoal de menu (`/perfil/menu-preferencias`) | Pronto |
 | Motor de regras — grupo Validação (`/admin/field-rules/`) | Pronto |
 | Visibilidade/Cálculo (motor de regras) | Catalogado, sem função JS ainda |
-| Designer visual drag-and-drop (`/admin/designer/`) | Pronto |
+| Designer visual drag-and-drop (`/admin/designer/`) | Pronto — canvas, 16 tipos de componente (Tier 1+2, Fase 10), Ações por evento, substituição de tela CrudGen |
+| Ações do Designer (catálogo + execução server-side) — Fase 10 | Pronto — `core/actions_catalog.py`, endpoint `/admin/designer/data-action/<id>/execute` |
+| Ação de Dado (`tesseract_designer_data_action`) — Fase 10 | Pronto — configuração reutilizável de acesso a dado via `ODataConnection`, sempre executada no servidor |
+| Provedor OData local (`/api/odata-provider/`) — Fase 10 | Pronto — expõe entidades `@odata_expose`, atalho em processo (sem HTTP) quando a conexão é local |
+| Substituição de tela CrudGen pelo Designer — Fase 10 | Pronto — troca só o item de MENU; rota original do CrudGen nunca é removida |
 | OData — conexão + navegador de dados read-only (`/admin/odata/`) | Pronto (2 bugs de descoberta/rota corrigidos, ver BACKLOG.md) |
 | Model Builder Visual (`/admin/model-builder/`) | Pronto — cria Model em Addon/Feature existente ou novo, gera via CrudGen |
 | API/SQL Playground v2 (`/admin/playground/`) | Pronto — Auth, Query Params, pastas em árvore, cookie jar por usuário |
@@ -45,7 +49,7 @@ reaproveitável para outros domínios.
 | `addon_brewstation` — `feature_ingredientes`/`feature_envase`/`feature_brew_father` | Completo (CRUD) |
 | `addon_device_manager` (promovido de Feature, skill 05) | Completo — MQTT (LWT agregado), API `get_value`/`set_value`/`on_change` |
 | `addon_estoque` (Material/Composição/Movimentação/Saldo + lookups) | Completo |
-| `screen_generator.py` (gerar tela do Designer a partir de OData) | Não iniciado |
+| `screen_generator.py` (gerar tela do Designer inteira a partir de metadata OData) | Não iniciado — diferente da Fase 10 (que dá os componentes soltos, não a geração automática de página) |
 | Fase F skill 05 (validação ponta a ponta com `tesseract-device-bridge` real) | Pendente — repositório separado |
 
 ## Dependências do Core
@@ -76,7 +80,21 @@ Playground). Ver `requirements.txt` (UTF-16LE — ver skill 00/BACKLOG).
   regras de negócio e motor de validação client-side.
 - `core.odata.connection_manager.py` — conexão e descoberta de
   metadata de servidores OData V4 externos (XML/JSON EDMX + formato
-  customizado com fallback de pluralização/override manual).
+  customizado com fallback de pluralização/override manual); atalho
+  em processo (sem HTTP) quando `ODataConnection.is_local` — Fase 10.
+- `core.odata_provider.*` — provedor OData do próprio Tesseract (Fase
+  10): `registry.py` descobre entidades `@odata_expose`,
+  `metadata.py` monta o schema (enriquecido com enum/weak_ref em
+  `ui`), `service.py` executa `query`/`patch` com permissão via Role.
+- `core.actions_catalog.py` + `static/js/actions_engine.js` — Ações
+  disparáveis por evento de componente do Designer (Fase 10):
+  `navigate`/`show_message`/`set_component_value`/`toggle_component`
+  (client-side) e `call_data_action` (server-side, único ponto que
+  toca credencial).
+- `core.designer_menu_override.py` — resolve o checkbox
+  `DesignerPage.replace_in_menu`, trocando o item de menu de uma tela
+  do CrudGen pela DesignerPage publicada (Fase 10) — nunca a rota em
+  si, que continua acessível direto.
 - `services/core/model_builder_service.py` — rascunho + geração de
   Model novo em Addon/Feature existente ou novo (scaffold completo).
 - `services/core/playground_service.py` — execução de requisição HTTP
@@ -110,6 +128,8 @@ Playground). Ver `requirements.txt` (UTF-16LE — ver skill 00/BACKLOG).
 | `/admin/logs/` | Consulta/gestão de logs (globais e de integração por Addon) |
 | `/admin/tasks/` | Jobs agendados (criar/pausar/rodar agora/histórico) |
 | `/admin/designer/` | Designer visual (canvas drag-and-drop) |
+| `/admin/designer/data-action/<id>/execute` | Execução server-side de uma Ação de Dado (Fase 10) |
+| `/api/odata-provider/` | Provedor OData local — entidades `@odata_expose` (Fase 10) |
 | `/designer/<slug>` | Execução de uma página montada no Designer |
 | `/<addon>/<entidade>/` | CRUD de cada entidade gerada pelo CrudGen |
 

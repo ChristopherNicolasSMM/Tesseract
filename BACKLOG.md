@@ -3418,3 +3418,99 @@ foi tocada** — mudar o contrato dela quebraria o motor de automação.
 retorno. Sem migration. Suíte completa rodada em lotes (dividida por
 `-k` desta vez — o arquivo já tem quase 100 testes e passou do
 orçamento de tempo de uma chamada só) — tudo passou.
+
+## Fase 10 — Designer: Ações, Ação de Dado, Provedor OData Local, Substituição de Tela (concluída)
+
+Planejamento e detalhe completo em `docs/skills/16-designer-acoes-e-dados.md`
+(mapeamento de componente em `mapeamento_niceadmin_designer.md`).
+Pedido original: dar ao Designer (`/admin/designer/`, Fase 7c) ações/
+eventos, consumo de dado com regras claras, e a capacidade de
+substituir uma tela do CrudGen quando configurado pra isso.
+
+- [x] **Item de menu solto (antes da Fase 10 em si)**: Designer/OData/
+      Field Rules/Versioning movidos de `TX_GROUP_ADMIN` pra
+      `TX_GROUP_FERRAMENTAS_DE_DESENVOLVIMENTO` (grupo que já existia,
+      já com Model Builder/Playground) — só troca de `parent_code` no
+      catálogo (skill 10, código lidera/banco segue), sem migration.
+      Ordem final: Model Builder → Playground → OData → Field Rules →
+      Designer → Versioning.
+- [x] **Patch 1 — Schema completo.** `tesseract_designer_data_action`
+      (nova), `ODataConnection.is_local` + seed idempotente da conexão
+      local, `DesignerPage.replaces_entity_key`/`replaces_view`/
+      `replace_in_menu`, anotação `@odata_expose`. Migration `5f1d8a3c7e92`
+      validada de ponta a ponta (`flask db upgrade` real contra schema
+      pré-existente, não só `db.create_all()`). **Achado real**:
+      `run.py` roda `create_app()` (com todos os seeds) antes de
+      qualquer subcomando `flask db ...` — o seed da conexão local
+      precisou de guarda defensiva pra coluna ainda não existir numa
+      instalação existente. 11 testes novos.
+- [x] **Patch 2 — Provedor OData local.** `core/odata_provider/`
+      (`registry.py`/`metadata.py`/`service.py`) + rotas
+      `/api/odata-provider/...` + atalho em processo em
+      `ODataConnectionManager` quando `is_local=True` (sem HTTP, sem
+      cache — schema sempre vivo). Metadata no mesmo formato JSON que
+      o consumidor da Fase 8 já reconhecia, enriquecido com
+      `enum_fields`/`weak_refs` em `"ui"`. `YeastStrain` marcado com
+      `@odata_expose` como prova de ponta a ponta. 18 testes novos.
+- [x] **Patch 3 — Motor de Ações.** `core/actions_catalog.py` (5
+      tipos: 4 client-side + `call_data_action` server-side) +
+      `static/js/actions_engine.js` + endpoint
+      `POST /admin/designer/data-action/<id>/execute` + painel
+      "Eventos (onClick)" no editor. `DesignerComponent.events`
+      (existia desde a Fase 7c) finalmente lido/escrito. **Achado
+      real**: `GET /admin/designer/<id>/edit` quebrava sempre que a
+      página já tinha componente (`page.components | map('tojson')`
+      tentava serializar ORM direto) — pré-existente, nenhum teste
+      chamava essa rota até então; corrigido serializando no
+      controller. 16 testes novos.
+- [x] **Patch 4 — Tier 1 de componente.** `select`/`checkbox`/`radio`/
+      `form_container`/`datagrid` — os mínimos pra montar uma tela que
+      substitui CRUD de verdade. `form_container` casa campo por nome
+      dentro do retângulo geométrico do container (sem aninhamento
+      real de DOM/schema). `datagrid` usa `simple-datatables` (já
+      vendorizado desde a correção de caminho do início desta rodada),
+      inicialização manual. `static/js/data_binding.js` novo. 16
+      testes novos.
+- [x] **Patch 5 — Tier 2 de componente.** `card`/`alert`/`badge`/
+      `progress_bar`/`list` — mais barato, sem bind obrigatório a
+      registro único (só `list` fala com Ação de Dado). `progress_bar`
+      fica estático nesta leva (vincular a outro componente é a regra
+      "Controlar ProgressBar" do catálogo de Cálculo, ainda sem motor).
+      12 testes novos.
+- [x] **Patch 6 — Substituição de tela CrudGen (resolver real).**
+      `core/designer_menu_override.py` — troca só o item de MENU
+      (`Transaction.route`), nunca a rota original do CrudGen (sempre
+      acessível direto, pra debug). Auto-curativo: sempre resync
+      completo antes de reaplicar overrides — despublicar/desmarcar/
+      apagar a página restaura a rota original sozinho, sem guardar
+      estado. **Achado real corrigido**: a convenção de
+      `replaces_entity_key` registrada no Patch 1 estava errada (usava
+      singular do `@odata_expose`) — a certa é o **plural**, mesmo
+      formato de `FieldRule.entity_key`. **Achado real**: não existia
+      nenhuma rota que escrevesse `replaces_entity_key`/`replaces_view`/
+      `replace_in_menu` até este patch — endpoint `.../settings` +
+      painel "Configurações da página" criados. 10 testes novos, usando
+      `TX_YEAST_BANK` (`yeast_strains`) como entidade real de prova.
+- [x] **Patch 7 — Documentação.** Skill 16 formalizada
+      (`docs/skills/16-designer-acoes-e-dados.md`), `docs/technical/`
+      (visão geral, C4, fluxos, modelo de dados, casos de uso UC20–22,
+      manutenção/expansão) e `docs/manual/03-funcionalidades.md`
+      (seção Designer Visual expandida em linguagem não-técnica)
+      atualizados. **Achado real, corrigido de brinde**:
+      `docs/technical/07-catalogo-de-transacoes.md` (gerado
+      automaticamente) estava desatualizado desde o patch de menu —
+      regenerado de verdade via `python run.py transactions-doc`.
+
+**Fora do escopo desta fase, pendência conhecida** (registrada na
+skill 16, seção 7): Tier 3 de componente (`tabs`/`accordion`/`chart`/
+`rich_text`/`carousel`; modal como Ação); motor de Cálculo/Visibilidade
+(`progress_bar` dinâmico depende disso); `operation="create"`/`"delete"`
+em Ação de Dado (schema pronto, motor devolve `501`);
+`replaces_view="detail"` (schema pronto, sem resolver de link);
+`screen_generator.py` (geração automática de página a partir de
+metadata OData — a Fase 10 deu os componentes soltos, não a geração).
+
+142 testes novos ao longo da Fase 10 (11+18+16+16+12+10+0 do Patch 7,
+que é só documentação), toda a suíte de regressão (900+ execuções
+somadas entre os 6 patches de código) sem nenhuma quebra fora das já
+catalogadas como pré-existentes.

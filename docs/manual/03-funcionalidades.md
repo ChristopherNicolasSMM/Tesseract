@@ -90,6 +90,11 @@ não dá pra editar esses dados externos por aqui ainda. Se o nome de
 uma entidade não bater com a URL real do servidor, dá pra corrigir na
 mão, direto na tela.
 
+O próprio sistema também "fala" esse mesmo protocolo pros seus
+próprios dados — é assim que os elementos "ligados a um cadastro" do
+Designer Visual conseguem buscar/salvar informação, sem precisar de
+nada configurado à parte por você.
+
 ## Model Builder Visual (administrador)
 
 Cria um cadastro novo (tabela + tela completa) sem escrever código —
@@ -120,8 +125,54 @@ SQL. Acompanha se cada execução deu certo, e quanto tempo levou.
 
 ## Designer Visual (administrador)
 
-Monte uma tela do seu jeito, arrastando elementos (título, texto,
-campo de formulário, botão, imagem) num quadro em branco, sem precisar
-de nenhum desenvolvedor. Depois de publicar, a tela fica disponível
-num link próprio, que você pode adicionar ao menu em "Catálogo de
-Transações".
+Monte uma tela do seu jeito, arrastando elementos num quadro em
+branco, sem precisar de nenhum desenvolvedor. Depois de publicar, a
+tela fica disponível num link próprio, que você pode adicionar ao
+menu em "Catálogo de Transações" — ou, em alguns casos, usar pra
+substituir uma tela pronta do sistema (veja "Trocar uma tela pronta
+por uma sua", mais abaixo).
+
+**Elementos disponíveis:**
+
+- **Texto e visual**: título, texto simples, imagem, linha
+  divisória, cartão (com título/texto/imagem/rodapé), aviso colorido,
+  selo pequeno, barra de progresso.
+- **Campo de formulário**: campo de texto, menu suspenso (opções
+  fixas ou vindas de um cadastro do sistema), caixa de marcar,
+  múltipla escolha.
+- **Botão**: pode ser configurado pra fazer algo quando clicado — ver
+  "Ações do botão", abaixo.
+- **Ligado a um cadastro**: uma "caixa de formulário" que carrega os
+  dados de UM registro (pra editar), uma lista/tabela que mostra
+  VÁRIOS registros, ou uma lista simples de itens.
+
+Pra qualquer elemento "ligado a um cadastro" funcionar, alguém
+(normalmente quem está montando o sistema) precisa antes cadastrar
+uma **Ação de Dado**, em "Ferramentas de Desenvolvimento" — é ali que
+se escolhe de qual cadastro o elemento vai buscar/salvar informação.
+
+### Ações do botão
+
+Um botão pode ser configurado pra, quando clicado:
+
+- Levar pra outro endereço/página (na mesma aba ou numa nova).
+- Mostrar uma mensagem na tela (de sucesso, aviso ou erro).
+- Preencher ou trocar o valor de outro elemento da mesma tela.
+- Mostrar ou esconder outro elemento da mesma tela.
+- Buscar ou salvar informação de um cadastro (usando uma Ação de
+  Dado já configurada).
+
+Dá pra combinar várias dessas ações num único clique, na ordem que
+fizer sentido (ex.: salvar um dado e, se der certo, mostrar uma
+mensagem de sucesso).
+
+### Trocar uma tela pronta por uma sua
+
+Se você montou uma tela no Designer que já mostra/edita os mesmos
+dados de uma tela pronta do sistema, dá pra fazer ela aparecer no
+menu no lugar da tela pronta — em "Configurações da página", dentro
+do editor. A tela antiga **nunca é apagada nem desativada**: só sai
+do menu. Se um dia precisar conferir algo do jeito original, é só
+digitar o endereço antigo direto no navegador. Desmarcar essa opção
+(ou despublicar a página) faz o menu voltar sozinho pra tela
+original.

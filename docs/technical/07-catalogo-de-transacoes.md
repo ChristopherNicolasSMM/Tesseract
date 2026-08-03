@@ -100,10 +100,6 @@ Total: 77 transação(ões), 77 ativa(s).
 |---|---|---|---|---|---|
 | `TX_ADMIN_USERS` | Gestão de Usuários | `/admin/users` | `admin` | Core | Ativa |
 | `TX_ADMIN_ROLES` | Papéis e Permissões | `/admin/roles` | `admin` | Core | Ativa |
-| `TX_ADMIN_VERSIONING` | Versionamento de Código | `/admin/versioning` | `admin` | Core | Ativa |
-| `TX_ADMIN_FIELD_RULES` | Regras de Campo | `/admin/field-rules` | `admin` | Core | Ativa |
-| `TX_ADMIN_ODATA` | Conexões OData | `/admin/odata` | `admin` | Core | Ativa |
-| `TX_ADMIN_DESIGNER` | Designer Visual | `/admin/designer` | `admin` | Core | Ativa |
 | `TX_ADMIN_TRANSACTIONS` | Catálogo de Transações | `/admin/transactions` | `admin` | Core | Ativa |
 | `TX_ADMIN_TASKS` | Monitor de Tarefas | `/admin/tasks` | `admin` | Core | Ativa |
 | `TX_ADMIN_LOGS` | Logs | `/admin/logs` | `admin` | Core | Ativa |
@@ -115,6 +111,10 @@ Total: 77 transação(ões), 77 ativa(s).
 |---|---|---|---|---|---|
 | `TX_ADMIN_MODEL_BUILDER` | Model Builder | `/admin/model-builder` | `model_definitions.view` | Core | Ativa |
 | `TX_ADMIN_PLAYGROUND` | API/SQL Playground | `/admin/playground` | `playground_requests.execute` | Core | Ativa |
+| `TX_ADMIN_ODATA` | Conexões OData | `/admin/odata` | `admin` | Core | Ativa |
+| `TX_ADMIN_FIELD_RULES` | Regras de Campo | `/admin/field-rules` | `admin` | Core | Ativa |
+| `TX_ADMIN_DESIGNER` | Designer Visual | `/admin/designer` | `admin` | Core | Ativa |
+| `TX_ADMIN_VERSIONING` | Versionamento de Código | `/admin/versioning` | `admin` | Core | Ativa |
 
 ## Dispositivos IoT
 

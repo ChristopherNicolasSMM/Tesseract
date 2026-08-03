@@ -175,8 +175,104 @@ telas geradas pelo CrudGen quanto em `textbox`es do Designer.
 `/admin/designer/` → criar página → arrastar componentes da paleta →
 posicionar/redimensionar (mouse) → editar propriedades no painel
 lateral → publicar. Útil para dashboards e telas que não mapeiam 1:1
-pra uma entidade de banco. Tipos de componente disponíveis hoje:
-`heading`, `label`, `textbox`, `button`, `image`, `divider`.
+pra uma entidade de banco. Tipos de componente disponíveis hoje (16 —
+mapeamento completo em `mapeamento_niceadmin_designer.md`, entregue no
+início da Fase 10):
+
+- **Sem bind de dado**: `heading`, `label`, `image`, `divider`,
+  `card`, `alert`, `badge`, `progress_bar` (Tier 2, estático nesta
+  fase — vincular a outro componente é a regra "Controlar
+  ProgressBar", ainda sem motor, ver seção seguinte).
+- **Campo de formulário**: `textbox`, `select`, `checkbox`, `radio`.
+- **Com bind via Ação de Dado** (Fase 10, Patch 4): `form_container`
+  (um registro, casado por posição geométrica — não é aninhamento
+  real de DOM/schema), `datagrid` (lista, via `simple-datatables`),
+  `list` (lista simples, um campo por item).
+- **Com Ações por evento** (Fase 10, Patch 3): `button` (`onClick`).
+
+## Como configurar uma Ação de evento num componente (Fase 10)
+
+Editor → seleciona um `button` → painel "Eventos (onClick)" → "+
+Ação" → escolhe o tipo (`core/actions_catalog.py`: `navigate`,
+`show_message`, `set_component_value`, `toggle_component` — todas
+client-side, `static/js/actions_engine.js` — ou `call_data_action`,
+a única server-side) → preenche os parâmetros do tipo escolhido →
+Salvar eventos. Várias ações no mesmo evento rodam em sequência; se
+uma `call_data_action` falhar, a cadeia para e mostra um toast de
+erro automaticamente.
+
+**Regra de ouro desta peça**: toda Ação que toca dado/API roda
+*sempre* no servidor (`POST /admin/designer/data-action/<id>/execute`)
+— nunca client-side, porque a `ODataConnection` por trás pode
+envolver credencial (`auth_value`). O navegador só manda qual
+`DesignerDataAction` disparar e, se for `update`, a `key`/`payload`.
+
+## Como adicionar um novo tipo de Ação ao catálogo (Fase 10)
+
+1. Adicionar a entrada em `ACTION_CATALOG`
+   (`core/actions_catalog.py`) — `id`, `label`, `icon`, `runs_on`
+   (`"client"` ou `"server"`), `params` (lista de `{name, label, type,
+   default}` — tipos aceitos pelo editor: `text`, `number`, `select`,
+   `textarea`, `data_action_select`).
+2. Se `runs_on: "client"` — implementar a função em
+   `static/js/actions_engine.js` (mesmo padrão das 4 existentes:
+   recebe `params`, devolve `Promise` ou executa síncrono) e
+   registrar no `switch` de `runAction()`.
+3. Se `runs_on: "server"` — **não** criar um endpoint novo: o único
+   ponto server-side (`call_data_action`) já cobre "executar uma
+   Ação de Dado"; um tipo de Ação server-side novo só se justifica se
+   fizer algo estruturalmente diferente de chamar uma
+   `DesignerDataAction` (raro — pense duas vezes antes).
+
+## Como expor uma nova entidade no provedor OData local (Fase 10)
+
+Adicionar `@odata_expose("<entity_name>", permission_required="<opcional>")`
+no model (`annotations/__init__.py`, mesmo padrão de `@permission`).
+Opt-in por entidade, de propósito — sem a anotação, a entidade nunca
+aparece em `/api/odata-provider/$metadata.json`, mesmo com o Addon
+ativo (decisão registrada em BACKLOG.md, Fase 10). `entity_name` vira
+o nome usado numa `DesignerDataAction.entity_name` — não precisa ser
+igual ao `__tablename__`. Metadata é montada ao vivo
+(`core/odata_provider/metadata.py`), sem cache — qualquer mudança de
+model aparece no próximo request.
+
+## Como adicionar um novo tipo de componente ao Designer (Fase 10)
+
+1. Acrescentar o `id` em `COMPONENT_TYPES`
+   (`model/core/designer_component.py`) — a paleta do editor já lista
+   qualquer tipo presente aqui, sem mudança de template.
+2. `_DEFAULT_SIZE`/`_DEFAULT_PROPERTIES`
+   (`controller/core/designer.py`) — tamanho e propriedades iniciais.
+3. Preview no canvas do editor —
+   `templates/core/admin/designer_editor.html`, função JS
+   `renderInnerContent()` (só visual, sem bind real).
+4. Renderização de runtime — `templates/core/designer_runtime.html`,
+   novo `{% elif comp.type == '...' %}`.
+5. Se precisar buscar dado — adicionar a função `init*()`
+   correspondente em `static/js/data_binding.js` (mesmo padrão de
+   `initSelects()`/`initDatagrids()`/`initLists()`: sempre chama
+   `fetchDataAction()`, nunca fala direto com um provedor OData do
+   navegador).
+
+## Como substituir uma tela do CrudGen por uma página do Designer (Fase 10)
+
+Editor da `DesignerPage` → painel "Configurações da página" →
+`replaces_entity_key` (o **plural** da entidade — mesmo formato de
+`FieldRule.entity_key`, ex. `yeast_strains`, nunca o singular) +
+`replaces_view=manage` + marcar "Substituir no menu" → Salvar/
+Publicar. `core/designer_menu_override.py` troca só o item de
+**menu** (`Transaction.route`); a rota original do CrudGen nunca é
+removida, continua acessível direto pra debug. Reverter (desmarcar o
+checkbox, despublicar, ou apagar a página) restaura o item de menu
+original sozinho — o resolver sempre reconstrói do zero a partir do
+catálogo de código antes de reaplicar overrides, nunca "lembra"
+estado antigo.
+
+`replaces_view=detail` só existe no schema por enquanto — uma tela de
+detalhe nunca vira item de menu por conta própria (é acessada por
+link dentro do "manage"), então não há Transaction pra trocar; fica
+pronta pra quando um mecanismo de override de link "ver detalhe"
+existir.
 
 ## Como expandir o motor de regras (Visibilidade/Cálculo)
 
@@ -200,9 +296,18 @@ implementa as funções de Validação. Para conectar Visibilidade
 `/admin/odata/` → criar conexão → testar → navegar dados. Para ir além
 do navegador read-only (gerar uma tela editável a partir da metadata),
 seria necessário portar `screen_generator.py` (DEVStationFlask) —
-agora possível, já que o Designer (`DesignerPage`/`DesignerComponent`)
-existe; não foi feito ainda porque não havia pedido real até esta
-versão.
+possível desde que o Designer existe (Fase 7c); a Fase 10 entregou os
+componentes soltos (`form_container`/`datagrid`/`list`) pra montar
+essa tela à mão, mas a geração *automática* de página a partir de
+metadata continua não feita, por falta de pedido real até esta versão.
+
+O Tesseract também é, desde a Fase 10, **provedor** OData da própria
+base (não só consumidor) — ver "Como expor uma nova entidade no
+provedor OData local", acima. `ODataConnectionManager` (o mesmo
+consumidor desta seção) detecta sozinho quando a conexão é local
+(`ODataConnection.is_local`) e pula o HTTP, chamando
+`core/odata_provider/service.py` direto — mesmo contrato de
+`query()`/`patch()`/`fetch_metadata()`, sem round-trip de rede.
 
 ## Como depreciar/remover uma Feature ou Addon sem deixar tabela órfã
 
@@ -253,6 +358,17 @@ Ainda não há rotina automatizada. Hoje significa:
   funções JS (Visibilidade/Cálculo).
 - **`DesignerComponent.rules`** — qualquer regra do catálogo pode ser
   anexada, mesmo as ainda sem motor (fica catalogada, sem efeito).
+- **`DesignerComponent.events`** (Fase 10) — qualquer Ação do
+  catálogo pode ser anexada a `onClick` hoje; `onChange`/`onLoad`
+  já são disparados por `static/js/actions_engine.js` para qualquer
+  elemento com `data-events`, só falta um tipo de componente que
+  dispare esses eventos no runtime (nenhum dispara ainda).
+- **`core/odata_provider/registry.py`** (Fase 10) — varre
+  `db.Model.registry.mappers` procurando `@odata_expose`; funciona
+  pra qualquer model de qualquer Addon/Feature/Core, sem precisar
+  saber a origem.
+- **`core/actions_catalog.py`** (Fase 10) — catálogo de tipos de
+  Ação, mesmo padrão de `core/rules_catalog.py`.
 - **`@display_field`/`@weak_ref`** (skill nova —
   `docs/skills/11-referencia-fraca-e-display-field.md`) — anotações
   pra resolver campo de referência fraca (skill 02, ex.: `material_id`

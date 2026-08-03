@@ -70,6 +70,11 @@ Ordem de leitura recomendada:
     uso real do motor de resolução de i18n (adendo da skill 00),
     delegação de evento obrigatória para sobreviver a fragmento AJAX
     (Plant Workspace/Dashboard).
+17. **16-designer-acoes-e-dados.md** — Ações do Designer (catálogo em
+    duas camadas: código + `DesignerDataAction`, sempre server-side
+    quando toca dado), Provedor OData local (`@odata_expose`,
+    atalho em processo), Tier 1/2 de componente (16 tipos), e
+    substituição de tela do CrudGen no menu (`replace_in_menu`).
 
 ## Status
 
@@ -83,15 +88,20 @@ As skills 06, 07, 08 e 09 já foram **executadas** — ver o próprio
 arquivo de cada uma para o detalhe do que foi implementado e eventuais
 revisões em relação à proposta original (skill 08, seção 10; skill 06,
 Patches A/B/C). A skill 10 (menu hierárquico, `parent_id`/`order_index`
-em Transaction) também já foi **executada**.
+em Transaction) também já foi **executada**. A skill 16 (Designer:
+Ações/Dados/Substituição, Fase 10) também já foi **executada** — ao
+contrário das demais, nasceu depois da implementação (documento
+descritivo, não proposta prévia).
 
 Ainda não cobertos por uma skill própria (peças que ainda não foram
 construídas, ou que têm pouca regra formal além do próprio código):
 
-- **Motor de regras** (validação/visibilidade/cálculo, herdado do
-  DEVStationFlask) — Fase 7b, não iniciada
-- **Designer visual drag-and-drop** — Fase 7c, não iniciada
-- **OData/Screen Generator** — Fase 8, não iniciada
+- **Motor de regras — grupos Visibilidade/Cálculo** (catalogados em
+  `core/rules_catalog.py`, sem função JS ainda — `progress_bar` do
+  Designer depende disso pra ficar dinâmico)
+- Tier 3 de componente do Designer (`tabs`/`accordion`/`chart`/
+  `rich_text`/`carousel`) e `screen_generator.py` (gerar página do
+  Designer inteira a partir de metadata OData) — ver skill 16, seção 7
 
 A skill 11 (referência fraca / `@display_field` / `@weak_ref`) está em
 **[DECIDIDO], pendente de implementação** — investigação direta no

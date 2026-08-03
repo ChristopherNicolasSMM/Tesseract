@@ -112,6 +112,56 @@ sequenceDiagram
     Runtime-->>Admin: HTML real renderizado, com rule_engine.js conectado
 ```
 
+## Sequência: disparar uma Ação de evento até uma Ação de Dado (Fase 10)
+
+```mermaid
+sequenceDiagram
+    actor User as Usuário (página publicada)
+    participant DOM as Botão (data-events)
+    participant Engine as actions_engine.js
+    participant Server as /admin/designer/data-action/<id>/execute
+    participant DA as DesignerDataAction
+    participant Mgr as ODataConnectionManager
+    participant Data as Provedor local (em processo) ou externo (HTTP)
+
+    User->>DOM: clique
+    DOM->>Engine: fire(el, "onClick")
+    Engine->>Engine: roda ações client-side em sequência (navigate/show_message/...)
+    Engine->>Server: POST call_data_action {key, payload}
+    Server->>DA: carrega Ação de Dado + checa permission_required
+    Server->>Mgr: query()/patch() na ODataConnection configurada
+    alt conexão local (is_local=True)
+        Mgr->>Data: chama core/odata_provider/service.py direto (sem HTTP)
+    else conexão externa
+        Mgr->>Data: HTTP real (urllib)
+    end
+    Data-->>Server: resultado
+    Server-->>Engine: {success, result} ou {success:false, error}
+    Engine->>Engine: se falhar, mostra toast de erro e para a cadeia
+```
+
+## Sequência: substituição de tela CrudGen no menu (Fase 10)
+
+```mermaid
+sequenceDiagram
+    actor Admin as Administrador
+    participant Editor as /admin/designer/<id>/edit
+    participant Settings as POST .../settings ou .../publish
+    participant Resolver as designer_menu_override.py
+    participant TX as Transaction (menu)
+    actor End as Usuário final
+
+    Admin->>Editor: preenche replaces_entity_key/replaces_view=manage
+    Admin->>Settings: marca "Substituir no menu" + Salvar/Publicar
+    Settings->>Resolver: resolve_designer_page_menu_overrides()
+    Resolver->>TX: resync completo (código lidera, banco segue)
+    Resolver->>TX: acha Transaction com permission_required="<entity_key>.list"
+    Resolver->>TX: UPDATE route = "/designer/<slug>"
+    End->>TX: clica no item de menu
+    TX-->>End: leva pra /designer/<slug> (a DesignerPage)
+    Note over End,TX: a rota original do CrudGen (ex. /brewstation/yeast-strains)<br/>continua registrada — acessível direto pra debug, só sumiu do menu
+```
+
 ## Sequência: navegar dados de um servidor OData externo (Fase 8)
 
 ```mermaid
