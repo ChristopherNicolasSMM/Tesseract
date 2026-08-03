@@ -68,6 +68,15 @@
     display: block;
   }
   .dsg-palette-btn { width: 100%; margin-bottom: 6px; text-align: left; }
+  /* Fase 11, Patch 2.2 — paletas colapsaveis, pra o painel de Camadas
+     poder subir pro alto sem precisar rolar a coluna inteira. */
+  .dsg-collapse-head {
+    cursor: pointer; user-select: none;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .dsg-collapse-head .bi-chevron-down { transition: transform .15s; font-size: .8rem; }
+  .dsg-collapse-head.collapsed .bi-chevron-down { transform: rotate(-90deg); }
+  .dsg-collapsed { display: none !important; }
 </style>
 {% endblock %}
 {% block content %}
@@ -150,25 +159,38 @@
     <div class="col-md-2">
       <div class="card">
         <div class="card-body">
-          <h6 class="card-title">Componentes</h6>
+          <h6 class="card-title dsg-collapse-head" data-collapse-target="paletteBody">
+            <span>Componentes</span><i class="bi bi-chevron-down"></i>
+          </h6>
+          <div id="paletteBody">
           {% for cat_id, cat_label in categories %}
             {% set items = component_catalog | selectattr('category', 'equalto', cat_id) | list %}
             {% if items %}
-            <p class="small text-muted text-uppercase mb-1 mt-2">{{ cat_label }}</p>
+            <p class="small text-muted text-uppercase mb-1 mt-2 dsg-collapse-head"
+               data-collapse-target="palette-{{ cat_id }}">
+              <span>{{ cat_label }}</span><i class="bi bi-chevron-down"></i>
+            </p>
+            <div id="palette-{{ cat_id }}">
             {% for comp in items %}
             <button type="button" class="btn btn-outline-secondary btn-sm dsg-palette-btn" data-add-type="{{ comp.id }}">
               <i class="bi {{ comp.icon }}"></i> {{ comp.label }}
             </button>
             {% endfor %}
+            </div>
             {% endif %}
           {% endfor %}
+          </div>
         </div>
       </div>
       <div class="card mt-3">
         <div class="card-body">
-          <h6 class="card-title">Camadas</h6>
-          <p class="small text-muted mb-2">Arraste para reordenar ou soltar dentro de um contêiner.</p>
-          <div id="layersPanel" class="small"></div>
+          <h6 class="card-title dsg-collapse-head" data-collapse-target="layersBody">
+            <span>Camadas</span><i class="bi bi-chevron-down"></i>
+          </h6>
+          <div id="layersBody">
+            <p class="small text-muted mb-2">Arraste para reordenar ou soltar dentro de um contêiner.</p>
+            <div id="layersPanel" class="small"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -207,14 +229,6 @@
       el = document.createElement('div');
       el.className = 'dsg-component';
       el.id = 'comp-' + comp.id;
-      // Permite arrastar do canvas pra dentro de um contedor (o drag
-      // livre de posicao continua no mousedown de attachDragResize;
-      // este e o drag HTML5, usado so pra reparentar).
-      el.setAttribute('draggable', 'true');
-      el.addEventListener('dragstart', function (ev) {
-        dragSourceId = comp.id;
-        ev.stopPropagation();
-      });
       if (!nested) {
         const handle = document.createElement('div');
         handle.className = 'dsg-resize-handle';
@@ -372,6 +386,10 @@
         resizing = true;
       } else {
         dragging = true;
+        // Fase 11, Patch 2.2 — enquanto arrasta, o proprio elemento
+        // nao pode interceptar o ponteiro, senao elementFromPoint()
+        // sempre devolveria ele mesmo e nunca o slot embaixo.
+        el.style.pointerEvents = 'none';
       }
       startX = e.clientX; startY = e.clientY;
       startLeft = parseInt(el.style.left, 10);
@@ -388,18 +406,64 @@
       if (dragging) {
         el.style.left = Math.max(0, startLeft + dx) + 'px';
         el.style.top = Math.max(0, startTop + dy) + 'px';
+        highlightSlotUnder(e.clientX, e.clientY, compId);
       } else if (resizing) {
         el.style.width = Math.max(20, startW + dx) + 'px';
         el.style.height = Math.max(20, startH + dy) + 'px';
       }
     });
 
-    document.addEventListener('mouseup', function () {
+    document.addEventListener('mouseup', function (e) {
+      if (dragging) {
+        el.style.pointerEvents = '';
+        const slot = slotUnder(e.clientX, e.clientY, compId);
+        clearSlotHighlight();
+        if (slot) {
+          // Soltou em cima de um contedor: vira filho dele, em vez de
+          // so gravar a nova posicao absoluta.
+          const containerId = parseInt(slot.getAttribute('data-slot-of'), 10);
+          dragging = false; resizing = false;
+          moveComponentTo(compId, containerId, childrenOf(containerId).length);
+          return;
+        }
+      }
       if (dragging || resizing) {
         saveComponentGeometry(compId, el);
       }
       dragging = false; resizing = false;
     });
+  }
+
+  function slotUnder(clientX, clientY, movingId) {
+    const target = document.elementFromPoint(clientX, clientY);
+    if (!target) return null;
+    const slot = target.closest ? target.closest('.dsg-slot') : null;
+    if (!slot) return null;
+    const containerId = parseInt(slot.getAttribute('data-slot-of'), 10);
+    if (!containerId || containerId === movingId) return null;
+    // Nao deixa soltar dentro de um descendente de si mesmo (o servidor
+    // tambem rejeita, mas evita a ida e volta).
+    let node = componentsData.find(function (c) { return c.id === containerId; });
+    while (node) {
+      if (node.id === movingId) return null;
+      node = componentsData.find(function (c) { return c.id === node.parent_id; });
+    }
+    return slot;
+  }
+
+  function clearSlotHighlight() {
+    document.querySelectorAll('.dsg-component.drop-target').forEach(function (n) {
+      n.classList.remove('drop-target');
+    });
+  }
+
+  function highlightSlotUnder(clientX, clientY, movingId) {
+    clearSlotHighlight();
+    const slot = slotUnder(clientX, clientY, movingId);
+    if (slot && slot.parentElement) {
+      const box = slot.closest('.dsg-component');
+      if (box) box.classList.add('drop-target');
+    }
   }
 
   function saveComponentGeometry(compId, el) {
@@ -801,9 +865,21 @@
         if (data.success) {
           componentsData.push(data.component);
           renderComponent(data.component);
+          renderLayers();
           selectComponent(data.component.id);
+        } else {
+          window.__tesseractToast && window.__tesseractToast.show(data.error || 'Falha ao adicionar.', 'error');
         }
       });
+    });
+  });
+
+  document.querySelectorAll('.dsg-collapse-head').forEach(function (head) {
+    head.addEventListener('click', function () {
+      const body = document.getElementById(head.getAttribute('data-collapse-target'));
+      if (!body) return;
+      body.classList.toggle('dsg-collapsed');
+      head.classList.toggle('collapsed');
     });
   });
 

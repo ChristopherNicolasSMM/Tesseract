@@ -316,3 +316,47 @@ def test_alca_de_resize_e_recriada_apos_render(app, client):
     page_id = _page(client)
     body = client.get(f"/admin/designer/{page_id}/edit").data.decode()
     assert "querySelector('.dsg-resize-handle')" in body
+
+
+# ── Patch 2.2 — camadas vazias, drop no canvas, paletas colapsáveis ──
+
+def test_adicionar_componente_atualiza_painel_de_camadas(app, client):
+    """Achado real: renderLayers() só rodava no carregamento da página,
+    então adicionar componente pela paleta deixava o painel de Camadas
+    eternamente com 'Nenhum componente ainda'."""
+    _login_admin(app, client)
+    page_id = _page(client)
+    body = client.get(f"/admin/designer/{page_id}/edit").data.decode()
+    add_handler = body.split("data-add-type]")[1][:600]
+    assert "renderLayers()" in add_handler
+
+
+def test_reparentar_pelo_canvas_usa_mouseup_nao_drag_html5(app, client):
+    """Achado real: o mousedown de attachDragResize chama
+    preventDefault(), o que impede o dragstart do HTML5 de disparar —
+    então dragSourceId ficava nulo e soltar dentro de um contêiner pelo
+    canvas nunca funcionava. Trocado por detecção no mouseup."""
+    _login_admin(app, client)
+    page_id = _page(client)
+    body = client.get(f"/admin/designer/{page_id}/edit").data.decode()
+    assert "elementFromPoint" in body
+    assert "function slotUnder(" in body
+    # o drag HTML5 no componente do canvas foi removido
+    assert "el.setAttribute('draggable', 'true')" not in body
+
+
+def test_elemento_arrastado_nao_intercepta_o_ponteiro(app, client):
+    _login_admin(app, client)
+    page_id = _page(client)
+    body = client.get(f"/admin/designer/{page_id}/edit").data.decode()
+    assert "pointerEvents = 'none'" in body
+
+
+def test_paleta_e_camadas_sao_colapsaveis(app, client):
+    _login_admin(app, client)
+    page_id = _page(client)
+    body = client.get(f"/admin/designer/{page_id}/edit").data.decode()
+    assert "dsg-collapse-head" in body
+    assert 'data-collapse-target="paletteBody"' in body
+    assert 'data-collapse-target="layersBody"' in body
+    assert "dsg-collapsed" in body
