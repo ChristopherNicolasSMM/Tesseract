@@ -341,8 +341,12 @@ def test_reparentar_pelo_canvas_usa_mouseup_nao_drag_html5(app, client):
     body = client.get(f"/admin/designer/{page_id}/edit").data.decode()
     assert "elementFromPoint" in body
     assert "function slotUnder(" in body
-    # o drag HTML5 no componente do canvas foi removido
-    assert "el.setAttribute('draggable', 'true')" not in body
+    # O drag HTML5 saiu do componente de RAIZ (que tem mousedown com
+    # preventDefault). No Patch 2.3 ele volta, mas só no ramo aninhado,
+    # onde não existe mousedown concorrente — por isso a asserção olha
+    # o trecho de criação do elemento, não o arquivo inteiro.
+    criacao = body.split("el.className = 'dsg-component'")[1][:500]
+    assert "draggable" not in criacao
 
 
 def test_elemento_arrastado_nao_intercepta_o_ponteiro(app, client):
@@ -360,3 +364,68 @@ def test_paleta_e_camadas_sao_colapsaveis(app, client):
     assert 'data-collapse-target="paletteBody"' in body
     assert 'data-collapse-target="layersBody"' in body
     assert "dsg-collapsed" in body
+
+
+# ── Patch 2.3 — mais de um componente e reposicionar aninhado ────────
+
+def test_render_nao_usa_foreach_com_referencia_direta(app, client):
+    """Achado real: `childrenOf(null).forEach(renderComponent)` passa
+    (item, indice, array) — a partir do SEGUNDO componente de raiz o
+    índice chegava como `parentSlot`, o componente era tratado como
+    aninhado e `(1).appendChild(el)` estourava, quebrando o render
+    inteiro. Sintoma: só funcionava com um componente na página."""
+    _login_admin(app, client)
+    page_id = _page(client)
+    body = client.get(f"/admin/designer/{page_id}/edit").data.decode()
+    assert "forEach(function (c) { renderComponent(c); })" in body
+
+
+def test_varios_componentes_de_raiz_convivem(app, client):
+    _login_admin(app, client)
+    page_id = _page(client)
+    for _ in range(3):
+        assert _add(client, page_id, "label").status_code == 200
+
+    resp = client.get(f"/admin/designer/{page_id}/components")
+    raizes = [c for c in resp.get_json()["components"] if c["parent_id"] is None]
+    assert len(raizes) == 3
+    assert sorted(c["order_index"] for c in raizes) == [0, 1, 2]
+
+
+def test_varios_filhos_no_mesmo_container(app, client):
+    _login_admin(app, client)
+    page_id = _page(client)
+    card = _add(client, page_id, "card").get_json()["component"]
+    a = _add(client, page_id, "label").get_json()["component"]
+    b = _add(client, page_id, "badge").get_json()["component"]
+
+    for comp in (a, b):
+        resp = client.post(f"/admin/designer/component/{comp['id']}/move-to",
+                           json={"parent_id": card["id"]})
+        assert resp.status_code == 200
+
+    with app.app_context():
+        filhos = DesignerComponent.query.filter_by(parent_id=card["id"]) \
+            .order_by(DesignerComponent.order_index).all()
+    assert len(filhos) == 2
+    assert [f.order_index for f in filhos] == [0, 1]
+
+
+def test_componente_aninhado_e_arrastavel(app, client):
+    """Aninhado não tem arrasto por mousedown (quem posiciona é o pai),
+    então pode usar drag HTML5 sem o conflito do Patch 2.2 — é assim
+    que ele volta a ser reposicionável."""
+    _login_admin(app, client)
+    page_id = _page(client)
+    body = client.get(f"/admin/designer/{page_id}/edit").data.decode()
+    trecho = body.split("if (nested) {")[1][:900]
+    assert "draggable" in trecho
+    assert "dragstart" in trecho
+
+
+def test_canvas_aceita_drop_para_devolver_a_raiz(app, client):
+    _login_admin(app, client)
+    page_id = _page(client)
+    body = client.get(f"/admin/designer/{page_id}/edit").data.decode()
+    assert "canvas.addEventListener('drop'" in body
+    assert "moveComponentTo(dragSourceId, null" in body

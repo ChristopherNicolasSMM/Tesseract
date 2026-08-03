@@ -238,6 +238,22 @@
       (parentSlot || canvas).appendChild(el);
     }
     if (nested) {
+      // Fase 11, Patch 2.3: aninhado nao tem arrasto por mousedown
+      // (quem posiciona e o pai), entao pode usar drag HTML5 sem o
+      // conflito de preventDefault descrito no Patch 2.2 — e assim
+      // volta a ser reposicionavel: pra outro contedor (slot) ou pra
+      // raiz do canvas.
+      if (el.getAttribute('draggable') !== 'true') {
+        el.setAttribute('draggable', 'true');
+        el.addEventListener('dragstart', function (ev) {
+          dragSourceId = comp.id;
+          ev.stopPropagation();
+        });
+        el.addEventListener('click', function (ev) {
+          selectComponent(comp.id);
+          ev.stopPropagation();
+        });
+      }
       // Fase 11, Patch 2: filho de contedor FLUI (o pai posiciona), entao
       // x/y/z-index nao se aplicam — so a ordem dentro do slot.
       el.style.position = 'relative';
@@ -613,7 +629,11 @@
         if (!data.success) return false;
         componentsData = data.components;
         canvas.innerHTML = '';
-        childrenOf(null).forEach(renderComponent);
+        // Nao usar `.forEach(renderComponent)`: forEach passa
+    // (item, indice, array), entao a partir do segundo componente o
+    // indice chegava como `parentSlot` e o render estourava
+    // (`(1).appendChild`), quebrando a pagina inteira.
+    childrenOf(null).forEach(function (c) { renderComponent(c); });
         renderLayers();
         if (selectedId && componentsData.some(function (c) { return c.id === selectedId; })) {
           renderPropertiesPanel(selectedId);
@@ -874,6 +894,22 @@
     });
   });
 
+  // Soltar um componente aninhado numa area livre do canvas devolve
+  // ele pra raiz (fora de qualquer contedor).
+  canvas.addEventListener('dragover', function (e) {
+    if (dragSourceId !== null) e.preventDefault();
+  });
+  canvas.addEventListener('drop', function (e) {
+    if (dragSourceId === null) return;
+    if (e.target.closest && e.target.closest('.dsg-slot')) return; // slot trata
+    e.preventDefault();
+    const comp = componentsData.find(function (c) { return c.id === dragSourceId; });
+    if (comp && comp.parent_id) {
+      moveComponentTo(dragSourceId, null, childrenOf(null).length);
+    }
+    dragSourceId = null;
+  });
+
   document.querySelectorAll('.dsg-collapse-head').forEach(function (head) {
     head.addEventListener('click', function () {
       const body = document.getElementById(head.getAttribute('data-collapse-target'));
@@ -885,7 +921,11 @@
 
   // Fase 11, Patch 2: so os componentes de RAIZ vao direto pro canvas;
   // os aninhados sao desenhados dentro do slot do pai por renderComponent.
-  childrenOf(null).forEach(renderComponent);
+  // Nao usar `.forEach(renderComponent)`: forEach passa
+    // (item, indice, array), entao a partir do segundo componente o
+    // indice chegava como `parentSlot` e o render estourava
+    // (`(1).appendChild`), quebrando a pagina inteira.
+    childrenOf(null).forEach(function (c) { renderComponent(c); });
   renderLayers();
 })();
 </script>
