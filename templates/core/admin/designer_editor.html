@@ -2,26 +2,30 @@
 {% block title %}Editando: {{ page.name }} - Tesseract{% endblock %}
 {% block extra_css %}
 <style>
-  /* Fase 11, Patch 1.1 — o canvas seguia `page.canvas_bg` (default
-     claro, #f6f9ff) e grid hardcoded claro, então ficava uma folha
-     branca dentro do app escuro, com os componentes Bootstrap do
-     preview renderizando no tema escuro por cima. Agora usa as
-     variáveis semânticas de themes.css, que já viram sozinhas
-     conforme o tema ativo. */
+  /* Fase 11, Patch 2.1 — ACHADO REAL: static/css/themes.css NUNCA e
+     carregado por nenhum template (o base.html carrega style.css +
+     style_dark.css). As variaveis usadas no Patch 1.1
+     (--bg-secondary/--border-color) portanto nao existem, e o var()
+     caia sempre no fallback claro — por isso o canvas continuava
+     branco no tema escuro. Corrigido para as variaveis que existem de
+     verdade, definidas por style_dark.css em
+     `body[data-theme="dark"]`. Como esse arquivo so e carregado no
+     tema escuro, no tema claro as variaveis ficam indefinidas e o
+     fallback claro passa a ser o valor certo — sem precisar de if. */
   #designerCanvasWrap {
     max-width: 100%;
     overflow: auto;
-    border: 1px solid var(--border-color, #ced4da);
-    border-radius: var(--border-radius, 8px);
+    border: 1px solid var(--dark-border, #ced4da);
+    border-radius: 8px;
   }
   #designerCanvas {
     position: relative;
-    background: var(--bg-secondary, #f6f9ff);
+    background: var(--dark-surface-2, #f6f9ff);
     width: {{ page.canvas_width }}px;
     height: {{ page.canvas_height }}px;
     background-image:
-      linear-gradient(var(--border-color, #e9ecef) 1px, transparent 1px),
-      linear-gradient(90deg, var(--border-color, #e9ecef) 1px, transparent 1px);
+      linear-gradient(var(--dark-border, #e9ecef) 1px, transparent 1px),
+      linear-gradient(90deg, var(--dark-border, #e9ecef) 1px, transparent 1px);
     background-size: 20px 20px;
   }
   /* Fase 11, Patch 2 — painel de camadas (arvore editavel) */
@@ -30,13 +34,15 @@
     padding: 3px 6px; border-radius: 4px; cursor: grab;
     border: 1px solid transparent;
   }
-  .dsg-layer:hover { background: var(--bg-hover, #f9faff); }
-  .dsg-layer.selected { background: var(--bg-tertiary, #f0f4ff); border-color: var(--color-primary, #4154f1); }
-  .dsg-layer.drop-into { border-color: var(--color-success, #51cf66); background: rgba(81, 207, 102, .12); }
-  .dsg-layer.drop-before { border-top: 2px solid var(--color-primary, #4154f1); }
-  .dsg-layer.drop-after { border-bottom: 2px solid var(--color-primary, #4154f1); }
-  .dsg-layer-children { margin-left: 14px; border-left: 1px dashed var(--border-color, #dee2e6); padding-left: 6px; }
-  .dsg-component.drop-target { outline: 2px solid var(--color-success, #51cf66); outline-offset: 2px; }
+  .dsg-layer:hover { background: var(--dark-surface-2, #f9faff); }
+  .dsg-layer.selected { background: var(--dark-surface-2, #f0f4ff); border-color: #4154f1; }
+  .dsg-layer.drop-into { border-color: #51cf66; background: rgba(81, 207, 102, .12); }
+  .dsg-layer.drop-before { border-top: 2px solid #4154f1; }
+  .dsg-layer.drop-after { border-bottom: 2px solid #4154f1; }
+  .dsg-layer-children { margin-left: 14px; border-left: 1px dashed var(--dark-border, #dee2e6); padding-left: 6px; }
+  .dsg-component.drop-target { outline: 2px solid #51cf66; outline-offset: 2px; }
+  .dsg-slot { min-height: 32px; }
+  .dsg-slot:empty::after { content: 'solte componentes aqui'; font-size: 11px; opacity: .45; }
   .dsg-component {
     position: absolute;
     box-sizing: border-box;
@@ -236,6 +242,14 @@
     }
     renderInnerContent(el, comp);
 
+    if (!nested && !el.querySelector('.dsg-resize-handle')) {
+      // innerHTML em renderInnerContent apaga tudo dentro de `el`,
+      // inclusive a alca de redimensionar criada na primeira montagem.
+      const handle = document.createElement('div');
+      handle.className = 'dsg-resize-handle';
+      el.appendChild(handle);
+    }
+
     const def = componentDef(comp.type);
     if (def && def.accepts_children) {
       const slot = document.createElement('div');
@@ -248,7 +262,13 @@
       slot.style.alignItems = p.align || 'stretch';
       slot.style.padding = (p.padding === undefined || p.padding === null ? 12 : p.padding) + 'px';
       slot.style.minHeight = '32px';
-      el.appendChild(slot);
+      // Fase 11, Patch 2.1 — ACHADO REAL: o slot era anexado como IRMAO
+      // do preview (el.appendChild). Como o preview do card/fieldset usa
+      // h-100, o slot ficava empurrado pra fora da caixa visivel e o drop
+      // dentro do contedor era inalcancavel pelo canvas. Agora monta no
+      // ponto marcado por data-slot-mount, dentro do corpo do contedor.
+      const mount = el.querySelector('[data-slot-mount]');
+      (mount || el).appendChild(slot);
       attachSlotDrop(slot, comp.id);
       childrenOf(comp.id).forEach(function (child) { renderComponent(child, slot); });
     }
@@ -312,14 +332,15 @@
           return '<div class="form-check"><input type="radio" class="form-check-input" disabled><label class="form-check-label small">' + escapeHtml(o) + '</label></div>';
         }).join('');
     } else if (comp.type === 'form_container') {
-      inner = '<fieldset class="border rounded p-2 h-100"><legend class="small w-auto px-1">' + escapeHtml(p.title || 'Formulário') +
-        '</legend><span class="small text-muted">Ação de Dado: ' + escapeHtml(p.data_action_id || '(nenhuma)') + '</span></fieldset>';
+      inner = '<fieldset class="border rounded p-2 h-100" style="overflow:auto;"><legend class="small w-auto px-1">' + escapeHtml(p.title || 'Formulário') +
+        '</legend><div data-slot-mount></div></fieldset>';
     } else if (comp.type === 'datagrid') {
       inner = '<div class="small text-muted mb-1">' + escapeHtml(p.title || 'Lista') + '</div>' +
         '<table class="table table-sm table-bordered"><thead><tr><th>(colunas carregadas em runtime)</th></tr></thead></table>';
     } else if (comp.type === 'card') {
-      inner = '<div class="card h-100"><div class="card-body"><h6 class="card-title">' + escapeHtml(p.title || '') + '</h6>' +
-        '<p class="card-text small">' + escapeHtml(p.body_text || '') + '</p></div></div>';
+      inner = '<div class="card h-100"><div class="card-body" style="overflow:auto;"><h6 class="card-title">' + escapeHtml(p.title || '') + '</h6>' +
+        '<p class="card-text small">' + escapeHtml(p.body_text || '') + '</p>' +
+        '<div data-slot-mount></div></div></div>';
     } else if (comp.type === 'alert') {
       inner = '<div class="alert alert-' + (p.variant || 'info') + ' mb-0 py-2">' + escapeHtml(p.message || '') + '</div>';
     } else if (comp.type === 'badge') {

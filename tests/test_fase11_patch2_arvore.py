@@ -284,3 +284,35 @@ def test_container_tem_props_de_layout(app, client):
     assert props["gap"] == 8
     assert props["padding"] == 12
     assert props["align"] == "stretch"
+
+
+# ── Patch 2.1 — correções vistas no editor real ──────────────────────
+
+def test_canvas_usa_variavel_do_style_dark_que_existe(app, client):
+    """Achado real: static/css/themes.css nunca é carregado por nenhum
+    template, então --bg-secondary/--border-color (usados no Patch 1.1)
+    não existiam e o var() caía sempre no fallback claro."""
+    _login_admin(app, client)
+    page_id = _page(client)
+    body = client.get(f"/admin/designer/{page_id}/edit").data.decode()
+    assert "var(--dark-surface-2" in body
+    assert "var(--bg-secondary" not in body
+    assert "var(--border-color" not in body
+
+
+def test_preview_de_container_tem_ponto_de_montagem_do_slot(app, client):
+    """Achado real: o slot era anexado como irmão do preview; com
+    h-100 no card/fieldset ele ficava fora da caixa visível e o drop
+    pelo canvas era inalcançável."""
+    _login_admin(app, client)
+    page_id = _page(client)
+    body = client.get(f"/admin/designer/{page_id}/edit").data.decode()
+    assert "data-slot-mount" in body
+    assert "querySelector('[data-slot-mount]')" in body
+
+
+def test_alca_de_resize_e_recriada_apos_render(app, client):
+    _login_admin(app, client)
+    page_id = _page(client)
+    body = client.get(f"/admin/designer/{page_id}/edit").data.decode()
+    assert "querySelector('.dsg-resize-handle')" in body

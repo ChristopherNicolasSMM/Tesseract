@@ -264,12 +264,18 @@ def test_editor_recebe_catalogo_de_componentes(app, client):
 def test_canvas_usa_variaveis_de_tema_nao_cor_hardcoded(app, client):
     """Fase 11, Patch 1.1: o canvas usava page.canvas_bg (default claro)
     e grid hardcoded claro, virando uma folha branca dentro do app
-    escuro. Agora segue as variáveis semânticas de themes.css."""
+    escuro.
+
+    Corrigido no Patch 2.1: a primeira tentativa usou as variáveis de
+    static/css/themes.css, que NUNCA é carregado por nenhum template —
+    então o var() caía sempre no fallback claro e o canvas continuava
+    branco. As variáveis que existem de verdade vêm de style_dark.css.
+    """
     _login_admin(app, client)
     page_id = _create_page(client)
     resp = client.get(f"/admin/designer/{page_id}/edit")
-    assert b"var(--bg-secondary" in resp.data
-    assert b"#f6f9ff;" not in resp.data.split(b"#designerCanvas")[1][:400]
+    assert b"var(--dark-surface-2" in resp.data
+    assert b"var(--bg-secondary" not in resp.data
 
 
 def test_canvas_tem_wrapper_rolavel(app, client):
