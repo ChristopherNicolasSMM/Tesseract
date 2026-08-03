@@ -76,38 +76,30 @@
   }
 
   function fieldsWithin(container) {
-    const x = parseInt(container.getAttribute("data-x"), 10);
-    const y = parseInt(container.getAttribute("data-y"), 10);
-    const w = parseInt(container.getAttribute("data-width"), 10);
-    const h = parseInt(container.getAttribute("data-height"), 10);
-    const result = [];
-    document.querySelectorAll("#runtimeCanvas .dsg-runtime-component").forEach(function (el) {
-      if (el.querySelector("[data-form-container]")) return;
-      const ex = parseInt(el.style.left, 10);
-      const ey = parseInt(el.style.top, 10);
-      if (ex >= x && ey >= y && ex <= x + w && ey <= y + h) {
-        result.push(el);
-      }
-    });
-    return result;
+    // Fase 11, Patch 2: com a arvore real (parent_id), os filhos de um
+    // contedor sao descendentes de verdade no DOM. Antes disso esta
+    // funcao calculava CONTENCAO GEOMETRICA (quais componentes caiam
+    // dentro do retangulo x/y/width/height do contedor), porque nao
+    // havia relacao de parentesco nenhuma no banco.
+    return Array.prototype.slice.call(container.querySelectorAll('.dsg-runtime-component'));
   }
 
   function applyRecordToFields(container, record) {
     fieldsWithin(container).forEach(function (el) {
-      const input = el.querySelector("input[name], select[name], textarea[name]");
+      const input = el.querySelector('input[name], select[name], textarea[name]');
       if (input) {
         const field = input.name;
         if (!(field in record)) return;
-        if (input.type === "checkbox") {
+        if (input.type === 'checkbox') {
           input.checked = !!record[field];
         } else {
-          input.value = record[field] == null ? "" : record[field];
+          input.value = record[field] == null ? '' : record[field];
         }
         return;
       }
-      const radioGroup = el.querySelector("[data-radio-group]");
+      const radioGroup = el.querySelector('[data-radio-group]');
       if (radioGroup) {
-        const field = radioGroup.getAttribute("data-radio-name");
+        const field = radioGroup.getAttribute('data-radio-name');
         if (!(field in record)) return;
         el.querySelectorAll('input[type="radio"][name="' + field + '"]').forEach(function (r) {
           r.checked = String(r.value) === String(record[field]);

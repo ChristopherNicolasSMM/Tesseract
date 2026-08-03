@@ -17,11 +17,15 @@
   <h1>{{ page.title }}</h1>
 </div>
 
-<section class="section">
-  <div id="runtimeCanvas">
-    {% for comp in page.components %}
+{#- Fase 11, Patch 2: renderizacao RECURSIVA da arvore. Componente de
+    raiz (parent_id nulo) usa posicionamento absoluto no canvas;
+    componente aninhado FLUI dentro do contedor pai, conforme as
+    propriedades layout/gap/padding/align do pai. -#}
+{% macro render_component(comp, nested=False) %}
     {% set p = comp.properties or {} %}
-    <div class="dsg-runtime-component" style="left:{{ comp.x }}px; top:{{ comp.y }}px; width:{{ comp.width }}px; height:{{ comp.height }}px; z-index:{{ comp.z_index }};">
+    <div class="dsg-runtime-component{% if nested %} dsg-nested{% endif %}"
+         id="comp-{{ comp.id }}"
+         style="{% if nested %}position:relative; width:100%;{% else %}left:{{ comp.x }}px; top:{{ comp.y }}px; width:{{ comp.width }}px; height:{{ comp.height }}px; z-index:{{ comp.z_index }};{% endif %}">
       {% if comp.type == 'heading' %}
         <h2 style="margin:0; color:{{ p.text_color or '#012970' }}; font-size:{{ p.font_size or 26 }}px;{% if p.bold %} font-weight:700;{% else %} font-weight:400;{% endif %}">{{ p.text or '' }}</h2>
       {% elif comp.type == 'label' %}
@@ -67,13 +71,17 @@
              data-radio-options="{{ p.options or '' }}"
              data-radio-default="{{ p.default_value or '' }}"></div>
       {% elif comp.type == 'form_container' %}
-        <fieldset class="border rounded p-2 h-100" style="overflow:auto;"
+        {% set flow = 'display:flex; flex-direction:' ~ ('row' if p.layout == 'horizontal' else 'column') ~
+                   '; gap:' ~ (p.gap if p.gap is not none else 8) ~ 'px; align-items:' ~ (p.align or 'stretch') ~
+                   '; padding:' ~ (p.padding if p.padding is not none else 12) ~ 'px;' %}
+        <fieldset class="border rounded h-100" style="overflow:auto;"
                   data-form-container
                   data-data-action-id="{{ p.data_action_id or '' }}"
-                  data-key-param="{{ p.key_param or 'id' }}"
-                  data-x="{{ comp.x }}" data-y="{{ comp.y }}"
-                  data-width="{{ comp.width }}" data-height="{{ comp.height }}">
+                  data-key-param="{{ p.key_param or 'id' }}">
           {% if p.title %}<legend class="small w-auto px-1">{{ p.title }}</legend>{% endif %}
+          <div class="dsg-slot" style="{{ flow }}">
+            {% for child in comp.children %}{{ render_component(child, nested=True) }}{% endfor %}
+          </div>
         </fieldset>
       {% elif comp.type == 'datagrid' %}
         {% if p.title %}<h6 class="small mb-1">{{ p.title }}</h6>{% endif %}
@@ -84,11 +92,17 @@
           </table>
         </div>
       {% elif comp.type == 'card' %}
+        {% set flow = 'display:flex; flex-direction:' ~ ('row' if p.layout == 'horizontal' else 'column') ~
+                   '; gap:' ~ (p.gap if p.gap is not none else 8) ~ 'px; align-items:' ~ (p.align or 'stretch') ~
+                   '; padding:' ~ (p.padding if p.padding is not none else 12) ~ 'px;' %}
         <div class="card h-100">
           {% if p.image_src %}<img src="{{ p.image_src }}" class="card-img-top" alt="">{% endif %}
-          <div class="card-body">
+          <div class="card-body" style="overflow:auto;">
             {% if p.title %}<h5 class="card-title">{{ p.title }}</h5>{% endif %}
             {% if p.body_text %}<p class="card-text">{{ p.body_text }}</p>{% endif %}
+            <div class="dsg-slot" style="{{ flow }}">
+              {% for child in comp.children %}{{ render_component(child, nested=True) }}{% endfor %}
+            </div>
           </div>
           {% if p.footer_text %}<div class="card-footer text-muted small">{{ p.footer_text }}</div>{% endif %}
         </div>
@@ -111,6 +125,12 @@
         <ul class="list-group" data-list-comp data-data-action-id="{{ p.data_action_id or '' }}" data-display-field="{{ p.display_field or 'name' }}"></ul>
       {% endif %}
     </div>
+{% endmacro %}
+
+<section class="section">
+  <div id="runtimeCanvas">
+    {% for comp in page.components if comp.parent_id is none %}
+      {{ render_component(comp) }}
     {% endfor %}
   </div>
 </section>

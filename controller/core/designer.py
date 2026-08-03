@@ -19,7 +19,7 @@ from core.admin_list_helpers import paginate, export_csv_response, export_xlsx_r
 from core.actions_catalog import ACTION_CATALOG, EVENT_TYPES, get_action_def
 from core.components_catalog import (
     COMPONENT_CATALOG, CATEGORIES, PROP_GROUPS,
-    get_default_size, get_default_properties, coerce_properties,
+    get_default_size, get_default_properties, coerce_properties, accepts_children,
 )
 from core.odata.connection_manager import ODataConnectionManager
 from model.core.designer_page import DesignerPage
@@ -187,6 +187,23 @@ def edit(page_id: int):
     )
 
 
+@designer_bp.route("/<int:page_id>/components", methods=["GET"])
+@login_required
+@permission_required("admin")
+def list_components(page_id: int):
+    """Lista plana com parent_id/order_index — o editor remonta a
+    árvore no cliente. Usado após reparentar, que renumera vários
+    irmãos dos dois lados da árvore de uma vez (Fase 11, Patch 2)."""
+    page = DesignerPage.query.get(page_id)
+    if not page:
+        return jsonify(success=False, error="Página não encontrada."), 404
+    components = (
+        DesignerComponent.query.filter_by(page_id=page.id)
+        .order_by(DesignerComponent.order_index).all()
+    )
+    return jsonify(success=True, components=[c.to_dict() for c in components])
+
+
 @designer_bp.route("/<int:page_id>/components", methods=["POST"])
 @login_required
 @permission_required("admin")
@@ -202,9 +219,24 @@ def add_component(page_id: int):
     width, height = get_default_size(comp_type)
     max_z = max([c.z_index for c in page.components], default=0)
 
+    # Fase 11, Patch 2 — criação já dentro de um contêiner, se pedido.
+    payload = request.json if request.is_json else request.form
+    raw_parent = payload.get("parent_id")
+    parent_id = None
+    if raw_parent not in (None, "", "null"):
+        parent = DesignerComponent.query.get(int(raw_parent))
+        if not parent or parent.page_id != page.id:
+            return jsonify(success=False, error="Componente pai inválido."), 422
+        if not accepts_children(parent.type):
+            return jsonify(success=False, error=f"'{parent.type}' não aceita componentes dentro."), 422
+        parent_id = parent.id
+
+    siblings = DesignerComponent.query.filter_by(page_id=page.id, parent_id=parent_id).all()
+
     component = DesignerComponent(
         page_id=page.id, type=comp_type, name=f"{comp_type}_{len(page.components) + 1}",
         x=40, y=40, width=width, height=height, z_index=max_z + 1,
+        parent_id=parent_id, order_index=len(siblings),
         properties=get_default_properties(comp_type),
     )
     db.session.add(component)
@@ -253,15 +285,96 @@ def update_component(component_id: int):
     return jsonify(success=True, component=component.to_dict())
 
 
+@designer_bp.route("/component/<int:component_id>/move-to", methods=["POST"])
+@login_required
+@permission_required("admin")
+def move_component_to(component_id: int):
+    """Reparenta e/ou reordena um componente na árvore (Fase 11, Patch
+    2) — usado tanto pelo drag no canvas (soltar dentro de um
+    contêiner) quanto pelo painel de camadas."""
+    component = DesignerComponent.query.get(component_id)
+    if not component:
+        return jsonify(success=False, error="Componente não encontrado."), 404
+
+    data = request.get_json(silent=True) or {}
+    raw_parent = data.get("parent_id")
+
+    new_parent_id = None
+    if raw_parent not in (None, "", "null"):
+        parent = DesignerComponent.query.get(int(raw_parent))
+        if not parent or parent.page_id != component.page_id:
+            return jsonify(success=False, error="Componente pai inválido."), 422
+        if not accepts_children(parent.type):
+            return jsonify(success=False, error=f"'{parent.type}' não aceita componentes dentro."), 422
+        if parent.id == component.id:
+            return jsonify(success=False, error="Um componente não pode ser pai de si mesmo."), 422
+        # Proteção de ciclo: subir a cadeia de pais do destino; se
+        # encontrar o próprio componente, o movimento criaria um laço
+        # (A dentro de B dentro de A) e a renderização recursiva
+        # entraria em loop infinito.
+        ancestor = parent
+        while ancestor is not None:
+            if ancestor.id == component.id:
+                return jsonify(success=False, error="Movimento inválido: criaria um ciclo na árvore."), 422
+            ancestor = ancestor.parent
+        new_parent_id = parent.id
+
+    old_parent_id = component.parent_id
+    component.parent_id = new_parent_id
+
+    siblings = [
+        c for c in DesignerComponent.query
+        .filter_by(page_id=component.page_id, parent_id=new_parent_id)
+        .order_by(DesignerComponent.order_index).all()
+        if c.id != component.id
+    ]
+
+    raw_index = data.get("order_index")
+    try:
+        target = max(0, min(int(raw_index), len(siblings)))
+    except (TypeError, ValueError):
+        target = len(siblings)
+
+    siblings.insert(target, component)
+    for position, sibling in enumerate(siblings):
+        sibling.order_index = position
+
+    # Fecha o buraco deixado na lista de origem, pra não sobrar índice
+    # salteado (não quebra nada, mas suja o dado e confunde o painel).
+    if old_parent_id != new_parent_id:
+        old_siblings = DesignerComponent.query.filter_by(
+            page_id=component.page_id, parent_id=old_parent_id,
+        ).order_by(DesignerComponent.order_index).all()
+        for position, sibling in enumerate(old_siblings):
+            sibling.order_index = position
+
+    db.session.commit()
+    return jsonify(success=True, component=component.to_dict())
+
+
 @designer_bp.route("/component/<int:component_id>/delete", methods=["POST"])
 @login_required
 @permission_required("admin")
 def delete_component(component_id: int):
     component = DesignerComponent.query.get(component_id)
-    if component:
-        db.session.delete(component)
-        db.session.commit()
-    return jsonify(success=True)
+    if not component:
+        return jsonify(success=True, deleted_ids=[])
+
+    # Fase 11, Patch 2: com a árvore, excluir um contêiner leva os
+    # descendentes junto (cascade no relationship). Devolve todos os
+    # ids removidos pro editor limpar canvas e painel de camadas sem
+    # precisar recarregar a página.
+    deleted_ids = []
+
+    def _collect(node):
+        deleted_ids.append(node.id)
+        for child in node.children:
+            _collect(child)
+
+    _collect(component)
+    db.session.delete(component)
+    db.session.commit()
+    return jsonify(success=True, deleted_ids=deleted_ids)
 
 
 # ── Execução de Ação de Dado (única peça server-side do motor de Ações) ──────

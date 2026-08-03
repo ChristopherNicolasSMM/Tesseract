@@ -41,6 +41,34 @@ class DesignerComponent(db.Model):
     height = db.Column(db.Integer, default=40, nullable=False)
     z_index = db.Column(db.Integer, default=1, nullable=False)
 
+    # Fase 11, Patch 2 — árvore por lista de adjacência, mesmo padrão
+    # de Transaction.parent_id/order_index (skill 10), que já está em
+    # produção. Até aqui a tabela era uma lista PLANA e o
+    # `form_container` fingia aninhamento calculando geometria em
+    # runtime (fieldsWithin(), data_binding.js): mover o contêiner não
+    # movia os filhos, excluir não excluía em cascata, e um datagrid
+    # dentro de um card era impossível.
+    #
+    # Semântica de posicionamento (decisão registrada em conversa):
+    # - `parent_id IS NULL` (raiz do canvas): posicionamento ABSOLUTO,
+    #   usando x/y/width/height/z_index — composição livre, como antes.
+    # - `parent_id` preenchido: o filho FLUI dentro do contêiner
+    #   (empilhado conforme a propriedade `layout` do pai), então x/y
+    #   são ignorados na renderização; width/height viram tamanho
+    #   sugerido. `order_index` é quem manda na ordem entre irmãos.
+    parent_id = db.Column(
+        db.Integer, db.ForeignKey("tesseract_designer_component.id"), nullable=True, index=True,
+    )
+    order_index = db.Column(db.Integer, default=0, nullable=False)
+
+    children = db.relationship(
+        "DesignerComponent",
+        backref=db.backref("parent", remote_side=[id]),
+        order_by="DesignerComponent.order_index",
+        cascade="all, delete-orphan",
+        single_parent=True,
+    )
+
     properties = db.Column(db.JSON, default=lambda: {})
     events = db.Column(db.JSON, default=lambda: {})
     rules = db.Column(db.JSON, default=lambda: [])
@@ -63,6 +91,8 @@ class DesignerComponent(db.Model):
             "width": self.width,
             "height": self.height,
             "z_index": self.z_index,
+            "parent_id": self.parent_id,
+            "order_index": self.order_index,
             "properties": self.properties or {},
             "events": self.events or {},
             "rules": self.rules or [],

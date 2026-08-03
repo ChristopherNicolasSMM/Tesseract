@@ -24,6 +24,19 @@
       linear-gradient(90deg, var(--border-color, #e9ecef) 1px, transparent 1px);
     background-size: 20px 20px;
   }
+  /* Fase 11, Patch 2 — painel de camadas (arvore editavel) */
+  .dsg-layer {
+    display: flex; align-items: center; gap: 4px;
+    padding: 3px 6px; border-radius: 4px; cursor: grab;
+    border: 1px solid transparent;
+  }
+  .dsg-layer:hover { background: var(--bg-hover, #f9faff); }
+  .dsg-layer.selected { background: var(--bg-tertiary, #f0f4ff); border-color: var(--color-primary, #4154f1); }
+  .dsg-layer.drop-into { border-color: var(--color-success, #51cf66); background: rgba(81, 207, 102, .12); }
+  .dsg-layer.drop-before { border-top: 2px solid var(--color-primary, #4154f1); }
+  .dsg-layer.drop-after { border-bottom: 2px solid var(--color-primary, #4154f1); }
+  .dsg-layer-children { margin-left: 14px; border-left: 1px dashed var(--border-color, #dee2e6); padding-left: 6px; }
+  .dsg-component.drop-target { outline: 2px solid var(--color-success, #51cf66); outline-offset: 2px; }
   .dsg-component {
     position: absolute;
     box-sizing: border-box;
@@ -145,6 +158,13 @@
           {% endfor %}
         </div>
       </div>
+      <div class="card mt-3">
+        <div class="card-body">
+          <h6 class="card-title">Camadas</h6>
+          <p class="small text-muted mb-2">Arraste para reordenar ou soltar dentro de um contêiner.</p>
+          <div id="layersPanel" class="small"></div>
+        </div>
+      </div>
     </div>
 
     <div class="col-md-7">
@@ -174,24 +194,84 @@
   let selectedId = null;
   let componentsData = {{ components_json | tojson }};
 
-  function renderComponent(comp) {
+  function renderComponent(comp, parentSlot) {
+    const nested = !!parentSlot;
     let el = document.getElementById('comp-' + comp.id);
     if (!el) {
       el = document.createElement('div');
       el.className = 'dsg-component';
       el.id = 'comp-' + comp.id;
-      const handle = document.createElement('div');
-      handle.className = 'dsg-resize-handle';
-      el.appendChild(handle);
-      canvas.appendChild(el);
-      attachDragResize(el, comp.id);
+      // Permite arrastar do canvas pra dentro de um contedor (o drag
+      // livre de posicao continua no mousedown de attachDragResize;
+      // este e o drag HTML5, usado so pra reparentar).
+      el.setAttribute('draggable', 'true');
+      el.addEventListener('dragstart', function (ev) {
+        dragSourceId = comp.id;
+        ev.stopPropagation();
+      });
+      if (!nested) {
+        const handle = document.createElement('div');
+        handle.className = 'dsg-resize-handle';
+        el.appendChild(handle);
+        attachDragResize(el, comp.id);
+      }
+      (parentSlot || canvas).appendChild(el);
     }
-    el.style.left = comp.x + 'px';
-    el.style.top = comp.y + 'px';
-    el.style.width = comp.width + 'px';
-    el.style.height = comp.height + 'px';
-    el.style.zIndex = comp.z_index;
+    if (nested) {
+      // Fase 11, Patch 2: filho de contedor FLUI (o pai posiciona), entao
+      // x/y/z-index nao se aplicam — so a ordem dentro do slot.
+      el.style.position = 'relative';
+      el.style.left = '';
+      el.style.top = '';
+      el.style.width = '100%';
+      el.style.height = 'auto';
+      el.style.zIndex = '';
+    } else {
+      el.style.position = 'absolute';
+      el.style.left = comp.x + 'px';
+      el.style.top = comp.y + 'px';
+      el.style.width = comp.width + 'px';
+      el.style.height = comp.height + 'px';
+      el.style.zIndex = comp.z_index;
+    }
     renderInnerContent(el, comp);
+
+    const def = componentDef(comp.type);
+    if (def && def.accepts_children) {
+      const slot = document.createElement('div');
+      slot.className = 'dsg-slot';
+      slot.setAttribute('data-slot-of', comp.id);
+      const p = comp.properties || {};
+      slot.style.display = 'flex';
+      slot.style.flexDirection = (p.layout === 'horizontal') ? 'row' : 'column';
+      slot.style.gap = (p.gap === undefined || p.gap === null ? 8 : p.gap) + 'px';
+      slot.style.alignItems = p.align || 'stretch';
+      slot.style.padding = (p.padding === undefined || p.padding === null ? 12 : p.padding) + 'px';
+      slot.style.minHeight = '32px';
+      el.appendChild(slot);
+      attachSlotDrop(slot, comp.id);
+      childrenOf(comp.id).forEach(function (child) { renderComponent(child, slot); });
+    }
+  }
+
+  function attachSlotDrop(slot, containerId) {
+    slot.addEventListener('dragover', function (e) {
+      if (dragSourceId === null || dragSourceId === containerId) return;
+      e.preventDefault();
+      e.stopPropagation();
+      slot.parentElement.classList.add('drop-target');
+    });
+    slot.addEventListener('dragleave', function () {
+      slot.parentElement.classList.remove('drop-target');
+    });
+    slot.addEventListener('drop', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      slot.parentElement.classList.remove('drop-target');
+      if (dragSourceId === null || dragSourceId === containerId) return;
+      moveComponentTo(dragSourceId, containerId, childrenOf(containerId).length);
+      dragSourceId = null;
+    });
   }
 
   function renderInnerContent(el, comp) {
@@ -415,6 +495,140 @@
     });
   }
 
+  // ── Painel de camadas (arvore editavel) — Fase 11, Patch 2 ────────
+  let dragSourceId = null;
+
+  function childrenOf(parentId) {
+    return componentsData
+      .filter(function (c) { return (c.parent_id || null) === parentId; })
+      .sort(function (a, b) { return (a.order_index || 0) - (b.order_index || 0); });
+  }
+
+  function moveComponentTo(compId, parentId, orderIndex) {
+    return fetch('/admin/designer/component/' + compId + '/move-to', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ parent_id: parentId, order_index: orderIndex }),
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (!data.success) {
+        window.__tesseractToast && window.__tesseractToast.show(data.error || 'Movimento inválido.', 'error');
+        return false;
+      }
+      return reloadComponents();
+    });
+  }
+
+  function reloadComponents() {
+    // Reparentar muda order_index de varios irmaos de uma vez, dos
+    // dois lados da arvore — recarregar a lista inteira e redesenhar e
+    // mais simples (e mais correto) do que tentar espelhar todas as
+    // renumeracoes no cliente.
+    return fetch('/admin/designer/' + PAGE_ID + '/components').then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.success) return false;
+        componentsData = data.components;
+        canvas.innerHTML = '';
+        childrenOf(null).forEach(renderComponent);
+        renderLayers();
+        if (selectedId && componentsData.some(function (c) { return c.id === selectedId; })) {
+          renderPropertiesPanel(selectedId);
+        } else {
+          selectedId = null;
+          propertiesPanel.innerHTML = 'Selecione um componente no canvas.';
+        }
+        return true;
+      });
+  }
+
+  function layerRowHtml(comp) {
+    const def = componentDef(comp.type);
+    return '<div class="dsg-layer' + (comp.id === selectedId ? ' selected' : '') + '" draggable="true" data-layer-id="' + comp.id + '">' +
+      '<i class="bi ' + (def ? def.icon : 'bi-square') + '"></i>' +
+      '<span class="text-truncate">' + escapeHtml(comp.name) + '</span>' +
+      '</div>';
+  }
+
+  function layersTreeHtml(parentId) {
+    let html = '';
+    childrenOf(parentId).forEach(function (comp) {
+      html += layerRowHtml(comp);
+      const kids = childrenOf(comp.id);
+      if (kids.length) {
+        html += '<div class="dsg-layer-children">' + layersTreeHtml(comp.id) + '</div>';
+      }
+    });
+    return html;
+  }
+
+  function renderLayers() {
+    const panel = document.getElementById('layersPanel');
+    const html = layersTreeHtml(null);
+    panel.innerHTML = html || '<p class="text-muted small mb-0">Nenhum componente ainda.</p>';
+
+    panel.querySelectorAll('.dsg-layer').forEach(function (row) {
+      const compId = parseInt(row.getAttribute('data-layer-id'), 10);
+
+      row.addEventListener('click', function () { selectComponent(compId); });
+
+      row.addEventListener('dragstart', function (e) {
+        dragSourceId = compId;
+        e.stopPropagation();
+      });
+
+      row.addEventListener('dragover', function (e) {
+        if (dragSourceId === null || dragSourceId === compId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const comp = componentsData.find(function (c) { return c.id === compId; });
+        const def = comp && componentDef(comp.type);
+        const rect = row.getBoundingClientRect();
+        const zone = (e.clientY - rect.top) / rect.height;
+        row.classList.remove('drop-into', 'drop-before', 'drop-after');
+        // Terco do meio solta DENTRO (se o tipo aceitar filhos);
+        // extremos reordenam antes/depois, como irmao.
+        if (def && def.accepts_children && zone > 0.33 && zone < 0.67) {
+          row.classList.add('drop-into');
+        } else {
+          row.classList.add(zone < 0.5 ? 'drop-before' : 'drop-after');
+        }
+      });
+
+      row.addEventListener('dragleave', function () {
+        row.classList.remove('drop-into', 'drop-before', 'drop-after');
+      });
+
+      row.addEventListener('drop', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const into = row.classList.contains('drop-into');
+        const after = row.classList.contains('drop-after');
+        row.classList.remove('drop-into', 'drop-before', 'drop-after');
+        if (dragSourceId === null || dragSourceId === compId) return;
+
+        const target = componentsData.find(function (c) { return c.id === compId; });
+        if (into) {
+          moveComponentTo(dragSourceId, compId, childrenOf(compId).length);
+        } else {
+          const parentId = target.parent_id || null;
+          const siblings = childrenOf(parentId).filter(function (c) { return c.id !== dragSourceId; });
+          let idx = siblings.findIndex(function (c) { return c.id === compId; });
+          if (after) idx += 1;
+          moveComponentTo(dragSourceId, parentId, idx);
+        }
+        dragSourceId = null;
+      });
+    });
+
+    // Soltar na area vazia do painel = mover pra raiz do canvas
+    panel.addEventListener('dragover', function (e) { e.preventDefault(); });
+    panel.addEventListener('drop', function (e) {
+      if (e.target !== panel || dragSourceId === null) return;
+      e.preventDefault();
+      moveComponentTo(dragSourceId, null, childrenOf(null).length);
+      dragSourceId = null;
+    });
+  }
+
   function selectComponent(compId) {
     selectedId = compId;
     document.querySelectorAll('.dsg-component').forEach(function (e) { e.classList.remove('selected'); });
@@ -537,10 +751,17 @@
     document.getElementById('deleteCompBtn').addEventListener('click', function () {
       window.__tesseractConfirm({ key: 'core.confirm.delete_designer_component' }).then(function (ok) {
         if (!ok) return;
-        fetch('/admin/designer/component/' + compId + '/delete', { method: 'POST' }).then(function () {
+        fetch('/admin/designer/component/' + compId + '/delete', { method: 'POST' })
+          .then(function (r) { return r.json(); }).then(function (data) {
           const el = document.getElementById('comp-' + compId);
           if (el) el.remove();
-          componentsData = componentsData.filter(function (c) { return c.id !== compId; });
+          const removed = (data && data.deleted_ids) || [compId];
+          removed.forEach(function (rid) {
+            const rel = document.getElementById('comp-' + rid);
+            if (rel) rel.remove();
+          });
+          componentsData = componentsData.filter(function (c) { return removed.indexOf(c.id) === -1; });
+          renderLayers();
           propertiesPanel.innerHTML = 'Selecione um componente no canvas.';
         });
       });
@@ -565,7 +786,10 @@
     });
   });
 
-  componentsData.forEach(renderComponent);
+  // Fase 11, Patch 2: so os componentes de RAIZ vao direto pro canvas;
+  // os aninhados sao desenhados dentro do slot do pai por renderComponent.
+  childrenOf(null).forEach(renderComponent);
+  renderLayers();
 })();
 </script>
 {% endblock %}
