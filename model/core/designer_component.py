@@ -16,16 +16,14 @@ from datetime import datetime, timezone
 
 from core.db import db
 
-# Tipos de componente suportados nesta fase. Tier 1 (Patch 4) trouxe
-# select/checkbox/radio/form_container/datagrid. Tier 2 (Patch 5)
-# acrescenta card/alert/badge/progress_bar/list — mais baratos, sem
-# exigir bind obrigatório a registro único (mapeamento em
-# mapeamento_niceadmin_designer.md). Tier 3 fica pra depois.
-COMPONENT_TYPES = (
-    "heading", "label", "textbox", "button", "image", "divider",
-    "select", "checkbox", "radio", "form_container", "datagrid",
-    "card", "alert", "badge", "progress_bar", "list",
-)
+# Tipos de componente suportados — fonte única em
+# core/components_catalog.py (Fase 11, Patch 1), que também declara o
+# schema de propriedades de cada tipo. Antes disso, esta tupla e os
+# dicts _DEFAULT_SIZE/_DEFAULT_PROPERTIES do controller eram três
+# listas paralelas mantidas à mão, que saíam de sincronia sozinhas.
+from core.components_catalog import get_component_types
+
+COMPONENT_TYPES = get_component_types()
 
 
 class DesignerComponent(db.Model):

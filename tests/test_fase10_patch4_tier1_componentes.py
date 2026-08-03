@@ -97,7 +97,9 @@ def test_form_container_default_properties(app, client):
     resp = client.post(f"/admin/designer/{page_id}/components", json={"type": "form_container"})
     props = resp.get_json()["component"]["properties"]
     assert props["key_param"] == "id"
-    assert props["data_action_id"] == ""
+    # Fase 11, Patch 1: data_action_id passou a ser tipado (int | None)
+    # via schema do catálogo — antes era string vazia, como tudo mais.
+    assert props["data_action_id"] is None
 
 
 def test_datagrid_default_properties(app, client):
@@ -106,7 +108,7 @@ def test_datagrid_default_properties(app, client):
     resp = client.post(f"/admin/designer/{page_id}/components", json={"type": "datagrid"})
     props = resp.get_json()["component"]["properties"]
     assert props["columns"] == ""
-    assert props["data_action_id"] == ""
+    assert props["data_action_id"] is None
 
 
 # ── runtime: atributos data-* consumidos por data_binding.js ────────────

@@ -23,16 +23,22 @@
     {% set p = comp.properties or {} %}
     <div class="dsg-runtime-component" style="left:{{ comp.x }}px; top:{{ comp.y }}px; width:{{ comp.width }}px; height:{{ comp.height }}px; z-index:{{ comp.z_index }};">
       {% if comp.type == 'heading' %}
-        <h2 style="margin:0; color:{{ p.text_color or '#012970' }}; font-size:{{ p.font_size or 26 }}px;">{{ p.text or '' }}</h2>
+        <h2 style="margin:0; color:{{ p.text_color or '#012970' }}; font-size:{{ p.font_size or 26 }}px;{% if p.bold %} font-weight:700;{% else %} font-weight:400;{% endif %}">{{ p.text or '' }}</h2>
       {% elif comp.type == 'label' %}
-        <span>{{ p.text or '' }}</span>
+        <span style="color:{{ p.text_color or '#444444' }}; font-size:{{ p.font_size or 14 }}px;{% if p.bold %} font-weight:700;{% endif %}">{{ p.text or '' }}</span>
       {% elif comp.type == 'textbox' %}
         <label class="form-label small mb-0">{{ p.label or '' }}</label>
-        <input type="text" class="form-control" name="{{ p.field_name or comp.name }}" placeholder="{{ p.placeholder or '' }}"
+        {% if p.input_type == 'textarea' %}
+        <textarea class="form-control" name="{{ p.field_name or comp.name }}" placeholder="{{ p.placeholder or '' }}"
+                  {% if comp.rules %}data-rules='{{ comp.rules | tojson }}'{% endif %}></textarea>
+        {% else %}
+        <input type="{{ p.input_type or 'text' }}" class="form-control" name="{{ p.field_name or comp.name }}"
+               placeholder="{{ p.placeholder or '' }}"
                {% if comp.rules %}data-rules='{{ comp.rules | tojson }}'{% endif %}>
+        {% endif %}
       {% elif comp.type == 'button' %}
-        <button class="btn btn-{{ p.variant or 'primary' }} w-100"
-                {% if comp.events %}data-events='{{ comp.events | tojson }}'{% endif %}>{{ p.text or 'Botão' }}</button>
+        <button class="btn btn-{% if p.outline %}outline-{% endif %}{{ p.variant or 'primary' }} w-100"
+                {% if comp.events %}data-events='{{ comp.events | tojson }}'{% endif %}>{% if p.icon %}<i class="bi {{ p.icon }}"></i> {% endif %}{{ p.text or 'Botão' }}</button>
       {% elif comp.type == 'image' %}
         {% if p.src %}<img src="{{ p.src }}" alt="{{ p.alt or '' }}" style="max-width:100%; max-height:100%;">{% endif %}
       {% elif comp.type == 'divider' %}
@@ -48,9 +54,10 @@
                 data-label-field="{{ p.label_field or 'name' }}"
                 {% if comp.rules %}data-rules='{{ comp.rules | tojson }}'{% endif %}></select>
       {% elif comp.type == 'checkbox' %}
-        <div class="form-check">
+        <div class="form-check{% if p.style == 'switch' %} form-switch{% endif %}">
           <input type="checkbox" class="form-check-input" name="{{ p.field_name or comp.name }}"
-                 {% if p.checked_default == 'true' or p.checked_default == true %}checked{% endif %}>
+                 {% if p.style == 'switch' %}role="switch"{% endif %}
+                 {% if p.checked_default %}checked{% endif %}>
           <label class="form-check-label small">{{ p.label or '' }}</label>
         </div>
       {% elif comp.type == 'radio' %}
@@ -71,7 +78,7 @@
       {% elif comp.type == 'datagrid' %}
         {% if p.title %}<h6 class="small mb-1">{{ p.title }}</h6>{% endif %}
         <div data-datagrid data-data-action-id="{{ p.data_action_id or '' }}" data-columns="{{ p.columns or '' }}">
-          <table class="table table-sm table-bordered" data-datagrid-table style="width:100%;">
+          <table class="table table-sm table-{{ p.table_style or 'bordered' }}" data-datagrid-table style="width:100%;">
             <thead></thead>
             <tbody></tbody>
           </table>
@@ -86,9 +93,9 @@
           {% if p.footer_text %}<div class="card-footer text-muted small">{{ p.footer_text }}</div>{% endif %}
         </div>
       {% elif comp.type == 'alert' %}
-        <div class="alert alert-{{ p.variant or 'info' }}{% if p.dismissible == 'true' %} alert-dismissible fade show{% endif %}" role="alert">
+        <div class="alert alert-{{ p.variant or 'info' }}{% if p.dismissible %} alert-dismissible fade show{% endif %}" role="alert">
           {{ p.message or '' }}
-          {% if p.dismissible == 'true' %}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>{% endif %}
+          {% if p.dismissible %}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>{% endif %}
         </div>
       {% elif comp.type == 'badge' %}
         <span class="badge bg-{{ p.variant or 'primary' }}">{{ p.text or '' }}</span>
@@ -96,7 +103,7 @@
         {% set pct = ((p.value or 0) | float - (p.min or 0) | float) / (((p.max or 100) | float - (p.min or 0) | float) or 1) * 100 %}
         <div class="progress" role="progressbar" aria-valuenow="{{ p.value or 0 }}" aria-valuemin="{{ p.min or 0 }}" aria-valuemax="{{ p.max or 100 }}">
           <div class="progress-bar bg-{{ p.variant or 'primary' }}" style="width: {{ pct }}%;">
-            {% if p.label_visible == 'true' %}{{ p.value or 0 }}{% endif %}
+            {% if p.label_visible %}{{ p.value or 0 }}{% endif %}
           </div>
         </div>
       {% elif comp.type == 'list' %}

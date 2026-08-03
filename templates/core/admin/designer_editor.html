@@ -112,10 +112,16 @@
       <div class="card">
         <div class="card-body">
           <h6 class="card-title">Componentes</h6>
-          {% for ctype in component_types %}
-          <button type="button" class="btn btn-outline-secondary btn-sm dsg-palette-btn" data-add-type="{{ ctype }}">
-            <i class="bi bi-plus"></i> {{ ctype.replace('_', ' ').title() }}
-          </button>
+          {% for cat_id, cat_label in categories %}
+            {% set items = component_catalog | selectattr('category', 'equalto', cat_id) | list %}
+            {% if items %}
+            <p class="small text-muted text-uppercase mb-1 mt-2">{{ cat_label }}</p>
+            {% for comp in items %}
+            <button type="button" class="btn btn-outline-secondary btn-sm dsg-palette-btn" data-add-type="{{ comp.id }}">
+              <i class="bi {{ comp.icon }}"></i> {{ comp.label }}
+            </button>
+            {% endfor %}
+            {% endif %}
           {% endfor %}
         </div>
       </div>
@@ -140,6 +146,8 @@
 (function () {
   const PAGE_ID = {{ page.id }};
   const ACTION_CATALOG = {{ action_catalog | tojson }};
+  const COMPONENT_CATALOG = {{ component_catalog | tojson }};
+  const PROP_GROUPS = {{ prop_groups | tojson }};
   const DATA_ACTIONS = [{% for da in data_actions %}{id: {{ da.id }}, name: {{ da.name | tojson }}}{{ ',' if not loop.last }}{% endfor %}];
   const canvas = document.getElementById('designerCanvas');
   const propertiesPanel = document.getElementById('propertiesPanel');
@@ -186,7 +194,7 @@
         (p.options_source === 'data_action' ? '(carrega via Ação de Dado)' : '(opções estáticas)') + '</option></select>';
     } else if (comp.type === 'checkbox') {
       inner = '<div class="form-check"><input type="checkbox" class="form-check-input" disabled' +
-        (p.checked_default === 'true' ? ' checked' : '') + '><label class="form-check-label small">' + escapeHtml(p.label || '') + '</label></div>';
+        (p.checked_default ? ' checked' : '') + '><label class="form-check-label small">' + escapeHtml(p.label || '') + '</label></div>';
     } else if (comp.type === 'radio') {
       inner = '<div class="small text-muted mb-1">' + escapeHtml(p.label || '') + '</div>' +
         (p.options || '').split(',').map(function (o) { return o.trim(); }).filter(Boolean).map(function (o) {
@@ -207,7 +215,7 @@
       inner = '<span class="badge bg-' + (p.variant || 'primary') + '">' + escapeHtml(p.text || '') + '</span>';
     } else if (comp.type === 'progress_bar') {
       inner = '<div class="progress"><div class="progress-bar bg-' + (p.variant || 'primary') + '" style="width:' + (p.value || 0) + '%;">' +
-        (p.label_visible === 'true' ? (p.value || 0) : '') + '</div></div>';
+        (p.label_visible ? (p.value || 0) : '') + '</div></div>';
     } else if (comp.type === 'list') {
       inner = '<div class="small text-muted mb-1">' + escapeHtml(p.title || 'Lista') + '</div>' +
         '<div class="small text-muted">(itens carregados em runtime)</div>';
@@ -384,21 +392,84 @@
     renderPropertiesPanel(compId);
   }
 
+  function componentDef(typeId) {
+    return COMPONENT_CATALOG.find(function (c) { return c.id === typeId; });
+  }
+
+  function propInputHtml(propDef, value) {
+    const val = (value === undefined || value === null) ? propDef.default : value;
+    const base = 'class="form-control form-control-sm prop-input" data-prop-key="' + propDef.name +
+      '" data-prop-type="' + propDef.type + '"';
+
+    if (propDef.type === 'bool') {
+      return '<div class="form-check"><input type="checkbox" class="form-check-input prop-input" ' +
+        'data-prop-key="' + propDef.name + '" data-prop-type="bool"' +
+        (val === true || val === 'true' ? ' checked' : '') + '></div>';
+    }
+    if (propDef.type === 'number') {
+      return '<input type="number" ' + base + ' value="' + (val === null || val === undefined ? '' : val) + '">';
+    }
+    if (propDef.type === 'color') {
+      return '<input type="color" class="form-control form-control-color form-control-sm prop-input" ' +
+        'data-prop-key="' + propDef.name + '" data-prop-type="color" value="' + (val || '#000000') + '">';
+    }
+    if (propDef.type === 'textarea') {
+      return '<textarea ' + base + ' rows="2">' + escapeHtml(val || '') + '</textarea>';
+    }
+    if (propDef.type === 'select') {
+      let opts = '';
+      (propDef.options || []).forEach(function (opt) {
+        const optValue = (typeof opt === 'object') ? opt.value : opt;
+        const optLabel = (typeof opt === 'object') ? opt.label : opt;
+        opts += '<option value="' + optValue + '"' + (String(optValue) === String(val) ? ' selected' : '') +
+          '>' + escapeHtml(optLabel) + '</option>';
+      });
+      return '<select class="form-select form-select-sm prop-input" data-prop-key="' + propDef.name +
+        '" data-prop-type="select">' + opts + '</select>';
+    }
+    if (propDef.type === 'data_action') {
+      let opts = '<option value="">— nenhuma —</option>';
+      DATA_ACTIONS.forEach(function (da) {
+        opts += '<option value="' + da.id + '"' + (String(da.id) === String(val) ? ' selected' : '') +
+          '>' + escapeHtml(da.name) + '</option>';
+      });
+      return '<select class="form-select form-select-sm prop-input" data-prop-key="' + propDef.name +
+        '" data-prop-type="data_action">' + opts + '</select>';
+    }
+    return '<input type="text" ' + base + ' value="' + escapeHtml(val || '') + '">';
+  }
+
   function renderPropertiesPanel(compId) {
     const comp = componentsData.find(function (c) { return c.id === compId; });
     if (!comp) { propertiesPanel.innerHTML = 'Selecione um componente no canvas.'; return; }
 
+    const def = componentDef(comp.type);
     const p = comp.properties || {};
     let fieldsHtml = '';
-    Object.keys(p).forEach(function (key) {
-      fieldsHtml += '<div class="mb-2">' +
-        '<label class="form-label small mb-0">' + key + '</label>' +
-        '<input type="text" class="form-control form-control-sm prop-input" data-prop-key="' + key + '" value="' + escapeHtml(p[key]) + '">' +
-        '</div>';
-    });
+
+    if (def) {
+      // Formulário gerado do SCHEMA do tipo (não das chaves salvas na
+      // instância) — é o que garante widget certo, rótulo em PT-BR, e
+      // propriedade prevista aparecer mesmo se ainda não foi salva.
+      PROP_GROUPS.forEach(function (group) {
+        const groupId = group[0], groupLabel = group[1];
+        const props = def.props.filter(function (pd) { return (pd.group || 'conteudo') === groupId; });
+        if (!props.length) return;
+        fieldsHtml += '<p class="small text-muted text-uppercase mb-1 mt-2">' + groupLabel + '</p>';
+        props.forEach(function (propDef) {
+          fieldsHtml += '<div class="mb-2">' +
+            '<label class="form-label small mb-0">' + escapeHtml(propDef.label) + '</label>' +
+            propInputHtml(propDef, p[propDef.name]) +
+            (propDef.help ? '<div class="form-text small">' + escapeHtml(propDef.help) + '</div>' : '') +
+            '</div>';
+        });
+      });
+    } else {
+      fieldsHtml = '<p class="small text-danger">Tipo desconhecido: ' + escapeHtml(comp.type) + '</p>';
+    }
 
     propertiesPanel.innerHTML =
-      '<p class="small mb-2"><strong>' + comp.type + '</strong> — ' + comp.name + '</p>' +
+      '<p class="small mb-2"><strong>' + (def ? def.label : comp.type) + '</strong> — ' + comp.name + '</p>' +
       fieldsHtml +
       '<button class="btn btn-sm btn-primary w-100 mt-2" id="savePropsBtn">Salvar propriedades</button>' +
       '<button class="btn btn-sm btn-outline-danger w-100 mt-2" id="deleteCompBtn">Excluir componente</button>' +
@@ -413,7 +484,8 @@
     document.getElementById('savePropsBtn').addEventListener('click', function () {
       const newProps = {};
       document.querySelectorAll('.prop-input').forEach(function (input) {
-        newProps[input.getAttribute('data-prop-key')] = input.value;
+        const key = input.getAttribute('data-prop-key');
+        newProps[key] = (input.getAttribute('data-prop-type') === 'bool') ? input.checked : input.value;
       });
       fetch('/admin/designer/component/' + compId, {
         method: 'POST',
@@ -424,6 +496,9 @@
           const idx = componentsData.findIndex(function (c) { return c.id === compId; });
           componentsData[idx] = data.component;
           renderComponent(data.component);
+          window.__tesseractToast && window.__tesseractToast.show('Propriedades salvas.', 'success');
+        } else {
+          window.__tesseractToast && window.__tesseractToast.show(data.error || 'Falha ao salvar.', 'error');
         }
       });
     });

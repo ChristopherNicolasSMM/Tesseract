@@ -17,6 +17,10 @@ from core.db import db
 from core.permissions import permission_required
 from core.admin_list_helpers import paginate, export_csv_response, export_xlsx_response
 from core.actions_catalog import ACTION_CATALOG, EVENT_TYPES, get_action_def
+from core.components_catalog import (
+    COMPONENT_CATALOG, CATEGORIES, PROP_GROUPS,
+    get_default_size, get_default_properties, coerce_properties,
+)
 from core.odata.connection_manager import ODataConnectionManager
 from model.core.designer_page import DesignerPage
 from model.core.designer_component import DesignerComponent, COMPONENT_TYPES
@@ -25,61 +29,6 @@ from model.core.designer_data_action import DesignerDataAction
 designer_bp = Blueprint("designer", __name__, url_prefix="/admin/designer")
 designer_view_bp = Blueprint("designer_view", __name__, url_prefix="/designer")
 
-_DEFAULT_SIZE = {
-    "heading": (600, 50),
-    "label": (200, 30),
-    "textbox": (280, 60),
-    "button": (140, 40),
-    "image": (200, 150),
-    "divider": (600, 4),
-    "select": (280, 60),
-    "checkbox": (220, 30),
-    "radio": (280, 100),
-    "form_container": (420, 320),
-    "datagrid": (600, 320),
-    "card": (320, 220),
-    "alert": (400, 60),
-    "badge": (100, 30),
-    "progress_bar": (300, 30),
-    "list": (320, 260),
-}
-
-_DEFAULT_PROPERTIES = {
-    "heading": {"text": "Título", "font_size": 26, "text_color": "#012970", "bold": True},
-    "label": {"text": "Texto"},
-    "textbox": {"label": "Campo", "placeholder": "", "field_name": ""},
-    "button": {"text": "Botão", "variant": "primary"},
-    "image": {"src": "", "alt": ""},
-    "divider": {"color": "#ced4da"},
-    # options_source: "static" (usa static_options) ou "data_action"
-    # (busca via Ação de Dado, casando value_field/label_field nas
-    # colunas do registro retornado).
-    "select": {
-        "label": "Selecione", "field_name": "",
-        "options_source": "static", "static_options": "Opção 1,Opção 2",
-        "data_action_id": "", "value_field": "id", "label_field": "name",
-    },
-    "checkbox": {"label": "Marcar", "field_name": "", "checked_default": "false"},
-    "radio": {"label": "Escolha", "field_name": "", "options": "Opção 1,Opção 2", "default_value": ""},
-    # key_param: nome do parâmetro de query string da URL (?id=42) que
-    # informa qual registro carregar — sempre filtra pela coluna "id"
-    # (skill 02: PK é sempre Integer chamada "id" em todo model).
-    "form_container": {"title": "Formulário", "data_action_id": "", "key_param": "id"},
-    # columns vazio = usa todas as colunas do primeiro registro
-    # retornado (exceto is_deleted/deleted_at).
-    "datagrid": {"data_action_id": "", "columns": "", "title": "Lista"},
-    "card": {"title": "Título do Card", "body_text": "", "image_src": "", "footer_text": ""},
-    "alert": {"message": "Mensagem de alerta.", "variant": "info", "dismissible": "false"},
-    "badge": {"text": "Novo", "variant": "primary"},
-    # value/min/max são estáticos nesta leva (Tier 2) — vincular a
-    # outro componente em runtime é a regra "Controlar ProgressBar"
-    # do catálogo de Cálculo (core/rules_catalog.py, ainda
-    # connected=False, fora do escopo deste patch).
-    "progress_bar": {"value": 50, "min": 0, "max": 100, "variant": "primary", "label_visible": "true"},
-    # display_field: nome da coluna do registro mostrada em cada item
-    # da lista (mesmo espírito de select.label_field).
-    "list": {"title": "Lista", "data_action_id": "", "display_field": "name"},
-}
 
 
 def _slugify(name: str) -> str:
@@ -220,6 +169,7 @@ def edit(page_id: int):
     return render_template(
         "core/admin/designer_editor.html",
         page=page, component_types=COMPONENT_TYPES,
+        component_catalog=COMPONENT_CATALOG, categories=CATEGORIES, prop_groups=PROP_GROUPS,
         action_catalog=ACTION_CATALOG, event_types=EVENT_TYPES,
         data_actions=DesignerDataAction.query.order_by(DesignerDataAction.name).all(),
         components_json=[c.to_dict() for c in page.components],
@@ -238,13 +188,13 @@ def add_component(page_id: int):
     if comp_type not in COMPONENT_TYPES:
         return jsonify(success=False, error=f"Tipo de componente inválido: {comp_type}"), 422
 
-    width, height = _DEFAULT_SIZE.get(comp_type, (150, 40))
+    width, height = get_default_size(comp_type)
     max_z = max([c.z_index for c in page.components], default=0)
 
     component = DesignerComponent(
         page_id=page.id, type=comp_type, name=f"{comp_type}_{len(page.components) + 1}",
         x=40, y=40, width=width, height=height, z_index=max_z + 1,
-        properties=dict(_DEFAULT_PROPERTIES.get(comp_type, {})),
+        properties=get_default_properties(comp_type),
     )
     db.session.add(component)
     db.session.commit()
@@ -269,7 +219,12 @@ def update_component(component_id: int):
                 return jsonify(success=False, error=f"{field} deve ser numérico."), 422
 
     if "properties" in data and isinstance(data["properties"], dict):
-        component.properties = data["properties"]
+        # Fase 11, Patch 1: passa pelo schema do tipo — converte cada
+        # valor pro tipo declarado (bool/int/None), completa o que
+        # faltou com o default e descarta chave que não existe no
+        # tipo. Antes disso tudo era gravado como string crua do
+        # <input>, o que forçava os templates a comparar == 'true'.
+        component.properties = coerce_properties(component.type, data["properties"])
     if "rules" in data and isinstance(data["rules"], list):
         component.rules = data["rules"]
     if "events" in data and isinstance(data["events"], dict):
