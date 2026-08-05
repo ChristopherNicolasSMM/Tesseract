@@ -1,5 +1,31 @@
 # 16 — Designer: Ações, Ação de Dado, Provedor OData Local e Substituição de Tela
 
+> **REVISÃO (Fase 12, 2026-08-05): o construtor visual foi REMOVIDO.**
+> As seções 1 (catálogo de Ações), 4 (Tier 1/2 de componente) e o que
+> a Fase 11 acrescentou (árvore de componentes, catálogo de
+> propriedades) **não descrevem mais o código real** — ficam como
+> registro histórico da decisão e do que foi tentado.
+>
+> **O que continua valendo e em produção:** seção 2 (Ação de Dado,
+> `tesseract_designer_data_action`), seção 3 (Provedor OData Local,
+> `@odata_expose`, atalho em processo) e seção 5 (substituição de tela
+> do CrudGen no menu). Esses três nasceram junto do Designer mas são
+> independentes dele.
+>
+> **Por que foi removido:** três ciclos de correção não fizeram o
+> aninhamento por drag-and-drop funcionar de forma confiável. Causa de
+> fundo: a suíte de testes do projeto não executa navegador, então
+> todo bug de interação JS só aparecia no uso real, um por vez.
+> Decisão de escopo: construtor visual é um produto inteiro, não uma
+> feature — e num time onde quem monta as telas já programa, escrever
+> HTML é mais rápido e previsível. A página customizada passou a ser
+> `DesignerPage.content_html`, escrita à mão, com
+> `static/modelo_paginas_nice_admin/_modelo-pagina-customizada.html`
+> como ponto de partida.
+>
+> **Se um dia isso voltar**, o pré-requisito é teste de navegador
+> (Playwright ou equivalente) antes da primeira linha de canvas.
+
 > **Status: EXECUTADA (Fase 10, Patches 1–6, 2026-07-31).** Nasceu de
 > uma rodada de planejamento sobre `/admin/designer/` (Designer visual
 > drag-and-drop, Fase 7c) — pedido original: dar a ele ações/eventos,

@@ -1,0 +1,168 @@
+<!--
+  MODELO DE PÁGINA CUSTOMIZADA — Tesseract
+
+  Copie os blocos que precisar para o editor em
+  /admin/designer/<id>/edit.
+
+  REGRAS:
+  - Não escreva <html>, <head> ou <body>: este conteúdo é inserido
+    dentro do layout do sistema, que já carrega Bootstrap 5,
+    Bootstrap Icons e o tema (claro/escuro) do Tesseract.
+  - Use as classes do Bootstrap/NiceAdmin. Os demais arquivos desta
+    pasta são a referência visual completa de cada componente.
+  - Para dado dinâmico, use JavaScript chamando uma Ação de Dado
+    (ver o último bloco). Nunca chame o provedor OData direto do
+    navegador: a Ação de Dado roda no servidor e é o único ponto que
+    conhece a credencial da conexão.
+  - Este arquivo começa com "_" para não se confundir com as páginas
+    de referência do NiceAdmin ao lado.
+-->
+
+<!-- ═══ Linha de cards de indicador ═══════════════════════════════ -->
+<div class="row">
+  <div class="col-lg-4 col-md-6">
+    <div class="card info-card">
+      <div class="card-body">
+        <h5 class="card-title">Indicador <span>| Hoje</span></h5>
+        <div class="d-flex align-items-center">
+          <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+            <i class="bi bi-cart"></i>
+          </div>
+          <div class="ps-3">
+            <h6 id="indicador-valor">—</h6>
+            <span class="text-muted small pt-2">unidades</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Card com tabela ═══════════════════════════════════════════ -->
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Lista</h5>
+        <table class="table table-borderless">
+          <thead>
+            <tr><th scope="col">#</th><th scope="col">Nome</th><th scope="col">Status</th></tr>
+          </thead>
+          <tbody id="tabela-corpo">
+            <tr><td colspan="3" class="text-muted">Carregando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Formulário ════════════════════════════════════════════════ -->
+<div class="row">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Formulário</h5>
+        <div class="row mb-3">
+          <label class="col-sm-3 col-form-label">Nome</label>
+          <div class="col-sm-9"><input type="text" class="form-control" id="campo-nome"></div>
+        </div>
+        <div class="row mb-3">
+          <label class="col-sm-3 col-form-label">Tipo</label>
+          <div class="col-sm-9">
+            <select class="form-select" id="campo-tipo">
+              <option>Opção 1</option>
+              <option>Opção 2</option>
+            </select>
+          </div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-sm-9 offset-sm-3">
+            <button type="button" class="btn btn-primary" id="btn-salvar">Salvar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Abas ══════════════════════════════════════════════════════ -->
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body pt-3">
+        <ul class="nav nav-tabs nav-tabs-bordered">
+          <li class="nav-item">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#aba-1">Resumo</button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#aba-2">Detalhes</button>
+          </li>
+        </ul>
+        <div class="tab-content pt-2">
+          <div class="tab-pane fade show active" id="aba-1"><p>Conteúdo da primeira aba.</p></div>
+          <div class="tab-pane fade" id="aba-2"><p>Conteúdo da segunda aba.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Alertas e selos ═══════════════════════════════════════════ -->
+<div class="alert alert-success" role="alert">Operação concluída.</div>
+<span class="badge bg-primary">Novo</span>
+<span class="badge bg-warning text-dark">Pendente</span>
+
+<!-- ═══ Dados dinâmicos via Ação de Dado ══════════════════════════ -->
+<!--
+  Troque ID_DA_ACAO pelo id da Ação de Dado (listados no painel lateral
+  do editor). operation="query" devolve {result: {value: [...]}}.
+-->
+<script>
+(function () {
+  const ID_DA_ACAO = 1;
+
+  function chamarAcao(id, corpo) {
+    return fetch('/admin/designer/data-action/' + id + '/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(corpo || {}),
+    }).then(function (r) { return r.json(); });
+  }
+
+  chamarAcao(ID_DA_ACAO).then(function (resposta) {
+    if (!resposta.success) {
+      console.error('Ação de Dado falhou:', resposta.error);
+      return;
+    }
+    const linhas = resposta.result.value || [];
+
+    const indicador = document.getElementById('indicador-valor');
+    if (indicador) indicador.textContent = linhas.length;
+
+    const corpo = document.getElementById('tabela-corpo');
+    if (!corpo) return;
+    corpo.innerHTML = linhas.map(function (linha, i) {
+      return '<tr><th scope="row">' + (i + 1) + '</th>' +
+             '<td>' + (linha.name || '') + '</td>' +
+             '<td>' + (linha.status || '') + '</td></tr>';
+    }).join('') || '<tr><td colspan="3" class="text-muted">Nenhum registro.</td></tr>';
+  });
+
+  const botao = document.getElementById('btn-salvar');
+  if (botao) {
+    botao.addEventListener('click', function () {
+      // operation="update" exige `key` (id do registro) e `payload`.
+      chamarAcao(ID_DA_ACAO, {
+        key: '1',
+        payload: { name: document.getElementById('campo-nome').value },
+      }).then(function (resposta) {
+        window.__tesseractToast && window.__tesseractToast.show(
+          resposta.success ? 'Salvo.' : (resposta.error || 'Falha ao salvar.'),
+          resposta.success ? 'success' : 'error'
+        );
+      });
+    });
+  }
+})();
+</script>

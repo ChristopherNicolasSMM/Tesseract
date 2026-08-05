@@ -3514,3 +3514,66 @@ metadata OData — a Fase 10 deu os componentes soltos, não a geração).
 que é só documentação), toda a suíte de regressão (900+ execuções
 somadas entre os 6 patches de código) sem nenhuma quebra fora das já
 catalogadas como pré-existentes.
+
+
+## Fase 11 — Designer v3 (tentativa) e Fase 12 — remoção do construtor visual
+
+**Fase 11 (revertida).** Depois de testar o Designer em uso real,
+ficaram claras duas limitações estruturais: o painel de propriedades
+refletia as chaves salvas na instância em vez de um schema por tipo
+(todo campo virava `<input type="text">`, todo valor virava string), e
+não havia aninhamento — a tabela era uma lista plana e o
+`form_container` fingia hierarquia por geometria.
+
+- [x] Patch 1 — `core/components_catalog.py`: schema de propriedade por
+      tipo (equivalente a "trait" do GrapesJS / "field" do Puck), com
+      widget certo e coerção de tipo no save.
+- [x] Patch 1.1 — correções de tema/overflow/preview vistas em uso.
+- [x] Patch 2 — árvore (`parent_id`/`order_index`), painel de camadas,
+      renderização recursiva, exclusão em cascata.
+- [x] Patches 2.1/2.2/2.3 — três rodadas de correção de bugs de
+      interação (canvas claro, slot inalcançável, camadas não
+      atualizando, conflito entre arrasto por mousedown e drag HTML5,
+      `forEach(renderComponent)` passando índice como argumento).
+- [ ] **Nunca chegou a funcionar de forma confiável.** O aninhamento por
+      drag-and-drop continuou falhando depois das três rodadas.
+
+**Causa de fundo, registrada para não se repetir:** a suíte do projeto
+não executa navegador — ela verifica que o código está presente, não
+que funciona. Toda a classe de bug de interação JS só aparecia no uso
+real, um por vez, a cada ciclo de entrega. Qualquer trabalho futuro de
+UI complexa precisa de teste de navegador ANTES, não depois.
+
+**Fase 12 — remoção (concluída).** Decisão de escopo: construtor visual
+é um produto inteiro, não uma feature. Para um time onde quem monta as
+telas já programa, escrever HTML é mais rápido e previsível.
+
+- [x] Removidos: `core/components_catalog.py`, `core/actions_catalog.py`,
+      `model/core/designer_component.py`, `static/js/data_binding.js`,
+      `static/js/actions_engine.js`, o canvas/paleta/camadas do editor,
+      e os 6 arquivos de teste correspondentes.
+- [x] `DesignerPage.content_html` (Text) substitui a árvore de
+      componentes; `canvas_width`/`canvas_height`/`canvas_bg` removidas.
+      Migration `b7e4d19a63c5` (downgrade parcial de propósito — não há
+      como reconstruir árvore de componentes a partir de HTML).
+- [x] Editor virou um editor de HTML com painel de ajuda: link para o
+      modelo, exemplo de chamada de Ação de Dado e a lista das Ações
+      cadastradas com seus ids.
+- [x] `static/modelo_paginas_nice_admin/_modelo-pagina-customizada.html`
+      — ponto de partida com cards, tabela, formulário, abas, alertas e
+      o JavaScript de consumo de Ação de Dado já montado.
+- [x] Runtime renderiza `content_html` com `|safe`, **nunca** via
+      `render_template_string` — Jinja vindo do banco seria SSTI, que na
+      prática é execução de código no servidor mesmo restrito a admin.
+      Há teste cobrindo isso.
+- [x] Transação renomeada para "Páginas Customizadas".
+
+**Preservado, porque é independente do construtor e carrega o valor
+real:** Ação de Dado (`tesseract_designer_data_action`) e sua execução
+server-side, Provedor OData local (`@odata_expose`), e a substituição de
+tela do CrudGen no menu (`replace_in_menu`).
+
+11 testes novos (`test_fase12_paginas_customizadas.py`), incluindo
+verificação de que os módulos do construtor não importam mais, de que os
+endpoints de componente respondem 404, e de que o runtime não interpreta
+Jinja vindo do banco.

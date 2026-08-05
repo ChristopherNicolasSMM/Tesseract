@@ -1,13 +1,24 @@
 """
 model/core/designer_page.py
 
-tesseract_designer_page — página construída visualmente no Designer
-(Fase 7c). Adaptado de models/page.py (DEVStationFlask), sem
-`project_id`: o DEVStationFlask original organizava páginas dentro de
-"Projetos" (conceito do Designer dele, um app builder completo); o
-Tesseract não tem isso — uma página do Designer é uma tela navegável
-de Core, como qualquer outra (entra no catálogo de Transações se o
-usuário quiser).
+tesseract_designer_page — página customizada, escrita à mão.
+
+Histórico: nasceu na Fase 7c como página montada por drag-and-drop
+(canvas + DesignerComponent), e a Fase 11 chegou a implementar árvore
+de componentes e catálogo de propriedades. Na Fase 12 o construtor
+visual foi REMOVIDO por decisão de escopo — construtor visual é um
+produto inteiro, não uma feature, e para um time onde quem monta as
+telas já programa, escrever HTML é mais rápido e previsível do que
+arrastar caixas. O que ficou é o essencial e estável: um cadastro de
+páginas customizadas com conteúdo HTML próprio, servido pelo runtime,
+podendo substituir uma tela do CrudGen no menu.
+
+`content_html` é renderizado como HTML confiável (|safe), nunca como
+template Jinja — renderizar Jinja vindo do banco seria injeção de
+template (SSTI), que na prática é execução de código no servidor,
+mesmo restrito a admin. Para dado dinâmico, a página usa JavaScript
+chamando as Ações de Dado (POST /admin/designer/data-action/<id>/execute)
+ou a API do próprio Tesseract.
 """
 from datetime import datetime, timezone
 
@@ -23,9 +34,10 @@ class DesignerPage(db.Model):
     title = db.Column(db.String(200), nullable=True)
     slug = db.Column(db.String(100), nullable=False, unique=True)
 
-    canvas_width = db.Column(db.Integer, default=1280, nullable=False)
-    canvas_height = db.Column(db.Integer, default=720, nullable=False)
-    canvas_bg = db.Column(db.String(20), default="#f6f9ff", nullable=False)
+    # Corpo da página, escrito à mão. Ver static/modelo_paginas_nice_admin/
+    # _modelo-pagina-customizada.html para o ponto de partida com os
+    # componentes do NiceAdmin já no padrão do sistema.
+    content_html = db.Column(db.Text, nullable=True)
 
     is_published = db.Column(db.Boolean, default=False, nullable=False)
     permission_required = db.Column(db.String(150), nullable=True)
@@ -57,29 +69,20 @@ class DesignerPage(db.Model):
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
-    components = db.relationship(
-        "DesignerComponent", backref="page",
-        cascade="all, delete-orphan",
-        order_by="DesignerComponent.z_index",
-    )
-
-    def to_dict(self, include_components: bool = False) -> dict:
+    def to_dict(self, include_content: bool = False) -> dict:
         d = {
             "id": self.id,
             "name": self.name,
             "title": self.title or self.name,
             "slug": self.slug,
-            "canvas_width": self.canvas_width,
-            "canvas_height": self.canvas_height,
-            "canvas_bg": self.canvas_bg,
             "is_published": self.is_published,
             "permission_required": self.permission_required,
             "replaces_entity_key": self.replaces_entity_key,
             "replaces_view": self.replaces_view,
             "replace_in_menu": self.replace_in_menu,
         }
-        if include_components:
-            d["components"] = [c.to_dict() for c in self.components]
+        if include_content:
+            d["content_html"] = self.content_html or ""
         return d
 
     def __repr__(self) -> str:

@@ -2,93 +2,24 @@
 {% block title %}Editando: {{ page.name }} - Tesseract{% endblock %}
 {% block extra_css %}
 <style>
-  /* Fase 11, Patch 2.1 — ACHADO REAL: static/css/themes.css NUNCA e
-     carregado por nenhum template (o base.html carrega style.css +
-     style_dark.css). As variaveis usadas no Patch 1.1
-     (--bg-secondary/--border-color) portanto nao existem, e o var()
-     caia sempre no fallback claro — por isso o canvas continuava
-     branco no tema escuro. Corrigido para as variaveis que existem de
-     verdade, definidas por style_dark.css em
-     `body[data-theme="dark"]`. Como esse arquivo so e carregado no
-     tema escuro, no tema claro as variaveis ficam indefinidas e o
-     fallback claro passa a ser o valor certo — sem precisar de if. */
-  #designerCanvasWrap {
-    max-width: 100%;
-    overflow: auto;
-    border: 1px solid var(--dark-border, #ced4da);
-    border-radius: 8px;
+  #contentHtml {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px; line-height: 1.5; min-height: 460px; white-space: pre;
+    tab-size: 2;
   }
-  #designerCanvas {
-    position: relative;
-    background: var(--dark-surface-2, #f6f9ff);
-    width: {{ page.canvas_width }}px;
-    height: {{ page.canvas_height }}px;
-    background-image:
-      linear-gradient(var(--dark-border, #e9ecef) 1px, transparent 1px),
-      linear-gradient(90deg, var(--dark-border, #e9ecef) 1px, transparent 1px);
-    background-size: 20px 20px;
-  }
-  /* Fase 11, Patch 2 — painel de camadas (arvore editavel) */
-  .dsg-layer {
-    display: flex; align-items: center; gap: 4px;
-    padding: 3px 6px; border-radius: 4px; cursor: grab;
-    border: 1px solid transparent;
-  }
-  .dsg-layer:hover { background: var(--dark-surface-2, #f9faff); }
-  .dsg-layer.selected { background: var(--dark-surface-2, #f0f4ff); border-color: #4154f1; }
-  .dsg-layer.drop-into { border-color: #51cf66; background: rgba(81, 207, 102, .12); }
-  .dsg-layer.drop-before { border-top: 2px solid #4154f1; }
-  .dsg-layer.drop-after { border-bottom: 2px solid #4154f1; }
-  .dsg-layer-children { margin-left: 14px; border-left: 1px dashed var(--dark-border, #dee2e6); padding-left: 6px; }
-  .dsg-component.drop-target { outline: 2px solid #51cf66; outline-offset: 2px; }
-  .dsg-slot { min-height: 32px; }
-  .dsg-slot:empty::after { content: 'solte componentes aqui'; font-size: 11px; opacity: .45; }
-  .dsg-component {
-    position: absolute;
-    box-sizing: border-box;
-    border: 1px dashed transparent;
-    cursor: move;
-    user-select: none;
-  }
-  .dsg-component:hover, .dsg-component.selected {
-    border-color: #4154f1;
-  }
-  .dsg-resize-handle {
-    position: absolute;
-    right: -6px;
-    bottom: -6px;
-    width: 12px;
-    height: 12px;
-    background: #4154f1;
-    cursor: nwse-resize;
-    border-radius: 2px;
-    display: none;
-  }
-  .dsg-component.selected .dsg-resize-handle {
-    display: block;
-  }
-  .dsg-palette-btn { width: 100%; margin-bottom: 6px; text-align: left; }
-  /* Fase 11, Patch 2.2 — paletas colapsaveis, pra o painel de Camadas
-     poder subir pro alto sem precisar rolar a coluna inteira. */
-  .dsg-collapse-head {
-    cursor: pointer; user-select: none;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .dsg-collapse-head .bi-chevron-down { transition: transform .15s; font-size: .8rem; }
-  .dsg-collapse-head.collapsed .bi-chevron-down { transform: rotate(-90deg); }
-  .dsg-collapsed { display: none !important; }
 </style>
 {% endblock %}
+
 {% block content %}
 <div class="pagetitle d-flex justify-content-between align-items-center">
   <div>
     <h1>Editando: {{ page.name }}</h1>
     <a href="{{ url_for('designer.manage') }}">&larr; Voltar para a lista</a>
   </div>
-  <div>
-    <form method="post" action="{{ url_for('designer.publish', page_id=page.id) }}" class="d-inline">
-      <button type="submit" class="btn {% if page.is_published %}btn-outline-secondary{% else %}btn-success{% endif %}">
-        {% if page.is_published %}Despublicar{% else %}Publicar{% endif %}
+  <div class="d-flex gap-2">
+    <form method="post" action="{{ url_for('designer.publish', page_id=page.id) }}">
+      <button type="submit" class="btn btn-{{ 'warning' if page.is_published else 'success' }}">
+        {{ 'Despublicar' if page.is_published else 'Publicar' }}
       </button>
     </form>
     {% if page.is_published %}
@@ -100,110 +31,100 @@
 </div>
 
 <section class="section">
-  <div class="card mb-3">
-    <div class="card-body">
-      <h6 class="card-title">
-        <a data-bs-toggle="collapse" href="#pageSettingsPanel" role="button" class="text-decoration-none">
-          <i class="bi bi-gear"></i> Configurações da página
-        </a>
-      </h6>
-      <div class="collapse" id="pageSettingsPanel">
-        <form method="post" action="{{ url_for('designer.update_settings', page_id=page.id) }}" class="row g-2">
-          <div class="col-md-2">
-            <label class="form-label small mb-0">Largura do canvas (px)</label>
-            <input type="number" class="form-control form-control-sm" name="canvas_width" value="{{ page.canvas_width }}" min="320" max="4000">
-          </div>
-          <div class="col-md-2">
-            <label class="form-label small mb-0">Altura do canvas (px)</label>
-            <input type="number" class="form-control form-control-sm" name="canvas_height" value="{{ page.canvas_height }}" min="200" max="4000">
-          </div>
-          <div class="col-md-3">
-            <label class="form-label small mb-0">Permissão exigida</label>
-            <input type="text" class="form-control form-control-sm" name="permission_required" value="{{ page.permission_required or '' }}">
-          </div>
-          <div class="col-md-3">
-            <label class="form-label small mb-0">Substitui entidade (plural, ex.: yeast_strains)</label>
-            <input type="text" class="form-control form-control-sm" name="replaces_entity_key" value="{{ page.replaces_entity_key or '' }}">
-          </div>
-          <div class="col-md-2">
-            <label class="form-label small mb-0">Tela substituída</label>
-            <select class="form-select form-select-sm" name="replaces_view">
-              <option value="" {% if not page.replaces_view %}selected{% endif %}>—</option>
-              <option value="manage" {% if page.replaces_view == 'manage' %}selected{% endif %}>manage</option>
-              <option value="detail" {% if page.replaces_view == 'detail' %}selected{% endif %}>detail</option>
-            </select>
-          </div>
-          <div class="col-md-2 d-flex align-items-end">
-            <div class="form-check">
+  <div class="row">
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Conteúdo da página</h5>
+          <form method="post" action="{{ url_for('designer.save_content', page_id=page.id) }}">
+            <div class="mb-2">
+              <label class="form-label small mb-0">Título exibido</label>
+              <input type="text" class="form-control form-control-sm" name="title" value="{{ page.title or '' }}">
+            </div>
+            <div class="mb-2">
+              <label class="form-label small mb-0">HTML</label>
+              <textarea class="form-control" id="contentHtml" name="content_html" spellcheck="false">{{ page.content_html or '' }}</textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Salvar conteúdo</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Como escrever a página</h5>
+          <p class="small mb-2">
+            O conteúdo é inserido dentro do layout do sistema — não escreva
+            <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code> nem <code>&lt;body&gt;</code>.
+            Bootstrap 5, Bootstrap Icons e o tema do Tesseract já estão carregados.
+          </p>
+          <p class="small mb-2">
+            Ponto de partida com os componentes prontos (cards, tabelas, formulários,
+            abas, alertas):
+          </p>
+          <a class="btn btn-sm btn-outline-secondary w-100 mb-3"
+             href="{{ url_for('static', filename='modelo_paginas_nice_admin/_modelo-pagina-customizada.html') }}"
+             target="_blank">
+            <i class="bi bi-file-earmark-code"></i> Abrir modelo de página
+          </a>
+
+          <h6 class="small">Dados dinâmicos</h6>
+          <p class="small mb-2">
+            Use JavaScript chamando uma Ação de Dado. O servidor resolve a conexão
+            e a credencial — a página nunca vê segredo:
+          </p>
+          <pre class="small border rounded p-2" style="white-space:pre-wrap;"><code>fetch('/admin/designer/data-action/ID/execute', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: '{}'
+}).then(r =&gt; r.json())
+  .then(d =&gt; console.log(d.result.value));</code></pre>
+
+          {% if data_actions %}
+          <h6 class="small mt-3">Ações de Dado cadastradas</h6>
+          <ul class="small mb-0 ps-3">
+            {% for da in data_actions %}
+            <li><code>{{ da.id }}</code> — {{ da.name }} <span class="text-muted">({{ da.operation }} {{ da.entity_name }})</span></li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="small text-muted mb-0">Nenhuma Ação de Dado cadastrada ainda.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-body">
+          <h5 class="card-title">Configurações</h5>
+          <form method="post" action="{{ url_for('designer.update_settings', page_id=page.id) }}">
+            <div class="mb-2">
+              <label class="form-label small mb-0">Permissão exigida</label>
+              <input type="text" class="form-control form-control-sm" name="permission_required" value="{{ page.permission_required or '' }}">
+            </div>
+            <div class="mb-2">
+              <label class="form-label small mb-0">Substitui entidade (plural, ex.: yeast_strains)</label>
+              <input type="text" class="form-control form-control-sm" name="replaces_entity_key" value="{{ page.replaces_entity_key or '' }}">
+            </div>
+            <div class="mb-2">
+              <label class="form-label small mb-0">Tela substituída</label>
+              <select class="form-select form-select-sm" name="replaces_view">
+                <option value="" {% if not page.replaces_view %}selected{% endif %}>—</option>
+                <option value="manage" {% if page.replaces_view == 'manage' %}selected{% endif %}>manage</option>
+                <option value="detail" {% if page.replaces_view == 'detail' %}selected{% endif %}>detail</option>
+              </select>
+            </div>
+            <div class="form-check mb-2">
               <input type="checkbox" class="form-check-input" name="replace_in_menu" id="replaceInMenuCheck" {% if page.replace_in_menu %}checked{% endif %}>
               <label class="form-check-label small" for="replaceInMenuCheck">Substituir no menu</label>
             </div>
-          </div>
-          <div class="col-md-2 d-flex align-items-end">
-            <button type="submit" class="btn btn-sm btn-primary w-100">Salvar</button>
-          </div>
-          <div class="col-12">
-            <p class="small text-muted mb-0">
-              Só tem efeito com "Tela substituída" = manage. A rota original do CrudGen nunca é removida —
-              continua acessível direto pra debug, mesmo com a substituição de menu ativa.
+            <p class="small text-muted">
+              Só tem efeito com "Tela substituída" = manage. A rota original do CrudGen
+              nunca é removida — continua acessível direto, para debug.
             </p>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="section">
-  <div class="row">
-    <div class="col-md-2">
-      <div class="card">
-        <div class="card-body">
-          <h6 class="card-title dsg-collapse-head" data-collapse-target="paletteBody">
-            <span>Componentes</span><i class="bi bi-chevron-down"></i>
-          </h6>
-          <div id="paletteBody">
-          {% for cat_id, cat_label in categories %}
-            {% set items = component_catalog | selectattr('category', 'equalto', cat_id) | list %}
-            {% if items %}
-            <p class="small text-muted text-uppercase mb-1 mt-2 dsg-collapse-head"
-               data-collapse-target="palette-{{ cat_id }}">
-              <span>{{ cat_label }}</span><i class="bi bi-chevron-down"></i>
-            </p>
-            <div id="palette-{{ cat_id }}">
-            {% for comp in items %}
-            <button type="button" class="btn btn-outline-secondary btn-sm dsg-palette-btn" data-add-type="{{ comp.id }}">
-              <i class="bi {{ comp.icon }}"></i> {{ comp.label }}
-            </button>
-            {% endfor %}
-            </div>
-            {% endif %}
-          {% endfor %}
-          </div>
-        </div>
-      </div>
-      <div class="card mt-3">
-        <div class="card-body">
-          <h6 class="card-title dsg-collapse-head" data-collapse-target="layersBody">
-            <span>Camadas</span><i class="bi bi-chevron-down"></i>
-          </h6>
-          <div id="layersBody">
-            <p class="small text-muted mb-2">Arraste para reordenar ou soltar dentro de um contêiner.</p>
-            <div id="layersPanel" class="small"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-md-7">
-      <div id="designerCanvasWrap"><div id="designerCanvas"></div></div>
-    </div>
-
-    <div class="col-md-3">
-      <div class="card">
-        <div class="card-body">
-          <h6 class="card-title">Propriedades</h6>
-          <div id="propertiesPanel" class="text-muted small">Selecione um componente no canvas.</div>
+            <button type="submit" class="btn btn-sm btn-primary w-100">Salvar configurações</button>
+          </form>
         </div>
       </div>
     </div>
@@ -211,722 +132,13 @@
 </section>
 
 <script>
-(function () {
-  const PAGE_ID = {{ page.id }};
-  const ACTION_CATALOG = {{ action_catalog | tojson }};
-  const COMPONENT_CATALOG = {{ component_catalog | tojson }};
-  const PROP_GROUPS = {{ prop_groups | tojson }};
-  const DATA_ACTIONS = [{% for da in data_actions %}{id: {{ da.id }}, name: {{ da.name | tojson }}}{{ ',' if not loop.last }}{% endfor %}];
-  const canvas = document.getElementById('designerCanvas');
-  const propertiesPanel = document.getElementById('propertiesPanel');
-  let selectedId = null;
-  let componentsData = {{ components_json | tojson }};
-
-  function renderComponent(comp, parentSlot) {
-    const nested = !!parentSlot;
-    let el = document.getElementById('comp-' + comp.id);
-    if (!el) {
-      el = document.createElement('div');
-      el.className = 'dsg-component';
-      el.id = 'comp-' + comp.id;
-      if (!nested) {
-        const handle = document.createElement('div');
-        handle.className = 'dsg-resize-handle';
-        el.appendChild(handle);
-        attachDragResize(el, comp.id);
-      }
-      (parentSlot || canvas).appendChild(el);
-    }
-    if (nested) {
-      // Fase 11, Patch 2.3: aninhado nao tem arrasto por mousedown
-      // (quem posiciona e o pai), entao pode usar drag HTML5 sem o
-      // conflito de preventDefault descrito no Patch 2.2 — e assim
-      // volta a ser reposicionavel: pra outro contedor (slot) ou pra
-      // raiz do canvas.
-      if (el.getAttribute('draggable') !== 'true') {
-        el.setAttribute('draggable', 'true');
-        el.addEventListener('dragstart', function (ev) {
-          dragSourceId = comp.id;
-          ev.stopPropagation();
-        });
-        el.addEventListener('click', function (ev) {
-          selectComponent(comp.id);
-          ev.stopPropagation();
-        });
-      }
-      // Fase 11, Patch 2: filho de contedor FLUI (o pai posiciona), entao
-      // x/y/z-index nao se aplicam — so a ordem dentro do slot.
-      el.style.position = 'relative';
-      el.style.left = '';
-      el.style.top = '';
-      el.style.width = '100%';
-      el.style.height = 'auto';
-      el.style.zIndex = '';
-    } else {
-      el.style.position = 'absolute';
-      el.style.left = comp.x + 'px';
-      el.style.top = comp.y + 'px';
-      el.style.width = comp.width + 'px';
-      el.style.height = comp.height + 'px';
-      el.style.zIndex = comp.z_index;
-    }
-    renderInnerContent(el, comp);
-
-    if (!nested && !el.querySelector('.dsg-resize-handle')) {
-      // innerHTML em renderInnerContent apaga tudo dentro de `el`,
-      // inclusive a alca de redimensionar criada na primeira montagem.
-      const handle = document.createElement('div');
-      handle.className = 'dsg-resize-handle';
-      el.appendChild(handle);
-    }
-
-    const def = componentDef(comp.type);
-    if (def && def.accepts_children) {
-      const slot = document.createElement('div');
-      slot.className = 'dsg-slot';
-      slot.setAttribute('data-slot-of', comp.id);
-      const p = comp.properties || {};
-      slot.style.display = 'flex';
-      slot.style.flexDirection = (p.layout === 'horizontal') ? 'row' : 'column';
-      slot.style.gap = (p.gap === undefined || p.gap === null ? 8 : p.gap) + 'px';
-      slot.style.alignItems = p.align || 'stretch';
-      slot.style.padding = (p.padding === undefined || p.padding === null ? 12 : p.padding) + 'px';
-      slot.style.minHeight = '32px';
-      // Fase 11, Patch 2.1 — ACHADO REAL: o slot era anexado como IRMAO
-      // do preview (el.appendChild). Como o preview do card/fieldset usa
-      // h-100, o slot ficava empurrado pra fora da caixa visivel e o drop
-      // dentro do contedor era inalcancavel pelo canvas. Agora monta no
-      // ponto marcado por data-slot-mount, dentro do corpo do contedor.
-      const mount = el.querySelector('[data-slot-mount]');
-      (mount || el).appendChild(slot);
-      attachSlotDrop(slot, comp.id);
-      childrenOf(comp.id).forEach(function (child) { renderComponent(child, slot); });
-    }
-  }
-
-  function attachSlotDrop(slot, containerId) {
-    slot.addEventListener('dragover', function (e) {
-      if (dragSourceId === null || dragSourceId === containerId) return;
-      e.preventDefault();
-      e.stopPropagation();
-      slot.parentElement.classList.add('drop-target');
-    });
-    slot.addEventListener('dragleave', function () {
-      slot.parentElement.classList.remove('drop-target');
-    });
-    slot.addEventListener('drop', function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      slot.parentElement.classList.remove('drop-target');
-      if (dragSourceId === null || dragSourceId === containerId) return;
-      moveComponentTo(dragSourceId, containerId, childrenOf(containerId).length);
-      dragSourceId = null;
-    });
-  }
-
-  function renderInnerContent(el, comp) {
-    const p = comp.properties || {};
-    let inner = '';
-    if (comp.type === 'heading') {
-      inner = '<h2 style="margin:0;color:' + (p.text_color || '#012970') + ';font-size:' + (p.font_size || 26) +
-        'px;font-weight:' + (p.bold ? 700 : 400) + ';">' + escapeHtml(p.text || '') + '</h2>';
-    } else if (comp.type === 'label') {
-      // Fase 11, Patch 1.1: o preview ignorava as props de estilo que o
-      // Patch 1 adicionou (o runtime honrava, o editor nao) - o texto
-      // herdava a cor do tema e sumia no canvas.
-      inner = '<span style="color:' + (p.text_color || '#444444') + ';font-size:' + (p.font_size || 14) +
-        'px;font-weight:' + (p.bold ? 700 : 400) + ';">' + escapeHtml(p.text || '') + '</span>';
-    } else if (comp.type === 'textbox') {
-      inner = '<label class="form-label small mb-0">' + escapeHtml(p.label || '') + '</label>' +
-        (p.input_type === 'textarea'
-          ? '<textarea class="form-control form-control-sm" placeholder="' + escapeHtml(p.placeholder || '') + '" disabled></textarea>'
-          : '<input type="' + (p.input_type || 'text') + '" class="form-control form-control-sm" placeholder="' + escapeHtml(p.placeholder || '') + '" disabled>');
-    } else if (comp.type === 'button') {
-      inner = '<button class="btn btn-' + (p.outline ? 'outline-' : '') + (p.variant || 'primary') +
-        ' btn-sm w-100" disabled>' + (p.icon ? '<i class="bi ' + escapeHtml(p.icon) + '"></i> ' : '') +
-        escapeHtml(p.text || 'Botão') + '</button>';
-    } else if (comp.type === 'image') {
-      inner = p.src ? '<img src="' + escapeHtml(p.src) + '" style="max-width:100%;max-height:100%;">' : '<div class="text-muted small text-center">Imagem (sem src)</div>';
-    } else if (comp.type === 'divider') {
-      inner = '<hr style="margin:0;border-color:' + (p.color || '#ced4da') + ';">';
-    } else if (comp.type === 'select') {
-      inner = '<label class="form-label small mb-0">' + escapeHtml(p.label || '') + '</label><select class="form-select form-select-sm" disabled><option>' +
-        (p.options_source === 'data_action' ? '(carrega via Ação de Dado)' : '(opções estáticas)') + '</option></select>';
-    } else if (comp.type === 'checkbox') {
-      inner = '<div class="form-check' + (p.style === 'switch' ? ' form-switch' : '') +
-        '"><input type="checkbox" class="form-check-input" disabled' +
-        (p.checked_default ? ' checked' : '') + '><label class="form-check-label small">' + escapeHtml(p.label || '') + '</label></div>';
-    } else if (comp.type === 'radio') {
-      inner = '<div class="small text-muted mb-1">' + escapeHtml(p.label || '') + '</div>' +
-        (p.options || '').split(',').map(function (o) { return o.trim(); }).filter(Boolean).map(function (o) {
-          return '<div class="form-check"><input type="radio" class="form-check-input" disabled><label class="form-check-label small">' + escapeHtml(o) + '</label></div>';
-        }).join('');
-    } else if (comp.type === 'form_container') {
-      inner = '<fieldset class="border rounded p-2 h-100" style="overflow:auto;"><legend class="small w-auto px-1">' + escapeHtml(p.title || 'Formulário') +
-        '</legend><div data-slot-mount></div></fieldset>';
-    } else if (comp.type === 'datagrid') {
-      inner = '<div class="small text-muted mb-1">' + escapeHtml(p.title || 'Lista') + '</div>' +
-        '<table class="table table-sm table-bordered"><thead><tr><th>(colunas carregadas em runtime)</th></tr></thead></table>';
-    } else if (comp.type === 'card') {
-      inner = '<div class="card h-100"><div class="card-body" style="overflow:auto;"><h6 class="card-title">' + escapeHtml(p.title || '') + '</h6>' +
-        '<p class="card-text small">' + escapeHtml(p.body_text || '') + '</p>' +
-        '<div data-slot-mount></div></div></div>';
-    } else if (comp.type === 'alert') {
-      inner = '<div class="alert alert-' + (p.variant || 'info') + ' mb-0 py-2">' + escapeHtml(p.message || '') + '</div>';
-    } else if (comp.type === 'badge') {
-      inner = '<span class="badge bg-' + (p.variant || 'primary') + '">' + escapeHtml(p.text || '') + '</span>';
-    } else if (comp.type === 'progress_bar') {
-      inner = '<div class="progress"><div class="progress-bar bg-' + (p.variant || 'primary') + '" style="width:' + (p.value || 0) + '%;">' +
-        (p.label_visible ? (p.value || 0) : '') + '</div></div>';
-    } else if (comp.type === 'list') {
-      inner = '<div class="small text-muted mb-1">' + escapeHtml(p.title || 'Lista') + '</div>' +
-        '<div class="small text-muted">(itens carregados em runtime)</div>';
-    }
-    const handle = el.querySelector('.dsg-resize-handle');
-    el.innerHTML = inner;
-    el.appendChild(handle);
-  }
-
-  function escapeHtml(s) {
-    return (s || '').toString().replace(/[&<>"]/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
-    });
-  }
-
-  function attachDragResize(el, compId) {
-    let dragging = false, resizing = false, startX, startY, startLeft, startTop, startW, startH;
-
-    el.addEventListener('mousedown', function (e) {
-      selectComponent(compId);
-      if (e.target.classList.contains('dsg-resize-handle')) {
-        resizing = true;
-      } else {
-        dragging = true;
-        // Fase 11, Patch 2.2 — enquanto arrasta, o proprio elemento
-        // nao pode interceptar o ponteiro, senao elementFromPoint()
-        // sempre devolveria ele mesmo e nunca o slot embaixo.
-        el.style.pointerEvents = 'none';
-      }
-      startX = e.clientX; startY = e.clientY;
-      startLeft = parseInt(el.style.left, 10);
-      startTop = parseInt(el.style.top, 10);
-      startW = parseInt(el.style.width, 10);
-      startH = parseInt(el.style.height, 10);
-      e.stopPropagation();
-      e.preventDefault();
-    });
-
-    document.addEventListener('mousemove', function (e) {
-      if (!dragging && !resizing) return;
-      const dx = e.clientX - startX, dy = e.clientY - startY;
-      if (dragging) {
-        el.style.left = Math.max(0, startLeft + dx) + 'px';
-        el.style.top = Math.max(0, startTop + dy) + 'px';
-        highlightSlotUnder(e.clientX, e.clientY, compId);
-      } else if (resizing) {
-        el.style.width = Math.max(20, startW + dx) + 'px';
-        el.style.height = Math.max(20, startH + dy) + 'px';
-      }
-    });
-
-    document.addEventListener('mouseup', function (e) {
-      if (dragging) {
-        el.style.pointerEvents = '';
-        const slot = slotUnder(e.clientX, e.clientY, compId);
-        clearSlotHighlight();
-        if (slot) {
-          // Soltou em cima de um contedor: vira filho dele, em vez de
-          // so gravar a nova posicao absoluta.
-          const containerId = parseInt(slot.getAttribute('data-slot-of'), 10);
-          dragging = false; resizing = false;
-          moveComponentTo(compId, containerId, childrenOf(containerId).length);
-          return;
-        }
-      }
-      if (dragging || resizing) {
-        saveComponentGeometry(compId, el);
-      }
-      dragging = false; resizing = false;
-    });
-  }
-
-  function slotUnder(clientX, clientY, movingId) {
-    const target = document.elementFromPoint(clientX, clientY);
-    if (!target) return null;
-    const slot = target.closest ? target.closest('.dsg-slot') : null;
-    if (!slot) return null;
-    const containerId = parseInt(slot.getAttribute('data-slot-of'), 10);
-    if (!containerId || containerId === movingId) return null;
-    // Nao deixa soltar dentro de um descendente de si mesmo (o servidor
-    // tambem rejeita, mas evita a ida e volta).
-    let node = componentsData.find(function (c) { return c.id === containerId; });
-    while (node) {
-      if (node.id === movingId) return null;
-      node = componentsData.find(function (c) { return c.id === node.parent_id; });
-    }
-    return slot;
-  }
-
-  function clearSlotHighlight() {
-    document.querySelectorAll('.dsg-component.drop-target').forEach(function (n) {
-      n.classList.remove('drop-target');
-    });
-  }
-
-  function highlightSlotUnder(clientX, clientY, movingId) {
-    clearSlotHighlight();
-    const slot = slotUnder(clientX, clientY, movingId);
-    if (slot && slot.parentElement) {
-      const box = slot.closest('.dsg-component');
-      if (box) box.classList.add('drop-target');
-    }
-  }
-
-  function saveComponentGeometry(compId, el) {
-    fetch('/admin/designer/component/' + compId, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        x: parseInt(el.style.left, 10),
-        y: parseInt(el.style.top, 10),
-        width: parseInt(el.style.width, 10),
-        height: parseInt(el.style.height, 10),
-      }),
-    }).then(function (r) { return r.json(); }).then(function (data) {
-      if (data.success) {
-        const idx = componentsData.findIndex(function (c) { return c.id === compId; });
-        if (idx >= 0) componentsData[idx] = data.component;
-      }
-    });
-  }
-
-  function actionDef(actionType) {
-    return ACTION_CATALOG.find(function (a) { return a.id === actionType; });
-  }
-
-  function paramInputHtml(actionIndex, param, value) {
-    const val = value === undefined || value === null ? param.default : value;
-    const base = 'data-action-index="' + actionIndex + '" data-param-name="' + param.name + '"';
-    if (param.type === 'select') {
-      let opts = '';
-      (param.options || []).forEach(function (opt) {
-        opts += '<option value="' + opt + '"' + (opt === val ? ' selected' : '') + '>' + opt + '</option>';
-      });
-      return '<select class="form-select form-select-sm action-param-input" ' + base + '>' + opts + '</select>';
-    }
-    if (param.type === 'data_action_select') {
-      let opts = '<option value="">— selecione —</option>';
-      DATA_ACTIONS.forEach(function (da) {
-        opts += '<option value="' + da.id + '"' + (String(da.id) === String(val) ? ' selected' : '') + '>' + escapeHtml(da.name) + '</option>';
-      });
-      return '<select class="form-select form-select-sm action-param-input" ' + base + '>' + opts + '</select>';
-    }
-    if (param.type === 'textarea') {
-      return '<textarea class="form-control form-control-sm action-param-input" ' + base + ' rows="2">' + escapeHtml(val || '') + '</textarea>';
-    }
-    return '<input type="' + (param.type === 'number' ? 'number' : 'text') + '" class="form-control form-control-sm action-param-input" ' + base + ' value="' + escapeHtml(val || '') + '">';
-  }
-
-  function renderEventsPanel(compId, comp) {
-    const eventsDiv = document.getElementById('eventsPanel');
-    let actions = ((comp.events || {}).onClick || []).slice();
-
-    function redraw() {
-      let html = '';
-      actions.forEach(function (action, idx) {
-        const def = actionDef(action.action_type) || ACTION_CATALOG[0];
-        html += '<div class="border rounded p-2 mb-2">' +
-          '<div class="d-flex justify-content-between align-items-center mb-1">' +
-          '<select class="form-select form-select-sm action-type-select" data-action-index="' + idx + '" style="width:auto;flex:1;">' +
-          ACTION_CATALOG.map(function (a) { return '<option value="' + a.id + '"' + (a.id === action.action_type ? ' selected' : '') + '>' + a.label + '</option>'; }).join('') +
-          '</select>' +
-          '<button class="btn btn-sm btn-link text-danger remove-action-btn" data-action-index="' + idx + '">&times;</button>' +
-          '</div>';
-        (def.params || []).forEach(function (param) {
-          html += '<label class="form-label small mb-0 mt-1">' + param.label + '</label>' +
-            paramInputHtml(idx, param, (action.params || {})[param.name]);
-        });
-        html += '</div>';
-      });
-      eventsDiv.innerHTML = html || '<p class="small text-muted">Nenhuma ação configurada.</p>';
-
-      eventsDiv.querySelectorAll('.action-type-select').forEach(function (sel) {
-        sel.addEventListener('change', function () {
-          const idx = parseInt(sel.getAttribute('data-action-index'), 10);
-          actions[idx] = { action_type: sel.value, params: {} };
-          redraw();
-        });
-      });
-      eventsDiv.querySelectorAll('.remove-action-btn').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          actions.splice(parseInt(btn.getAttribute('data-action-index'), 10), 1);
-          redraw();
-        });
-      });
-      eventsDiv.querySelectorAll('.action-param-input').forEach(function (input) {
-        input.addEventListener('input', function () {
-          const idx = parseInt(input.getAttribute('data-param-name') !== null ? input.getAttribute('data-action-index') : -1, 10);
-          if (!actions[idx].params) actions[idx].params = {};
-          actions[idx].params[input.getAttribute('data-param-name')] = input.value;
-        });
-      });
-    }
-
-    redraw();
-
-    document.getElementById('addActionBtn').addEventListener('click', function () {
-      actions.push({ action_type: ACTION_CATALOG[0].id, params: {} });
-      redraw();
-    });
-
-    document.getElementById('saveEventsBtn').addEventListener('click', function () {
-      fetch('/admin/designer/component/' + compId, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ events: { onClick: actions } }),
-      }).then(function (r) { return r.json(); }).then(function (data) {
-        if (data.success) {
-          const idx = componentsData.findIndex(function (c) { return c.id === compId; });
-          componentsData[idx] = data.component;
-          window.__tesseractToast && window.__tesseractToast.show('Eventos salvos.', 'success');
-        } else {
-          window.__tesseractToast && window.__tesseractToast.show(data.error || 'Falha ao salvar eventos.', 'error');
-        }
-      });
-    });
-  }
-
-  // ── Painel de camadas (arvore editavel) — Fase 11, Patch 2 ────────
-  let dragSourceId = null;
-
-  function childrenOf(parentId) {
-    return componentsData
-      .filter(function (c) { return (c.parent_id || null) === parentId; })
-      .sort(function (a, b) { return (a.order_index || 0) - (b.order_index || 0); });
-  }
-
-  function moveComponentTo(compId, parentId, orderIndex) {
-    return fetch('/admin/designer/component/' + compId + '/move-to', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ parent_id: parentId, order_index: orderIndex }),
-    }).then(function (r) { return r.json(); }).then(function (data) {
-      if (!data.success) {
-        window.__tesseractToast && window.__tesseractToast.show(data.error || 'Movimento inválido.', 'error');
-        return false;
-      }
-      return reloadComponents();
-    });
-  }
-
-  function reloadComponents() {
-    // Reparentar muda order_index de varios irmaos de uma vez, dos
-    // dois lados da arvore — recarregar a lista inteira e redesenhar e
-    // mais simples (e mais correto) do que tentar espelhar todas as
-    // renumeracoes no cliente.
-    return fetch('/admin/designer/' + PAGE_ID + '/components').then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (!data.success) return false;
-        componentsData = data.components;
-        canvas.innerHTML = '';
-        // Nao usar `.forEach(renderComponent)`: forEach passa
-    // (item, indice, array), entao a partir do segundo componente o
-    // indice chegava como `parentSlot` e o render estourava
-    // (`(1).appendChild`), quebrando a pagina inteira.
-    childrenOf(null).forEach(function (c) { renderComponent(c); });
-        renderLayers();
-        if (selectedId && componentsData.some(function (c) { return c.id === selectedId; })) {
-          renderPropertiesPanel(selectedId);
-        } else {
-          selectedId = null;
-          propertiesPanel.innerHTML = 'Selecione um componente no canvas.';
-        }
-        return true;
-      });
-  }
-
-  function layerRowHtml(comp) {
-    const def = componentDef(comp.type);
-    return '<div class="dsg-layer' + (comp.id === selectedId ? ' selected' : '') + '" draggable="true" data-layer-id="' + comp.id + '">' +
-      '<i class="bi ' + (def ? def.icon : 'bi-square') + '"></i>' +
-      '<span class="text-truncate">' + escapeHtml(comp.name) + '</span>' +
-      '</div>';
-  }
-
-  function layersTreeHtml(parentId) {
-    let html = '';
-    childrenOf(parentId).forEach(function (comp) {
-      html += layerRowHtml(comp);
-      const kids = childrenOf(comp.id);
-      if (kids.length) {
-        html += '<div class="dsg-layer-children">' + layersTreeHtml(comp.id) + '</div>';
-      }
-    });
-    return html;
-  }
-
-  function renderLayers() {
-    const panel = document.getElementById('layersPanel');
-    const html = layersTreeHtml(null);
-    panel.innerHTML = html || '<p class="text-muted small mb-0">Nenhum componente ainda.</p>';
-
-    panel.querySelectorAll('.dsg-layer').forEach(function (row) {
-      const compId = parseInt(row.getAttribute('data-layer-id'), 10);
-
-      row.addEventListener('click', function () { selectComponent(compId); });
-
-      row.addEventListener('dragstart', function (e) {
-        dragSourceId = compId;
-        e.stopPropagation();
-      });
-
-      row.addEventListener('dragover', function (e) {
-        if (dragSourceId === null || dragSourceId === compId) return;
-        e.preventDefault();
-        e.stopPropagation();
-        const comp = componentsData.find(function (c) { return c.id === compId; });
-        const def = comp && componentDef(comp.type);
-        const rect = row.getBoundingClientRect();
-        const zone = (e.clientY - rect.top) / rect.height;
-        row.classList.remove('drop-into', 'drop-before', 'drop-after');
-        // Terco do meio solta DENTRO (se o tipo aceitar filhos);
-        // extremos reordenam antes/depois, como irmao.
-        if (def && def.accepts_children && zone > 0.33 && zone < 0.67) {
-          row.classList.add('drop-into');
-        } else {
-          row.classList.add(zone < 0.5 ? 'drop-before' : 'drop-after');
-        }
-      });
-
-      row.addEventListener('dragleave', function () {
-        row.classList.remove('drop-into', 'drop-before', 'drop-after');
-      });
-
-      row.addEventListener('drop', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        const into = row.classList.contains('drop-into');
-        const after = row.classList.contains('drop-after');
-        row.classList.remove('drop-into', 'drop-before', 'drop-after');
-        if (dragSourceId === null || dragSourceId === compId) return;
-
-        const target = componentsData.find(function (c) { return c.id === compId; });
-        if (into) {
-          moveComponentTo(dragSourceId, compId, childrenOf(compId).length);
-        } else {
-          const parentId = target.parent_id || null;
-          const siblings = childrenOf(parentId).filter(function (c) { return c.id !== dragSourceId; });
-          let idx = siblings.findIndex(function (c) { return c.id === compId; });
-          if (after) idx += 1;
-          moveComponentTo(dragSourceId, parentId, idx);
-        }
-        dragSourceId = null;
-      });
-    });
-
-    // Soltar na area vazia do painel = mover pra raiz do canvas
-    panel.addEventListener('dragover', function (e) { e.preventDefault(); });
-    panel.addEventListener('drop', function (e) {
-      if (e.target !== panel || dragSourceId === null) return;
-      e.preventDefault();
-      moveComponentTo(dragSourceId, null, childrenOf(null).length);
-      dragSourceId = null;
-    });
-  }
-
-  function selectComponent(compId) {
-    selectedId = compId;
-    document.querySelectorAll('.dsg-component').forEach(function (e) { e.classList.remove('selected'); });
-    const el = document.getElementById('comp-' + compId);
-    if (el) el.classList.add('selected');
-    renderPropertiesPanel(compId);
-  }
-
-  function componentDef(typeId) {
-    return COMPONENT_CATALOG.find(function (c) { return c.id === typeId; });
-  }
-
-  function propInputHtml(propDef, value) {
-    const val = (value === undefined || value === null) ? propDef.default : value;
-    const base = 'class="form-control form-control-sm prop-input" data-prop-key="' + propDef.name +
-      '" data-prop-type="' + propDef.type + '"';
-
-    if (propDef.type === 'bool') {
-      return '<div class="form-check"><input type="checkbox" class="form-check-input prop-input" ' +
-        'data-prop-key="' + propDef.name + '" data-prop-type="bool"' +
-        (val === true || val === 'true' ? ' checked' : '') + '></div>';
-    }
-    if (propDef.type === 'number') {
-      return '<input type="number" ' + base + ' value="' + (val === null || val === undefined ? '' : val) + '">';
-    }
-    if (propDef.type === 'color') {
-      return '<input type="color" class="form-control form-control-color form-control-sm prop-input" ' +
-        'data-prop-key="' + propDef.name + '" data-prop-type="color" value="' + (val || '#000000') + '">';
-    }
-    if (propDef.type === 'textarea') {
-      return '<textarea ' + base + ' rows="2">' + escapeHtml(val || '') + '</textarea>';
-    }
-    if (propDef.type === 'select') {
-      let opts = '';
-      (propDef.options || []).forEach(function (opt) {
-        const optValue = (typeof opt === 'object') ? opt.value : opt;
-        const optLabel = (typeof opt === 'object') ? opt.label : opt;
-        opts += '<option value="' + optValue + '"' + (String(optValue) === String(val) ? ' selected' : '') +
-          '>' + escapeHtml(optLabel) + '</option>';
-      });
-      return '<select class="form-select form-select-sm prop-input" data-prop-key="' + propDef.name +
-        '" data-prop-type="select">' + opts + '</select>';
-    }
-    if (propDef.type === 'data_action') {
-      let opts = '<option value="">— nenhuma —</option>';
-      DATA_ACTIONS.forEach(function (da) {
-        opts += '<option value="' + da.id + '"' + (String(da.id) === String(val) ? ' selected' : '') +
-          '>' + escapeHtml(da.name) + '</option>';
-      });
-      return '<select class="form-select form-select-sm prop-input" data-prop-key="' + propDef.name +
-        '" data-prop-type="data_action">' + opts + '</select>';
-    }
-    return '<input type="text" ' + base + ' value="' + escapeHtml(val || '') + '">';
-  }
-
-  function renderPropertiesPanel(compId) {
-    const comp = componentsData.find(function (c) { return c.id === compId; });
-    if (!comp) { propertiesPanel.innerHTML = 'Selecione um componente no canvas.'; return; }
-
-    const def = componentDef(comp.type);
-    const p = comp.properties || {};
-    let fieldsHtml = '';
-
-    if (def) {
-      // Formulário gerado do SCHEMA do tipo (não das chaves salvas na
-      // instância) — é o que garante widget certo, rótulo em PT-BR, e
-      // propriedade prevista aparecer mesmo se ainda não foi salva.
-      PROP_GROUPS.forEach(function (group) {
-        const groupId = group[0], groupLabel = group[1];
-        const props = def.props.filter(function (pd) { return (pd.group || 'conteudo') === groupId; });
-        if (!props.length) return;
-        fieldsHtml += '<p class="small text-muted text-uppercase mb-1 mt-2">' + groupLabel + '</p>';
-        props.forEach(function (propDef) {
-          fieldsHtml += '<div class="mb-2">' +
-            '<label class="form-label small mb-0">' + escapeHtml(propDef.label) + '</label>' +
-            propInputHtml(propDef, p[propDef.name]) +
-            (propDef.help ? '<div class="form-text small">' + escapeHtml(propDef.help) + '</div>' : '') +
-            '</div>';
-        });
-      });
-    } else {
-      fieldsHtml = '<p class="small text-danger">Tipo desconhecido: ' + escapeHtml(comp.type) + '</p>';
-    }
-
-    propertiesPanel.innerHTML =
-      '<p class="small mb-2"><strong>' + (def ? def.label : comp.type) + '</strong> — ' + comp.name + '</p>' +
-      fieldsHtml +
-      '<button class="btn btn-sm btn-primary w-100 mt-2" id="savePropsBtn">Salvar propriedades</button>' +
-      '<button class="btn btn-sm btn-outline-danger w-100 mt-2" id="deleteCompBtn">Excluir componente</button>' +
-      (comp.type === 'button' ? '<hr><h6 class="small">Eventos (onClick)</h6><div id="eventsPanel"></div>' +
-        '<button class="btn btn-sm btn-outline-primary w-100 mt-1" id="addActionBtn">+ Ação</button>' +
-        '<button class="btn btn-sm btn-success w-100 mt-2" id="saveEventsBtn">Salvar eventos</button>' : '');
-
-    if (comp.type === 'button') {
-      renderEventsPanel(compId, comp);
-    }
-
-    document.getElementById('savePropsBtn').addEventListener('click', function () {
-      const newProps = {};
-      document.querySelectorAll('.prop-input').forEach(function (input) {
-        const key = input.getAttribute('data-prop-key');
-        newProps[key] = (input.getAttribute('data-prop-type') === 'bool') ? input.checked : input.value;
-      });
-      fetch('/admin/designer/component/' + compId, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ properties: newProps }),
-      }).then(function (r) { return r.json(); }).then(function (data) {
-        if (data.success) {
-          const idx = componentsData.findIndex(function (c) { return c.id === compId; });
-          componentsData[idx] = data.component;
-          renderComponent(data.component);
-          window.__tesseractToast && window.__tesseractToast.show('Propriedades salvas.', 'success');
-        } else {
-          window.__tesseractToast && window.__tesseractToast.show(data.error || 'Falha ao salvar.', 'error');
-        }
-      });
-    });
-
-    document.getElementById('deleteCompBtn').addEventListener('click', function () {
-      window.__tesseractConfirm({ key: 'core.confirm.delete_designer_component' }).then(function (ok) {
-        if (!ok) return;
-        fetch('/admin/designer/component/' + compId + '/delete', { method: 'POST' })
-          .then(function (r) { return r.json(); }).then(function (data) {
-          const el = document.getElementById('comp-' + compId);
-          if (el) el.remove();
-          const removed = (data && data.deleted_ids) || [compId];
-          removed.forEach(function (rid) {
-            const rel = document.getElementById('comp-' + rid);
-            if (rel) rel.remove();
-          });
-          componentsData = componentsData.filter(function (c) { return removed.indexOf(c.id) === -1; });
-          renderLayers();
-          propertiesPanel.innerHTML = 'Selecione um componente no canvas.';
-        });
-      });
-    });
-  }
-
-  canvas.addEventListener('mousedown', function () { selectComponent(null); propertiesPanel.innerHTML = 'Selecione um componente no canvas.'; });
-
-  document.querySelectorAll('[data-add-type]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      fetch('/admin/designer/' + PAGE_ID + '/components', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: btn.getAttribute('data-add-type') }),
-      }).then(function (r) { return r.json(); }).then(function (data) {
-        if (data.success) {
-          componentsData.push(data.component);
-          renderComponent(data.component);
-          renderLayers();
-          selectComponent(data.component.id);
-        } else {
-          window.__tesseractToast && window.__tesseractToast.show(data.error || 'Falha ao adicionar.', 'error');
-        }
-      });
-    });
-  });
-
-  // Soltar um componente aninhado numa area livre do canvas devolve
-  // ele pra raiz (fora de qualquer contedor).
-  canvas.addEventListener('dragover', function (e) {
-    if (dragSourceId !== null) e.preventDefault();
-  });
-  canvas.addEventListener('drop', function (e) {
-    if (dragSourceId === null) return;
-    if (e.target.closest && e.target.closest('.dsg-slot')) return; // slot trata
+  // Tab dentro do editor insere indentacao em vez de pular o foco.
+  document.getElementById('contentHtml').addEventListener('keydown', function (e) {
+    if (e.key !== 'Tab') return;
     e.preventDefault();
-    const comp = componentsData.find(function (c) { return c.id === dragSourceId; });
-    if (comp && comp.parent_id) {
-      moveComponentTo(dragSourceId, null, childrenOf(null).length);
-    }
-    dragSourceId = null;
+    const start = this.selectionStart, end = this.selectionEnd;
+    this.value = this.value.substring(0, start) + '  ' + this.value.substring(end);
+    this.selectionStart = this.selectionEnd = start + 2;
   });
-
-  document.querySelectorAll('.dsg-collapse-head').forEach(function (head) {
-    head.addEventListener('click', function () {
-      const body = document.getElementById(head.getAttribute('data-collapse-target'));
-      if (!body) return;
-      body.classList.toggle('dsg-collapsed');
-      head.classList.toggle('collapsed');
-    });
-  });
-
-  // Fase 11, Patch 2: so os componentes de RAIZ vao direto pro canvas;
-  // os aninhados sao desenhados dentro do slot do pai por renderComponent.
-  // Nao usar `.forEach(renderComponent)`: forEach passa
-    // (item, indice, array), entao a partir do segundo componente o
-    // indice chegava como `parentSlot` e o render estourava
-    // (`(1).appendChild`), quebrando a pagina inteira.
-    childrenOf(null).forEach(function (c) { renderComponent(c); });
-  renderLayers();
-})();
 </script>
 {% endblock %}

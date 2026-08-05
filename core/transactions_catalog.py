@@ -141,10 +141,10 @@ CORE_TRANSACTIONS = [
     },
     {
         "code": "TX_ADMIN_DESIGNER",
-        "label": "Designer Visual",
+        "label": "Páginas Customizadas",
         "parent_code": "TX_GROUP_FERRAMENTAS_DE_DESENVOLVIMENTO",
-        "description": "Montagem de telas por drag-and-drop, sem precisar do CrudGen.",
-        "icon": "bi-easel2-fill",
+        "description": "Páginas escritas à mão em HTML, podendo substituir uma tela do CrudGen no menu.",
+        "icon": "bi-file-earmark-code",
         "route": "/admin/designer",
         "permission_required": "admin",
         "is_standard": True,

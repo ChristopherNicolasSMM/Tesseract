@@ -90,7 +90,7 @@ def create_app(env: str | None = None) -> Flask:
         from model.core import user_list_preference  # noqa: F401
         from model.core import field_rule  # noqa: F401
         from model.core import odata_connection  # noqa: F401
-        from model.core import designer_page, designer_component  # noqa: F401
+        from model.core import designer_page  # noqa: F401
         from model.core import designer_data_action  # noqa: F401
         from model.core import scheduled_task, task_log, message_queue  # noqa: F401
         from model.core import model_definition, model_field_definition  # noqa: F401
