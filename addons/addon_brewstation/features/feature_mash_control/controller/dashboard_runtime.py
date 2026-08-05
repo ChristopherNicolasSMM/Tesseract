@@ -120,6 +120,45 @@ def set_value(widget_id: int):
     return jsonify({"ok": True, "mqtt_connected": result["mqtt_connected"]})
 
 
+@dashboard_runtime_bp.route("/plants/<int:plant_id>/device-status", methods=["GET"])
+@login_required
+@permission_required("dashboard_layouts.list")
+def plant_device_status(plant_id: int):
+    """Backend do widget `device_status` — inventário completo de
+    sensores/atuadores mapeados na Planta (não depende de layout_id,
+    é plant-wide, igual ao `comm-log` abaixo)."""
+    return jsonify(svc.get_plant_device_status(plant_id))
+
+
+@dashboard_runtime_bp.route("/mappings/<int:mapping_id>/set-value", methods=["POST"])
+@login_required
+@permission_required("dashboard_widgets.list")
+def mapping_set_value(mapping_id: int):
+    """Acionamento a partir de um card do widget `device_status` —
+    equivalente a `set_value()` acima, mas resolvido por
+    `BrewPlantMapping.id` em vez de `widget_id` (não existe
+    DashboardWidget por trás de um item deste painel)."""
+    payload = request.get_json(silent=True) or {}
+    result = svc.set_mapping_value(mapping_id, payload.get("value"), plant_id=payload.get("plant_id"))
+    if not result["ok"]:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
+@dashboard_runtime_bp.route("/plants/<int:plant_id>/comm-log", methods=["GET"])
+@login_required
+@permission_required("dashboard_layouts.list")
+def plant_comm_log(plant_id: int):
+    """Backend do widget `comm_log` — combina auditoria de ações
+    (BrewSessionLog) com o log MQTT bruto do addon_device_manager.
+    `action_limit`/`mqtt_limit` na querystring controlam quanto vem
+    de cada fonte (o front chama isso no próprio intervalo
+    configurável do widget, não fixo aqui)."""
+    action_limit = request.args.get("action_limit", default=100, type=int)
+    mqtt_limit = request.args.get("mqtt_limit", default=200, type=int)
+    return jsonify(svc.get_communication_log(plant_id, action_limit=action_limit, mqtt_raw_limit=mqtt_limit))
+
+
 @dashboard_runtime_bp.route("/sessions/<int:session_id>/readings", methods=["GET"])
 @login_required
 @permission_required("dashboard_layouts.list")

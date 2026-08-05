@@ -298,12 +298,35 @@ def _get_active_session_for_plant(plant_id: int) -> Optional[BrewSession]:
     )
 
 
-def set_widget_value(widget: DashboardWidget, value, *, role_key: Optional[str] = None) -> dict:
-    """
-    Aciona um atuador a partir de um clique na tela. Pra widget tipo
-    'vessel', `role_key` diz qual papel (ex.: "actor_heat") do
-    vasilhame está sendo acionado — resolvido via BrewPlantMapping,
-    igual a leitura.
+def _record_action_log(session_id: Optional[int], message: str, detail: dict) -> None:
+    """Grava 1 linha de auditoria (`BrewSessionLog`, source="user")
+    pra uma ação de acionamento manual vinda do Dashboard — achado
+    real da conversa: até esta mudança, NENHUM clique no dashboard
+    (nem no widget `vessel`, nem no `toggle`) gravava nada em lugar
+    nenhum, então uma aba de log de ações ficaria sempre vazia.
+
+    Só grava quando há uma sessão pra anexar — `BrewSessionLog.session_id`
+    é NOT NULL no schema atual (limitação aceita, não uma migration
+    nova pra isso agora). Acionamento fora de uma sessão ativa (ex.:
+    testando o hardware sem brassagem em andamento) continua
+    funcionando normalmente, só não fica registrado aqui — ainda
+    aparece no log MQTT bruto (get_communication_log)."""
+    if not session_id:
+        return
+    db.session.add(BrewSessionLog(
+        session_id=session_id, log_level="info", source="user",
+        message=message, detail_json=detail,
+    ))
+    db.session.commit()
+
+
+def _apply_actuator_value(function_name: Optional[str], value, *, session_id: Optional[int], action_label: str) -> dict:
+    """Núcleo comum de acionamento — extraído porque agora tem dois
+    pontos de entrada (`set_widget_value`, pelo widget de sempre, e
+    `set_mapping_value`, pelo widget `device_status`, que não tem
+    `DashboardWidget` por trás). Resolve o atuador, aciona via
+    `device_service.set_value()` (mesmo caminho de produção) e grava
+    auditoria só em caso de sucesso.
 
     Devolve um dict, não só bool (achado real — conversa): antes disso,
     o front nunca sabia se o comando realmente saiu pro broker MQTT ou
@@ -311,20 +334,8 @@ def set_widget_value(widget: DashboardWidget, value, *, role_key: Optional[str] 
     aplica o cache, publica no MQTT só se best-effort — nunca falha por
     causa do MQTT desligado, por design). Sem essa informação, o botão
     "acionava" visualmente mesmo com o broker desconectado, sem avisar
-    ninguém que o comando não chegou no hardware de verdade.
-    """
+    ninguém que o comando não chegou no hardware de verdade."""
     from addons.addon_device_manager.root.services import device_service, mqtt_client_service
-
-    function_name = widget.device_function_name
-    if widget.widget_type == "vessel" and widget.vessel_id:
-        if not role_key:
-            return {"ok": False, "mqtt_connected": None, "error": "Papel do atuador (role_key) não informado."}
-        mapping = BrewPlantMapping.query.filter_by(
-            vessel_id=widget.vessel_id, role_key=role_key, is_deleted=False,
-        ).first()
-        if not mapping:
-            return {"ok": False, "mqtt_connected": None, "error": "Mapeamento não encontrado pra este papel do Tanque."}
-        function_name = mapping.device_function_name
 
     if not function_name:
         return {"ok": False, "mqtt_connected": None, "error": "Este widget não tem uma function de dispositivo configurada."}
@@ -336,7 +347,137 @@ def set_widget_value(widget: DashboardWidget, value, *, role_key: Optional[str] 
     ok = device_service.set_value(external_id, value)
     mqtt_connected = mqtt_client_service.is_connected()
     error = None if ok else "Valor fora da faixa permitida pra este atuador."
+
+    if ok:
+        _record_action_log(
+            session_id,
+            f"{action_label}: acionado para {value!r}",
+            {"function_name": function_name, "value": value, "mqtt_connected": mqtt_connected},
+        )
     return {"ok": ok, "mqtt_connected": mqtt_connected, "error": error}
+
+
+def set_widget_value(widget: DashboardWidget, value, *, role_key: Optional[str] = None) -> dict:
+    """
+    Aciona um atuador a partir de um clique na tela. Pra widget tipo
+    'vessel', `role_key` diz qual papel (ex.: "actor_heat") do
+    vasilhame está sendo acionado — resolvido via BrewPlantMapping,
+    igual a leitura.
+    """
+    function_name = widget.device_function_name
+    action_label = widget.label_text or "Widget"
+    if widget.widget_type == "vessel" and widget.vessel_id:
+        if not role_key:
+            return {"ok": False, "mqtt_connected": None, "error": "Papel do atuador (role_key) não informado."}
+        mapping = BrewPlantMapping.query.filter_by(
+            vessel_id=widget.vessel_id, role_key=role_key, is_deleted=False,
+        ).first()
+        if not mapping:
+            return {"ok": False, "mqtt_connected": None, "error": "Mapeamento não encontrado pra este papel do Tanque."}
+        function_name = mapping.device_function_name
+        action_label = f"{mapping.vessel.label_text if mapping.vessel else '?'} / {mapping.label_text or mapping.role_key}"
+
+    session_id = None
+    if widget.layout.plant_id:
+        active = _get_active_session_for_plant(widget.layout.plant_id)
+        session_id = active.id if active else None
+
+    return _apply_actuator_value(function_name, value, session_id=session_id, action_label=action_label)
+
+
+def get_plant_device_status(plant_id: int) -> list[dict]:
+    """Widget `device_status` — inventário completo de sensores/
+    atuadores mapeados na Planta (todos os `BrewPlantMapping`),
+    independente de estarem desenhados como widget individual no
+    canvas. Cada item já vem com valor atual resolvido (mesma função
+    usada pelos demais widgets) + `is_risk` do ator por trás, pra
+    destacar visualmente igual ao card "risk" do device-bridge."""
+    from addons.addon_device_manager.root.services import device_service
+
+    mappings = (
+        BrewPlantMapping.query
+        .join(BrewPlantVessel, BrewPlantMapping.vessel_id == BrewPlantVessel.id)
+        .filter(
+            BrewPlantVessel.plant_id == plant_id,
+            BrewPlantMapping.is_deleted.is_(False),
+            BrewPlantVessel.is_deleted.is_(False),
+        )
+        .order_by(BrewPlantVessel.label_text, BrewPlantMapping.role_key)
+        .all()
+    )
+
+    out = []
+    for m in mappings:
+        meta = _resolve_value_and_meta(m.device_function_name)
+        external_id = device_service.find_actor_external_id_by_function_name(m.device_function_name)
+        actor_meta = device_service.get_actor_meta(external_id) if external_id else None
+        out.append({
+            "mapping_id": m.id,
+            "vessel_id": m.vessel_id,
+            "vessel_name": m.vessel.label_text if m.vessel else None,
+            "role_key": m.role_key,
+            "label": m.label_text or m.role_key,
+            "function_name": m.device_function_name,
+            "is_risk": bool(actor_meta and actor_meta.get("is_risk")),
+            **meta,
+        })
+    return out
+
+
+def set_mapping_value(mapping_id: int, value, *, plant_id: Optional[int] = None) -> dict:
+    """Acionamento a partir do widget `device_status` — não existe
+    `DashboardWidget` por trás (é plant-wide), então resolve direto
+    pelo `BrewPlantMapping.id` em vez de um `widget_id`. `plant_id` é
+    opcional (o front já sabe qual planta é o card) — se omitido,
+    resolve pelo próprio mapping."""
+    mapping = BrewPlantMapping.query.get(mapping_id)
+    if not mapping or mapping.is_deleted:
+        return {"ok": False, "mqtt_connected": None, "error": "Mapeamento não encontrado."}
+
+    resolved_plant_id = plant_id or (mapping.vessel.plant_id if mapping.vessel else None)
+    session_id = None
+    if resolved_plant_id:
+        active = _get_active_session_for_plant(resolved_plant_id)
+        session_id = active.id if active else None
+
+    action_label = f"{mapping.vessel.label_text if mapping.vessel else '?'} / {mapping.label_text or mapping.role_key}"
+    return _apply_actuator_value(mapping.device_function_name, value, session_id=session_id, action_label=action_label)
+
+
+def get_communication_log(plant_id: int, action_limit: int = 100, mqtt_raw_limit: int = 200) -> dict:
+    """Widget `comm_log` — duas fontes independentes, devolvidas
+    separadas (formatos diferentes, não vale a pena intercalar por
+    timestamp aqui): `actions` é a auditoria de acionamento manual
+    (`BrewSessionLog` source="user", de todas as sessões desta
+    Planta) e `mqtt_raw` são as últimas linhas cruas do log de
+    integração do `addon_device_manager` — esse log não é segmentado
+    por Planta hoje (é global ao broker/processo), então vem inteiro,
+    sem filtro."""
+    from addons.addon_device_manager.root.services import integration_logger
+
+    session_ids = [
+        row[0] for row in
+        db.session.query(BrewSession.id).filter_by(plant_id=plant_id, is_deleted=False).all()
+    ]
+    actions = []
+    if session_ids:
+        logs = (
+            BrewSessionLog.query
+            .filter(
+                BrewSessionLog.session_id.in_(session_ids),
+                BrewSessionLog.source == "user",
+                BrewSessionLog.is_deleted.is_(False),
+            )
+            .order_by(BrewSessionLog.created_at.desc())
+            .limit(action_limit)
+            .all()
+        )
+        actions = [log.to_dict() for log in logs]
+
+    return {
+        "actions": actions,
+        "mqtt_raw": integration_logger.tail_integration_log(mqtt_raw_limit),
+    }
 
 
 def get_session_readings(session_id: int, function_name: str, window_minutes: int = 60) -> dict:
@@ -370,7 +511,14 @@ def get_session_readings(session_id: int, function_name: str, window_minutes: in
 # ── Editor visual (conversa — CraftBeerPi como referência): modo edição,   ──
 # ── arrastar/redimensionar, botão direito (configurações/remover), pipes  ──
 
-_VALID_WIDGET_TYPES = ("vessel", "toggle", "gauge", "digital", "alarm_list", "chart", "step_card", "text", "image")
+_VALID_WIDGET_TYPES = (
+    "vessel", "toggle", "gauge", "digital", "alarm_list", "chart", "step_card", "text", "image",
+    # Novos (conversa — painel de status + log de comunicação): ao
+    # contrário dos demais, não têm vessel_id/device_function_name —
+    # são plant-wide (leem tudo da Planta do layout), resolvidos por
+    # função própria em vez do snapshot por-widget genérico.
+    "device_status", "comm_log",
+)
 _VALID_SVG_SHAPES = ("mash_tun", "boil_kettle", "hlt", "fermenter", "whirlpool", "generic")
 
 

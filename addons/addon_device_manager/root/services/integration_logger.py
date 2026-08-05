@@ -82,6 +82,46 @@ def get_integration_logger() -> logging.Logger:
     return _logger
 
 
+def _resolve_log_path() -> Path | None:
+    """Recalcula o caminho do arquivo de log a partir do manifesto,
+    sem depender do logger singleton já estar inicializado — usado só
+    por `tail_integration_log()` (leitura), separado de
+    `get_integration_logger()` (escrita) pra não forçar criação do
+    handler/arquivo só porque alguém foi ler."""
+    config = _load_manifest_logging_config()
+    if not config.get("integration_log_enabled", True):
+        return None
+    addon_root = Path(__file__).resolve().parents[2]
+    log_path_relative = config.get("integration_log_path", "logs/integration.log")
+    return addon_root / log_path_relative
+
+
+def tail_integration_log(max_lines: int = 200) -> list[str]:
+    """
+    Últimas `max_lines` linhas do log de integração local — ponto de
+    acesso público pra outro Addon (ex.: widget `comm_log` do
+    Dashboard em feature_mash_control) ler o conteúdo sem tocar no
+    caminho do arquivo diretamente (skill 02: fronteira por service,
+    nunca por caminho hardcoded fora deste módulo).
+
+    Só lê o arquivo atual (nunca os rotacionados .1/.2/...) — suficiente
+    para "visão recente" (o caso de uso do widget), evita o custo de
+    reabrir histórico grande a cada poll. Se o logging estiver
+    desabilitado no manifesto ou o arquivo ainda não existir, devolve
+    lista vazia (nunca lança erro — mesmo espírito defensivo do
+    logger em si).
+    """
+    log_path = _resolve_log_path()
+    if not log_path or not log_path.exists():
+        return []
+    try:
+        with log_path.open("r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+    except OSError:
+        return []
+    return [line.rstrip("\n") for line in lines[-max_lines:]]
+
+
 def reset_for_tests() -> None:
     """
     Só para a suíte de testes: descarta o logger singleton (e seus

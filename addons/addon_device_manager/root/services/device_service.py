@@ -67,6 +67,29 @@ def _resolve_actor(identifier: str) -> DeviceActor | None:
     return actor
 
 
+def get_actor_meta(identifier: str) -> dict | None:
+    """
+    Metadado leve de um DeviceActor (nunca o objeto ORM) — hoje usado
+    pelo widget `device_status` do Dashboard (feature_mash_control)
+    pra decidir se destaca um card como "risco" (is_risk), o mesmo
+    campo que o LWT agregado consulta em mqtt_client_service.py.
+    Deliberadamente um subconjunto de to_dict() (não o dict inteiro)
+    — mantém a API pública deste módulo mínima (decisão 2.2 do
+    documento de arquitetura), cresce só quando outro consumidor real
+    precisar de mais campo.
+    """
+    actor = _resolve_actor(identifier)
+    if actor is None:
+        return None
+    return {
+        "external_id": actor.external_id,
+        "name": actor.name,
+        "actor_type": actor.actor_type,
+        "is_risk": actor.is_risk,
+        "failsafe_value": actor.failsafe_value,
+    }
+
+
 def find_actor_external_id_by_function_name(function_name: str) -> str | None:
     """
     Resolve o external_id do primeiro DeviceActor ativo cuja

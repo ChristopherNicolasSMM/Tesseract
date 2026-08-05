@@ -1980,3 +1980,115 @@ def test_set_widget_value_sem_function_devolve_erro_descritivo(app):
         assert result["ok"] is False
         assert result["error"]
         assert result["mqtt_connected"] is None
+
+
+# ── Auditoria de acionamento (BrewSessionLog source="user") — conversa ──────
+
+def test_set_widget_value_grava_auditoria_com_sessao_ativa(app):
+    with app.app_context():
+        plant, vessel, mapping = _criar_plant_vessel_mapping(role_key="actor_heat", function_name="resistencia_audit")
+        _criar_actor(name="resistencia_audit_actor", function_name="resistencia_audit", category="actuator", actor_type="actuator")
+        session = BrewSession(name="Sessão Auditoria", plant_id=plant.id, status="active")
+        db.session.add(session)
+        db.session.commit()
+
+        layout = DashboardLayout(name="L Audit", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="vessel", vessel_id=vessel.id)
+        db.session.add(widget)
+        db.session.commit()
+
+        result = svc.set_widget_value(widget, True, role_key="actor_heat")
+        assert result["ok"] is True
+
+        logs = BrewSessionLog.query.filter_by(session_id=session.id, source="user").all()
+        assert len(logs) == 1
+        assert logs[0].detail_json["function_name"] == "resistencia_audit"
+        assert logs[0].detail_json["value"] is True
+
+
+def test_set_widget_value_nao_grava_auditoria_sem_sessao_ativa(app):
+    with app.app_context():
+        plant, vessel, mapping = _criar_plant_vessel_mapping(role_key="actor_heat", function_name="resistencia_sem_sessao")
+        _criar_actor(name="resistencia_sem_sessao_actor", function_name="resistencia_sem_sessao", category="actuator", actor_type="actuator")
+
+        layout = DashboardLayout(name="L Sem Sessao", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="vessel", vessel_id=vessel.id)
+        db.session.add(widget)
+        db.session.commit()
+
+        result = svc.set_widget_value(widget, True, role_key="actor_heat")
+        assert result["ok"] is True
+        # sem sessão ativa pra planta -> não existe onde anexar o log (session_id NOT NULL)
+        assert BrewSessionLog.query.filter_by(source="user").count() == 0
+
+
+# ── Painel de status (widget device_status) — conversa ──────────────────────
+
+def test_get_plant_device_status_lista_todos_os_mappings(app):
+    with app.app_context():
+        plant, vessel, mapping = _criar_plant_vessel_mapping(role_key="sensor_temp", function_name="mash_temp_status")
+        _criar_actor(name="mash_temp_status_sensor", function_name="mash_temp_status", category="sensor", actor_type="sensor")
+        second_mapping = BrewPlantMapping(vessel_id=vessel.id, role_key="actor_heat", device_function_name="heater_status")
+        db.session.add(second_mapping)
+        db.session.commit()
+        _criar_actor(name="heater_status_actor", function_name="heater_status", category="actuator", actor_type="actuator")
+        device_service.set_value("heater_status_actor", True)
+
+        status = svc.get_plant_device_status(plant.id)
+        assert len(status) == 2
+        by_role = {item["role_key"]: item for item in status}
+        assert by_role["actor_heat"]["value"] is True
+        assert by_role["actor_heat"]["vessel_name"] == vessel.label_text
+        assert "is_risk" in by_role["sensor_temp"]
+
+
+def test_set_mapping_value_aciona_e_audita(app):
+    with app.app_context():
+        plant, vessel, mapping = _criar_plant_vessel_mapping(role_key="actor_heat", function_name="resistencia_mapping")
+        _criar_actor(name="resistencia_mapping_actor", function_name="resistencia_mapping", category="actuator", actor_type="actuator")
+        session = BrewSession(name="Sessão Mapping", plant_id=plant.id, status="active")
+        db.session.add(session)
+        db.session.commit()
+
+        result = svc.set_mapping_value(mapping.id, True)
+        assert result["ok"] is True
+        assert device_service.get_value("resistencia_mapping_actor") is True
+        assert BrewSessionLog.query.filter_by(session_id=session.id, source="user").count() == 1
+
+
+def test_set_mapping_value_mapping_inexistente_falha(app):
+    with app.app_context():
+        result = svc.set_mapping_value(99999, True)
+        assert result["ok"] is False
+        assert result["error"]
+
+
+# ── Log de comunicação (widget comm_log) — conversa ──────────────────────────
+
+def test_get_communication_log_combina_acoes_e_mqtt_raw(app):
+    with app.app_context():
+        plant, vessel, mapping = _criar_plant_vessel_mapping(role_key="actor_heat", function_name="resistencia_log")
+        _criar_actor(name="resistencia_log_actor", function_name="resistencia_log", category="actuator", actor_type="actuator")
+        session = BrewSession(name="Sessão Log", plant_id=plant.id, status="active")
+        db.session.add(session)
+        db.session.commit()
+
+        svc.set_mapping_value(mapping.id, True)
+
+        result = svc.get_communication_log(plant.id)
+        assert len(result["actions"]) == 1
+        assert result["actions"][0]["source"] == "user"
+        # sem broker MQTT real no teste, o arquivo de integração pode nem
+        # existir ainda — só garante que a chave sempre vem como lista
+        assert isinstance(result["mqtt_raw"], list)
+
+
+def test_get_communication_log_planta_sem_sessao_devolve_actions_vazio(app):
+    with app.app_context():
+        plant, vessel, mapping = _criar_plant_vessel_mapping(role_key="actor_heat", function_name="resistencia_log2")
+        result = svc.get_communication_log(plant.id)
+        assert result["actions"] == []
