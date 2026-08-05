@@ -1,0 +1,19 @@
+{% extends "core/base.html" %}
+{% block title %}{{ page.title or page.name }} - Tesseract{% endblock %}
+
+{% block content %}
+<div class="pagetitle">
+  <h1>{{ page.title or page.name }}</h1>
+</div>
+
+<section class="section">
+  {#- Fase 12: o corpo da pagina e HTML escrito a mao pelo administrador,
+      renderizado como confiavel. NUNCA passar por render_template_string:
+      renderizar Jinja vindo do banco e injecao de template (SSTI), que na
+      pratica vira execucao de codigo no servidor mesmo restrito a admin.
+      Para dado dinamico, a pagina usa JavaScript chamando as Acoes de Dado
+      (POST /admin/designer/data-action/<id>/execute). -#}
+        <h1>Conteúdo da Página - Teste</h1>
+  {{ page.content_html | safe }}
+</section>
+{% endblock %}
