@@ -198,3 +198,38 @@ def test_substituicao_de_menu_continua_funcionando(app, client):
         slug = DesignerPage.query.get(page_id).slug
         tx = Transaction.query.filter_by(permission_required="yeast_strains.list").first()
         assert tx.route == f"/designer/{slug}"
+
+
+# ── guarda de boot com migration pendente ─────────────────────────────
+
+def test_resolver_de_menu_tolera_schema_desatualizado(app):
+    """ACHADO REAL (repetido): `run.py` usa FlaskGroup, então
+    `create_app()` — com todos os seeds e resolvers de boot — roda ANTES
+    de qualquer subcomando `flask db ...`, inclusive `db upgrade`. Numa
+    instalação existente com a migration da Fase 12 pendente, a coluna
+    `content_html` ainda não existe, e sem esta guarda o boot inteiro
+    quebrava — impedindo justamente o `flask db upgrade` que criaria a
+    coluna (galinha e ovo). Mesma guarda já aplicada em
+    core/odata_local_seed.py.
+    """
+    from sqlalchemy.exc import OperationalError
+    from core import designer_menu_override
+
+    class _PaginaComSchemaAntigo:
+        class query:
+            @staticmethod
+            def filter_by(**kwargs):
+                raise OperationalError(
+                    "SELECT content_html FROM tesseract_designer_page", {},
+                    Exception("no such column: tesseract_designer_page.content_html"),
+                )
+
+    original = designer_menu_override.DesignerPage
+    designer_menu_override.DesignerPage = _PaginaComSchemaAntigo
+    try:
+        with app.app_context():
+            # não pode levantar: se levantar, o boot morre e o usuário
+            # nunca consegue rodar a migration que corrige o schema.
+            designer_menu_override.resolve_designer_page_menu_overrides()
+    finally:
+        designer_menu_override.DesignerPage = original

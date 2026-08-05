@@ -38,6 +38,8 @@ import logging
 
 from flask import current_app
 
+from sqlalchemy.exc import OperationalError, ProgrammingError
+
 from core.db import db
 from model.core.designer_page import DesignerPage
 from model.core.transaction import Transaction
@@ -50,9 +52,31 @@ def resolve_designer_page_menu_overrides() -> None:
 
     current_app.module_manager.sync_all_transactions()
     sync_core_transactions()
+    # Commit antes de consultar DesignerPage: se a consulta falhar (ver
+    # guarda abaixo), o rollback nao pode levar junto o resync de
+    # Transacao, que e independente e sempre valido.
+    db.session.commit()
 
     applied = []
-    pages = DesignerPage.query.filter_by(is_published=True, replace_in_menu=True).all()
+    try:
+        pages = DesignerPage.query.filter_by(is_published=True, replace_in_menu=True).all()
+    except (OperationalError, ProgrammingError):
+        # ACHADO REAL, repetido: `run.py` usa FlaskGroup, entao
+        # `create_app()` - com todos os seeds e resolvers de boot, este
+        # incluido - roda ANTES de qualquer subcomando `flask db ...`,
+        # inclusive `db upgrade`. Numa instalacao existente com uma
+        # migration pendente que mexe em tesseract_designer_page (ex.:
+        # content_html, Fase 12), a coluna ainda nao existe neste
+        # instante e o boot inteiro quebrava - impedindo justamente o
+        # `flask db upgrade` que criaria a coluna (galinha e ovo).
+        # Mesma guarda ja aplicada em core/odata_local_seed.py.
+        db.session.rollback()
+        logger.warning(
+            "Schema de tesseract_designer_page desatualizado (migration "
+            "pendente) - substituicao de menu por DesignerPage adiada. "
+            "Rode `flask db upgrade`; o proximo boot aplica normalmente."
+        )
+        return
     for page in pages:
         if not page.replaces_entity_key or page.replaces_view != "manage":
             continue
