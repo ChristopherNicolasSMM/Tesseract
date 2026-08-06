@@ -1,13 +1,507 @@
-{#- Placeholder — conteúdo real entregue no próximo patch da série
-    freestyle. A rota existe desde já para o índice não ter link morto. -#}
+{#-
+  MODELO COMPLETO — galeria dos componentes do NiceAdmin adaptados ao
+  Tesseract. Cada seção é independente: copie só o bloco que precisar.
+
+  ORGANIZAÇÃO
+    Este arquivo tem só ESTRUTURA (HTML). Comportamento fica em
+    static/js/freestyle/, um arquivo por responsabilidade:
+      model_full-graficos.js     inicialização dos gráficos
+      model_full-tabelas.js      datatable, ordenação, seleção
+      model_full-formularios.js  validação, máscaras, contadores
+      model_full-interacoes.js   modal, tooltip, progresso, confirmação
+
+  BIBLIOTECAS
+    O layout já carrega Bootstrap, Bootstrap Icons, Boxicons, ApexCharts
+    e Simple DataTables. ECharts e Quill NÃO são carregados por padrão —
+    entram no bloco extra_js/extra_css desta página. Só carregue o que
+    a sua tela realmente usa; cada lib é peso extra em toda visita.
+-#}
 {% extends "core/base.html" %}
-{% block title %}Modelo - Tesseract{% endblock %}
+{% block title %}Modelo Completo - Tesseract{% endblock %}
+
+{% block extra_css %}
+{#- Quill (editor de texto) traz CSS próprio. -#}
+<link href="{{ url_for('static', filename='vendor/quill/quill.snow.css') }}" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
-<div class="pagetitle"><h1>Em construção</h1></div>
+<div class="pagetitle">
+  <h1>Modelo Completo</h1>
+  <nav>
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('freestyle.home') }}">Modelos Freestyle</a></li>
+      <li class="breadcrumb-item active">Completo</li>
+    </ol>
+  </nav>
+</div>
+
 <section class="section">
-  <div class="alert alert-warning">
-    Este modelo ainda não foi escrito. Veja
-    <a href="{{ url_for('freestyle.home') }}">os modelos disponíveis</a>.
+
+  {#- Índice interno: a página é longa; sem isto o dev rola no escuro. -#}
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Nesta página</h5>
+      <div class="row">
+        <div class="col-md-4"><a href="#sec-indicadores">1. Indicadores</a></div>
+        <div class="col-md-4"><a href="#sec-alertas">2. Alertas, selos e progresso</a></div>
+        <div class="col-md-4"><a href="#sec-tabelas">3. Tabelas</a></div>
+        <div class="col-md-4"><a href="#sec-formularios">4. Formulários</a></div>
+        <div class="col-md-4"><a href="#sec-navegacao">5. Navegação e agrupamento</a></div>
+        <div class="col-md-4"><a href="#sec-interacoes">6. Modal, tooltip e confirmação</a></div>
+        <div class="col-md-4"><a href="#sec-graficos">7. Gráficos</a></div>
+        <div class="col-md-4"><a href="#sec-editor">8. Editor de texto</a></div>
+      </div>
+    </div>
   </div>
+
+  {#- ═══ 1. INDICADORES ══════════════════════════════════════════════
+      `info-card` é a variação do NiceAdmin. As classes de cor
+      (sales-card / revenue-card / customers-card) mudam só o círculo
+      do ícone. O <span> dentro do card-title é o período/contexto. -#}
+  <h4 id="sec-indicadores" class="mt-4">1. Indicadores</h4>
+  <div class="row">
+    {% for ind in [
+      {'titulo': 'Vendas',  'contexto': 'Hoje',     'valor': '145', 'icone': 'bi-cart',        'classe': 'sales-card'},
+      {'titulo': 'Receita', 'contexto': 'Mês',      'valor': 'R$ 3.264', 'icone': 'bi-currency-dollar', 'classe': 'revenue-card'},
+      {'titulo': 'Clientes','contexto': 'Ano',      'valor': '1.244', 'icone': 'bi-people',     'classe': 'customers-card'}
+    ] %}
+    <div class="col-xxl-4 col-md-6">
+      <div class="card info-card {{ ind.classe }}">
+        <div class="card-body">
+          <h5 class="card-title">{{ ind.titulo }} <span>| {{ ind.contexto }}</span></h5>
+          <div class="d-flex align-items-center">
+            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+              <i class="bi {{ ind.icone }}"></i>
+            </div>
+            <div class="ps-3">
+              <h6>{{ ind.valor }}</h6>
+              <span class="text-success small pt-1 fw-bold">12%</span>
+              <span class="text-muted small pt-2 ps-1">a mais</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {#- ═══ 2. ALERTAS, SELOS E PROGRESSO ══════════════════════════════ -#}
+  <h4 id="sec-alertas" class="mt-4">2. Alertas, selos e progresso</h4>
+  <div class="row">
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Alertas</h5>
+          {#- `alert-dismissible fade show` + botão .btn-close = alerta
+              que o usuário fecha. Sem eles, o alerta é permanente. -#}
+          <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-1"></i> Operação concluída.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+          <div class="alert alert-warning" role="alert">
+            <i class="bi bi-exclamation-triangle me-1"></i> Atenção: estoque baixo.
+          </div>
+          <div class="alert alert-danger" role="alert">
+            <i class="bi bi-x-circle me-1"></i> Falha ao processar.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Selos</h5>
+          <p>
+            <span class="badge bg-primary">Primário</span>
+            <span class="badge bg-success">Sucesso</span>
+            <span class="badge bg-warning text-dark">Pendente</span>
+            <span class="badge bg-danger">Erro</span>
+            {#- `rounded-pill` para contadores; `bg-*-subtle` para tom suave. -#}
+            <span class="badge rounded-pill bg-secondary">42</span>
+          </p>
+
+          <h5 class="card-title">Progresso</h5>
+          {#- O valor visual está em `style="width"`; os aria-* são para
+              leitores de tela. Manter os dois em sincronia. -#}
+          <div class="progress mb-2">
+            <div class="progress-bar" role="progressbar" style="width: 25%"
+                 aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">25%</div>
+          </div>
+          <div class="progress mb-2">
+            <div class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+                 role="progressbar" style="width: 60%" data-progresso-animado>60%</div>
+          </div>
+
+          <h5 class="card-title">Carregando</h5>
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Carregando…</span>
+          </div>
+          <div class="spinner-grow text-secondary" role="status">
+            <span class="visually-hidden">Carregando…</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {#- ═══ 3. TABELAS ═════════════════════════════════════════════════ -#}
+  <h4 id="sec-tabelas" class="mt-4">3. Tabelas</h4>
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Tabela simples</h5>
+      {#- `table-responsive` no container evita quebra em tela estreita. -#}
+      <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle">
+          <thead><tr><th>#</th><th>Nome</th><th>Status</th><th class="text-end">Valor</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">1</th><td>Item A</td><td><span class="badge bg-success">Ativo</span></td><td class="text-end">R$ 120,00</td></tr>
+            <tr><th scope="row">2</th><td>Item B</td><td><span class="badge bg-secondary">Inativo</span></td><td class="text-end">R$ 80,50</td></tr>
+            <tr><th scope="row">3</th><td>Item C</td><td><span class="badge bg-warning text-dark">Pendente</span></td><td class="text-end">R$ 240,00</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Tabela com busca, ordenação e paginação</h5>
+      <p class="small text-muted">
+        Simple DataTables (já carregado pelo layout). Ele é inicializado pelo JS
+        desta página — <strong>não</strong> automaticamente pela classe.
+      </p>
+      {#- `data-datatable` marca a tabela; o JS acha por este atributo.
+          Para dado de servidor, popule o <tbody> ANTES de inicializar,
+          senão a lib indexa uma tabela vazia. -#}
+      <table class="table table-borderless" data-datatable>
+        <thead><tr><th>Nome</th><th>Categoria</th><th>Status</th><th>Data</th></tr></thead>
+        <tbody>
+          <tr><td>Alfa</td><td>Insumo</td><td>Ativo</td><td>2026-01-15</td></tr>
+          <tr><td>Bravo</td><td>Equipamento</td><td>Ativo</td><td>2026-02-03</td></tr>
+          <tr><td>Charlie</td><td>Insumo</td><td>Inativo</td><td>2026-02-20</td></tr>
+          <tr><td>Delta</td><td>Serviço</td><td>Ativo</td><td>2026-03-11</td></tr>
+          <tr><td>Echo</td><td>Equipamento</td><td>Pendente</td><td>2026-03-28</td></tr>
+          <tr><td>Foxtrot</td><td>Insumo</td><td>Ativo</td><td>2026-04-02</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {#- ═══ 4. FORMULÁRIOS ═════════════════════════════════════════════ -#}
+  <h4 id="sec-formularios" class="mt-4">4. Formulários</h4>
+  <div class="row">
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Tipos de campo</h5>
+
+          <div class="row mb-3">
+            <label class="col-sm-4 col-form-label">Texto</label>
+            <div class="col-sm-8"><input type="text" class="form-control" placeholder="Digite…"></div>
+          </div>
+          <div class="row mb-3">
+            <label class="col-sm-4 col-form-label">E-mail</label>
+            <div class="col-sm-8"><input type="email" class="form-control" placeholder="nome@exemplo.com"></div>
+          </div>
+          <div class="row mb-3">
+            <label class="col-sm-4 col-form-label">Número</label>
+            <div class="col-sm-8"><input type="number" class="form-control" min="0" max="100" step="5"></div>
+          </div>
+          <div class="row mb-3">
+            <label class="col-sm-4 col-form-label">Data</label>
+            <div class="col-sm-8"><input type="date" class="form-control"></div>
+          </div>
+          <div class="row mb-3">
+            <label class="col-sm-4 col-form-label">Cor</label>
+            <div class="col-sm-8"><input type="color" class="form-control form-control-color" value="#4154f1"></div>
+          </div>
+          <div class="row mb-3">
+            <label class="col-sm-4 col-form-label">Arquivo</label>
+            <div class="col-sm-8"><input type="file" class="form-control"></div>
+          </div>
+          <div class="row mb-3">
+            <label class="col-sm-4 col-form-label">Faixa</label>
+            <div class="col-sm-8"><input type="range" class="form-range" min="0" max="100" data-faixa></div>
+          </div>
+          <div class="row mb-3">
+            <label class="col-sm-4 col-form-label">Seleção</label>
+            <div class="col-sm-8">
+              <select class="form-select"><option>Opção 1</option><option>Opção 2</option></select>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <label class="col-sm-4 col-form-label">Múltipla</label>
+            <div class="col-sm-8">
+              <select class="form-select" multiple><option>Opção 1</option><option>Opção 2</option><option>Opção 3</option></select>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <label class="col-sm-4 col-form-label">Texto longo</label>
+            <div class="col-sm-8">
+              {#- data-contador liga o contador de caracteres do JS. -#}
+              <textarea class="form-control" rows="3" maxlength="200" data-contador></textarea>
+              <div class="form-text"><span data-contador-alvo>0</span>/200</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Marcação e agrupamento</h5>
+
+          <div class="row mb-3">
+            <legend class="col-form-label col-sm-4 pt-0">Caixas</legend>
+            <div class="col-sm-8">
+              <div class="form-check"><input class="form-check-input" type="checkbox" id="chk1" checked>
+                <label class="form-check-label" for="chk1">Marcada</label></div>
+              <div class="form-check"><input class="form-check-input" type="checkbox" id="chk2">
+                <label class="form-check-label" for="chk2">Desmarcada</label></div>
+              <div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="sw1" checked>
+                <label class="form-check-label" for="sw1">Interruptor</label></div>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <legend class="col-form-label col-sm-4 pt-0">Escolha</legend>
+            <div class="col-sm-8">
+              {#- Mesmo `name` = grupo exclusivo. Nomes diferentes fazem
+                  cada rádio virar um grupo de um só, e todos ficam
+                  marcáveis ao mesmo tempo — erro comum. -#}
+              <div class="form-check"><input class="form-check-input" type="radio" name="opc" id="r1" checked>
+                <label class="form-check-label" for="r1">Primeira</label></div>
+              <div class="form-check"><input class="form-check-input" type="radio" name="opc" id="r2">
+                <label class="form-check-label" for="r2">Segunda</label></div>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <label class="col-sm-4 col-form-label">Com prefixo</label>
+            <div class="col-sm-8">
+              <div class="input-group">
+                <span class="input-group-text">R$</span>
+                <input type="text" class="form-control" placeholder="0,00">
+                <span class="input-group-text">,00</span>
+              </div>
+            </div>
+          </div>
+
+          <h5 class="card-title">Validação</h5>
+          <p class="small text-muted">
+            <code>novalidate</code> desliga a validação nativa do navegador para
+            usar a do Bootstrap, que respeita o tema. O JS aplica
+            <code>was-validated</code> no envio.
+          </p>
+          <form class="row g-3 needs-validation" novalidate data-form-validado>
+            <div class="col-md-6">
+              <label class="form-label">Nome (obrigatório)</label>
+              <input type="text" class="form-control" required>
+              <div class="invalid-feedback">Informe o nome.</div>
+              <div class="valid-feedback">Certo!</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">E-mail (obrigatório)</label>
+              <input type="email" class="form-control" required>
+              <div class="invalid-feedback">Informe um e-mail válido.</div>
+            </div>
+            <div class="col-12">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="aceite" required>
+                <label class="form-check-label" for="aceite">Aceito os termos</label>
+                <div class="invalid-feedback">É preciso aceitar.</div>
+              </div>
+            </div>
+            <div class="col-12"><button class="btn btn-primary" type="submit">Enviar</button></div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {#- ═══ 5. NAVEGAÇÃO E AGRUPAMENTO ═════════════════════════════════ -#}
+  <h4 id="sec-navegacao" class="mt-4">5. Navegação e agrupamento</h4>
+  <div class="row">
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-body pt-3">
+          <h5 class="card-title">Abas</h5>
+          <p class="small text-muted">
+            Variações completas (com ícone, verticais, estado na URL) em
+            <a href="{{ url_for('freestyle.abas') }}">/freestyle/abas</a>.
+          </p>
+          <ul class="nav nav-tabs nav-tabs-bordered">
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#full-t1">Um</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#full-t2">Dois</button></li>
+          </ul>
+          <div class="tab-content pt-2">
+            <div class="tab-pane fade show active" id="full-t1"><p>Painel um.</p></div>
+            <div class="tab-pane fade" id="full-t2"><p>Painel dois.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Sanfona</h5>
+          {#- `data-bs-parent` faz um item fechar ao abrir outro.
+              Sem ele, vários ficam abertos ao mesmo tempo. -#}
+          <div class="accordion" id="sanfona">
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button" data-bs-toggle="collapse" data-bs-target="#sanfona-1">
+                  Primeiro item
+                </button>
+              </h2>
+              <div id="sanfona-1" class="accordion-collapse collapse show" data-bs-parent="#sanfona">
+                <div class="accordion-body">Conteúdo do primeiro item.</div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#sanfona-2">
+                  Segundo item
+                </button>
+              </h2>
+              <div id="sanfona-2" class="accordion-collapse collapse" data-bs-parent="#sanfona">
+                <div class="accordion-body">Conteúdo do segundo item.</div>
+              </div>
+            </div>
+          </div>
+
+          <h5 class="card-title">Lista</h5>
+          <ul class="list-group">
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              Item com contador <span class="badge bg-primary rounded-pill">14</span>
+            </li>
+            <li class="list-group-item">Item simples</li>
+          </ul>
+
+          <h5 class="card-title">Paginação</h5>
+          <nav>
+            <ul class="pagination">
+              <li class="page-item disabled"><a class="page-link" href="#">Anterior</a></li>
+              <li class="page-item active"><a class="page-link" href="#">1</a></li>
+              <li class="page-item"><a class="page-link" href="#">2</a></li>
+              <li class="page-item"><a class="page-link" href="#">Próxima</a></li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {#- ═══ 6. MODAL, TOOLTIP E CONFIRMAÇÃO ════════════════════════════ -#}
+  <h4 id="sec-interacoes" class="mt-4">6. Modal, tooltip e confirmação</h4>
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Interações</h5>
+
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal-exemplo">Abrir modal</button>
+
+      {#- Tooltip precisa ser INICIALIZADO por JS (ver
+          model_full-interacoes.js) — só o atributo não basta. -#}
+      <button class="btn btn-outline-secondary" data-bs-toggle="tooltip" title="Dica ao passar o mouse">
+        Com tooltip
+      </button>
+
+      {#- Diálogo padrão do Tesseract (skill 15), não o confirm() nativo:
+          respeita o tema e é consistente com o resto do sistema. -#}
+      <button class="btn btn-outline-danger" data-acao="confirmar-exclusao">Excluir (com confirmação)</button>
+
+      <button class="btn btn-outline-success" data-acao="mostrar-toast">Mostrar toast</button>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modal-exemplo" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Título do modal</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body"><p>Conteúdo do modal.</p></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+          <button type="button" class="btn btn-primary">Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {#- ═══ 7. GRÁFICOS ════════════════════════════════════════════════ -#}
+  <h4 id="sec-graficos" class="mt-4">7. Gráficos</h4>
+  <div class="row">
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Linha e área (ApexCharts)</h5>
+          <p class="small text-muted">Já carregado pelo layout — nada a incluir.</p>
+          <div data-grafico="area"></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Barras (ApexCharts)</h5>
+          <div data-grafico="barras"></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Rosca (ApexCharts)</h5>
+          <div data-grafico="rosca"></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Pizza (ECharts)</h5>
+          <p class="small text-muted">
+            ECharts <strong>não</strong> vem no layout — é carregado no
+            <code>extra_js</code> desta página.
+          </p>
+          <div data-grafico-echarts="pizza" style="min-height: 320px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {#- ═══ 8. EDITOR DE TEXTO ═════════════════════════════════════════ -#}
+  <h4 id="sec-editor" class="mt-4">8. Editor de texto</h4>
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Quill</h5>
+      <p class="small text-muted">
+        Carregado no <code>extra_css</code>/<code>extra_js</code> desta página.
+        Ao salvar, envie <code>editor.root.innerHTML</code> — e trate como
+        conteúdo não confiável no servidor.
+      </p>
+      <div data-editor-quill style="min-height: 180px;">
+        <p>Conteúdo inicial do editor.</p>
+      </div>
+    </div>
+  </div>
+
 </section>
+{% endblock %}
+
+{% block extra_js %}
+{#- Bibliotecas que o layout não carrega. Só inclua o que a tela usa. -#}
+<script src="{{ url_for('static', filename='vendor/echarts/echarts.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/quill/quill.js') }}"></script>
+
+{#- Um arquivo por responsabilidade. -#}
+<script src="{{ url_for('static', filename='js/freestyle/model_full-graficos.js') }}"></script>
+<script src="{{ url_for('static', filename='js/freestyle/model_full-tabelas.js') }}"></script>
+<script src="{{ url_for('static', filename='js/freestyle/model_full-formularios.js') }}"></script>
+<script src="{{ url_for('static', filename='js/freestyle/model_full-interacoes.js') }}"></script>
 {% endblock %}

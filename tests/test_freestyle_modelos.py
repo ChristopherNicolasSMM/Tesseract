@@ -195,3 +195,103 @@ def test_sem_acao_de_dado_explica_em_vez_de_falhar(app, client):
     _login(app, client)
     body = client.get("/freestyle/consumption").data.decode()
     assert "Nenhuma Ação de Dado configurada" in body
+
+
+# ── Patch 3/3: galeria completa ───────────────────────────────────────
+
+def test_full_nao_e_mais_placeholder(app, client):
+    _login(app, client)
+    body = client.get("/freestyle/full").data.decode()
+    assert "Em construção" not in body
+    assert "Modelo Completo" in body
+
+
+@pytest.mark.parametrize("ancora", [
+    "sec-indicadores", "sec-alertas", "sec-tabelas", "sec-formularios",
+    "sec-navegacao", "sec-interacoes", "sec-graficos", "sec-editor",
+])
+def test_full_tem_as_oito_secoes(app, client, ancora):
+    _login(app, client)
+    body = client.get("/freestyle/full").data.decode()
+    assert f'id="{ancora}"' in body
+    assert f'href="#{ancora}"' in body      # índice interno da página
+
+
+def test_full_carrega_libs_que_o_layout_nao_traz(app, client):
+    """O layout traz ApexCharts e Simple DataTables; ECharts e Quill
+    não — precisam entrar no extra_js/extra_css desta página."""
+    _login(app, client)
+    body = client.get("/freestyle/full").data.decode()
+    assert "vendor/echarts/echarts.min.js" in body
+    assert "vendor/quill/quill.js" in body
+    assert "vendor/quill/quill.snow.css" in body
+
+
+@pytest.mark.parametrize("arquivo", [
+    "model_full-graficos.js", "model_full-tabelas.js",
+    "model_full-formularios.js", "model_full-interacoes.js",
+])
+def test_js_do_full_sao_servidos_e_referenciados(app, client, arquivo):
+    _login(app, client)
+    assert client.get(f"/static/js/freestyle/{arquivo}").status_code == 200
+    body = client.get("/freestyle/full").data.decode()
+    assert f"js/freestyle/{arquivo}" in body
+
+
+def test_full_nao_tem_javascript_inline():
+    """Responsabilidades separadas: o template é só estrutura; todo
+    comportamento vive em static/js/freestyle/.
+
+    Inspeciona o FONTE do template, não a resposta renderizada — o
+    layout base tem scripts inline próprios, que não são desta página.
+    """
+    import re
+    from pathlib import Path
+
+    fonte = Path("templates/core/freestyle/model_full.html").read_text(encoding="utf-8")
+    inline = re.findall(r"<script(?![^>]*\bsrc=)[^>]*>", fonte)
+    assert inline == [], f"JavaScript inline no template: {inline}"
+
+
+def test_libs_vendor_referenciadas_existem_no_disco():
+    """Um caminho de vendor errado dá 404 silencioso: a página carrega,
+    o gráfico simplesmente não aparece."""
+    from pathlib import Path
+    for caminho in ["static/vendor/echarts/echarts.min.js",
+                    "static/vendor/quill/quill.js",
+                    "static/vendor/quill/quill.snow.css"]:
+        assert Path(caminho).is_file(), caminho
+
+
+def test_graficos_respeitam_o_tema_ativo(app, client):
+    """Cor de texto fixa deixaria o gráfico ilegível num dos temas."""
+    _login(app, client)
+    js = client.get("/static/js/freestyle/model_full-graficos.js").data.decode()
+    assert "data-theme" in js
+    assert "resize" in js       # ECharts não redimensiona sozinho
+
+
+def test_tabela_do_full_e_inicializada_explicitamente(app, client):
+    _login(app, client)
+    js = client.get("/static/js/freestyle/model_full-tabelas.js").data.decode()
+    assert "simpleDatatables" in js
+    assert "datatableIniciado" in js   # guarda contra dupla inicialização
+
+
+def test_interacoes_usam_o_dialogo_padrao_nao_o_nativo(app, client):
+    """Skill 15: confirm()/alert() nativos ignoram o tema."""
+    _login(app, client)
+    js = client.get("/static/js/freestyle/model_full-interacoes.js").data.decode()
+    assert "__tesseractConfirm" in js
+    # `window.confirm(`/`window.alert(` são as formas nativas; a citação
+    # de "confirm()" em comentário é justamente o aviso de não usar.
+    assert "window.confirm(" not in js
+    assert "window.alert(" not in js
+    assert "Tooltip" in js            # tooltip exige init explícito
+
+
+def test_formularios_inicializam_o_editor(app, client):
+    _login(app, client)
+    js = client.get("/static/js/freestyle/model_full-formularios.js").data.decode()
+    assert "data-editor-quill" in js
+    assert "was-validated" in js
