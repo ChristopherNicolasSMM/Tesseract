@@ -75,6 +75,14 @@ Ordem de leitura recomendada:
     quando toca dado), Provedor OData local (`@odata_expose`,
     atalho em processo), Tier 1/2 de componente (16 tipos), e
     substituição de tela do CrudGen no menu (`replace_in_menu`).
+    **Atenção**: as seções sobre o construtor visual são histórico — ele
+    foi removido na Fase 12; ver o cabeçalho do próprio arquivo.
+18. **17-paginas-customizadas-fluxo-de-dados.md** — como uma página
+    customizada consome dado: os três caminhos (API REST do CrudGen,
+    Ação de Dado, `/api/options/`), contratos, permissão (401 vs 403),
+    segurança (SSTI, XSS no dado da API, nota sobre CSRF) e erros
+    comuns. Modelos prontos em
+    `static/modelo_paginas_nice_admin/_modelo-pagina-{basico,completo}.html`.
 
 ## Status
 

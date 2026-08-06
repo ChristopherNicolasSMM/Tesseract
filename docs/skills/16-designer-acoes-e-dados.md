@@ -20,8 +20,9 @@
 > feature — e num time onde quem monta as telas já programa, escrever
 > HTML é mais rápido e previsível. A página customizada passou a ser
 > `DesignerPage.content_html`, escrita à mão, com
-> `static/modelo_paginas_nice_admin/_modelo-pagina-customizada.html`
-> como ponto de partida.
+> `static/modelo_paginas_nice_admin/_modelo-pagina-basico.html` e
+> `_modelo-pagina-completo.html` como ponto de partida, e o fluxo de
+> consumo de dados documentado na skill 17.
 >
 > **Se um dia isso voltar**, o pré-requisito é teste de navegador
 > (Playwright ou equivalente) antes da primeira linha de canvas.

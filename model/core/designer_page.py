@@ -35,7 +35,7 @@ class DesignerPage(db.Model):
     slug = db.Column(db.String(100), nullable=False, unique=True)
 
     # Corpo da página, escrito à mão. Ver static/modelo_paginas_nice_admin/
-    # _modelo-pagina-customizada.html para o ponto de partida com os
+    # _modelo-pagina-basico.html (e o -completo.html) para o ponto de partida com os
     # componentes do NiceAdmin já no padrão do sistema.
     content_html = db.Column(db.Text, nullable=True)
 

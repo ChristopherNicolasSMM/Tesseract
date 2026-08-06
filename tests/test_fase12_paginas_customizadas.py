@@ -147,18 +147,64 @@ def test_editor_mostra_link_do_modelo_e_acoes_de_dado(app, client):
     _login_admin(app, client)
     page_id = _page(client)
     body = client.get(f"/admin/designer/{page_id}/edit").data.decode()
-    assert "_modelo-pagina-customizada.html" in body
+    assert "_modelo-pagina-basico.html" in body
+    assert "_modelo-pagina-completo.html" in body
     assert "Listar Cepas" in body
     assert "data-action/" in body
 
 
-def test_modelo_de_pagina_existe_e_e_servido(app, client):
+@pytest.mark.parametrize("arquivo,marca", [
+    ("_modelo-pagina-basico.html", "MODELO BÁSICO"),
+    ("_modelo-pagina-completo.html", "MODELO COMPLETO"),
+])
+def test_modelos_de_pagina_sao_servidos(app, client, arquivo, marca):
     _login_admin(app, client)
-    resp = client.get("/static/modelo_paginas_nice_admin/_modelo-pagina-customizada.html")
+    resp = client.get(f"/static/modelo_paginas_nice_admin/{arquivo}")
     assert resp.status_code == 200
     corpo = resp.data.decode("utf-8")
-    assert "MODELO DE PÁGINA CUSTOMIZADA" in corpo
+    assert marca in corpo
     assert "data-action" in corpo
+
+
+def test_modelo_completo_cobre_os_tres_caminhos_de_dado(app, client):
+    """O modelo completo é a referência viva da skill 17 — se um caminho
+    sair dele, a documentação passa a mentir."""
+    _login_admin(app, client)
+    corpo = client.get(
+        "/static/modelo_paginas_nice_admin/_modelo-pagina-completo.html"
+    ).data.decode("utf-8")
+
+    assert "/api/brewstation/yeast-strains" in corpo          # API REST do CrudGen
+    assert "/admin/designer/data-action/" in corpo            # Ação de Dado
+    assert "/api/options/" in corpo                           # opções de combo
+    assert "nav-tabs-bordered" in corpo                       # controle de abas
+    assert "SUA_ENTIDADE" in corpo                            # o que trocar
+
+
+def test_modelo_completo_escapa_dado_da_api(app, client):
+    """O HTML da página é confiável; o dado que volta da API não é. Sem
+    escape, um registro com <script> no nome vira XSS."""
+    _login_admin(app, client)
+    corpo = client.get(
+        "/static/modelo_paginas_nice_admin/_modelo-pagina-completo.html"
+    ).data.decode("utf-8")
+
+    assert "esc(" in corpo
+    assert "&amp;lt;" in corpo or "&lt;" in corpo
+    # nenhuma interpolação de dado da API sem passar por esc()
+    assert "${r.name}" not in corpo
+    assert "${esc(r.name)}" in corpo
+
+
+def test_skill_17_existe_e_cobre_os_tres_caminhos():
+    from pathlib import Path
+
+    doc = Path("docs/skills/17-paginas-customizadas-fluxo-de-dados.md").read_text(encoding="utf-8")
+    assert "/admin/designer/data-action/" in doc
+    assert "/api/options/" in doc
+    assert "401" in doc and "403" in doc
+    assert "SSTI" in doc
+    assert "CSRF" in doc
 
 
 # ── o que foi preservado ──────────────────────────────────────────────

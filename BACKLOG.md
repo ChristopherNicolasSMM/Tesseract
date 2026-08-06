@@ -3559,7 +3559,7 @@ telas já programa, escrever HTML é mais rápido e previsível.
 - [x] Editor virou um editor de HTML com painel de ajuda: link para o
       modelo, exemplo de chamada de Ação de Dado e a lista das Ações
       cadastradas com seus ids.
-- [x] `static/modelo_paginas_nice_admin/_modelo-pagina-customizada.html`
+- [x] `static/modelo_paginas_nice_admin/_modelo-pagina-basico.html`
       — ponto de partida com cards, tabela, formulário, abas, alertas e
       o JavaScript de consumo de Ação de Dado já montado.
 - [x] Runtime renderiza `content_html` com `|safe`, **nunca** via
@@ -3577,3 +3577,36 @@ tela do CrudGen no menu (`replace_in_menu`).
 verificação de que os módulos do construtor não importam mais, de que os
 endpoints de componente respondem 404, e de que o runtime não interpreta
 Jinja vindo do banco.
+
+
+### Fase 12 (continuação) — modelo completo e documentação do fluxo de dados
+
+- [x] `_modelo-pagina-basico.html` (renomeado do modelo original) —
+      ponto de partida enxuto.
+- [x] `_modelo-pagina-completo.html` (novo) — referência de
+      desenvolvimento com 4 abas (`nav-tabs-bordered`): lista via API
+      REST do CrudGen, a mesma entidade via Ação de Dado (com
+      `$filter`/`$top`/`$orderby`), formulário de criar/editar com
+      `<select>` populado por `/api/options/`, e indicadores derivados
+      do dado já carregado. Inclui o helper `TesseractData`, que
+      encapsula os três caminhos com tratamento de erro e distingue
+      401 (sessão) de 403 (permissão).
+- [x] **Correção de segurança no modelo**: o modelo original injetava
+      `linha.name` direto no `innerHTML`. O HTML da página é confiável
+      (escrito por admin), mas o CONTEÚDO dos registros não é — um nome
+      com `<script>` seria XSS. O modelo completo traz `esc()` e o usa
+      em toda interpolação, com teste garantindo que nenhuma
+      interpolação de dado da API escape disso.
+- [x] `docs/skills/17-paginas-customizadas-fluxo-de-dados.md` — os três
+      caminhos com tabela de escolha, diagrama de sequência (incluindo o
+      desvio em processo quando a conexão é local), contratos de
+      request/response, permissão, segurança (SSTI, XSS, e a nota de que
+      **não há CSRFProtect hoje** — se for ativado, todas as chamadas
+      POST/PUT/DELETE das páginas quebram em silêncio) e tabela de erros
+      comuns.
+- [x] Editor linka os dois modelos e aponta a skill 17.
+
+5 testes novos (16 no arquivo), incluindo verificação de que o modelo
+completo cobre os três caminhos e de que a skill 17 documenta cada um —
+se um caminho sair do modelo, a documentação passa a mentir e o teste
+quebra.

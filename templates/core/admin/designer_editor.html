@@ -60,15 +60,21 @@
             <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code> nem <code>&lt;body&gt;</code>.
             Bootstrap 5, Bootstrap Icons e o tema do Tesseract já estão carregados.
           </p>
-          <p class="small mb-2">
-            Ponto de partida com os componentes prontos (cards, tabelas, formulários,
-            abas, alertas):
-          </p>
-          <a class="btn btn-sm btn-outline-secondary w-100 mb-3"
-             href="{{ url_for('static', filename='modelo_paginas_nice_admin/_modelo-pagina-customizada.html') }}"
+          <p class="small mb-2">Pontos de partida prontos:</p>
+          <a class="btn btn-sm btn-outline-secondary w-100 mb-1"
+             href="{{ url_for('static', filename='modelo_paginas_nice_admin/_modelo-pagina-basico.html') }}"
              target="_blank">
-            <i class="bi bi-file-earmark-code"></i> Abrir modelo de página
+            <i class="bi bi-file-earmark-code"></i> Modelo básico
           </a>
+          <a class="btn btn-sm btn-outline-primary w-100 mb-1"
+             href="{{ url_for('static', filename='modelo_paginas_nice_admin/_modelo-pagina-completo.html') }}"
+             target="_blank">
+            <i class="bi bi-file-earmark-richtext"></i> Modelo completo (abas + dados)
+          </a>
+          <p class="small text-muted mb-3">
+            O fluxo de consumo de dados está em
+            <code>docs/skills/17-paginas-customizadas-fluxo-de-dados.md</code>.
+          </p>
 
           <h6 class="small">Dados dinâmicos</h6>
           <p class="small mb-2">

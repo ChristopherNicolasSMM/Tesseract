@@ -51,8 +51,9 @@ def _starter_html(name: str) -> str:
     """Conteúdo inicial de uma página nova — mínimo de propósito. O
     ponto de partida completo, com os componentes do NiceAdmin já no
     padrão do sistema, está em
-    static/modelo_paginas_nice_admin/_modelo-pagina-customizada.html
-    (linkado no editor)."""
+    static/modelo_paginas_nice_admin/_modelo-pagina-basico.html e
+    _modelo-pagina-completo.html (ambos linkados no editor). O fluxo de
+    consumo de dados esta em docs/skills/17."""
     return (
         '<div class="row">\n'
         '  <div class="col-12">\n'
