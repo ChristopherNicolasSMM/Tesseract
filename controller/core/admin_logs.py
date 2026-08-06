@@ -32,7 +32,7 @@ def _parse_datetime_local(valor: str | None) -> datetime | None:
         return datetime.strptime(valor, "%Y-%m-%dT%H:%M")
     except ValueError:
         return None
-
+ 
 
 @admin_logs_bp.route("/", methods=["GET"])
 @login_required

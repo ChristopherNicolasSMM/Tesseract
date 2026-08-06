@@ -8,7 +8,7 @@
 > Modelos prontos, na mesma pasta dos HTMLs de referência do NiceAdmin:
 > - `static/modelo_paginas_nice_admin/_modelo-pagina-basico.html`
 > - `static/modelo_paginas_nice_admin/_modelo-pagina-completo.html`
-
+ 
 ---
 
 ## 1. O que a página é (e o que não é)
@@ -177,3 +177,5 @@ registrado aqui.
 > chamando um dos três caminhos da seção 2 — nunca por template
 > renderizado no servidor a partir do banco. E todo valor vindo do
 > servidor passa por `esc()` antes de tocar o `innerHTML`.
+
+

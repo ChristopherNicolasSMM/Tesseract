@@ -1,0 +1,351 @@
+{% extends "core/base.html" %}
+{% block title %}{{ page.title or page.name }} - Tesseract{% endblock %}
+
+{% block content %}
+<div class="pagetitle">
+  <h1>{{ page.title or page.name }}</h1>
+</div>
+
+<section class="section">
+  {#- Fase 12: o corpo da pagina e HTML escrito a mao pelo administrador,
+      renderizado como confiavel. NUNCA passar por render_template_string:
+      renderizar Jinja vindo do banco e injecao de template (SSTI), que na
+      pratica vira execucao de codigo no servidor mesmo restrito a admin.
+      Para dado dinamico, a pagina usa JavaScript chamando as Acoes de Dado
+      (POST /admin/designer/data-action/<id>/execute). -#}
+
+        
+
+<div class="card">
+  <div class="card-body pt-3">
+
+    <!-- ═══ Abas ═══════════════════════════════════════════════════ -->
+    <ul class="nav nav-tabs nav-tabs-bordered">
+      <li class="nav-item">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-lista">Lista</button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-acao">Via Ação de Dado</button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-form">Formulário</button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-indicadores">Indicadores</button>
+      </li>
+    </ul>
+
+    <div class="tab-content pt-3">
+
+      <!-- ─── Aba 1: API REST do CrudGen ─────────────────────────────
+           Caminho mais direto para entidade gerada pelo CrudGen.
+           Devolve {success, items:[...]}. Permissão: <plural>.list -->
+      <div class="tab-pane fade show active" id="tab-lista">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="mb-0">Registros (API REST)</h6>
+          <button class="btn btn-sm btn-outline-secondary" id="btn-recarregar">
+            <i class="bi bi-arrow-clockwise"></i> Recarregar
+          </button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead><tr><th>#</th><th>Nome</th><th>Status</th><th class="text-end">Ações</th></tr></thead>
+            <tbody id="tbody-lista">
+              <tr><td colspan="4" class="text-muted">Carregando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ─── Aba 2: Ação de Dado ────────────────────────────────────
+           Passa pelo servidor, que resolve a conexão OData (local ou
+           externa) e a credencial. Use quando o dado vier de fora, ou
+           quando quiser $filter/$top sem expor a query.
+           Devolve {success, result:{value:[...], "@odata.count":N}} -->
+      <div class="tab-pane fade" id="tab-acao">
+        <div class="row g-2 mb-2">
+          <div class="col-md-5">
+            <input type="text" class="form-control form-control-sm" id="filtro-status"
+                   placeholder="Filtrar por status (ex.: disponivel)">
+          </div>
+          <div class="col-md-2">
+            <button class="btn btn-sm btn-primary w-100" id="btn-filtrar">Filtrar</button>
+          </div>
+        </div>
+        <p class="small text-muted" id="acao-contagem"></p>
+        <ul class="list-group" id="lista-acao">
+          <li class="list-group-item text-muted">Carregando…</li>
+        </ul>
+      </div>
+
+      <!-- ─── Aba 3: Formulário (criar / atualizar) ──────────────────
+           POST /api/.../ cria, PUT /api/.../<id> atualiza.
+           O select vem de /api/options/<plural>, o mesmo endpoint que
+           os combos de referência fraca do CrudGen usam. -->
+      <div class="tab-pane fade" id="tab-form">
+        <div class="row mb-3">
+          <label class="col-sm-3 col-form-label">Registro</label>
+          <div class="col-sm-9">
+            <select class="form-select" id="sel-registro">
+              <option value="">— novo registro —</option>
+            </select>
+          </div>
+        </div>
+        <div class="row mb-3">
+          <label class="col-sm-3 col-form-label">Nome</label>
+          <div class="col-sm-9"><input type="text" class="form-control" id="campo-nome"></div>
+        </div>
+        <div class="row mb-3">
+          <label class="col-sm-3 col-form-label">Status</label>
+          <div class="col-sm-9">
+            <select class="form-select" id="campo-status">
+              <option value="disponivel">Disponível</option>
+              <option value="descartada">Descartada</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-9 offset-sm-3">
+            <button class="btn btn-primary" id="btn-salvar">Salvar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── Aba 4: Indicadores ─────────────────────────────────────
+           Derivados do mesmo dado já carregado — sem nova chamada. -->
+      <div class="tab-pane fade" id="tab-indicadores">
+        <div class="row">
+          <div class="col-lg-4 col-md-6">
+            <div class="card info-card sales-card">
+              <div class="card-body">
+                <h5 class="card-title">Total <span>| registros</span></h5>
+                <div class="d-flex align-items-center">
+                  <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+                    <i class="bi bi-collection"></i>
+                  </div>
+                  <div class="ps-3"><h6 id="ind-total">—</h6></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-4 col-md-6">
+            <div class="card info-card revenue-card">
+              <div class="card-body">
+                <h5 class="card-title">Disponíveis <span>| ativos</span></h5>
+                <div class="d-flex align-items-center">
+                  <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+                    <i class="bi bi-check2-circle"></i>
+                  </div>
+                  <div class="ps-3"><h6 id="ind-disponiveis">—</h6></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ═══ Troque estas três constantes pela SUA_ENTIDADE ═══════════════
+  const ENTIDADE_API    = '/api/brewstation/yeast-strains';  // API REST do CrudGen
+  const ENTIDADE_PLURAL = 'yeast_strains';                   // usado por /api/options/
+  const ACAO_DE_DADO_ID = 1;                                 // id no painel do editor
+
+  // ═══ Helper: os três caminhos, com erro tratado ═══════════════════
+  // Copie este bloco inteiro para suas páginas — evita reescrever
+  // fetch/tratamento de erro em cada tela.
+  const TesseractData = {
+    // Escapa dado vindo do servidor antes de ir pro innerHTML. O HTML da
+    // página é confiável; o CONTEÚDO dos registros não é (um nome pode
+    // conter <script>). Sem isto, a página vira vetor de XSS.
+    esc(v) {
+      if (v === null || v === undefined) return '';
+      return String(v).replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      ));
+    },
+
+    aviso(msg, tipo) {
+      if (window.__tesseractToast) window.__tesseractToast.show(msg, tipo || 'info');
+      else console[tipo === 'error' ? 'error' : 'log'](msg);
+    },
+
+    async _json(url, opcoes) {
+      const resp = await fetch(url, opcoes);
+      // 401 = sessão expirou; 403 = falta permissão. Vale distinguir:
+      // recarregar resolve o primeiro, nunca o segundo.
+      if (resp.status === 401) throw new Error('Sessão expirada. Recarregue a página.');
+      if (resp.status === 403) throw new Error('Você não tem permissão para esta operação.');
+      const dado = await resp.json().catch(() => ({}));
+      if (!resp.ok || dado.success === false) {
+        throw new Error(dado.error || `Falha na requisição (HTTP ${resp.status}).`);
+      }
+      return dado;
+    },
+
+    // 1) API REST do CrudGen — CRUD completo da entidade
+    rest: {
+      listar: (base) => TesseractData._json(base + '/'),
+      obter:  (base, id) => TesseractData._json(`${base}/${id}`),
+      criar:  (base, dados) => TesseractData._json(base + '/', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dados),
+      }),
+      atualizar: (base, id, dados) => TesseractData._json(`${base}/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dados),
+      }),
+    },
+
+    // 2) Ação de Dado — sempre server-side; o navegador nunca vê credencial
+    acaoDeDado: (id, corpo) => TesseractData._json(
+      `/admin/designer/data-action/${id}/execute`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(corpo || {}) },
+    ),
+
+    // 3) Opções de combo — mesmo endpoint dos combos do CrudGen
+    opcoes: (plural, busca) => TesseractData._json(
+      `/api/options/${plural}?search=${encodeURIComponent(busca || '')}`,
+    ),
+  };
+
+  const esc = TesseractData.esc.bind(TesseractData);
+  const $ = (id) => document.getElementById(id);
+
+  // ═══ Aba 1 — lista via API REST ═══════════════════════════════════
+  let registros = [];
+
+  async function carregarLista() {
+    const tbody = $('tbody-lista');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-muted">Carregando…</td></tr>';
+    try {
+      const dado = await TesseractData.rest.listar(ENTIDADE_API);
+      registros = dado.items || [];
+      tbody.innerHTML = registros.length
+        ? registros.map((r) => `
+            <tr>
+              <th scope="row">${esc(r.id)}</th>
+              <td>${esc(r.name)}</td>
+              <td><span class="badge bg-${r.status === 'disponivel' ? 'success' : 'secondary'}">${esc(r.status)}</span></td>
+              <td class="text-end">
+                <button class="btn btn-sm btn-outline-primary" data-editar="${esc(r.id)}">Editar</button>
+              </td>
+            </tr>`).join('')
+        : '<tr><td colspan="4" class="text-muted">Nenhum registro.</td></tr>';
+      atualizarIndicadores();
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="4" class="text-danger">${esc(e.message)}</td></tr>`;
+    }
+  }
+
+  // Delegação de evento: os botões nascem depois, num innerHTML — anexar
+  // listener direto neles só funcionaria até o próximo recarregamento.
+  $('tbody-lista').addEventListener('click', (ev) => {
+    const botao = ev.target.closest('[data-editar]');
+    if (!botao) return;
+    $('sel-registro').value = botao.getAttribute('data-editar');
+    $('sel-registro').dispatchEvent(new Event('change'));
+    document.querySelector('[data-bs-target="#tab-form"]').click();
+  });
+
+  $('btn-recarregar').addEventListener('click', carregarLista);
+
+  // ═══ Aba 2 — mesma entidade via Ação de Dado ══════════════════════
+  async function carregarViaAcao() {
+    const lista = $('lista-acao');
+    const status = $('filtro-status').value.trim();
+    lista.innerHTML = '<li class="list-group-item text-muted">Carregando…</li>';
+    try {
+      // $filter/$top/$orderby são resolvidos no servidor. O filtro do
+      // provedor local aceita `campo eq 'valor'` (ver skill 17).
+      const params = { '$top': 50, '$orderby': 'name asc' };
+      if (status) params['$filter'] = `status eq '${status}'`;
+
+      const dado = await TesseractData.acaoDeDado(ACAO_DE_DADO_ID, { params });
+      const linhas = dado.result.value || [];
+      $('acao-contagem').textContent = `${dado.result['@odata.count'] ?? linhas.length} registro(s) no total.`;
+      lista.innerHTML = linhas.length
+        ? linhas.map((r) => `
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              ${esc(r.name)}
+              <span class="badge bg-light text-dark">${esc(r.status)}</span>
+            </li>`).join('')
+        : '<li class="list-group-item text-muted">Nenhum registro.</li>';
+    } catch (e) {
+      lista.innerHTML = `<li class="list-group-item text-danger">${esc(e.message)}</li>`;
+    }
+  }
+
+  $('btn-filtrar').addEventListener('click', carregarViaAcao);
+
+  // ═══ Aba 3 — formulário ═══════════════════════════════════════════
+  async function carregarOpcoes() {
+    try {
+      const dado = await TesseractData.opcoes(ENTIDADE_PLURAL);
+      const itens = dado.items || dado.results || [];
+      $('sel-registro').insertAdjacentHTML('beforeend', itens.map((o) =>
+        `<option value="${esc(o.id ?? o.value)}">${esc(o.text ?? o.label ?? o.name)}</option>`
+      ).join(''));
+    } catch (e) {
+      TesseractData.aviso(e.message, 'error');
+    }
+  }
+
+  $('sel-registro').addEventListener('change', async (ev) => {
+    const id = ev.target.value;
+    if (!id) { $('campo-nome').value = ''; return; }
+    try {
+      const dado = await TesseractData.rest.obter(ENTIDADE_API, id);
+      $('campo-nome').value = dado.item.name || '';
+      $('campo-status').value = dado.item.status || 'disponivel';
+    } catch (e) {
+      TesseractData.aviso(e.message, 'error');
+    }
+  });
+
+  $('btn-salvar').addEventListener('click', async () => {
+    const id = $('sel-registro').value;
+    const corpo = { name: $('campo-nome').value.trim(), status: $('campo-status').value };
+    if (!corpo.name) { TesseractData.aviso('Informe o nome.', 'warning'); return; }
+    try {
+      if (id) await TesseractData.rest.atualizar(ENTIDADE_API, id, corpo);
+      else await TesseractData.rest.criar(ENTIDADE_API, corpo);
+      TesseractData.aviso('Salvo.', 'success');
+      carregarLista();
+    } catch (e) {
+      TesseractData.aviso(e.message, 'error');
+    }
+  });
+
+  // ═══ Aba 4 — indicadores, derivados do que já foi carregado ═══════
+  function atualizarIndicadores() {
+    $('ind-total').textContent = registros.length;
+    $('ind-disponiveis').textContent = registros.filter((r) => r.status === 'disponivel').length;
+  }
+
+  // ═══ Carga inicial ════════════════════════════════════════════════
+  carregarLista();
+  carregarViaAcao();
+  carregarOpcoes();
+})();
+</script>
+
+
+
+
+
+
+
+
+
+
+  {{ page.content_html | safe }}
+</section>
+{% endblock %}

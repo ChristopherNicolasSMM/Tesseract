@@ -152,6 +152,10 @@ def create_app(env: str | None = None) -> Flask:
     from controller.core.model_builder import model_builder_bp
     from controller.core.admin_menu_settings import admin_menu_settings_bp
     from controller.core.playground import playground_bp
+    #Para funções no core deve ser importado manualmente, pois não é registrado automaticamente pelo ModuleManager
+    #--------------------------------------------------------------------------------------------------------------
+    from controller.core.freestyle_model import freestyle_bp
+    #--------------------------------------------------------------------------------------------------------------
     app.register_blueprint(auth_api_bp)
     app.register_blueprint(users_api_bp)
     app.register_blueprint(tasks_api_bp)
@@ -175,6 +179,10 @@ def create_app(env: str | None = None) -> Flask:
     app.register_blueprint(model_builder_bp)
     app.register_blueprint(admin_menu_settings_bp)
     app.register_blueprint(playground_bp)
+    #Para funções no core deve ser importado manualmente, pois não é registrado automaticamente pelo ModuleManager
+    #--------------------------------------------------------------------------------------------------------------
+    app.register_blueprint(freestyle_bp)
+    #--------------------------------------------------------------------------------------------------------------    
 
     # Scheduler de tasks — opt-in via env (TASK_SCHEDULER_ENABLED=true),
     # nunca em modo de teste (mesmo padrão do cliente MQTT do
