@@ -1,0 +1,59 @@
+{#-
+  MODELO MÍNIMO — o esqueleto de uma tela freestyle.
+
+  É deliberadamente curto: tudo aqui é obrigatório, nada é enfeite.
+  Copie este arquivo como ponto de partida de uma tela nova.
+-#}
+
+{#- 1) Herdar o layout: traz menu, cabeçalho, rodapé, Bootstrap,
+       Bootstrap Icons e o tema ativo (claro/escuro). Sem isto a
+       página renderiza "pelada", fora do sistema. -#}
+{% extends "core/base.html" %}
+
+{#- 2) Título da aba do navegador. -#}
+{% block title %}Modelo Mínimo - Tesseract{% endblock %}
+
+{#- 3) Todo o conteúdo visível vai dentro do bloco `content`. Não
+       escreva <html>, <head> ou <body>: o layout já cuida disso. -#}
+{% block content %}
+
+{#- Cabeçalho padrão da tela. O <h1> é o que o usuário lê como nome
+    da página; o breadcrumb é opcional e some se você remover. -#}
+<div class="pagetitle">
+  <h1>Modelo Mínimo</h1>
+  <nav>
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('core_pages.home') }}">Início</a></li>
+      <li class="breadcrumb-item active">Modelo Mínimo</li>
+    </ol>
+  </nav>
+</div>
+
+{#- `section` é o container de conteúdo do tema — dá o espaçamento
+    correto em relação ao menu e ao cabeçalho. -#}
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Conteúdo</h5>
+      <p>
+        A partir daqui é HTML comum com as classes do Bootstrap 5.
+        Para exemplos de componentes, veja
+        <a href="{{ url_for('freestyle.full') }}">o modelo completo</a>;
+        para buscar dados do servidor,
+        <a href="{{ url_for('freestyle.consumption') }}">o de consumo</a>.
+      </p>
+    </div>
+  </div>
+</section>
+
+{% endblock %}
+
+{#- 4) JavaScript próprio da tela, quando houver, vai no bloco
+       `extra_js` — que o layout renderiza DEPOIS das bibliotecas.
+       Colocar <script> no meio do `content` funciona por acidente e
+       quebra quando a lib ainda não carregou.
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/freestyle/minha_tela-funcionalidade.js') }}"></script>
+{% endblock %}
+-#}

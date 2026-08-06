@@ -1,0 +1,79 @@
+{% extends "core/base.html" %}
+{% block title %}Modelos Freestyle - Tesseract{% endblock %}
+
+{% block content %}
+<div class="pagetitle">
+  <h1>Modelos Freestyle</h1>
+  <p class="text-muted mb-0">
+    Modelos de referência para telas escritas à mão, fora do CrudGen.
+    São páginas vivas: renderizam dentro do layout real, com o tema ativo.
+  </p>
+</div>
+
+<section class="section">
+  <div class="row">
+
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title"><i class="bi bi-file-earmark"></i> Mínimo</h5>
+          <p class="card-text">
+            O esqueleto necessário e nada mais: <code>extends</code>, título e um card.
+            Comece por aqui quando a tela for simples.
+          </p>
+          <a href="{{ url_for('freestyle.minimal') }}" class="btn btn-sm btn-outline-primary">Abrir</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title"><i class="bi bi-segmented-nav"></i> Abas</h5>
+          <p class="card-text">
+            Abas horizontais, com ícone e verticais — mais a persistência da aba
+            ativa na URL, para que atualizar a página não volte para a primeira.
+          </p>
+          <a href="{{ url_for('freestyle.abas') }}" class="btn btn-sm btn-outline-primary">Abrir</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title"><i class="bi bi-plug"></i> Consumo de dados</h5>
+          <p class="card-text">
+            Os três caminhos de dado do Tesseract (API REST do CrudGen, Ação de Dado
+            e opções de combo), com estados de carregando/vazio/erro e escape de XSS.
+          </p>
+          <a href="{{ url_for('freestyle.consumption') }}" class="btn btn-sm btn-outline-primary">Abrir</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title"><i class="bi bi-grid-3x3-gap-fill"></i> Completo</h5>
+          <p class="card-text">
+            Galeria de todos os componentes do NiceAdmin adaptados ao Tesseract:
+            indicadores, tabelas, formulários, gráficos, modais e mais.
+          </p>
+          <a href="{{ url_for('freestyle.full') }}" class="btn btn-sm btn-outline-primary">Abrir</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="alert alert-info d-flex align-items-start" role="alert">
+    <i class="bi bi-info-circle me-2 mt-1"></i>
+    <div>
+      O fluxo de consumo de dados está detalhado em
+      <code>docs/skills/17-paginas-customizadas-fluxo-de-dados.md</code> — inclui
+      os contratos de cada endpoint, permissões e as armadilhas de segurança.
+    </div>
+  </div>
+</section>
+{% endblock %}

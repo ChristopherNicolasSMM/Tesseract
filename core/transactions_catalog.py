@@ -120,6 +120,16 @@ CORE_TRANSACTIONS = [
         "is_standard": True,
     },
     {
+        "code": "TX_ADMIN_FREESTYLE",
+        "label": "Modelos Freestyle",
+        "parent_code": "TX_GROUP_FERRAMENTAS_DE_DESENVOLVIMENTO",
+        "description": "Modelos de referência para telas escritas à mão, fora do CrudGen.",
+        "icon": "bi-palette",
+        "route": "/freestyle/",
+        "permission_required": "admin",
+        "is_standard": True,
+    },
+    {
         "code": "TX_ADMIN_ODATA",
         "label": "Conexões OData",
         "parent_code": "TX_GROUP_FERRAMENTAS_DE_DESENVOLVIMENTO",
