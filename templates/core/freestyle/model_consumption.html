@@ -1,13 +1,206 @@
-{#- Placeholder — conteúdo real entregue no próximo patch da série
-    freestyle. A rota existe desde já para o índice não ter link morto. -#}
+{#-
+  MODELO DE CONSUMO DE DADOS — os três caminhos do Tesseract.
+
+  | Caminho              | Quando usar                                      |
+  |----------------------|--------------------------------------------------|
+  | API REST do CrudGen  | Entidade gerada pelo CrudGen, com CRUD completo  |
+  | Ação de Dado         | Dado externo, ou consulta resolvida no servidor  |
+  | /api/options/        | Popular <select> (mesmo endpoint dos combos)     |
+
+  Contratos, permissões e armadilhas em
+  docs/skills/17-paginas-customizadas-fluxo-de-dados.md.
+
+  O controller (freestyle_model.consumption) passa `config` — endpoints
+  e estado inicial. O JavaScript lê de lá, então trocar de entidade é
+  mexer no controller, não no .js.
+-#}
 {% extends "core/base.html" %}
-{% block title %}Modelo - Tesseract{% endblock %}
+{% block title %}Consumo de Dados - Tesseract{% endblock %}
+
 {% block content %}
-<div class="pagetitle"><h1>Em construção</h1></div>
+<div class="pagetitle">
+  <h1>Consumo de Dados</h1>
+  <nav>
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('freestyle.home') }}">Modelos Freestyle</a></li>
+      <li class="breadcrumb-item active">Consumo de Dados</li>
+    </ol>
+  </nav>
+</div>
+
+{#- ═══ Configuração para o JavaScript ══════════════════════════════
+    Um <script type="application/json"> em vez de montar JS por
+    concatenação no Jinja. O navegador não executa este bloco: o JS lê
+    e faz JSON.parse. Isso evita que uma aspa ou acento vindo do
+    servidor quebre o script — e evita o XSS que a concatenação abriria.
+    O filtro |tojson já escapa o que precisa ser escapado. -#}
+<script type="application/json" id="freestyle-config">{{ config | tojson }}</script>
+
 <section class="section">
-  <div class="alert alert-warning">
-    Este modelo ainda não foi escrito. Veja
-    <a href="{{ url_for('freestyle.home') }}">os modelos disponíveis</a>.
+
+  {#- ═══ 1. API REST do CrudGen ═════════════════════════════════════
+      GET /api/<addon>/<entidades>/ → {success, items:[…]}
+      Permissão: <plural>.list — 403 se faltar. -#}
+  <div class="card">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="card-title mb-0">1. API REST do CrudGen</h5>
+        <button class="btn btn-sm btn-outline-secondary" data-acao="recarregar-rest">
+          <i class="bi bi-arrow-clockwise"></i> Recarregar
+        </button>
+      </div>
+
+      {#- Busca e tamanho de página vêm preenchidos do servidor: a URL
+          é o estado da tela (?q=ale&per_page=50). -#}
+      <form class="row g-2 mb-3" method="get">
+        <div class="col-md-5">
+          <input type="text" class="form-control form-control-sm" name="q"
+                 value="{{ search }}" placeholder="Buscar por nome…">
+        </div>
+        <div class="col-md-2">
+          <select class="form-select form-select-sm" name="per_page">
+            {% for opcao in [10, 20, 50, 100] %}
+            <option value="{{ opcao }}" {% if per_page == opcao %}selected{% endif %}>{{ opcao }} por página</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-sm btn-primary w-100">Aplicar</button>
+        </div>
+      </form>
+
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead><tr><th>#</th><th>Nome</th><th>Status</th><th class="text-end">Ações</th></tr></thead>
+          {#- Os três estados (carregando / vazio / erro) são
+              responsabilidade do JS — aqui só o estado inicial. -#}
+          <tbody data-alvo="tabela-rest">
+            <tr><td colspan="4" class="text-muted">Carregando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center">
+        <span class="small text-muted" data-alvo="contagem-rest"></span>
+        <span class="small text-muted">Página {{ page }} · {{ per_page }} por página</span>
+      </div>
+    </div>
   </div>
+
+  {#- ═══ 2. Ação de Dado ════════════════════════════════════════════
+      POST /admin/designer/data-action/<id>/execute
+      → {success, result:{value:[…], "@odata.count":N}}
+      Roda no servidor: é ele quem conhece a credencial da conexão. -#}
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">2. Ação de Dado</h5>
+      <p class="small text-muted">
+        Use quando o dado vier de um servidor OData externo, ou quando a consulta
+        não deve ser montada no navegador. O <code>$filter</code> do provedor local
+        aceita <code>campo eq 'valor'</code>.
+      </p>
+
+      {#- Sem Ação de Dado cadastrada, o bloco explica em vez de falhar
+          com 404 — o id vem do controller (config.dataActionId). -#}
+      {% if config.dataActionId %}
+      <div class="row g-2 mb-3">
+        <div class="col-md-5">
+          <input type="text" class="form-control form-control-sm" data-campo="filtro-status"
+                 placeholder="Filtrar por status (ex.: disponivel)">
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-sm btn-primary w-100" data-acao="filtrar-acao">Filtrar</button>
+        </div>
+      </div>
+      <p class="small text-muted" data-alvo="contagem-acao"></p>
+      <ul class="list-group" data-alvo="lista-acao">
+        <li class="list-group-item text-muted">Carregando…</li>
+      </ul>
+      {% else %}
+      <div class="alert alert-secondary mb-0">
+        Nenhuma Ação de Dado configurada. Cadastre uma e preencha
+        <code>dataActionId</code> no <code>config</code> do controller
+        (<code>controller/core/freestyle_model.py</code>).
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {#- ═══ 3. Formulário + opções de combo ════════════════════════════
+      GET /api/options/<plural> popula o select.
+      POST /api/…/ cria, PUT /api/…/<id> atualiza. -#}
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">3. Formulário (criar e atualizar)</h5>
+
+      <div class="row mb-3">
+        <label class="col-sm-3 col-form-label">Registro</label>
+        <div class="col-sm-9">
+          <select class="form-select" data-campo="registro">
+            <option value="">— novo registro —</option>
+          </select>
+          <div class="form-text">Opções carregadas de <code>/api/options/</code>.</div>
+        </div>
+      </div>
+      <div class="row mb-3">
+        <label class="col-sm-3 col-form-label">Nome</label>
+        <div class="col-sm-9"><input type="text" class="form-control" data-campo="nome"></div>
+      </div>
+      <div class="row mb-3">
+        <label class="col-sm-3 col-form-label">Status</label>
+        <div class="col-sm-9">
+          <select class="form-select" data-campo="status">
+            <option value="disponivel">Disponível</option>
+            <option value="descartada">Descartada</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-9 offset-sm-3">
+          <button class="btn btn-primary" data-acao="salvar">Salvar</button>
+          <button class="btn btn-outline-secondary" data-acao="limpar">Limpar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {#- ═══ 4. Indicadores ═════════════════════════════════════════════
+      Derivados do dado já carregado — sem nova chamada ao servidor. -#}
+  <div class="row">
+    <div class="col-lg-4 col-md-6">
+      <div class="card info-card sales-card">
+        <div class="card-body">
+          <h5 class="card-title">Total <span>| registros</span></h5>
+          <div class="d-flex align-items-center">
+            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+              <i class="bi bi-collection"></i>
+            </div>
+            <div class="ps-3"><h6 data-alvo="ind-total">—</h6></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4 col-md-6">
+      <div class="card info-card revenue-card">
+        <div class="card-body">
+          <h5 class="card-title">Disponíveis <span>| ativos</span></h5>
+          <div class="d-flex align-items-center">
+            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+              <i class="bi bi-check2-circle"></i>
+            </div>
+            <div class="ps-3"><h6 data-alvo="ind-disponiveis">—</h6></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </section>
+{% endblock %}
+
+{% block extra_js %}
+{#- Ordem importa: o helper define window.TesseractData, que o segundo
+    arquivo consome. -#}
+<script src="{{ url_for('static', filename='js/freestyle/freestyle-tesseract-data.js') }}"></script>
+<script src="{{ url_for('static', filename='js/freestyle/model_consumption-telas.js') }}"></script>
 {% endblock %}
