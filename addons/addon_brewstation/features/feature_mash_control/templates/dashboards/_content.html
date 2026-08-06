@@ -102,6 +102,8 @@
         ('alarm_list', 'bi-bell', 'Alarme'),
         ('text', 'bi-fonts', 'Texto'),
         ('image', 'bi-image', 'Imagem'),
+        ('device_status', 'bi-hdd-network', 'Status'),
+        ('comm_log', 'bi-terminal', 'Log Com.'),
       ] %}
       <div class="db-palette-item text-center p-2 mb-1 rounded" data-widget-type="{{ wtype }}"
            style="cursor:grab; user-select:none;" title="{{ wlabel }}">
@@ -294,6 +296,51 @@
           <div class="text-muted small text-center"><i class="bi bi-image fs-3"></i><br>Sem imagem</div>
           {% endif %}
         </div>
+
+      {% elif w.widget_type == 'device_status' %}
+        {# Painel de Status (conversa): inventário completo de sensores/
+           atuadores da Planta — não depende de vessel_id/device_function_name
+           (é plant-wide), lê tudo via get_plant_device_status() em polling
+           próprio (intervalo configurável no painel lateral). #}
+        <div class="db-status-card h-100 d-flex flex-column">
+          <div class="db-status-header d-flex justify-content-between align-items-center db-no-drag">
+            <span><i class="bi bi-hdd-network"></i> {{ w.label_text or 'Painel de Status' }}</span>
+            <button type="button" class="btn btn-sm btn-link text-light p-0 db-collapse-toggle db-no-drag" title="Recolher/expandir">
+              <i class="bi bi-chevron-up"></i>
+            </button>
+          </div>
+          <div class="db-status-body flex-grow-1" style="overflow:auto;">
+            {% if not layout.plant_id %}
+            <div class="text-muted small p-2">Este layout não tem Planta associada.</div>
+            {% endif %}
+          </div>
+        </div>
+
+      {% elif w.widget_type == 'comm_log' %}
+        {# Log de Comunicação (conversa): combina auditoria de acionamento
+           (BrewSessionLog source="user") com o log MQTT bruto do
+           addon_device_manager — duas listas dentro do mesmo widget,
+           também com polling próprio configurável. #}
+        <div class="db-status-card h-100 d-flex flex-column">
+          <div class="db-status-header d-flex justify-content-between align-items-center db-no-drag">
+            <span><i class="bi bi-terminal"></i> {{ w.label_text or 'Log de Comunicação' }}</span>
+            <button type="button" class="btn btn-sm btn-link text-light p-0 db-collapse-toggle db-no-drag" title="Recolher/expandir">
+              <i class="bi bi-chevron-up"></i>
+            </button>
+          </div>
+          <div class="db-status-body flex-grow-1" style="overflow:auto;">
+            {% if not layout.plant_id %}
+            <div class="text-muted small p-2">Este layout não tem Planta associada.</div>
+            {% else %}
+            <ul class="nav nav-tabs nav-tabs-sm db-comm-tabs db-no-drag" style="font-size:.72rem;">
+              <li class="nav-item"><button type="button" class="nav-link active db-no-drag" data-comm-tab="actions">Ações</button></li>
+              <li class="nav-item"><button type="button" class="nav-link db-no-drag" data-comm-tab="mqtt_raw">MQTT bruto</button></li>
+            </ul>
+            <div class="db-comm-pane" data-comm-pane="actions"></div>
+            <div class="db-comm-pane d-none" data-comm-pane="mqtt_raw"></div>
+            {% endif %}
+          </div>
+        </div>
       {% endif %}
 
       <div class="db-resize-handle d-none"></div>
@@ -420,6 +467,10 @@
       <div class="form-check db-panel-field mb-2" data-field="manual_control_enabled">
         <input class="form-check-input" type="checkbox" id="dbPanelManualControl">
         <label class="form-check-label small" for="dbPanelManualControl">Permitir acionamento manual</label>
+      </div>
+      <div class="mb-2 db-panel-field" data-field="poll_interval">
+        <label class="form-label small">Atualizar a cada <span class="text-muted">(segundos)</span></label>
+        <input type="number" id="dbPanelPollInterval" class="form-control form-control-sm" min="2" max="300" value="5">
       </div>
       <div class="d-flex gap-2 mt-3">
         <button type="button" id="dbPanelSaveBtn" class="btn btn-sm btn-primary flex-grow-1">Salvar</button>

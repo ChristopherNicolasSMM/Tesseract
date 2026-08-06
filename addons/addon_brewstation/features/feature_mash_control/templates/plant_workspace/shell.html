@@ -3,9 +3,14 @@
 {% block content %}
 <div class="pagetitle d-flex justify-content-between align-items-center flex-wrap gap-2">
   <h1><i class="bi bi-diagram-3"></i> {{ plant.name }}</h1>
-  <a href="{{ url_for('plant_workspace.landing') }}" class="btn btn-sm btn-outline-secondary">
-    <i class="bi bi-arrow-left"></i> Trocar de Planta
-  </a>
+  <div class="d-flex gap-2">
+    <button type="button" id="pwKioskToggle" class="btn btn-sm btn-outline-warning" title="Modo Kiosk (tela cheia) — Esc ou Ctrl+Shift+K pra sair">
+      <i class="bi bi-arrows-fullscreen"></i> Modo Kiosk
+    </button>
+    <a href="{{ url_for('plant_workspace.landing') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> Trocar de Planta
+    </a>
+  </div>
 </div>
 
 <ul class="nav nav-tabs mb-3" id="pwTabBar">
@@ -25,6 +30,16 @@
 <div id="pwTabContent">
   <div class="text-center text-muted p-5"><div class="spinner-border spinner-border-sm"></div> Carregando...</div>
 </div>
+
+<style>
+/* Modo Kiosk (conversa): esconde header/sidebar do próprio Tesseract —
+   sozinho, o Fullscreen API do navegador não faria isso, já que eles
+   continuariam "atrás" da tela cheia. Escopado a esta tela via classe
+   no body, não toca no tema global. */
+body.pw-kiosk-mode #header,
+body.pw-kiosk-mode #sidebar { display: none !important; }
+body.pw-kiosk-mode #main { margin-left: 0 !important; padding-top: 12px !important; }
+</style>
 {% endblock %}
 
 {% block extra_js %}
@@ -122,6 +137,56 @@
   // Se o usuário sair do workspace (navegar pra outra página de
   // verdade), garante que o polling da aba atual não fica pra trás.
   window.addEventListener('beforeunload', teardownCurrentTab);
+
+  // ── Modo Kiosk (conversa) — combina duas coisas: Fullscreen API do
+  // navegador (não cobre sozinha o header/sidebar do próprio Tesseract,
+  // que continuariam visíveis "atrás" da tela cheia) + esconder o chrome
+  // do Tesseract via classe no <body>. Cobre a Workspace inteira (as 5
+  // abas), não só o Dashboard — decisão da conversa, já que fica
+  // centralizado aqui na casca em vez de duplicado em cada aba.
+  const kioskBtn = document.getElementById('pwKioskToggle');
+  const KIOSK_CLASS = 'pw-kiosk-mode';
+
+  function enterKiosk() {
+    document.body.classList.add(KIOSK_CLASS);
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (req) req.call(el).catch(function () { /* navegador recusou — segue só com o chrome escondido */ });
+  }
+
+  function exitKiosk() {
+    document.body.classList.remove(KIOSK_CLASS);
+    // Esc nativo já pode ter saído do fullscreen sozinho (fullscreenchange
+    // cobre isso); aqui garantimos o caminho inverso também — atalho
+    // Ctrl+Shift+K ou botão sai do fullscreen mesmo se o body ainda
+    // achasse que estava dentro dele.
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit) exit.call(document).catch(function () { /* ignora */ });
+    }
+  }
+
+  kioskBtn.addEventListener('click', function () {
+    if (document.body.classList.contains(KIOSK_CLASS)) exitKiosk(); else enterKiosk();
+  });
+
+  // Esc reforçado: o navegador já sai do fullscreen sozinho com Esc, mas
+  // isso não desfaz o header/sidebar escondido — este listener sincroniza
+  // os dois sempre que o fullscreen muda por qualquer via (Esc, F11, etc).
+  ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (evt) {
+    document.addEventListener(evt, function () {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        document.body.classList.remove(KIOSK_CLASS);
+      }
+    });
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.ctrlKey && e.shiftKey && (e.key === 'K' || e.key === 'k')) {
+      e.preventDefault();
+      if (document.body.classList.contains(KIOSK_CLASS)) exitKiosk(); else enterKiosk();
+    }
+  });
 })();
 </script>
 {% endblock %}

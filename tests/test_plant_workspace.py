@@ -120,6 +120,25 @@ def test_shell_js_tem_hook_de_limpeza_de_aba(app, client):
     assert "teardownCurrentTab" in html
 
 
+def test_shell_modo_kiosk_presente(app, client):
+    """Conversa — modo Kiosk: botão + lógica de fullscreen/esconder
+    chrome do Tesseract ficam centralizados na casca (shell.html), não
+    em cada aba — cobre as 5 abas do Workspace de graça."""
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Workspace Kiosk")
+        db.session.add(plant)
+        db.session.commit()
+        plant_id = plant.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}")
+    html = resp.data.decode("utf-8")
+    assert 'id="pwKioskToggle"' in html
+    assert "pw-kiosk-mode" in html
+    assert "requestFullscreen" in html
+    assert "Ctrl+Shift+K" in html or "ctrlKey && e.shiftKey" in html
+
+
 # ── Aba Dashboard (fragmento AJAX) ──────────────────────────────────────────
 
 def test_tab_dashboard_sem_layout_mostra_estado_vazio(app, client):

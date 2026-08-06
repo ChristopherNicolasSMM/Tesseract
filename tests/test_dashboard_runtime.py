@@ -2092,3 +2092,93 @@ def test_get_communication_log_planta_sem_sessao_devolve_actions_vazio(app):
         plant, vessel, mapping = _criar_plant_vessel_mapping(role_key="actor_heat", function_name="resistencia_log2")
         result = svc.get_communication_log(plant.id)
         assert result["actions"] == []
+
+
+# ── Renderização real da view (front-end) — conversa ─────────────────────────
+
+def test_view_renderiza_widget_device_status_e_comm_log(app, client):
+    """Achado real (conversa): o único jeito confiável de pegar erro de
+    Jinja/url_for nos dois widgets novos é renderizando a view de
+    verdade — parse Jinja isolado não pega url_for quebrado nem
+    variável indefinida em runtime."""
+    _login_admin(app, client)
+    with app.app_context():
+        plant, vessel, mapping = _criar_plant_vessel_mapping(role_key="actor_heat", function_name="resistencia_view")
+        layout = DashboardLayout(name="L Status Widgets", plant_id=plant.id)
+        db.session.add(layout)
+        db.session.commit()
+        w1 = DashboardWidget(layout_id=layout.id, widget_type="device_status", label_text="Status")
+        w2 = DashboardWidget(layout_id=layout.id, widget_type="comm_log", label_text="Log")
+        db.session.add_all([w1, w2])
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    assert resp.status_code == 200
+    html = resp.data.decode("utf-8")
+    assert "db-status-card" in html
+    assert "db-collapse-toggle" in html
+    assert "db-comm-tabs" in html
+    assert "deviceStatusUrl" in html
+    assert "commLogUrl" in html
+
+
+def test_view_renderiza_device_status_sem_planta_no_layout(app, client):
+    """widget_type novo é aceito mesmo em layout sem Planta (skill: tipo
+    não exige vessel_id/device_function_name) — só mostra o aviso
+    inline em vez de tentar buscar dado que não existe."""
+    _login_admin(app, client)
+    with app.app_context():
+        layout = DashboardLayout(name="L Sem Planta")
+        db.session.add(layout)
+        db.session.commit()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="device_status", label_text="Status")
+        db.session.add(widget)
+        db.session.commit()
+        layout_id = layout.id
+
+    resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
+    assert resp.status_code == 200
+    html = resp.data.decode("utf-8")
+    assert "não tem Planta associada" in html
+
+
+# ── Rotas web novas (device-status / mapping set-value / comm-log) ──────────
+
+def test_rota_web_plant_device_status(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant, vessel, mapping = _criar_plant_vessel_mapping(role_key="sensor_temp", function_name="temp_rota_status")
+        _criar_actor(name="temp_rota_status_sensor", function_name="temp_rota_status")
+        plant_id = plant.id
+
+    resp = client.get(f"/brewstation/dashboards/plants/{plant_id}/device-status")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert len(data) == 1
+    assert data[0]["role_key"] == "sensor_temp"
+
+
+def test_rota_web_mapping_set_value(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant, vessel, mapping = _criar_plant_vessel_mapping(role_key="actor_heat", function_name="resistencia_rota")
+        _criar_actor(name="resistencia_rota_actor", function_name="resistencia_rota", category="actuator", actor_type="actuator")
+        mapping_id = mapping.id
+
+    resp = client.post(f"/brewstation/dashboards/mappings/{mapping_id}/set-value", json={"value": True})
+    assert resp.status_code == 200
+    assert resp.get_json()["ok"] is True
+
+
+def test_rota_web_plant_comm_log(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant, vessel, mapping = _criar_plant_vessel_mapping(role_key="actor_heat", function_name="resistencia_rota_log")
+        plant_id = plant.id
+
+    resp = client.get(f"/brewstation/dashboards/plants/{plant_id}/comm-log")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert "actions" in data
+    assert "mqtt_raw" in data

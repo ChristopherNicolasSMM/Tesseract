@@ -20,6 +20,12 @@
   const recipeDeleteStepUrlTemplate = "{{ url_for('recipe_timeline.delete_step', step_id=0) }}";
   {% if layout.plant_id %}
   const connectionsUrl = "{{ url_for('dashboard_runtime.update_connections', layout_id=layout.id) }}";
+  const plantId = {{ layout.plant_id }};
+  const deviceStatusUrl = "{{ url_for('dashboard_runtime.plant_device_status', plant_id=layout.plant_id) }}";
+  const mappingSetValueUrlTemplate = "{{ url_for('dashboard_runtime.mapping_set_value', mapping_id=0) }}";
+  const commLogUrl = "{{ url_for('dashboard_runtime.plant_comm_log', plant_id=layout.plant_id) }}";
+  {% else %}
+  const plantId = null;
   {% endif %}
   const charts = {};
   let editMode = false;
@@ -833,6 +839,8 @@
     step_card: [],
     text: ['content'],
     image: ['image_url'],
+    device_status: ['poll_interval'],
+    comm_log: ['poll_interval'],
   };
 
   function selectWidget(el) {
@@ -856,6 +864,7 @@
     document.getElementById('dbPanelImageUrl').value = config.image_url || '';
     document.getElementById('dbPanelConfirm').checked = !!config.confirm_before_actuate;
     document.getElementById('dbPanelManualControl').checked = config.manual_control_enabled !== false;
+    document.getElementById('dbPanelPollInterval').value = config.poll_interval_seconds || (type === 'comm_log' ? 10 : 5);
     document.getElementById('dbPanelIcon').value = config.icon || 'bi-power';
     document.querySelectorAll('.db-panel-icon-option').forEach(function (btn) {
       btn.classList.toggle('btn-light', btn.dataset.icon === (config.icon || 'bi-power'));
@@ -969,6 +978,8 @@
       configJson.italic = document.getElementById('dbPanelItalic').dataset.active === '1';
     } else if (type === 'image') {
       configJson.image_url = document.getElementById('dbPanelImageUrl').value || null;
+    } else if (type === 'device_status' || type === 'comm_log') {
+      configJson.poll_interval_seconds = parseInt(document.getElementById('dbPanelPollInterval').value, 10) || (type === 'comm_log' ? 10 : 5);
     }
 
     const payload = { label_text: document.getElementById('dbPanelLabel').value, config_json: configJson };
@@ -1228,6 +1239,143 @@
     if (sessionStorage.getItem(editModeStorageKey) === '1') applyEditMode(true);
   } catch (e) { /* modo privado etc — ignora, começa em visualização */ }
 
+  // ── Painel de Status / Log de Comunicação (conversa) ────────────────────
+  // Widgets plant-wide, sem vínculo com widget/DashboardWidget nenhum por
+  // trás dos itens que mostram — polling PRÓPRIO e independente do
+  // refresh() de 3s (evita bater a API de status/log a cada widget comum
+  // trocar de valor; intervalo configurável por widget, no painel lateral).
+  const auxPollHandles = [];
+  const collapseStorageKey = 'tesseract_db_widget_collapsed';
+
+  function loadCollapsedState() {
+    try { return JSON.parse(localStorage.getItem(collapseStorageKey) || '{}'); } catch (e) { return {}; }
+  }
+  function saveCollapsedState(state) {
+    try { localStorage.setItem(collapseStorageKey, JSON.stringify(state)); } catch (e) { /* modo privado etc */ }
+  }
+
+  document.querySelectorAll('.db-widget[data-widget-type="device_status"], .db-widget[data-widget-type="comm_log"]').forEach(function (widgetEl) {
+    const card = widgetEl.querySelector('.db-status-card');
+    const toggleBtn = widgetEl.querySelector('.db-collapse-toggle');
+    if (!card || !toggleBtn) return;
+
+    const widgetId = widgetEl.dataset.widgetId;
+    const collapsedState = loadCollapsedState();
+    if (collapsedState[widgetId]) card.classList.add('db-collapsed');
+
+    toggleBtn.addEventListener('click', function () {
+      card.classList.toggle('db-collapsed');
+      const state = loadCollapsedState();
+      state[widgetId] = card.classList.contains('db-collapsed');
+      saveCollapsedState(state);
+    });
+  });
+
+  function renderDeviceStatusWidget(widgetEl) {
+    const body = widgetEl.querySelector('.db-status-body');
+    if (!body || !plantId) return;
+    fetch(deviceStatusUrl).then(function (r) { return r.json(); }).then(function (items) {
+      if (!items.length) { body.innerHTML = '<div class="text-muted small p-2">Nenhum equipamento mapeado nesta Planta.</div>'; return; }
+      body.innerHTML = '';
+      items.forEach(function (item) {
+        const row = document.createElement('div');
+        row.className = 'db-status-item' + (item.is_risk ? ' db-status-item-risk' : '');
+
+        const info = document.createElement('div');
+        info.className = 'db-status-item-info';
+        const label = document.createElement('div');
+        label.className = 'db-status-item-label';
+        label.textContent = item.label || item.role_key;
+        const meta = document.createElement('div');
+        meta.className = 'db-status-item-meta';
+        meta.textContent = (item.vessel_name || '') + (item.is_risk ? ' · risco' : '');
+        info.appendChild(label);
+        info.appendChild(meta);
+        row.appendChild(info);
+
+        const isActuator = item.role_key && item.role_key.indexOf('actor_') === 0;
+        if (isActuator && typeof item.value === 'boolean') {
+          // Deixa pronto pra quando o hardware MQTT chegar (conversa) —
+          // aciona de verdade via device_service.set_value(), mesmo sem
+          // broker conectado ainda no ambiente de teste.
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn btn-sm ' + (item.value ? 'btn-success' : 'btn-outline-light');
+          btn.textContent = item.value ? 'Ligado' : 'Desligado';
+          btn.addEventListener('click', function () {
+            fetch(widgetIdUrl(mappingSetValueUrlTemplate, item.mapping_id), {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ value: !item.value, plant_id: plantId }),
+            }).then(function (r) { return r.json(); }).then(function (data) {
+              if (!data.ok) window.__tesseractToast.show(data.error || 'Erro ao acionar.', 'error');
+              renderDeviceStatusWidget(widgetEl);
+            });
+          });
+          row.appendChild(btn);
+        } else {
+          const valueEl = document.createElement('div');
+          valueEl.className = 'db-status-item-value';
+          valueEl.textContent = fmtValue(item.value, 1) + (item.unit || '');
+          row.appendChild(valueEl);
+        }
+
+        body.appendChild(row);
+      });
+    }).catch(function (e) { console.warn('device-status falhou', e); });
+  }
+
+  function renderCommLogWidget(widgetEl) {
+    const body = widgetEl.querySelector('.db-status-body');
+    if (!body || !plantId) return;
+    fetch(commLogUrl).then(function (r) { return r.json(); }).then(function (data) {
+      const actionsPane = body.querySelector('[data-comm-pane="actions"]');
+      const mqttPane = body.querySelector('[data-comm-pane="mqtt_raw"]');
+      if (!actionsPane || !mqttPane) return;
+
+      const actions = data.actions || [];
+      actionsPane.innerHTML = actions.length
+        ? actions.map(function (a) {
+            const time = a.created_at ? new Date(a.created_at).toLocaleTimeString() : '';
+            return '<div class="db-comm-line">' + time + ' — ' + (a.message || '') + '</div>';
+          }).join('')
+        : '<div class="text-muted small p-2">Nenhuma ação registrada ainda.</div>';
+
+      const mqttRaw = data.mqtt_raw || [];
+      mqttPane.innerHTML = mqttRaw.length
+        ? mqttRaw.slice().reverse().map(function (line) { return '<div class="db-comm-line">' + line + '</div>'; }).join('')
+        : '<div class="text-muted small p-2">Log de integração MQTT vazio ou desabilitado.</div>';
+    }).catch(function (e) { console.warn('comm-log falhou', e); });
+  }
+
+  (function setupCommTabs() {
+    document.querySelectorAll('.db-comm-tabs').forEach(function (tabs) {
+      tabs.querySelectorAll('.nav-link').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          tabs.querySelectorAll('.nav-link').forEach(function (b) { b.classList.remove('active'); });
+          btn.classList.add('active');
+          const card = tabs.closest('.db-status-card');
+          card.querySelectorAll('.db-comm-pane').forEach(function (pane) {
+            pane.classList.toggle('d-none', pane.dataset.commPane !== btn.dataset.commTab);
+          });
+        });
+      });
+    });
+  })();
+
+  document.querySelectorAll('.db-widget[data-widget-type="device_status"]').forEach(function (widgetEl) {
+    const config = JSON.parse(widgetEl.dataset.configJson || '{}');
+    const intervalMs = Math.max(2, config.poll_interval_seconds || 5) * 1000;
+    renderDeviceStatusWidget(widgetEl);
+    auxPollHandles.push(setInterval(function () { renderDeviceStatusWidget(widgetEl); }, intervalMs));
+  });
+
+  document.querySelectorAll('.db-widget[data-widget-type="comm_log"]').forEach(function (widgetEl) {
+    const config = JSON.parse(widgetEl.dataset.configJson || '{}');
+    const intervalMs = Math.max(2, config.poll_interval_seconds || 10) * 1000;
+    renderCommLogWidget(widgetEl);
+    auxPollHandles.push(setInterval(function () { renderCommLogWidget(widgetEl); }, intervalMs));
+  });
+
   refresh();
   const dbPollHandle = setInterval(refresh, 3000);
 
@@ -1236,7 +1384,10 @@
   // de um jeito de "desligar" o polling ao trocar de aba — senão o
   // setInterval continua rodando escondido pra sempre a cada vez que a
   // aba Dashboard é reaberta. Convenção: window.__tabCleanup.
-  window.__tabCleanup = function () { clearInterval(dbPollHandle); };
+  window.__tabCleanup = function () {
+    clearInterval(dbPollHandle);
+    auxPollHandles.forEach(function (h) { clearInterval(h); });
+  };
 })();
 </script>
 <style>
@@ -1332,4 +1483,44 @@
 .db-alarm-sev-low .db-alarm-sev-badge { color: #7fb8e6; }
 .db-alarm-time { font-weight: 500; text-transform: none; letter-spacing: 0; }
 .db-alarm-message { font-size: .8rem; color: #e8eaef; }
+
+/* Painel de Status / Log de Comunicação (conversa — dois widgets novos,
+   mesma linguagem visual do card de Alarmes). Corpo colapsável: quando
+   `.db-collapsed` está no card, o body encolhe pra uma faixa fina sem
+   remover o widget do canvas — estado persistido em localStorage por
+   widget (script). */
+.db-status-card {
+  background: linear-gradient(165deg, #1d2129 0%, #14171d 100%);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.35);
+}
+.db-status-header {
+  font-size: .78rem; font-weight: 700; color: #d7dbe4; margin-bottom: 6px;
+}
+.db-status-card.db-collapsed .db-status-body { display: none; }
+.db-status-card.db-collapsed .db-collapse-toggle i { transform: rotate(180deg); }
+.db-status-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: rgba(255,255,255,.03);
+  border-left: 3px solid #6b7280;
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+}
+.db-status-item:last-child { margin-bottom: 0; }
+.db-status-item.db-status-item-risk { border-left-color: #e74c3c; }
+.db-status-item-info { min-width: 0; }
+.db-status-item-label { font-size: .78rem; color: #e8eaef; }
+.db-status-item-meta { font-size: .65rem; color: #8b93a5; text-transform: uppercase; letter-spacing: .04em; }
+.db-status-item-value { font-size: .85rem; font-weight: 700; color: #f4f6fa; white-space: nowrap; }
+.db-comm-tabs { border-bottom-color: rgba(255,255,255,.08); margin-bottom: 6px; }
+.db-comm-tabs .nav-link { color: #8b93a5; padding: 2px 8px; border: none; }
+.db-comm-tabs .nav-link.active { color: #f4f6fa; background: rgba(255,255,255,.06); border-radius: 6px; }
+.db-comm-line {
+  font-size: .68rem; font-family: var(--bs-font-monospace, monospace); color: #b7bdc9;
+  padding: 3px 4px; border-bottom: 1px solid rgba(255,255,255,.04); white-space: pre-wrap; word-break: break-word;
+}
+.db-comm-line:last-child { border-bottom: none; }
 </style>
