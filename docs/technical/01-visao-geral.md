@@ -33,8 +33,9 @@ reaproveitável para outros domínios.
 | Preferência pessoal de menu (`/perfil/menu-preferencias`) | Pronto |
 | Motor de regras — grupo Validação (`/admin/field-rules/`) | Pronto |
 | Visibilidade/Cálculo (motor de regras) | Catalogado, sem função JS ainda |
-| Designer visual drag-and-drop (`/admin/designer/`) | Pronto — canvas, 16 tipos de componente (Tier 1+2, Fase 10), Ações por evento, substituição de tela CrudGen |
-| Ações do Designer (catálogo + execução server-side) — Fase 10 | Pronto — `core/actions_catalog.py`, endpoint `/admin/designer/data-action/<id>/execute` |
+| Páginas Customizadas (`/admin/designer/`) — Fase 12 | Pronto — HTML escrito à mão (`content_html`), Ações por evento continuam via JS. **Não é mais canvas drag-and-drop**: o construtor visual (Fase 10/11) foi removido — ver skill 16, cabeçalho, para o porquê |
+| Modelos Freestyle (`/freestyle/`) — Fase 13 | Pronto — telas de referência **vivas** (renderizadas no layout real, não arquivos soltos): mínimo, abas (com persistência na URL), os três caminhos de consumo de dado, e galeria completa de componentes do NiceAdmin |
+| Execução de Ação de Dado (server-side) — Fase 10 | Pronto — endpoint `/admin/designer/data-action/<id>/execute`. O catálogo de Ações client-side (`actions_catalog.py`/`actions_engine.js`, disparado por evento de componente) foi removido na Fase 12 junto do canvas — o endpoint sobrevive porque é chamado direto por JS, sem depender de componente algum |
 | Ação de Dado (`tesseract_designer_data_action`) — Fase 10 | Pronto — configuração reutilizável de acesso a dado via `ODataConnection`, sempre executada no servidor |
 | Provedor OData local (`/api/odata-provider/`) — Fase 10 | Pronto — expõe entidades `@odata_expose`, atalho em processo (sem HTTP) quando a conexão é local |
 | Substituição de tela CrudGen pelo Designer — Fase 10 | Pronto — troca só o item de MENU; rota original do CrudGen nunca é removida |
@@ -49,7 +50,7 @@ reaproveitável para outros domínios.
 | `addon_brewstation` — `feature_ingredientes`/`feature_envase`/`feature_brew_father` | Completo (CRUD) |
 | `addon_device_manager` (promovido de Feature, skill 05) | Completo — MQTT (LWT agregado), API `get_value`/`set_value`/`on_change` |
 | `addon_estoque` (Material/Composição/Movimentação/Saldo + lookups) | Completo |
-| `screen_generator.py` (gerar tela do Designer inteira a partir de metadata OData) | Não iniciado — diferente da Fase 10 (que dá os componentes soltos, não a geração automática de página) |
+| `screen_generator.py` (gerar tela do Designer inteira a partir de metadata OData) | Não iniciado — e agora improvável: sem canvas, "gerar a árvore de componentes" deixou de fazer sentido; o caminho atual é o dev escrever o HTML, com o freestyle como referência |
 | Fase F skill 05 (validação ponta a ponta com `tesseract-device-bridge` real) | Pendente — repositório separado |
 
 ## Dependências do Core
@@ -86,11 +87,14 @@ Playground). Ver `requirements.txt` (UTF-16LE — ver skill 00/BACKLOG).
   10): `registry.py` descobre entidades `@odata_expose`,
   `metadata.py` monta o schema (enriquecido com enum/weak_ref em
   `ui`), `service.py` executa `query`/`patch` com permissão via Role.
-- `core.actions_catalog.py` + `static/js/actions_engine.js` — Ações
-  disparáveis por evento de componente do Designer (Fase 10):
-  `navigate`/`show_message`/`set_component_value`/`toggle_component`
-  (client-side) e `call_data_action` (server-side, único ponto que
-  toca credencial).
+- `controller/core/designer.py::execute_data_action` — endpoint
+  server-side (`/admin/designer/data-action/<id>/execute`) que chama
+  `ODataConnectionManager`, único ponto que toca credencial de
+  conexão. O catálogo de Ações client-side por evento de componente
+  (`actions_catalog.py`/`actions_engine.js`, Fase 10) foi removido
+  junto do canvas na Fase 12 — o endpoint sobrevive porque uma página
+  customizada ou freestyle chama ele direto via JS
+  (`TesseractData.acaoDeDado()`, skill 18), sem depender de componente.
 - `core.designer_menu_override.py` — resolve o checkbox
   `DesignerPage.replace_in_menu`, trocando o item de menu de uma tela
   do CrudGen pela DesignerPage publicada (Fase 10) — nunca a rota em
@@ -127,10 +131,15 @@ Playground). Ver `requirements.txt` (UTF-16LE — ver skill 00/BACKLOG).
 | `/admin/playground/` | API/SQL Playground — testar requisições HTTP externas e SQL somente-leitura |
 | `/admin/logs/` | Consulta/gestão de logs (globais e de integração por Addon) |
 | `/admin/tasks/` | Jobs agendados (criar/pausar/rodar agora/histórico) |
-| `/admin/designer/` | Designer visual (canvas drag-and-drop) |
+| `/admin/designer/` | Páginas Customizadas — cadastro e editor de HTML (Fase 12; não é mais canvas) |
 | `/admin/designer/data-action/<id>/execute` | Execução server-side de uma Ação de Dado (Fase 10) |
 | `/api/odata-provider/` | Provedor OData local — entidades `@odata_expose` (Fase 10) |
-| `/designer/<slug>` | Execução de uma página montada no Designer |
+| `/designer/<slug>` | Execução de uma página customizada publicada |
+| `/freestyle/` | Índice dos modelos freestyle — telas de referência vivas (Fase 13) |
+| `/freestyle/minimal` | Modelo mínimo — esqueleto de uma tela nova |
+| `/freestyle/abas` | Modelo de abas (com persistência da aba ativa na URL) |
+| `/freestyle/consumption` | Modelo dos três caminhos de consumo de dado |
+| `/freestyle/full` | Galeria completa de componentes do NiceAdmin adaptados |
 | `/<addon>/<entidade>/` | CRUD de cada entidade gerada pelo CrudGen |
 
 Todas as rotas `/admin/*` exigem a permissão `admin` (ou, no caso do

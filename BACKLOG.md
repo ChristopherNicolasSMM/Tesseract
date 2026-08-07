@@ -3610,3 +3610,66 @@ Jinja vindo do banco.
 completo cobre os três caminhos e de que a skill 17 documenta cada um —
 se um caminho sair do modelo, a documentação passa a mentir e o teste
 quebra.
+
+## Fase 13 — Freestyle: modelos de referência vivos (concluída)
+
+Motivação: os modelos estáticos da Fase 12
+(`static/modelo_paginas_nice_admin/_modelo-pagina-*.html`) cobrem o
+mesmo terreno de um jeito que não é testável nem renderiza com o tema
+real — são arquivos soltos, abertos direto pelo navegador, fora do
+layout. `/freestyle/` nasce como alternativa **viva**: páginas reais,
+com login, tema e testes, sob "Ferramentas de Desenvolvimento".
+
+- [x] **Patch 1/3 — fundação.** `controller/core/freestyle_model.py`
+      reescrito (o push anterior tinha 3 dos 4 templates com **0
+      bytes**, rotas duplicadas, `per_page`/`search` calculados e nunca
+      usados, e `model_abas.html` herdando `{{ page.title }}`/`{{
+      page.content_html }}` do runtime do `DesignerPage` — como o
+      controller passava `page=<int>`, o `<h1>` renderizava vazio em
+      silêncio). **Achado real bloqueador**: `templates/core/freestyle/
+      js/` não é servível — o Flask serve `static/`, não `templates/`;
+      um `<script src>` apontando pra lá é 404 sempre. Os JS foram para
+      `static/js/freestyle/`. Entregue: índice com os quatro cartões,
+      `model_minimal.html` comentado bloco a bloco, `model_abas.html`
+      com 4 variações (inclui persistência da aba ativa na URL via
+      `history.replaceState`), `TX_ADMIN_FREESTYLE` no menu. 18 testes.
+- [x] **Patch 2/3 — consumo de dados.** `model_consumption.html` com os
+      três caminhos (API REST do CrudGen, Ação de Dado, `/api/options/`)
+      e `freestyle-tesseract-data.js`, o helper compartilhado (`esc()`,
+      distinção 401/403, tratamento de falha de rede e resposta
+      não-JSON). O controller passa `config` num `<script
+      type="application/json">` serializado com `|tojson`, não montado
+      por concatenação no Jinja — evita quebrar com aspas/acento do
+      servidor e fecha o vetor de XSS que a concatenação abriria. Sem
+      Ação de Dado configurada, a seção explica em vez de dar 404
+      silencioso. 8 testes novos (27 no arquivo).
+- [x] **Patch 3/3 — galeria completa.** `model_full.html`, 8 seções
+      (indicadores, alertas/selos/progresso, tabelas, formulários,
+      navegação, modal/tooltip/confirmação, gráficos, editor de texto),
+      com índice interno. **Zero JavaScript inline** — comportamento em
+      4 arquivos por responsabilidade (`-graficos.js`, `-tabelas.js`,
+      `-formularios.js`, `-interacoes.js`). ECharts e Quill carregados
+      só nesta página (`extra_css`/`extra_js`), já que o layout não os
+      traz por padrão. Achados corrigidos antes de fechar: Quill estava
+      carregado mas nunca inicializado, e um identificador com acento
+      (`gráfico`) no JS de gráficos. 20 testes novos (47 no arquivo).
+- [x] **Documentação.** Skill 18 nova (estrutura e convenção do
+      freestyle: onde cada peça mora, por que `templates/` não é
+      servível, convenção `model_X-*.js`/`freestyle-*.js`, passo a
+      passo pra criar modelo novo). Skill 17 atualizada apontando
+      `/freestyle/` como referência recomendada (viva e testada) ao
+      lado dos estáticos da Fase 12. **Achado real corrigido de
+      brinde**: `docs/technical/01-visao-geral.md` ainda descrevia o
+      Designer como "canvas drag-and-drop, 16 tipos de componente" —
+      texto da Fase 10, nunca atualizado quando a Fase 12 removeu o
+      construtor visual.
+
+**Pendência registrada, não resolvida nesta fase**: o que fazer com os
+modelos estáticos da Fase 12 agora que `/freestyle/` cobre o mesmo
+terreno de forma viva — manter os dois, apagar os estáticos, ou reduzir
+os estáticos a um arquivo mínimo apontando pra `/freestyle/`. Combinado
+que essa decisão só é tomada com o freestyle inteiro funcionando e
+testado no uso real — condição já satisfeita, decisão em aberto.
+
+46 testes novos ao longo da Fase 13 (18+8+20 de código, mais os de
+documentação não contam teste — são markdown).

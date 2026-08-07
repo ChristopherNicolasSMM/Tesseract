@@ -5,10 +5,23 @@
 > cujas seções sobre o construtor visual são histórico — o construtor foi
 > removido; a página é HTML escrito à mão.
 >
-> Modelos prontos, na mesma pasta dos HTMLs de referência do NiceAdmin:
+> **Referência viva (Fase 13, recomendada): `/freestyle/`.** Diferente
+> de um arquivo estático, são páginas de verdade — renderizadas dentro
+> do layout real, com o tema ativo, testadas (`tests/test_freestyle_
+> modelos.py`). `/freestyle/consumption` implementa exatamente os três
+> caminhos descritos nesta skill; `/freestyle/full` é a galeria de
+> componentes; `/freestyle/abas` e `/freestyle/minimal` completam o
+> conjunto. Controller em `controller/core/freestyle_model.py`.
+>
+> **Também existem** (Fase 12, mantidos por ora):
 > - `static/modelo_paginas_nice_admin/_modelo-pagina-basico.html`
 > - `static/modelo_paginas_nice_admin/_modelo-pagina-completo.html`
- 
+>
+> Cobrem terreno parecido com `/freestyle/consumption` e `/freestyle/
+> full`, mas como arquivo estático — sem teste, sem tema aplicado ao
+> abrir direto. **Decisão de manter os dois ou consolidar em um só
+> ainda em aberto**; registrada em BACKLOG.md, Fase 13.
+
 ---
 
 ## 1. O que a página é (e o que não é)
@@ -171,7 +184,18 @@ registrado aqui.
 
 ---
 
-## 8. Regra de ouro desta skill
+## 8. Helper pronto (`TesseractData`)
+
+`static/js/freestyle/freestyle-tesseract-data.js` implementa os três
+caminhos desta skill num objeto só (`window.TesseractData`), com
+`esc()`, distinção de 401/403, e tratamento de falha de rede e de
+resposta não-JSON. Usado por `/freestyle/consumption` e `/freestyle/
+full` — copie o arquivo para uma página customizada em vez de
+reescrever `fetch`/tratamento de erro do zero.
+
+---
+
+## 9. Regra de ouro desta skill
 
 > Dado dinâmico em página customizada entra **sempre** por JavaScript
 > chamando um dos três caminhos da seção 2 — nunca por template

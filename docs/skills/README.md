@@ -81,8 +81,15 @@ Ordem de leitura recomendada:
     customizada consome dado: os três caminhos (API REST do CrudGen,
     Ação de Dado, `/api/options/`), contratos, permissão (401 vs 403),
     segurança (SSTI, XSS no dado da API, nota sobre CSRF) e erros
-    comuns. Modelos prontos em
-    `static/modelo_paginas_nice_admin/_modelo-pagina-{basico,completo}.html`.
+    comuns. Referência viva em `/freestyle/` (Fase 13, controller
+    `controller/core/freestyle_model.py`); modelos estáticos em
+    `static/modelo_paginas_nice_admin/_modelo-pagina-{basico,completo}.html`
+    também existem, decisão de consolidação em aberto (BACKLOG, Fase 13).
+19. **18-freestyle-modelos-de-referencia.md** — estrutura e convenção do
+    `/freestyle/` (Fase 13): onde controller/template/JS moram, por que
+    `templates/` não é servível, convenção de nome `model_X-*.js` vs.
+    `freestyle-*.js` compartilhado, e passo a passo pra criar um modelo
+    novo.
 
 ## Status
 

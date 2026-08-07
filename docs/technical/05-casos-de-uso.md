@@ -220,30 +220,36 @@ flowchart TD
   registrada em BACKLOG.md)
 - **Permissão**: n/a (decisão de código, não de runtime)
 
-## UC21 — Administrador configura um botão pra chamar uma Ação de Dado (Fase 10)
+## UC21 — Desenvolvedor consome uma Ação de Dado numa página customizada (Fase 10/12)
 
-- **Ator**: Administrador
+> Reescrito na Fase 12: não existe mais painel "Eventos (onClick)" no
+> editor (era do canvas, removido) — a chamada é JavaScript direto na
+> página.
+
+- **Ator**: Desenvolvedor (edita `content_html` ou um modelo freestyle)
 - **Contexto**: já existe uma `DesignerDataAction` cadastrada (nome,
   conexão, entidade, operação `query`/`update`, permissão opcional)
-- **Fluxo principal**: editor do Designer → seleciona um `button` →
-  painel "Eventos (onClick)" → "+ Ação" → tipo "Chamar Ação de Dado" →
-  escolhe a Ação de Dado, preenche `key`/`payload` se for `update` →
-  salva → publica a página → usuário final clica o botão → o
-  navegador chama `POST /admin/designer/data-action/<id>/execute`
-  (server-side, nunca expõe credencial de conexão)
+- **Fluxo principal**: escreve um botão em HTML com `onclick` (ou
+  listener via `addEventListener`) chamando `TesseractData.
+  acaoDeDado(id, corpo)` (`static/js/freestyle/freestyle-tesseract-
+  data.js`, skill 18) → o navegador dispara `POST /admin/designer/
+  data-action/<id>/execute` (server-side, nunca expõe credencial de
+  conexão) → resultado tratado no `.then()`
 - **Fluxo alternativo**: usuário sem a `permission_required` da Ação
-  de Dado → 403, toast de erro mostrado no lugar do botão travar
-  silenciosamente
-- **Permissão**: a de quem edita a página (`admin`) para configurar;
-  a `permission_required` da própria `DesignerDataAction` (ou nenhuma)
-  para o usuário final disparar
+  de Dado → resposta `403`; o helper devolve mensagem legível
+  (`"Você não tem permissão para esta operação."`) em vez do botão
+  travar silenciosamente
+- **Permissão**: quem edita a página precisa poder publicar
+  (`admin`); a `permission_required` da própria `DesignerDataAction`
+  (ou nenhuma) vale para o usuário final que dispara a chamada
 
-## UC22 — Administrador substitui uma tela do CrudGen por uma página do Designer (Fase 10)
+## UC22 — Administrador substitui uma tela do CrudGen por uma página do Designer (Fase 10/12)
 
 - **Ator**: Administrador
-- **Contexto**: já montou uma `DesignerPage` com `form_container`/
-  `datagrid` bind ados via `DesignerDataAction`, cobrindo o que a
-  tela gerada pelo CrudGen mostrava
+- **Contexto**: já escreveu (ou colou de `/freestyle/consumption`) uma
+  página customizada que exibe/edita, via JavaScript e Ação de Dado,
+  o que a tela gerada pelo CrudGen mostrava — **não** é mais um
+  `form_container`/`datagrid` de canvas (removidos na Fase 12)
 - **Fluxo principal**: editor do Designer → painel "Configurações da
   página" → preenche `replaces_entity_key` (plural da entidade, ex.
   `yeast_strains`) + `replaces_view=manage` → marca "Substituir no

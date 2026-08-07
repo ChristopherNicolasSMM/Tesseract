@@ -22,7 +22,6 @@ erDiagram
     tesseract_user ||--o{ tesseract_user_menu_preference : "override pessoal de menu"
     tesseract_user ||--o{ tesseract_odata_connection : "cria (opcional)"
     tesseract_user ||--o{ tesseract_designer_page : "cria (opcional)"
-    tesseract_designer_page ||--o{ tesseract_designer_component : "tem"
     tesseract_odata_connection ||--o{ tesseract_designer_data_action : "usada por (Fase 10)"
     tesseract_user ||--o{ tesseract_designer_data_action : "cria (opcional)"
     tesseract_transaction ||--o{ tesseract_transaction : "parent_id (árvore de menu)"
@@ -121,25 +120,12 @@ erDiagram
         int id PK
         string name
         string slug UK
-        int canvas_width
-        int canvas_height
+        text content_html "Fase 12 — HTML escrito à mão; canvas_width/canvas_height/canvas_bg saíram junto do canvas"
         bool is_published
         string permission_required
         string replaces_entity_key "Fase 10 — plural, mesmo formato de field_rule.entity_key"
         string replaces_view "Fase 10 — manage/detail"
         bool replace_in_menu "Fase 10 — só tem efeito com replaces_view=manage"
-    }
-    tesseract_designer_component {
-        int id PK
-        int page_id FK
-        string type "16 tipos — Tier 1/2, Fase 10 (ver docs/manual)"
-        int x
-        int y
-        int width
-        int height
-        json properties
-        json events "Fase 10 — ações por evento (onClick/onChange/onLoad)"
-        json rules "regras de Validação anexadas"
     }
     tesseract_designer_data_action {
         int id PK
@@ -272,9 +258,8 @@ erDiagram
 | `tesseract_odata_connection` | `entity_route_overrides` | Só usado quando o metadata do servidor não declara `EntitySet` (formato customizado) — guarda a correção manual/automática do nome real da rota de coleção; nunca sobrescrito por um refresh de `metadata_cache` |
 | `tesseract_odata_connection` | `is_local` (Fase 10) | Marca a conexão auto-seedada (idempotente, `core/odata_local_seed.py`) que representa o provedor OData do próprio Tesseract — habilita o atalho em processo (sem HTTP) em `ODataConnectionManager` |
 | `tesseract_designer_page` | `replaces_entity_key`/`replaces_view`/`replace_in_menu` (Fase 10) | Referência fraca (nunca FK) — `core/designer_menu_override.py` resolve a `Transaction` a trocar via `permission_required == "<replaces_entity_key>.list"`; `replace_in_menu` só tem efeito com `replaces_view == "manage"` |
-| `tesseract_designer_component` | `rules` | JSON — onde uma regra do `tesseract_field_rule`-like catalog é referenciada por `js_function`, consumida pelo `rule_engine.js` no runtime |
-| `tesseract_designer_component` | `events` (Fase 10) | JSON — `{"onClick": [{"action_type": "...", "params": {...}}]}`, referenciando `core/actions_catalog.py`; existia desde a Fase 7c mas ficou sem nenhum controller/template lendo ou escrevendo até o Patch 3 da Fase 10 |
-| `tesseract_designer_data_action` | `static_params` (Fase 10) | JSON livre — parâmetros fixos aplicados sempre, independente do componente que dispara a Ação (ex.: um `$filter` que nunca muda) |
+| `tesseract_designer_page` | `content_html` (Fase 12) | Renderizado com `\|safe`, **nunca** via `render_template_string()` — Jinja vindo do banco seria SSTI (execução de código no servidor). Dado dinâmico entra só por JavaScript (skill 17) |
+| `tesseract_designer_data_action` | `static_params` (Fase 10) | JSON livre — parâmetros fixos aplicados sempre, independente de quem dispara a Ação (ex.: um `$filter` que nunca muda) |
 | `tesseract_designer_data_action` | `permission_required` (Fase 10) | Mesmo padrão de `tesseract_designer_page.permission_required` (Role, via `User.has_permission()`) — `NULL` = público (sem permissão por usuário individual nesta fase, só por grupo/Role) |
 | `tesseract_model_definition` | `manifest_draft_json` | Só preenchido quando `target_scope` é `new_addon`/`new_feature` — rascunho do `addon.json`/`feature.json` que será escrito no scaffold |
 | `tesseract_model_field_definition` | `fk_target_table` | Nome completo já prefixado (skill 02) — usado tanto para FK real (mesmo Addon) quanto pra referência fraca (skill 11, quando cross-Addon) |

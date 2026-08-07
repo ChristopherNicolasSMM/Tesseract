@@ -87,47 +87,41 @@ sequenceDiagram
     RE-->>Admin: mostra erro inline, bloqueia envio
 ```
 
-## Sequência: montar e publicar uma página no Designer (Fase 7c)
+## Sequência: criar e publicar uma página customizada (Fase 12)
+
+> Substitui a sequência de "montar no canvas" da Fase 7c — o construtor
+> visual foi removido; ver skill 16, cabeçalho, para o porquê.
 
 ```mermaid
 sequenceDiagram
     actor Admin as Administrador
     participant Editor as /admin/designer/<id>/edit
-    participant API as Endpoints JSON do Designer
-    participant DB as DesignerPage/DesignerComponent
+    participant DB as DesignerPage (content_html)
     participant Runtime as /designer/<slug>
 
-    Admin->>Editor: abre o canvas
-    Admin->>API: clica "+ Textbox" na paleta
-    API->>DB: INSERT DesignerComponent (tamanho padrão do tipo)
-    API-->>Editor: renderiza o componente no canvas
-    Admin->>API: arrasta/redimensiona (mousedown/mousemove/mouseup)
-    API->>DB: UPDATE x/y/width/height
-    Admin->>API: anexa regra de validação ao textbox
-    API->>DB: UPDATE rules (JSON)
+    Admin->>Editor: abre o editor de HTML
+    Admin->>Editor: escreve/cola o conteúdo (modelo em /freestyle/, skill 18)
+    Admin->>DB: POST .../content — salva content_html
     Admin->>Editor: clica "Publicar"
     Editor->>DB: UPDATE is_published=True
     Admin->>Runtime: abre /designer/<slug>
-    Runtime->>DB: SELECT página + componentes (só se is_published)
-    Runtime-->>Admin: HTML real renderizado, com rule_engine.js conectado
+    Runtime->>DB: SELECT página (só se is_published)
+    Runtime-->>Admin: content_html renderizado com |safe (nunca via render_template_string — SSTI, skill 17 §1)
 ```
 
-## Sequência: disparar uma Ação de evento até uma Ação de Dado (Fase 10)
+## Sequência: consumir dado numa página customizada (Fase 10, skill 17)
 
 ```mermaid
 sequenceDiagram
-    actor User as Usuário (página publicada)
-    participant DOM as Botão (data-events)
-    participant Engine as actions_engine.js
+    actor User as Usuário (página publicada ou /freestyle/*)
+    participant JS as JavaScript da página (TesseractData, skill 18)
     participant Server as /admin/designer/data-action/<id>/execute
     participant DA as DesignerDataAction
     participant Mgr as ODataConnectionManager
     participant Data as Provedor local (em processo) ou externo (HTTP)
 
-    User->>DOM: clique
-    DOM->>Engine: fire(el, "onClick")
-    Engine->>Engine: roda ações client-side em sequência (navigate/show_message/...)
-    Engine->>Server: POST call_data_action {key, payload}
+    User->>JS: interação (clique, carregamento da tela)
+    JS->>Server: POST {params} ou {key, payload}
     Server->>DA: carrega Ação de Dado + checa permission_required
     Server->>Mgr: query()/patch() na ODataConnection configurada
     alt conexão local (is_local=True)
@@ -136,8 +130,8 @@ sequenceDiagram
         Mgr->>Data: HTTP real (urllib)
     end
     Data-->>Server: resultado
-    Server-->>Engine: {success, result} ou {success:false, error}
-    Engine->>Engine: se falhar, mostra toast de erro e para a cadeia
+    Server-->>JS: {success, result} ou {success:false, error}
+    JS->>JS: se falhar, mostra toast (401 sessão vs. 403 permissão, skill 17 §5)
 ```
 
 ## Sequência: substituição de tela CrudGen no menu (Fase 10)

@@ -167,62 +167,50 @@ Duas formas:
 `/admin/field-rules/` → escolher `entity_key` (o `plural` da entidade,
 mesmo valor usado nas rotas geradas) + `field_name` + regra do
 catálogo (grupo Validação — os outros dois grupos, Visibilidade e
-Cálculo, ainda não têm motor JS, ver seção abaixo). Funciona tanto em
-telas geradas pelo CrudGen quanto em `textbox`es do Designer.
+Cálculo, ainda não têm motor JS, ver seção abaixo). Funciona em telas
+geradas pelo CrudGen, que já renderizam `data-rules` a partir da regra
+cadastrada; numa página customizada escrita à mão, o mesmo campo só
+valida se o `<input>` levar `data-rules` manualmente (`rule_engine.js`
+não sabe de onde veio o HTML).
 
-## Como montar uma página visual sem usar o CrudGen
+## Como criar uma página customizada (Fase 12 — sem canvas)
 
-`/admin/designer/` → criar página → arrastar componentes da paleta →
-posicionar/redimensionar (mouse) → editar propriedades no painel
-lateral → publicar. Útil para dashboards e telas que não mapeiam 1:1
-pra uma entidade de banco. Tipos de componente disponíveis hoje (16 —
-mapeamento completo em `mapeamento_niceadmin_designer.md`, entregue no
-início da Fase 10):
+`/admin/designer/` → criar página → editor de HTML (`content_html`) →
+publicar. Não existe mais canvas/paleta/árvore de componentes — o
+construtor visual foi removido (skill 16, cabeçalho, tem o porquê).
+Útil para dashboards e telas que não mapeiam 1:1 pra uma entidade de
+banco.
 
-- **Sem bind de dado**: `heading`, `label`, `image`, `divider`,
-  `card`, `alert`, `badge`, `progress_bar` (Tier 2, estático nesta
-  fase — vincular a outro componente é a regra "Controlar
-  ProgressBar", ainda sem motor, ver seção seguinte).
-- **Campo de formulário**: `textbox`, `select`, `checkbox`, `radio`.
-- **Com bind via Ação de Dado** (Fase 10, Patch 4): `form_container`
-  (um registro, casado por posição geométrica — não é aninhamento
-  real de DOM/schema), `datagrid` (lista, via `simple-datatables`),
-  `list` (lista simples, um campo por item).
-- **Com Ações por evento** (Fase 10, Patch 3): `button` (`onClick`).
+Ponto de partida: `/freestyle/` (Fase 13, skill 18) — telas de
+referência **vivas**, testadas, cobrindo esqueleto mínimo, abas,
+consumo de dado e galeria de componentes do NiceAdmin. Copie o HTML de
+lá; não comece do zero.
 
-## Como configurar uma Ação de evento num componente (Fase 10)
+## Como uma página customizada chama uma Ação de Dado (Fase 10)
 
-Editor → seleciona um `button` → painel "Eventos (onClick)" → "+
-Ação" → escolhe o tipo (`core/actions_catalog.py`: `navigate`,
-`show_message`, `set_component_value`, `toggle_component` — todas
-client-side, `static/js/actions_engine.js` — ou `call_data_action`,
-a única server-side) → preenche os parâmetros do tipo escolhido →
-Salvar eventos. Várias ações no mesmo evento rodam em sequência; se
-uma `call_data_action` falhar, a cadeia para e mostra um toast de
-erro automaticamente.
+Não existe mais painel de evento no editor — a chamada é JavaScript
+direto na página, contra o endpoint server-side:
+
+```js
+fetch('/admin/designer/data-action/<id>/execute', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ params: { '$filter': "status eq 'ativo'" } }),
+}).then(r => r.json()).then(dado => { /* dado.result.value */ });
+```
+
+`static/js/freestyle/freestyle-tesseract-data.js` (`window.
+TesseractData`) encapsula isso — `TesseractData.acaoDeDado(id, corpo)`
+— junto dos outros dois caminhos de dado (API REST do CrudGen,
+`/api/options/`) e do `esc()` contra XSS. Copie o arquivo em vez de
+reescrever `fetch`/tratamento de erro do zero. Contratos completos e
+os 7 erros comuns estão na skill 17.
 
 **Regra de ouro desta peça**: toda Ação que toca dado/API roda
 *sempre* no servidor (`POST /admin/designer/data-action/<id>/execute`)
 — nunca client-side, porque a `ODataConnection` por trás pode
-envolver credencial (`auth_value`). O navegador só manda qual
+envolver credencial (`auth_value`). A página só manda qual
 `DesignerDataAction` disparar e, se for `update`, a `key`/`payload`.
-
-## Como adicionar um novo tipo de Ação ao catálogo (Fase 10)
-
-1. Adicionar a entrada em `ACTION_CATALOG`
-   (`core/actions_catalog.py`) — `id`, `label`, `icon`, `runs_on`
-   (`"client"` ou `"server"`), `params` (lista de `{name, label, type,
-   default}` — tipos aceitos pelo editor: `text`, `number`, `select`,
-   `textarea`, `data_action_select`).
-2. Se `runs_on: "client"` — implementar a função em
-   `static/js/actions_engine.js` (mesmo padrão das 4 existentes:
-   recebe `params`, devolve `Promise` ou executa síncrono) e
-   registrar no `switch` de `runAction()`.
-3. Se `runs_on: "server"` — **não** criar um endpoint novo: o único
-   ponto server-side (`call_data_action`) já cobre "executar uma
-   Ação de Dado"; um tipo de Ação server-side novo só se justifica se
-   fizer algo estruturalmente diferente de chamar uma
-   `DesignerDataAction` (raro — pense duas vezes antes).
 
 ## Como expor uma nova entidade no provedor OData local (Fase 10)
 
@@ -235,24 +223,6 @@ o nome usado numa `DesignerDataAction.entity_name` — não precisa ser
 igual ao `__tablename__`. Metadata é montada ao vivo
 (`core/odata_provider/metadata.py`), sem cache — qualquer mudança de
 model aparece no próximo request.
-
-## Como adicionar um novo tipo de componente ao Designer (Fase 10)
-
-1. Acrescentar o `id` em `COMPONENT_TYPES`
-   (`model/core/designer_component.py`) — a paleta do editor já lista
-   qualquer tipo presente aqui, sem mudança de template.
-2. `_DEFAULT_SIZE`/`_DEFAULT_PROPERTIES`
-   (`controller/core/designer.py`) — tamanho e propriedades iniciais.
-3. Preview no canvas do editor —
-   `templates/core/admin/designer_editor.html`, função JS
-   `renderInnerContent()` (só visual, sem bind real).
-4. Renderização de runtime — `templates/core/designer_runtime.html`,
-   novo `{% elif comp.type == '...' %}`.
-5. Se precisar buscar dado — adicionar a função `init*()`
-   correspondente em `static/js/data_binding.js` (mesmo padrão de
-   `initSelects()`/`initDatagrids()`/`initLists()`: sempre chama
-   `fetchDataAction()`, nunca fala direto com um provedor OData do
-   navegador).
 
 ## Como substituir uma tela do CrudGen por uma página do Designer (Fase 10)
 
@@ -283,23 +253,29 @@ implementa as funções de Validação. Para conectar Visibilidade
 (`calculate`/`sum`/`linkProgress`/`statusMap`/`format`):
 
 1. Implementar a função correspondente em `rule_engine.js` (mesmo
-   padrão das funções de Validação: recebe `el, params`, mas essas
-   precisam também resolver `source_id`/`target_id` para outros
-   elementos do DOM — usar `document.getElementById('comp-' + id)`,
-   já que o Designer usa esse padrão de id).
-2. Não precisa de nenhuma mudança de schema — `DesignerComponent.rules`
-   já aceita qualquer `js_function` do catálogo, só ignora
-   silenciosamente as que o motor não implementa ainda.
+   padrão das funções de Validação: recebe `el, params`).
+2. `source_id`/`target_id` resolvendo outro elemento do DOM
+   pressupõe uma convenção estável de id — o padrão `comp-<id>` era
+   específico do canvas do Designer (Fase 7c-11), removido na Fase
+   12. Numa página customizada escrita à mão (ou num template do
+   CrudGen), a convenção de id/seletor é responsabilidade de quem
+   escreve o HTML; a função em `rule_engine.js` recebe o que for
+   passado em `params`, não presume mais um formato fixo.
+3. `FieldRule` (`entity_key`/`field_name`) continua sendo onde a
+   regra fica cadastrada — nenhuma mudança de schema —, mas só produz
+   efeito em elemento que leve `data-rules` no HTML (automático em
+   tela gerada pelo CrudGen; manual em página customizada).
 
 ## Como integrar um servidor OData externo
 
-`/admin/odata/` → criar conexão → testar → navegar dados. Para ir além
-do navegador read-only (gerar uma tela editável a partir da metadata),
-seria necessário portar `screen_generator.py` (DEVStationFlask) —
-possível desde que o Designer existe (Fase 7c); a Fase 10 entregou os
-componentes soltos (`form_container`/`datagrid`/`list`) pra montar
-essa tela à mão, mas a geração *automática* de página a partir de
-metadata continua não feita, por falta de pedido real até esta versão.
+`/admin/odata/` → criar conexão → testar → navegar dados. Ir além do
+navegador read-only significaria gerar uma tela editável a partir da
+metadata — `screen_generator.py` (DEVStationFlask) foi cogitado
+enquanto o Designer tinha canvas (Fase 7c-11), mas a Fase 12 removeu o
+canvas e a ideia de "gerar a árvore de componentes automaticamente"
+deixou de fazer sentido sem árvore. O caminho hoje é o dev escrever a
+tela à mão, com `/freestyle/consumption` (Fase 13, skill 18) como
+referência do consumo — não portar o `screen_generator.py`.
 
 O Tesseract também é, desde a Fase 10, **provedor** OData da própria
 base (não só consumidor) — ver "Como expor uma nova entidade no
@@ -356,19 +332,13 @@ Ainda não há rotina automatizada. Hoje significa:
   stampada; só precisa de `db migrate`/`db upgrade` daqui pra frente.
 - **`core/rules_catalog.py`** — catálogo de regras pronto para mais
   funções JS (Visibilidade/Cálculo).
-- **`DesignerComponent.rules`** — qualquer regra do catálogo pode ser
-  anexada, mesmo as ainda sem motor (fica catalogada, sem efeito).
-- **`DesignerComponent.events`** (Fase 10) — qualquer Ação do
-  catálogo pode ser anexada a `onClick` hoje; `onChange`/`onLoad`
-  já são disparados por `static/js/actions_engine.js` para qualquer
-  elemento com `data-events`, só falta um tipo de componente que
-  dispare esses eventos no runtime (nenhum dispara ainda).
 - **`core/odata_provider/registry.py`** (Fase 10) — varre
   `db.Model.registry.mappers` procurando `@odata_expose`; funciona
   pra qualquer model de qualquer Addon/Feature/Core, sem precisar
   saber a origem.
-- **`core/actions_catalog.py`** (Fase 10) — catálogo de tipos de
-  Ação, mesmo padrão de `core/rules_catalog.py`.
+- **`static/js/freestyle/freestyle-tesseract-data.js`** (Fase 13) —
+  helper de acesso a dado pronto pra copiar em qualquer página nova
+  (`TesseractData.rest`/`.acaoDeDado`/`.opcoes`/`.esc`).
 - **`@display_field`/`@weak_ref`** (skill nova —
   `docs/skills/11-referencia-fraca-e-display-field.md`) — anotações
   pra resolver campo de referência fraca (skill 02, ex.: `material_id`
