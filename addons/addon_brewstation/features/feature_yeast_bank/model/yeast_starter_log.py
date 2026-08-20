@@ -6,11 +6,16 @@ Starter/propagação — nasce de um item do banco.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural
+from annotations import label, plural, weak_ref
 
-
+#
 @label("Starter")
 @plural("yeast_starter_logs")
+
+@weak_ref("bank_item_id",
+    resolver=("addons.addon_brewstation.features.feature_yeast_bank.services.yeast_reference_lookup.get_yeast_bank_item"),
+    options="yeast_bank_items")
+
 class YeastStarterLog(db.Model):
     __tablename__ = "starter_log"
 

@@ -8,20 +8,26 @@ parâmetros do modelo (ver yeast_strain.py).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, permission, weak_ref, choices, enum_field
+from annotations import label, plural, required, permission, weak_ref, choices, enum_field, display_field
 
 
 @label("Item do Banco")
 @plural("yeast_bank_items")
+@display_field("identification")
+
 @required("storage_type", message="Tipo de armazenamento é obrigatório")
+@enum_field("storage_type", options=["Agar Inclinado", "Óleo", "Agar Inc. + Óleo" , "Solu. NaCl 0.9%", "Gligerina", "Seca","Lama"])
+
 @enum_field("status", options=["pending", "active", "completed", "skipped"])
 @permission(
     "recalculate_viability",
     description="Recalcular viabilidade estimada de todos os itens do banco",
 )
+
 @weak_ref("storage_device_id",
     resolver=("addons.addon_brewstation.features.feature_yeast_bank.services.yeast_reference_lookup.get_yeast_storage_device"),
     options="yeast_storage_devices")
+
 @weak_ref(
     "strain_id",
     resolver=("addons.addon_brewstation.features.feature_yeast_bank.services.yeast_reference_lookup.get_yeast_strain"),
@@ -31,7 +37,7 @@ class YeastBankItem(db.Model):
     __tablename__ = "bank_item"
 
     id = db.Column(db.Integer, primary_key=True)
-
+    
     strain_id = db.Column(db.Integer, db.ForeignKey("strain.id"), nullable=False)
     strain = db.relationship("YeastStrain", backref=db.backref("bank_items", lazy=True))
 
@@ -100,7 +106,38 @@ class YeastBankItem(db.Model):
             "is_deleted": self.is_deleted,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "identification": self.identification,
         }
+        
+    @property
+    def identification(self) -> str:
+        strain_name = (
+            self.strain.name
+            if self.strain
+            else f"Strain #{self.strain_id}"
+        )
+
+        device_name = (
+            self.storage_device.name
+            if self.storage_device
+            else (
+                f"Device #{self.storage_device_id}"
+                if self.storage_device_id
+                else ""
+            )
+        )
+
+        parts = [
+            strain_name,
+            self.storage_slot,
+            self.location,
+            device_name,
+        ]
+
+        return " - ".join(
+            str(part) for part in parts
+            if part
+        )        
 
     def __repr__(self) -> str:
         return f"<YeastBankItem id={self.id} strain_id={self.strain_id}>"

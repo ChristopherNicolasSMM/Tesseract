@@ -57,6 +57,7 @@
         hidden.value = item.id;
         search.value = item.text;
         list.classList.remove("show");
+        search.blur();
       });
       list.appendChild(li);
     });
@@ -90,7 +91,11 @@
     const debouncedSearch = debounce(function () { search(container); }, 250);
     const input = container.querySelector(".weakref-combo-search");
 
-    input.addEventListener("input", debouncedSearch);
+    //input.addEventListener("input", debouncedSearch);
+    input.addEventListener("input", function () {
+      hidden.value = "";
+      debouncedSearch();
+    });
     input.addEventListener("focus", debouncedSearch);
 
     document.addEventListener("click", function (evt) {
