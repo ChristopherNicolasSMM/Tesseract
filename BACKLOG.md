@@ -3673,3 +3673,42 @@ testado no uso real — condição já satisfeita, decisão em aberto.
 
 46 testes novos ao longo da Fase 13 (18+8+20 de código, mais os de
 documentação não contam teste — são markdown).
+
+## Fase 14 — Yeast Bank: proposta de reestruturação com Container (planejamento — sem código)
+
+Motivação: uso real do `feature_yeast_bank` mostrou que a hierarquia
+atual (`YeastStorageDevice` ↔ `YeastBankItem` por FK direta) não tem
+nível intermediário para agrupar amostras fisicamente (caixa, estante,
+prateleira dentro de um freezer) — `storage_slot` (texto livre) tentava
+cobrir isso sem estrutura nem navegação própria.
+
+- [x] **Planejamento fechado, skill 19 nova.** Nova entidade
+      `YeastContainer` (tabela curta `container`, sem colisão em todo
+      `addon_brewstation`) entre Dispositivo e Item do banco:
+      `Dispositivo (1) ──< Container (1) ──< Item do banco`. Decisões
+      fechadas: Container sempre físico (`device_id NOT NULL`, sem
+      variante virtual), 1 Container pertence a exatamente 1
+      Dispositivo, `YeastBankItem.storage_device_id` é removido (o
+      dispositivo passa a ser resolvido só via `item.container.device`,
+      sem FK redundante), `storage_slot` muda de significado (posição
+      dentro do Container, mesma coluna) e a ordem de cadastro
+      (Dispositivo → Cepa → Container → Item) vira regra de FK
+      `NOT NULL`, não só sugestão de tela. Plano de migration em 6
+      passos documentado (cria Container "Geral" por dispositivo
+      existente, backfill, só depois torna `container_id` obrigatório
+      e remove a coluna antiga — sem perda de dado em nenhuma etapa
+      intermediária). Ver `docs/skills/19-proposta-reestruturacao-yeast-bank-container.md`
+      para o schema completo e o racional de cada decisão descartada.
+- [ ] Implementação do model/migration/CrudGen da proposta acima —
+      aguardando autorização.
+- [ ] Tela integrada de navegação (drill-down container → itens →
+      detalhe com abas de starter/contagem/eventos), substituindo as
+      telas padrão do CrudGen para essas entidades — fase própria,
+      só depois do schema aplicado. Risco já conhecido do projeto
+      (mesma lição da Fase 12): planejar teste em navegador antes do
+      JS, não depois.
+- [ ] Decisão em aberto, não bloqueante: se Container/Item continuam
+      dentro de `feature_yeast_bank` ou viram Feature própria.
+
+Nenhum teste novo nesta fase — é só documento (schema/migration/skill),
+sem alteração de código.

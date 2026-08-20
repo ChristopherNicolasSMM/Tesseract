@@ -90,6 +90,13 @@ Ordem de leitura recomendada:
     `templates/` não é servível, convenção de nome `model_X-*.js` vs.
     `freestyle-*.js` compartilhado, e passo a passo pra criar um modelo
     novo.
+20. **19-proposta-reestruturacao-yeast-bank-container.md** — nova
+    entidade `YeastContainer` entre Dispositivo e Item do banco
+    (Dispositivo 1:N Container 1:N Item), remoção de
+    `YeastBankItem.storage_device_id` em favor de `container_id`,
+    plano de migration em 6 passos sem perda de dado, e navegação em
+    drill-down proposta para a futura tela integrada (BACKLOG, Fase
+    14). Planejamento fechado, implementação pendente de autorização.
 
 ## Status
 
@@ -132,6 +139,12 @@ sem estilo, `flash()` duplicado por template, sem centralização em
 de i18n (skill 00, que até aqui era só regra, nunca teve `t()`/
 `i18n_service.py` de fato). Adendas nas skills 00 (motor de i18n) e 01
 (`static/` confirmado como global, sem `static/core/`).
+
+A skill 19 (reestruturação do yeast_bank com a entidade `Container`,
+entre Dispositivo e Item do banco) está em **[DECIDIDO], pendente de
+implementação** — planejamento fechado em conversa (BACKLOG, Fase 14),
+schema e plano de migration documentados no próprio arquivo, aguardando
+autorização para virar código.
 
 Cada novo documento deve seguir o mesmo padrão: sem código de implementação,
 só regra, schema e exemplo — pronto para ser citado por uma IA ou
