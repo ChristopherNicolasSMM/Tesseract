@@ -74,6 +74,7 @@ class YeastBankItem(db.Model):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+    identification = db.Column(db.String(255), nullable=True,)
 
     def to_dict(self) -> dict:
         return {
@@ -108,36 +109,7 @@ class YeastBankItem(db.Model):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "identification": self.identification,
         }
-        
-    @property
-    def identification(self) -> str:
-        strain_name = (
-            self.strain.name
-            if self.strain
-            else f"Strain #{self.strain_id}"
-        )
-
-        device_name = (
-            self.storage_device.name
-            if self.storage_device
-            else (
-                f"Device #{self.storage_device_id}"
-                if self.storage_device_id
-                else ""
-            )
-        )
-
-        parts = [
-            strain_name,
-            self.storage_slot,
-            self.location,
-            device_name,
-        ]
-
-        return " - ".join(
-            str(part) for part in parts
-            if part
-        )        
+          
 
     def __repr__(self) -> str:
         return f"<YeastBankItem id={self.id} strain_id={self.strain_id}>"
