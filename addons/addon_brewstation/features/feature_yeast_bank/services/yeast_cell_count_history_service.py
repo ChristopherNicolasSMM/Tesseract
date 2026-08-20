@@ -1,5 +1,5 @@
 """
-addons/addon_brewstation/features/feature_yeast_bank/services/yeast_cell_count_history_service.py
+addons\addon_brewstation\features\feature_yeast_bank/services/yeast_cell_count_history_service.py
 
 Gerado pelo CrudGen — NÃO editar diretamente. Customizações via hooks
 (yeast_cell_count_history_service_hooks.py, nunca sobrescrito).

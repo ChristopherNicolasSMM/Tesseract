@@ -1,10 +1,11 @@
 """
-addons/addon_brewstation/features/feature_yeast_bank/controller/yeast_strains.py
+addons\addon_brewstation\features\feature_yeast_bank/controller/yeast_strains.py
 
 Rotas web (HTML) — gerado pelo CrudGen. NÃO editar diretamente.
 Customizações via yeast_strains_hooks.py (nunca sobrescrito).
 """
 import csv
+import importlib
 import io
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
@@ -12,7 +13,7 @@ from flask_login import login_required, current_user
 
 from core.db import db
 from core.permissions import permission_required
-from annotations import get_choices_fields
+from annotations import get_choices_fields, get_weak_refs, get_enum_fields, get_model_metadata
 from addons.addon_brewstation.features.feature_yeast_bank.services.yeast_strain_service import YeastStrainService
 from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_strain import YeastStrain
 
@@ -46,7 +47,67 @@ _BOOLEAN_FIELDS = [
 # mas nunca tinha sido conectada a nenhum filtro de verdade).
 _CHOICES_FIELDS = [f["field"] for f in get_choices_fields(YeastStrain) if f["field"] in _EDITABLE_FIELDS]
 
+# Campos com @weak_ref no model (skill 11) — referência fraca (sem FK
+# real, cross-Addon) resolvida em exibição via função apontada por
+# "resolver". _WEAK_REFS guarda a declaração completa (field/resolver/
+# options); _WEAK_REF_FIELDS é só a lista de nomes, usada pelo template
+# pra decidir se substitui a célula pelo valor resolvido.
+_WEAK_REFS = [wr for wr in get_weak_refs(YeastStrain) if wr["field"] in _EDITABLE_FIELDS]
+_WEAK_REF_FIELDS = [wr["field"] for wr in _WEAK_REFS]
+
+# Campos com @enum_field no model — opção FIXA (estática, declarada no
+# código), vira <select> no formulário de detalhe. Diferente de
+# @choices (dinâmico, só filtro de lista — ver _CHOICES_FIELDS acima).
+_ENUM_FIELDS = [ef for ef in get_enum_fields(YeastStrain) if ef["field"] in _EDITABLE_FIELDS]
+_ENUM_FIELD_OPTIONS = {ef["field"]: ef["options"] for ef in _ENUM_FIELDS}
+
+# Tradução de @required/@max_length/@min_length/@min_value em
+# atributos HTML5 nativos + badge visual (skill 12 — decisão desta
+# sessão de ligar essas anotações a algo real; eram só decorativas
+# antes). Camada complementar ao rule_engine.js (skill 07b) — validação
+# nativa do browser, roda antes de qualquer JS, sem servidor envolvido.
+_FIELD_HTML_VALIDATIONS: dict = {}
+for _field, _rules in get_model_metadata(YeastStrain).get("validations", {}).items():
+    if _field not in _EDITABLE_FIELDS:
+        continue
+    _attrs: dict = {}
+    for _rule in _rules:
+        if _rule["type"] == "required":
+            _attrs["required"] = True
+        elif _rule["type"] == "max_length":
+            _attrs["maxlength"] = _rule.get("max")
+        elif _rule["type"] == "min_length":
+            _attrs["minlength"] = _rule.get("min")
+        elif _rule["type"] == "min_value":
+            _attrs["min_value"] = _rule.get("min")
+    if _attrs:
+        _FIELD_HTML_VALIDATIONS[_field] = _attrs
+
 _LIST_KEY = "yeast_strains"
+
+
+def _resolve_weak_ref_display(item) -> dict:
+    """
+    Resolve os campos com @weak_ref (skill 11) para exibição, chamando
+    a função apontada por "resolver" (caminho pontuado, resolvido via
+    importlib). Nunca levanta erro pra fora — referência fraca não tem
+    garantia de integridade (ex.: registro apagado do outro lado), e a
+    tela sempre pode cair pro valor cru sem quebrar.
+    """
+    result: dict = {}
+    for wr in _WEAK_REFS:
+        value = getattr(item, wr["field"], None)
+        if value is None:
+            continue
+        try:
+            module_path, func_name = wr["resolver"].rsplit(".", 1)
+            resolver_fn = getattr(importlib.import_module(module_path), func_name)
+            resolved = resolver_fn(value)
+        except Exception:  # noqa: BLE001
+            continue
+        if resolved and resolved.get("display"):
+            result[wr["field"]] = resolved["display"]
+    return result
 
 
 def _get_field_rules() -> dict:
@@ -112,6 +173,13 @@ def _apply_filters(query):
         if value:
             query = query.filter(getattr(YeastStrain, field) == value)
 
+    for _ef in _ENUM_FIELDS:
+        if _ef["field"] in _CHOICES_FIELDS:
+            continue  # já filtrado acima — evita duplicar a mesma condição
+        value = request.args.get(f"filter_{_ef['field']}")
+        if value:
+            query = query.filter(getattr(YeastStrain, _ef["field"]) == value)
+
     return query
 
 
@@ -147,6 +215,12 @@ def manage():
         boolean_fields=_BOOLEAN_FIELDS, choices_fields=_CHOICES_FIELDS,
         choices_options=_choices_options(), request_args=request.args,
         field_rules=_get_field_rules(),
+        weak_ref_fields=_WEAK_REF_FIELDS,
+        weak_ref_display={item.id: _resolve_weak_ref_display(item) for item in items},
+        weak_ref_options={wr["field"]: wr["options"] for wr in _WEAK_REFS if wr["options"]},
+        weak_ref_value_fields={wr["field"]: wr["value_field"] for wr in _WEAK_REFS if wr.get("value_field")},
+        enum_field_options=_ENUM_FIELD_OPTIONS,
+        field_html_validations=_FIELD_HTML_VALIDATIONS,
     )
 
 
@@ -232,6 +306,12 @@ def detail(id: int):
         "yeast_strains/detail.html",
         item=item, label="Cepa de Levedura", fields=_EDITABLE_FIELDS,
         field_rules=_get_field_rules(),
+        weak_ref_fields=_WEAK_REF_FIELDS,
+        weak_ref_display=_resolve_weak_ref_display(item),
+        weak_ref_options={wr["field"]: wr["options"] for wr in _WEAK_REFS if wr["options"]},
+        weak_ref_value_fields={wr["field"]: wr["value_field"] for wr in _WEAK_REFS if wr.get("value_field")},
+        enum_field_options=_ENUM_FIELD_OPTIONS,
+        field_html_validations=_FIELD_HTML_VALIDATIONS,
     )
 
 

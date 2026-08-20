@@ -8,13 +8,19 @@ plugin_yeast_bank/model/yeast_bank_models.py (BrewStation). Sem FK
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length
+from annotations import label, plural, required, max_length, enum_field, choices, display_field
 
 
 @label("Dispositivo de Armazenamento")
+@display_field("name")
 @plural("yeast_storage_devices")
 @required("name", message="Nome do dispositivo é obrigatório")
 @max_length("name", 120)
+@enum_field("device_type", options=["Freezer", "Geladeira", "Câmara Fria"])
+@choices("brand", label="Marca / Fabricante")
+@choices("machcode", label="Código / Identificador")
+@choices("model", label="Modelo")
+
 class YeastStorageDevice(db.Model):
     __tablename__ = "storage_device"  # nome curto — CrudGen/ModuleManager aplicam o prefixo
                                        # (era "device", renomeado: colidia com DeviceMetadata
@@ -25,7 +31,7 @@ class YeastStorageDevice(db.Model):
 
     name = db.Column(db.String(120), nullable=False)
     machcode = db.Column(db.String(40), nullable=True)
-    device_type = db.Column(db.String(40), nullable=False, default="freezer")
+    device_type = db.Column(db.String(40), nullable=False, default="Freezer")
     status = db.Column(db.String(30), nullable=False, default="active")
     description = db.Column(db.Text, nullable=True)
     brand = db.Column(db.String(120), nullable=True)

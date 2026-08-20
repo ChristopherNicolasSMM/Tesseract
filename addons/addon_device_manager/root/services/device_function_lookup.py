@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from addons.addon_device_manager.root.model.device_function import DeviceFunction
 
-
+ 
 def get_function_by_name(name: str | None) -> dict | None:
     """
     Resolve uma DeviceFunction pelo nome único. Retorna um dict (nunca

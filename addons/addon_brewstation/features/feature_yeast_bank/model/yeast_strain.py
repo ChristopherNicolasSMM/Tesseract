@@ -15,15 +15,18 @@ central e mais simples de yeast_bank.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length, choices, odata_expose
+from annotations import label, plural, required, max_length, choices, odata_expose, enum_field, display_field
 
 
 @label("Cepa de Levedura")
+@display_field("name")
 @plural("yeast_strains")
 @choices("status", label="Status")
 @required("name", message="Nome da cepa é obrigatório")
 @max_length("name", 200)
 @odata_expose("yeast_strain", permission_required="yeast_strains.list")
+@enum_field("viability_model", options=["Linear Decayment", "Other"])
+@enum_field("family", options=["Ale", "Lager", "Kveik", "Other"])
 class YeastStrain(db.Model):
     __tablename__ = "strain"  # nome curto — CrudGen/ModuleManager aplicam o prefixo
 
@@ -31,7 +34,7 @@ class YeastStrain(db.Model):
 
     code = db.Column(db.String(64), nullable=True)
     name = db.Column(db.String(200), nullable=False)
-    family = db.Column(db.String(50), nullable=True)
+    family = db.Column(db.String(50), nullable=False, default="Ale")
     supplier = db.Column(db.String(120), nullable=True)
     notes = db.Column(db.Text, nullable=True)
 

@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 from core.db import db
 from annotations import label, plural, required, weak_ref
-
+ 
 
 @label("Mapeamento de Equipamento")
 @plural("brew_plant_mappings")

@@ -10,7 +10,7 @@ permite FK real dentro da mesma Feature) — isto só acrescenta o
 combo de busca na UI, reaproveitando o mesmo mecanismo já usado pra
 referência fraca cross-Addon (skill 11), em vez de inventar um
 segundo mecanismo só pra FK real.
-
+   
 NÃO gerado pelo CrudGen, não sobrescrito por ele — mesmo padrão de
 `device_function_lookup.py`/`automation_engine.py`.
 """

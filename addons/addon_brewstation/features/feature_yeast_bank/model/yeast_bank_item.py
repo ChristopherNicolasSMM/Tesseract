@@ -8,16 +8,25 @@ parâmetros do modelo (ver yeast_strain.py).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, permission
+from annotations import label, plural, required, permission, weak_ref, choices, enum_field
 
 
 @label("Item do Banco")
 @plural("yeast_bank_items")
 @required("storage_type", message="Tipo de armazenamento é obrigatório")
+@enum_field("status", options=["pending", "active", "completed", "skipped"])
 @permission(
     "recalculate_viability",
     description="Recalcular viabilidade estimada de todos os itens do banco",
 )
+@weak_ref("storage_device_id",
+    resolver=("addons.addon_brewstation.features.feature_yeast_bank.services.yeast_reference_lookup.get_yeast_storage_device"),
+    options="yeast_storage_devices")
+@weak_ref(
+    "strain_id",
+    resolver=("addons.addon_brewstation.features.feature_yeast_bank.services.yeast_reference_lookup.get_yeast_strain"),
+    options="yeast_strains")
+
 class YeastBankItem(db.Model):
     __tablename__ = "bank_item"
 
@@ -36,7 +45,7 @@ class YeastBankItem(db.Model):
     prepared_date = db.Column(db.Date, nullable=True)
     expiry_date = db.Column(db.Date, nullable=True)
 
-    status = db.Column(db.String(30), default="ok", nullable=False)
+    status = db.Column(db.String(30), default="active", nullable=False)
     last_checked = db.Column(db.Date, nullable=True)
     viability_notes = db.Column(db.Text, nullable=True)
 

@@ -1,5 +1,5 @@
 """
-addons/addon_brewstation/features/feature_yeast_bank/services/yeast_starter_log_service.py
+addons\addon_brewstation\features\feature_yeast_bank/services/yeast_starter_log_service.py
 
 Gerado pelo CrudGen — NÃO editar diretamente. Customizações via hooks
 (yeast_starter_log_service_hooks.py, nunca sobrescrito).
