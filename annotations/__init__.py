@@ -108,6 +108,36 @@ def get_weak_refs(cls) -> list[dict]:
     return getattr(cls, '_weak_refs', [])
 
 
+def field_labels(labels: dict):
+    """
+    Rótulos de campo (PT-BR) para os formulários gerados
+    (`manage.html`/`detail.html`) — sem essa anotação, o campo cai no
+    fallback atual (`field.replace('_', ' ').title()`), que produz
+    texto em inglês titlecase a partir do nome Python da coluna.
+
+    Mesma convenção de conveniência de autoria da skill 00 (texto
+    direto na anotação, como `@label`/`Column(label=...)`) — ainda não
+    passa pelo pipeline de tradução (`i18n/pt_BR.json`); isso é decisão
+    em aberto da análise de field metadata do CrudGen (skill 12/19).
+
+    ```python
+    @field_labels({
+        "container_type": "Tipo",
+        "device_id": "Dispositivo",
+    })
+    ```
+    """
+    def decorator(cls):
+        cls._field_labels = {**getattr(cls, '_field_labels', {}), **labels}
+        return cls
+    return decorator
+
+
+def get_field_labels(cls) -> dict:
+    """Retorna o dict {field: label} declarado via @field_labels no model."""
+    return getattr(cls, '_field_labels', {})
+
+
 # ---- Decorators de UI (SmartList) ----
 class Column:
     def __init__(self, name: str, label: Optional[str] = None, width: Optional[str] = None,

@@ -125,6 +125,29 @@ O catálogo de regras (`core/rules_catalog.py`) já tem `max_valor`/
 `maxValue` pronto, só falta a anotação — não implementado nesta
 rodada (fora do que foi pedido), fica registrado pra simetria futura.
 
+**`@field_labels({campo: rótulo, ...})`** — adicionado nesta sessão
+(achado real: `manage.html`/`detail.html` gerados sempre mostravam
+`field.replace('_', ' ').title()` como rótulo — nunca passava pelo
+i18n da skill 00, produzindo texto tipo "Container Type" em vez de
+"Tipo"). Sem essa anotação, o campo continua caindo no fallback de
+sempre — comportamento anterior preservado, nenhum model existente
+quebra.
+```python
+@field_labels({
+    "container_type": "Tipo",
+    "device_id": "Dispositivo",
+    "description": "Descrição",
+})
+```
+Mesma convenção de "conveniência de autoria" do `@label`/
+`Column(label=...)` (skill 00) — texto direto aqui, ainda não
+resolvido via `i18n/pt_BR.json`. Resolver isso definitivamente (gerar
+a chave de tradução a partir do texto, em vez de hardcode por model) é
+decisão em aberto da análise de field metadata registrada no backlog
+(tipos SQLAlchemy → HTML + validação), não desta sessão — essa
+anotação é o mínimo pra parar de mostrar rótulo em inglês nas telas
+que já existem, sem esperar a análise maior.
+
 ### 2.3 Referência fraca e busca cross-módulo
 
 **`@display_field(valor)`**

@@ -15,7 +15,7 @@
           {% for field in fields %}
           {% set fv = field_html_validations.get(field, {}) %}
           <div class="col-md-4">
-            <label class="form-label">{{ field.replace('_', ' ').title() }}{% if fv.get('required') %} <span class="text-danger">*</span>{% endif %}</label>
+            <label class="form-label">{{ field_labels.get(field, field.replace('_', ' ').title()) }}{% if fv.get('required') %} <span class="text-danger">*</span>{% endif %}</label>
             {% if field in enum_field_options %}
             <select name="{{ field }}" class="form-select"
                     {% if fv.get('required') %}required{% endif %}
@@ -56,7 +56,7 @@
 
         {% for field in boolean_fields %}
         <div class="col-md-2">
-          <label class="form-label small mb-0">{{ field.replace('_', ' ').title() }}</label>
+          <label class="form-label small mb-0">{{ field_labels.get(field, field.replace('_', ' ').title()) }}</label>
           <select name="filter_{{ field }}" class="form-select form-select-sm">
             <option value="">Todos</option>
             <option value="true" {% if request_args.get('filter_' + field) == 'true' %}selected{% endif %}>Sim</option>
@@ -67,7 +67,7 @@
 
         {% for field in enum_field_options %}
         <div class="col-md-2">
-          <label class="form-label small mb-0">{{ field.replace('_', ' ').title() }}</label>
+          <label class="form-label small mb-0">{{ field_labels.get(field, field.replace('_', ' ').title()) }}</label>
           <select name="filter_{{ field }}" class="form-select form-select-sm">
             <option value="">Todos</option>
             {% for opt in enum_field_options[field] %}
@@ -80,7 +80,7 @@
         {% for field in choices_fields %}
         {% if field not in enum_field_options %}
         <div class="col-md-2">
-          <label class="form-label small mb-0">{{ field.replace('_', ' ').title() }}</label>
+          <label class="form-label small mb-0">{{ field_labels.get(field, field.replace('_', ' ').title()) }}</label>
           <select name="filter_{{ field }}" class="form-select form-select-sm">
             <option value="">Todos</option>
             {% for opt in choices_options.get(field, []) %}
@@ -118,7 +118,7 @@
               {% for field in fields %}
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" name="columns" id="col_{{ field }}" value="{{ field }}" {% if field in visible_columns %}checked{% endif %}>
-                <label class="form-check-label" for="col_{{ field }}">{{ field.replace('_', ' ').title() }}</label>
+                <label class="form-check-label" for="col_{{ field }}">{{ field_labels.get(field, field.replace('_', ' ').title()) }}</label>
               </div>
               {% endfor %}
             </div>

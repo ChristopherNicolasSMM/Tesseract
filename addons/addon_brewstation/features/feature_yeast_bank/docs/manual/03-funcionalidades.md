@@ -6,17 +6,33 @@ Cadastro/edição: nome, família, fornecedor, notas, e parâmetros de
 viabilidade (avançado — pode deixar no padrão). Lista mostra só as
 ativas (lixeira separada).
 
+## Dispositivos de Armazenamento
+
+O freezer, geladeira ou câmara fria físico. Se tiver sensor, as
+leituras de temperatura aparecem automaticamente no histórico —
+senão, dá pra lançar manualmente.
+
+## Containers
+
+A organização dentro de um Dispositivo — uma caixa, estante ou
+prateleira. Todo Container pertence a exatamente um Dispositivo (não
+existe Container "solto", fora de um freezer/geladeira). É aqui que
+você agrupa as amostras pra saber onde procurar fisicamente sem abrir
+o freezer inteiro.
+
 ## Itens do Banco
 
 O que você guardou fisicamente de uma cepa — data de congelamento,
-onde está guardado, status (ativo/descartado/contaminado). Um item
-descartado ou contaminado é ignorado no cálculo de viabilidade.
+em qual Container está guardado, status (ativo/descartado/
+contaminado). O dispositivo onde o item está é sempre o dispositivo do
+Container escolhido — você não escolhe o dispositivo direto no item.
+Um item descartado ou contaminado é ignorado no cálculo de
+viabilidade.
 
 ## Leituras de Armazenamento
 
-Histórico de temperatura do local onde o item está guardado — vem
-automaticamente de um Dispositivo vinculado, se você tiver um, ou pode
-ser lançada manualmente.
+Histórico de temperatura do Dispositivo — vem automaticamente se ele
+tiver sensor vinculado, ou pode ser lançada manualmente.
 
 ## Starters
 

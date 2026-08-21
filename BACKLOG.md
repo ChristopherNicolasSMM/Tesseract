@@ -3732,5 +3732,55 @@ cobrir isso sem estrutura nem navegação própria.
 - [ ] Decisão em aberto, não bloqueante: se Container/Item continuam
       dentro de `feature_yeast_bank` ou viram Feature própria.
 
-Nenhum teste novo nesta fase — é só documento (schema/migration/skill),
-sem alteração de código.
+## Fase 15 — Yeast Bank: rótulos de campo em PT-BR + manual de operação
+
+Achado real ao testar a Fase 14: os formulários gerados pelo CrudGen
+(`manage.html`/`detail.html`) sempre mostraram
+`field.replace('_', ' ').title()` como rótulo de campo — nunca passou
+pelo i18n da skill 00, produzindo texto tipo "Container Type" em vez
+de "Tipo". **Gap sistêmico, presente em toda entidade já gerada no
+projeto** (não é específico do Container/Item) — confirmado olhando o
+template-fonte (`core/crudgen/templates/detail.html.j2`), não só a
+saída gerada.
+
+- [x] **`@field_labels({...})` — annotation nova** (`annotations/__init__.py`),
+      documentada na skill 12. Sem ela, mantém o fallback de sempre —
+      zero risco pras entidades já geradas. Wireada no core do CrudGen
+      (`controller.py.j2` computa `_FIELD_LABELS` e passa pros dois
+      `render_template()`; `detail.html.j2`/`manage.html.j2` usam
+      `field_labels.get(field, fallback)`) — vale pra qualquer entidade
+      que regenerar daqui pra frente, não só Container/Item.
+- [x] Aplicado em `YeastContainer` (4 campos) e `YeastBankItem` (todos
+      os 18 campos editáveis) — as duas telas que a Fase 14 tocou.
+      Regeradas com `--overwrite`. Confirmado ao vivo via requisição
+      HTTP real: "Nome", "Tipo", "Dispositivo", "Descrição" etc.
+      renderizando em PT-BR.
+- [ ] Retroaplicar `@field_labels` nas demais entidades do projeto
+      (todas ainda mostram o fallback em inglês titlecase) — fora do
+      escopo desta rodada, registrado pra quando fizer sentido.
+- [x] **Manual de operação atualizado** (`docs/manual/` do
+      `feature_yeast_bank`): introdução explica a cadeia
+      Dispositivo → Container → Item → Starter/Contagem em linguagem
+      não-técnica; primeiros-passos reescrito com a ordem de cadastro
+      obrigatória; funcionalidades ganhou seção "Containers" e ajustou
+      "Itens do Banco"; FAQ ganhou perguntas sobre a hierarquia nova.
+- [ ] **Diagnóstico registrado, planejamento em aberto** (não
+      implementado nesta fase): bug relatado de perda de dado do
+      formulário ao digitar vírgula num campo `Float` (ex.: "0,5").
+      Duas causas distintas encontradas:
+      1. Campo só vira `<input type="number">` quando tem `@min_value`
+         explícito (decisão deliberada de sessão anterior, documentada
+         na skill 12 — "decisão desta sessão pra não mexer em campo
+         que ninguém pediu"). Isso é exatamente o que a análise de
+         introspecção de tipo SQLAlchemy (backlog já registrado)
+         resolveria — extensão natural do mecanismo
+         `_FIELD_HTML_VALIDATIONS`/`fv` que já existe.
+      2. `create()`/`update()` sempre fazem `redirect()` em caso de
+         erro — descarta o formulário inteiro, mesmo em erro que nada
+         tem a ver com tipo (ex.: regra de negócio). Causa
+         **independente** da #1, vale mais que a análise de tipos por
+         si só resolva.
+      Ver memória de sessão / próxima rodada de planejamento pra
+      decidir se a #2 vira item próprio (mais urgente, perda de
+      trabalho digitado) ou entra junto na mesma análise.
+

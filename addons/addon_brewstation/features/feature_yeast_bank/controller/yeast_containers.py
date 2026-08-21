@@ -13,7 +13,7 @@ from flask_login import login_required, current_user
 
 from core.db import db
 from core.permissions import permission_required
-from annotations import get_choices_fields, get_weak_refs, get_enum_fields, get_model_metadata
+from annotations import get_choices_fields, get_weak_refs, get_enum_fields, get_model_metadata, get_field_labels
 from addons.addon_brewstation.features.feature_yeast_bank.services.yeast_container_service import YeastContainerService
 from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_container import YeastContainer
 
@@ -82,6 +82,11 @@ for _field, _rules in get_model_metadata(YeastContainer).get("validations", {}).
             _attrs["min_value"] = _rule.get("min")
     if _attrs:
         _FIELD_HTML_VALIDATIONS[_field] = _attrs
+
+# Rótulos de campo em PT-BR (skill 12, @field_labels) — sem a
+# anotação no model, o template cai no fallback de sempre
+# (field.replace('_', ' ').title()).
+_FIELD_LABELS: dict = get_field_labels(YeastContainer)
 
 _LIST_KEY = "yeast_containers"
 
@@ -221,6 +226,7 @@ def manage():
         weak_ref_value_fields={wr["field"]: wr["value_field"] for wr in _WEAK_REFS if wr.get("value_field")},
         enum_field_options=_ENUM_FIELD_OPTIONS,
         field_html_validations=_FIELD_HTML_VALIDATIONS,
+        field_labels=_FIELD_LABELS,
     )
 
 
@@ -312,6 +318,7 @@ def detail(id: int):
         weak_ref_value_fields={wr["field"]: wr["value_field"] for wr in _WEAK_REFS if wr.get("value_field")},
         enum_field_options=_ENUM_FIELD_OPTIONS,
         field_html_validations=_FIELD_HTML_VALIDATIONS,
+        field_labels=_FIELD_LABELS,
     )
 
 

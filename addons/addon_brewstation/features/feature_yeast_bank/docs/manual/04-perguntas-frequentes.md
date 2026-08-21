@@ -19,3 +19,20 @@ achar nenhuma referência, o item fica marcado como "sem referência".
 **P: Um item marcado como contaminado ainda entra no cálculo?**
 R: Não — itens descartados ou contaminados são sempre ignorados no
 recálculo de viabilidade.
+
+**P: Por que não consigo criar um Item do Banco sem escolher um
+Container?**
+R: Todo Item precisa estar dentro de um Container, e todo Container
+precisa estar dentro de um Dispositivo — é assim que o sistema sabe
+onde fisicamente cada amostra está guardada. Cadastre nessa ordem:
+Dispositivo → Container → Item.
+
+**P: Um Container pode ficar em mais de um Dispositivo, ou vice-versa?**
+R: Não. Cada Container pertence a exatamente um Dispositivo, mas um
+Dispositivo pode ter quantos Containers você quiser (várias caixas
+dentro do mesmo freezer, por exemplo).
+
+**P: Como faço pra mover um item de um Container pra outro?**
+R: Edite o Item do Banco e troque o Container selecionado — o
+histórico do item (starters, contagens) continua vinculado normalmente,
+só a localização física muda.

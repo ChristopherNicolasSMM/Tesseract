@@ -8,7 +8,7 @@ parâmetros do modelo (ver yeast_strain.py).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, permission, weak_ref, choices, enum_field, display_field
+from annotations import label, plural, required, permission, weak_ref, choices, enum_field, display_field, field_labels
 
 
 @label("Item do Banco")
@@ -23,6 +23,28 @@ from annotations import label, plural, required, permission, weak_ref, choices, 
     "recalculate_viability",
     description="Recalcular viabilidade estimada de todos os itens do banco",
 )
+
+@field_labels({
+    "strain_id": "Cepa",
+    "storage_type": "Tipo de Armazenamento",
+    "location": "Localização",
+    "container_id": "Container",
+    "storage_slot": "Posição no Container",
+    "label_text": "Etiqueta",
+    "prepared_date": "Data de Preparo",
+    "expiry_date": "Data de Validade",
+    "status": "Status",
+    "last_checked": "Última Verificação",
+    "viability_notes": "Observações de Viabilidade",
+    "estimated_viability_pct": "Viabilidade Estimada (%)",
+    "estimated_viability_updated_at": "Viabilidade Atualizada em",
+    "last_viability_reference_type": "Tipo da Última Referência",
+    "last_viability_reference_date": "Data da Última Referência",
+    "last_viability_reference_value": "Valor da Última Referência",
+    "discarded_at": "Descartado em",
+    "discard_reason": "Motivo do Descarte",
+    "identification": "Identificação",
+})
 
 @weak_ref("container_id",
     resolver=("addons.addon_brewstation.features.feature_yeast_bank.services.yeast_reference_lookup.get_yeast_container"),

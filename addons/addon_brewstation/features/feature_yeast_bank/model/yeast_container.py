@@ -12,7 +12,7 @@ virtual, decisão fechada na skill 19, seção 6.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length, enum_field, display_field, weak_ref
+from annotations import label, plural, required, max_length, enum_field, display_field, weak_ref, field_labels
 
 
 @label("Container")
@@ -21,6 +21,12 @@ from annotations import label, plural, required, max_length, enum_field, display
 @required("name", message="Nome do container é obrigatório")
 @max_length("name", 120)
 @enum_field("container_type", options=["Caixa", "Estante", "Prateleira", "Outro"])
+@field_labels({
+    "name": "Nome",
+    "container_type": "Tipo",
+    "device_id": "Dispositivo",
+    "description": "Descrição",
+})
 @weak_ref(
     "device_id",
     resolver=(

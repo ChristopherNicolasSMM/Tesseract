@@ -13,7 +13,7 @@
         {% for field in fields %}
         {% set fv = field_html_validations.get(field, {}) %}
         <div class="col-md-4">
-          <label class="form-label">{{ field.replace('_', ' ').title() }}{% if fv.get('required') %} <span class="text-danger">*</span>{% endif %}</label>
+          <label class="form-label">{{ field_labels.get(field, field.replace('_', ' ').title()) }}{% if fv.get('required') %} <span class="text-danger">*</span>{% endif %}</label>
           {% if field in enum_field_options %}
           <select name="{{ field }}" class="form-select"
                   {% if fv.get('required') %}required{% endif %}
