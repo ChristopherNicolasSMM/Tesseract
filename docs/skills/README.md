@@ -96,7 +96,8 @@ Ordem de leitura recomendada:
     `YeastBankItem.storage_device_id` em favor de `container_id`,
     plano de migration em 6 passos sem perda de dado, e navegação em
     drill-down proposta para a futura tela integrada (BACKLOG, Fase
-    14). Planejamento fechado, implementação pendente de autorização.
+    14). Model, CrudGen e as 6 migrations já implementados; falta só
+    a tela integrada de navegação.
 
 ## Status
 
@@ -141,10 +142,11 @@ de i18n (skill 00, que até aqui era só regra, nunca teve `t()`/
 (`static/` confirmado como global, sem `static/core/`).
 
 A skill 19 (reestruturação do yeast_bank com a entidade `Container`,
-entre Dispositivo e Item do banco) está em **[DECIDIDO], pendente de
-implementação** — planejamento fechado em conversa (BACKLOG, Fase 14),
-schema e plano de migration documentados no próprio arquivo, aguardando
-autorização para virar código.
+entre Dispositivo e Item do banco) está **[EXECUTADA]** — model,
+CrudGen e as 6 migrations já estão no código (BACKLOG, Fase 14),
+validados ponta a ponta com dados reais. Falta só a tela integrada de
+navegação (drill-down container → itens → detalhe), fase própria e
+futura.
 
 Cada novo documento deve seguir o mesmo padrão: sem código de implementação,
 só regra, schema e exemplo — pronto para ser citado por uma IA ou

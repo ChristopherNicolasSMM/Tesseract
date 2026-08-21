@@ -3674,7 +3674,7 @@ testado no uso real — condição já satisfeita, decisão em aberto.
 46 testes novos ao longo da Fase 13 (18+8+20 de código, mais os de
 documentação não contam teste — são markdown).
 
-## Fase 14 — Yeast Bank: proposta de reestruturação com Container (planejamento — sem código)
+## Fase 14 — Yeast Bank: reestruturação com Container (implementada)
 
 Motivação: uso real do `feature_yeast_bank` mostrou que a hierarquia
 atual (`YeastStorageDevice` ↔ `YeastBankItem` por FK direta) não tem
@@ -3693,14 +3693,36 @@ cobrir isso sem estrutura nem navegação própria.
       sem FK redundante), `storage_slot` muda de significado (posição
       dentro do Container, mesma coluna) e a ordem de cadastro
       (Dispositivo → Cepa → Container → Item) vira regra de FK
-      `NOT NULL`, não só sugestão de tela. Plano de migration em 6
-      passos documentado (cria Container "Geral" por dispositivo
-      existente, backfill, só depois torna `container_id` obrigatório
-      e remove a coluna antiga — sem perda de dado em nenhuma etapa
-      intermediária). Ver `docs/skills/19-proposta-reestruturacao-yeast-bank-container.md`
+      `NOT NULL`, não só sugestão de tela. Ver
+      `docs/skills/19-proposta-reestruturacao-yeast-bank-container.md`
       para o schema completo e o racional de cada decisão descartada.
-- [ ] Implementação do model/migration/CrudGen da proposta acima —
-      aguardando autorização.
+- [x] **Model + CrudGen.** `YeastContainer` criado
+      (`model/yeast_container.py`) e gerado via
+      `python run.py generate` real (controller, service, rotas API,
+      templates, hooks — 8 arquivos). `YeastBankItem` atualizado
+      (`container_id` NOT NULL no lugar de `storage_device_id`) e
+      regerado com `--overwrite` (3 hooks preservados, como esperado).
+      Resolver `get_yeast_container` adicionado em
+      `yeast_reference_lookup.py`. Transação `TX_YEAST_CONTAINERS`
+      registrada em `feature.py`.
+- [x] **6 migrations Alembic**, uma por passo do plano da skill 19
+      (`9bf9a32dfd5d` → `411e8426f997`), no estilo defensivo já usado
+      no projeto (`_table_exists`/`_column_exists`,
+      `batch_alter_table`). Validadas ponta a ponta num banco no
+      estado anterior com dados reais (2 dispositivos, 4 itens,
+      1 legado sem `storage_device_id` de propósito): o passo 5
+      recusou corretamente tornar `container_id` obrigatório enquanto
+      o item órfão não foi resolvido, e completou normalmente depois
+      da resolução manual. `flask db migrate` final confirmou
+      "No changes in schema detected" — model e migrations
+      100% sincronizados.
+- [x] **Testes.** `tests/test_phase14_yeast_container.py` (5 testes
+      novos: tabela com prefixo certo, Container sempre físico, item
+      exige `container_id`, listagem filtrada por container).
+      `test_phase5b_yeast_bank_full.py` e `test_viability_engine.py`
+      atualizados para a nova hierarquia. Suíte relevante rodada:
+      71 passando, 1 falha pré-existente não relacionada (já
+      confirmada no repositório antes desta mudança).
 - [ ] Tela integrada de navegação (drill-down container → itens →
       detalhe com abas de starter/contagem/eventos), substituindo as
       telas padrão do CrudGen para essas entidades — fase própria,

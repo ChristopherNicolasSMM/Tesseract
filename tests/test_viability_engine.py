@@ -90,6 +90,25 @@ def test_nunca_passa_de_100():
 
 # ── Prioridade de referência ─────────────────────────────────────────────────
 
+def _make_container(app):
+    from core.db import db
+    from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_storage_device import (
+        YeastStorageDevice,
+    )
+    from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_container import (
+        YeastContainer,
+    )
+
+    device = YeastStorageDevice(name="Freezer teste")
+    db.session.add(device)
+    db.session.commit()
+
+    container = YeastContainer(name="Caixa teste", device_id=device.id)
+    db.session.add(container)
+    db.session.commit()
+    return container
+
+
 def _make_strain_and_item(app):
     from core.db import db
     from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_strain import YeastStrain
@@ -99,7 +118,11 @@ def _make_strain_and_item(app):
     db.session.add(strain)
     db.session.commit()
 
-    item = YeastBankItem(strain_id=strain.id, storage_type="slant", prepared_date=datetime.date.today())
+    container = _make_container(app)
+    item = YeastBankItem(
+        strain_id=strain.id, storage_type="slant", container_id=container.id,
+        prepared_date=datetime.date.today(),
+    )
     db.session.add(item)
     db.session.commit()
     return strain, item
@@ -194,7 +217,8 @@ def test_recalculate_all_marca_sem_referencia_quando_nao_ha_cepa(app):
         db.session.commit()
         assert strain.initial_reference_viability_pct is None
 
-        item = YeastBankItem(strain_id=strain.id, storage_type="slant")
+        container = _make_container(app)
+        item = YeastBankItem(strain_id=strain.id, storage_type="slant", container_id=container.id)
         db.session.add(item)
         db.session.commit()
 
@@ -223,8 +247,9 @@ def test_fluxo_completo_via_http(app, client):
         strain_id = YeastStrain.query.first().id
 
         from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_item import YeastBankItem
+        container = _make_container(app)
         item = YeastBankItem(
-            strain_id=strain_id, storage_type="slant",
+            strain_id=strain_id, storage_type="slant", container_id=container.id,
             prepared_date=datetime.date.today() - datetime.timedelta(days=10),
         )
         db.session.add(item)

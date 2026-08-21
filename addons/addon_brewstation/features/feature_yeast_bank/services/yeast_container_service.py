@@ -1,8 +1,8 @@
 """
-addons/addon_brewstation/features/feature_yeast_bank/services/yeast_bank_item_service.py
+addons/addon_brewstation/features/feature_yeast_bank/services/yeast_container_service.py
 
 Gerado pelo CrudGen — NÃO editar diretamente. Customizações via hooks
-(yeast_bank_item_service_hooks.py, nunca sobrescrito).
+(yeast_container_service_hooks.py, nunca sobrescrito).
 """
 from __future__ import annotations
 
@@ -13,14 +13,14 @@ from datetime import datetime, timezone
 from typing import Any
 
 from core.db import db
-from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_item import YeastBankItem
+from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_container import YeastContainer
 
 logger = logging.getLogger(__name__)
 
 _READONLY = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"}
 
 try:
-    from addons.addon_brewstation.features.feature_yeast_bank.services import yeast_bank_item_service_hooks as _hooks
+    from addons.addon_brewstation.features.feature_yeast_bank.services import yeast_container_service_hooks as _hooks
 except ImportError:
     _hooks = None
 
@@ -51,27 +51,27 @@ class ServiceResult:
     code: int = 200
 
 
-class YeastBankItemService:
-    """Camada de negócio para Item do Banco."""
+class YeastContainerService:
+    """Camada de negócio para Container."""
 
     def list(self, *, include_deleted: bool = False):
-        query = YeastBankItem.query
+        query = YeastContainer.query
         if not include_deleted:
-            query = query.filter(YeastBankItem.is_deleted.is_(False))
-        return query.order_by(YeastBankItem.id.asc()).all()
+            query = query.filter(YeastContainer.is_deleted.is_(False))
+        return query.order_by(YeastContainer.id.asc()).all()
 
-    def get_by_id(self, id: int) -> "YeastBankItem | None":
-        return db.session.get(YeastBankItem, id)
+    def get_by_id(self, id: int) -> "YeastContainer | None":
+        return db.session.get(YeastContainer, id)
 
     def create(self, data: dict) -> ServiceResult:
-        obj = YeastBankItem()
+        obj = YeastContainer()
         self._apply_fields(obj, data)
         db.session.add(obj)
         try:
             db.session.commit()
         except Exception as e:
             db.session.rollback()
-            logger.warning("Erro ao criar YeastBankItem: %s", e)
+            logger.warning("Erro ao criar YeastContainer: %s", e)
             return ServiceResult(success=False, error=_friendly_db_error(e), code=422)
         return ServiceResult(success=True, data=obj, code=201)
 
@@ -86,7 +86,7 @@ class YeastBankItemService:
             db.session.commit()
         except Exception as e:
             db.session.rollback()
-            logger.warning("Erro ao atualizar YeastBankItem id=%s: %s", id, e)
+            logger.warning("Erro ao atualizar YeastContainer id=%s: %s", id, e)
             return ServiceResult(success=False, error=_friendly_db_error(e), code=422)
         return ServiceResult(success=True, data=obj)
 

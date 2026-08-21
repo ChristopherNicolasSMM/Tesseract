@@ -1,19 +1,19 @@
 """
-addons/addon_brewstation/features/feature_yeast_bank/api/routes/yeast_bank_items_routes.py
+addons/addon_brewstation/features/feature_yeast_bank/api/routes/yeast_containers_routes.py
 
 API JSON — gerado pelo CrudGen. NÃO editar diretamente.
-Customizações via yeast_bank_items_routes_hooks.py (nunca sobrescrito).
+Customizações via yeast_containers_routes_hooks.py (nunca sobrescrito).
 """
 from flask import Blueprint, jsonify, request
 from flask_login import login_required
 
 from core.permissions import permission_required
-from addons.addon_brewstation.features.feature_yeast_bank.services.yeast_bank_item_service import YeastBankItemService
+from addons.addon_brewstation.features.feature_yeast_bank.services.yeast_container_service import YeastContainerService
 
-yeast_bank_items_api_bp = Blueprint(
-    "yeast_bank_items_api", __name__, url_prefix="/api/brewstation/yeast-bank-items"
+yeast_containers_api_bp = Blueprint(
+    "yeast_containers_api", __name__, url_prefix="/api/brewstation/yeast-containers"
 )
-_service = YeastBankItemService()
+_service = YeastContainerService()
 
 
 def _ok(data=None, code=200):
@@ -24,17 +24,17 @@ def _err(message, code=400):
     return jsonify({"success": False, "error": message}), code
 
 
-@yeast_bank_items_api_bp.route("/", methods=["GET"])
+@yeast_containers_api_bp.route("/", methods=["GET"])
 @login_required
-@permission_required("yeast_bank_items.list")
+@permission_required("yeast_containers.list")
 def list_items():
     items = _service.list()
     return _ok({"items": [i.to_dict() if hasattr(i, "to_dict") else {"id": i.id} for i in items]})
 
 
-@yeast_bank_items_api_bp.route("/<int:id>", methods=["GET"])
+@yeast_containers_api_bp.route("/<int:id>", methods=["GET"])
 @login_required
-@permission_required("yeast_bank_items.detail")
+@permission_required("yeast_containers.detail")
 def get_item(id: int):
     item = _service.get_by_id(id)
     if not item:
@@ -42,9 +42,9 @@ def get_item(id: int):
     return _ok({"item": item.to_dict() if hasattr(item, "to_dict") else {"id": item.id}})
 
 
-@yeast_bank_items_api_bp.route("/", methods=["POST"])
+@yeast_containers_api_bp.route("/", methods=["POST"])
 @login_required
-@permission_required("yeast_bank_items.create")
+@permission_required("yeast_containers.create")
 def create_item():
     data = request.get_json(silent=True) or {}
     result = _service.create(data)
@@ -53,9 +53,9 @@ def create_item():
     return _ok({"item": result.data.to_dict() if hasattr(result.data, "to_dict") else {"id": result.data.id}}, result.code)
 
 
-@yeast_bank_items_api_bp.route("/<int:id>", methods=["PUT"])
+@yeast_containers_api_bp.route("/<int:id>", methods=["PUT"])
 @login_required
-@permission_required("yeast_bank_items.update")
+@permission_required("yeast_containers.update")
 def update_item(id: int):
     data = request.get_json(silent=True) or {}
     result = _service.update(id, data)
@@ -64,9 +64,9 @@ def update_item(id: int):
     return _ok({"item": result.data.to_dict() if hasattr(result.data, "to_dict") else {"id": result.data.id}})
 
 
-@yeast_bank_items_api_bp.route("/<int:id>/trash", methods=["POST"])
+@yeast_containers_api_bp.route("/<int:id>/trash", methods=["POST"])
 @login_required
-@permission_required("yeast_bank_items.trash")
+@permission_required("yeast_containers.trash")
 def trash_item(id: int):
     result = _service.trash(id)
     if not result.success:
@@ -74,9 +74,9 @@ def trash_item(id: int):
     return _ok()
 
 
-@yeast_bank_items_api_bp.route("/<int:id>/restore", methods=["POST"])
+@yeast_containers_api_bp.route("/<int:id>/restore", methods=["POST"])
 @login_required
-@permission_required("yeast_bank_items.restore")
+@permission_required("yeast_containers.restore")
 def restore_item(id: int):
     result = _service.restore(id)
     if not result.success:
@@ -84,9 +84,9 @@ def restore_item(id: int):
     return _ok()
 
 
-@yeast_bank_items_api_bp.route("/<int:id>", methods=["DELETE"])
+@yeast_containers_api_bp.route("/<int:id>", methods=["DELETE"])
 @login_required
-@permission_required("yeast_bank_items.delete_permanent")
+@permission_required("yeast_containers.delete_permanent")
 def delete_permanent_item(id: int):
     result = _service.delete_permanent(id)
     if not result.success:

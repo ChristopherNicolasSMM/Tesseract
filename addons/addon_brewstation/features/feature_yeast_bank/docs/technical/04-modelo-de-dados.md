@@ -1,13 +1,24 @@
 # 04 — Modelo de Dados (Feature Yeast Bank)
 
 > ER completo — as 8 entidades originais do BrewStation foram
-> migradas na Fase 5/5b.
+> migradas na Fase 5/5b. A 9ª entidade, `Container`, entrou na Fase 14
+> (skill 19 — `docs/skills/19-proposta-reestruturacao-yeast-bank-container.md`)
+> como nível intermediário entre Dispositivo e Item do Banco.
+>
+> **Correção de nome de tabela nesta revisão**: as entidades abaixo
+> chamadas `Container`/`Dispositivo`/`Leitura` usam os nomes de tabela
+> curtos reais do código (`container`/`storage_device`/`reading`) — a
+> versão anterior deste diagrama usava `device` (nunca existiu como
+> nome curto real; foi renomeado para `storage_device` na Fase 6 para
+> não colidir com `DeviceMetadata` de `feature_device_manager`, skill
+> 02, mas o diagrama nunca tinha sido corrigido).
 
 ```mermaid
 erDiagram
     tesseract_brewstation_yeastbank_strain ||--o{ tesseract_brewstation_yeastbank_bank_item : "tem"
-    tesseract_brewstation_yeastbank_device ||--o{ tesseract_brewstation_yeastbank_reading : "registra"
-    tesseract_brewstation_yeastbank_device ||--o{ tesseract_brewstation_yeastbank_bank_item : "armazena (opcional)"
+    tesseract_brewstation_yeastbank_storage_device ||--o{ tesseract_brewstation_yeastbank_reading : "registra"
+    tesseract_brewstation_yeastbank_storage_device ||--o{ tesseract_brewstation_yeastbank_container : "contém"
+    tesseract_brewstation_yeastbank_container ||--o{ tesseract_brewstation_yeastbank_bank_item : "armazena"
     tesseract_brewstation_yeastbank_bank_item ||--o{ tesseract_brewstation_yeastbank_starter_log : "origina"
     tesseract_brewstation_yeastbank_strain ||--o{ tesseract_brewstation_yeastbank_cell_count_history : "referencia (opcional)"
     tesseract_brewstation_yeastbank_bank_item ||--o{ tesseract_brewstation_yeastbank_cell_count_history : "referencia (opcional)"
@@ -24,7 +35,7 @@ erDiagram
         float daily_viability_loss_pct
         bool is_deleted
     }
-    tesseract_brewstation_yeastbank_device {
+    tesseract_brewstation_yeastbank_storage_device {
         int id PK
         string name
         string device_type
@@ -37,11 +48,19 @@ erDiagram
         datetime recorded_at
         float temperature_c
     }
+    tesseract_brewstation_yeastbank_container {
+        int id PK
+        string name
+        string container_type
+        int device_id FK
+        bool is_deleted
+    }
     tesseract_brewstation_yeastbank_bank_item {
         int id PK
         int strain_id FK
-        int storage_device_id FK
+        int container_id FK
         string storage_type
+        string storage_slot
         string status
         float estimated_viability_pct
         bool is_deleted
@@ -80,6 +99,10 @@ erDiagram
 |---|---|---|
 | `..._strain` | `status` | Estado **estratégico** da cepa (ex.: `active`, `discontinued`) — não confundir com `is_deleted` |
 | `..._strain` | `viability_model` | Algoritmo de decaimento (hoje só `linear_decay_default`; cálculo real ainda não portado) |
+| `..._container` | `container_type` | Caixa/Estante/Prateleira/Outro (`@enum_field`) — unidade física dentro do dispositivo, nunca virtual (skill 19) |
+| `..._container` | `device_id` | Obrigatório (`NOT NULL`) — todo Container pertence a exatamente 1 Dispositivo |
+| `..._bank_item` | `container_id` | Obrigatório desde a skill 19 — substituiu `storage_device_id` (removido); o dispositivo do item é sempre resolvido via `item.container.device`, nunca por FK direta |
+| `..._bank_item` | `storage_slot` | Desde a skill 19, significa posição **dentro do Container** (ex.: "gaveta 2"), não mais posição solta no dispositivo inteiro |
 | `..._bank_item` | `estimated_viability_pct` | Viabilidade **estimada do item físico** — diferente dos parâmetros de modelo da cepa; é o valor calculado ao longo do tempo |
 | `..._bank_item` | `label_text` | Renomeado de `label` (BrewStation original) para não colidir com o decorator `@label` das anotações |
 | `..._starter_log` | `action_on_bank_item` | Ação sugerida/confirmada sobre o item de origem (ex.: descartar, manter) — texto livre, sem enum ainda |
@@ -89,7 +112,7 @@ erDiagram
 
 ## Regra de soft-delete
 
-Todas as 8 tabelas seguem `is_deleted`/`deleted_at` (skill 02).
+Todas as 9 tabelas seguem `is_deleted`/`deleted_at` (skill 02).
 
 ## FK entre módulos
 

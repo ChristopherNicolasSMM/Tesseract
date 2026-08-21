@@ -1,19 +1,21 @@
 # 19 — Proposta: Reestruturação do Yeast Bank com a entidade Container
 
-> **Status: [DECIDIDO], pendente de implementação (2026-08-20).** Nasceu
-> de revisão de uso real do `feature_yeast_bank` — a hierarquia atual
-> (Dispositivo ↔ Item do banco, FK direta) não tem nível intermediário
-> para agrupar amostras fisicamente (caixa, estante, prateleira dentro
-> de um freezer/geladeira), o que deixa a navegação entre dispositivo e
+> **Status: [DECIDIDO] e [EXECUTADO] (2026-08-20).** Nasceu de revisão
+> de uso real do `feature_yeast_bank` — a hierarquia atual (Dispositivo
+> ↔ Item do banco, FK direta) não tinha nível intermediário para
+> agrupar amostras fisicamente (caixa, estante, prateleira dentro de um
+> freezer/geladeira), o que deixava a navegação entre dispositivo e
 > item achatada demais para o volume real de uso. Convenção de status
 > igual à skill 05 — **[DECIDIDO]** fechado e pronto pra executar quando
 > autorizado, **[EXECUTADO]** já no código, **[ABERTO]** ainda sem
 > decisão.
 >
-> Nenhuma linha de código foi alterada por este documento — é só a
-> proposta de schema e migration. Implementação começa só depois de
-> autorização explícita (ver skill 00/README raiz, convenção de "pode
-> proceguir").
+> Model, CrudGen (controller/service/rotas/templates/hooks) e as 6
+> migrations Alembic já estão no código (BACKLOG.md, Fase 14) —
+> validados ponta a ponta com dados reais, incluindo o caso de item
+> legado sem dispositivo (a trava de segurança do passo 5 recusou
+> avançar até a resolução manual, como projetado). Pendente apenas a
+> tela integrada de navegação (seção 5), fase própria e futura.
 
 ---
 
@@ -131,8 +133,8 @@ unitário — quando essa fase entrar, planejar teste em navegador
 
 ## 7. O que fica para depois (fora desta skill)
 
-- Implementação do model/migration/CrudGen desta proposta (aguarda
-  autorização — "pode proceguir").
+- **[EXECUTADO]** Implementação do model/migration/CrudGen desta
+  proposta — ver BACKLOG.md, Fase 14.
 - Tela integrada de navegação (seção 5) — fase própria, só depois do
   schema aplicado e usado por um tempo.
 - Se `feature_yeast_bank` continua abrigando Container/Item ou se vira

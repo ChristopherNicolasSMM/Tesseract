@@ -1,8 +1,8 @@
 """
-addons/addon_brewstation/features/feature_yeast_bank/controller/yeast_bank_items.py
+addons/addon_brewstation/features/feature_yeast_bank/controller/yeast_containers.py
 
 Rotas web (HTML) — gerado pelo CrudGen. NÃO editar diretamente.
-Customizações via yeast_bank_items_hooks.py (nunca sobrescrito).
+Customizações via yeast_containers_hooks.py (nunca sobrescrito).
 """
 import csv
 import importlib
@@ -14,18 +14,18 @@ from flask_login import login_required, current_user
 from core.db import db
 from core.permissions import permission_required
 from annotations import get_choices_fields, get_weak_refs, get_enum_fields, get_model_metadata
-from addons.addon_brewstation.features.feature_yeast_bank.services.yeast_bank_item_service import YeastBankItemService
-from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_item import YeastBankItem
+from addons.addon_brewstation.features.feature_yeast_bank.services.yeast_container_service import YeastContainerService
+from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_container import YeastContainer
 
-yeast_bank_items_bp = Blueprint(
-    "yeast_bank_items", __name__, url_prefix="/brewstation/yeast-bank-items"
+yeast_containers_bp = Blueprint(
+    "yeast_containers", __name__, url_prefix="/brewstation/yeast-containers"
 )
-_service = YeastBankItemService()
+_service = YeastContainerService()
 
 # Campos editáveis via formulário — calculado por introspecção das
 # colunas do model (genérico, não precisa saber o schema de antemão).
 _READONLY_FIELDS = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"}
-_EDITABLE_FIELDS = [c.name for c in YeastBankItem.__table__.columns if c.name not in _READONLY_FIELDS]
+_EDITABLE_FIELDS = [c.name for c in YeastContainer.__table__.columns if c.name not in _READONLY_FIELDS]
 
 # Campo usado como "resumo" na coluna da lista — prefere um nome
 # reconhecível em vez de simplesmente "a primeira coluna declarada"
@@ -38,27 +38,27 @@ _SUMMARY_FIELD = next(
 
 # Campos booleanos — viram filtro <select> Todos/Sim/Não (smart-list-lite).
 _BOOLEAN_FIELDS = [
-    c.name for c in YeastBankItem.__table__.columns
+    c.name for c in YeastContainer.__table__.columns
     if c.name in _EDITABLE_FIELDS and c.type.python_type is bool
 ]
 
 # Campos com @choices no model — viram filtro <select> com valores
 # distintos do banco (skill 00/04, anotação já existia desde a Fase 4
 # mas nunca tinha sido conectada a nenhum filtro de verdade).
-_CHOICES_FIELDS = [f["field"] for f in get_choices_fields(YeastBankItem) if f["field"] in _EDITABLE_FIELDS]
+_CHOICES_FIELDS = [f["field"] for f in get_choices_fields(YeastContainer) if f["field"] in _EDITABLE_FIELDS]
 
 # Campos com @weak_ref no model (skill 11) — referência fraca (sem FK
 # real, cross-Addon) resolvida em exibição via função apontada por
 # "resolver". _WEAK_REFS guarda a declaração completa (field/resolver/
 # options); _WEAK_REF_FIELDS é só a lista de nomes, usada pelo template
 # pra decidir se substitui a célula pelo valor resolvido.
-_WEAK_REFS = [wr for wr in get_weak_refs(YeastBankItem) if wr["field"] in _EDITABLE_FIELDS]
+_WEAK_REFS = [wr for wr in get_weak_refs(YeastContainer) if wr["field"] in _EDITABLE_FIELDS]
 _WEAK_REF_FIELDS = [wr["field"] for wr in _WEAK_REFS]
 
 # Campos com @enum_field no model — opção FIXA (estática, declarada no
 # código), vira <select> no formulário de detalhe. Diferente de
 # @choices (dinâmico, só filtro de lista — ver _CHOICES_FIELDS acima).
-_ENUM_FIELDS = [ef for ef in get_enum_fields(YeastBankItem) if ef["field"] in _EDITABLE_FIELDS]
+_ENUM_FIELDS = [ef for ef in get_enum_fields(YeastContainer) if ef["field"] in _EDITABLE_FIELDS]
 _ENUM_FIELD_OPTIONS = {ef["field"]: ef["options"] for ef in _ENUM_FIELDS}
 
 # Tradução de @required/@max_length/@min_length/@min_value em
@@ -67,7 +67,7 @@ _ENUM_FIELD_OPTIONS = {ef["field"]: ef["options"] for ef in _ENUM_FIELDS}
 # antes). Camada complementar ao rule_engine.js (skill 07b) — validação
 # nativa do browser, roda antes de qualquer JS, sem servidor envolvido.
 _FIELD_HTML_VALIDATIONS: dict = {}
-for _field, _rules in get_model_metadata(YeastBankItem).get("validations", {}).items():
+for _field, _rules in get_model_metadata(YeastContainer).get("validations", {}).items():
     if _field not in _EDITABLE_FIELDS:
         continue
     _attrs: dict = {}
@@ -83,7 +83,7 @@ for _field, _rules in get_model_metadata(YeastBankItem).get("validations", {}).i
     if _attrs:
         _FIELD_HTML_VALIDATIONS[_field] = _attrs
 
-_LIST_KEY = "yeast_bank_items"
+_LIST_KEY = "yeast_containers"
 
 
 def _resolve_weak_ref_display(item) -> dict:
@@ -159,26 +159,26 @@ def _apply_filters(query):
     """
     search = (request.args.get("q") or "").strip()
     if search:
-        search_field = getattr(YeastBankItem, _SUMMARY_FIELD, None)
+        search_field = getattr(YeastContainer, _SUMMARY_FIELD, None)
         if search_field is not None:
             query = query.filter(search_field.ilike(f"%{search}%"))
 
     for field in _BOOLEAN_FIELDS:
         value = request.args.get(f"filter_{field}")
         if value in ("true", "false"):
-            query = query.filter(getattr(YeastBankItem, field).is_(value == "true"))
+            query = query.filter(getattr(YeastContainer, field).is_(value == "true"))
 
     for field in _CHOICES_FIELDS:
         value = request.args.get(f"filter_{field}")
         if value:
-            query = query.filter(getattr(YeastBankItem, field) == value)
+            query = query.filter(getattr(YeastContainer, field) == value)
 
     for _ef in _ENUM_FIELDS:
         if _ef["field"] in _CHOICES_FIELDS:
             continue  # já filtrado acima — evita duplicar a mesma condição
         value = request.args.get(f"filter_{_ef['field']}")
         if value:
-            query = query.filter(getattr(YeastBankItem, _ef["field"]) == value)
+            query = query.filter(getattr(YeastContainer, _ef["field"]) == value)
 
     return query
 
@@ -187,29 +187,29 @@ def _choices_options() -> dict:
     """Valores distintos do banco para cada campo com @choices."""
     options = {}
     for field in _CHOICES_FIELDS:
-        column = getattr(YeastBankItem, field)
+        column = getattr(YeastContainer, field)
         rows = db.session.query(column).filter(column.isnot(None)).distinct().order_by(column).all()
         options[field] = [r[0] for r in rows]
     return options
 
 
-@yeast_bank_items_bp.route("/", methods=["GET"])
+@yeast_containers_bp.route("/", methods=["GET"])
 @login_required
-@permission_required("yeast_bank_items.list")
+@permission_required("yeast_containers.list")
 def manage():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
     search = (request.args.get("q") or "").strip()
 
-    query = _apply_filters(YeastBankItem.query.filter(YeastBankItem.is_deleted.is_(False)))
+    query = _apply_filters(YeastContainer.query.filter(YeastContainer.is_deleted.is_(False)))
 
     total = query.count()
-    items = query.order_by(YeastBankItem.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    items = query.order_by(YeastContainer.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
     pages = max(1, (total + per_page - 1) // per_page)
 
     return render_template(
-        "yeast_bank_items/manage.html",
-        items=items, label="Item do Banco", fields=_EDITABLE_FIELDS, summary_field=_SUMMARY_FIELD,
+        "yeast_containers/manage.html",
+        items=items, label="Container", fields=_EDITABLE_FIELDS, summary_field=_SUMMARY_FIELD,
         page=page, pages=pages, total=total, per_page=per_page, search=search,
         visible_columns=_get_column_prefs(),
         boolean_fields=_BOOLEAN_FIELDS, choices_fields=_CHOICES_FIELDS,
@@ -224,9 +224,9 @@ def manage():
     )
 
 
-@yeast_bank_items_bp.route("/column-prefs", methods=["POST"])
+@yeast_containers_bp.route("/column-prefs", methods=["POST"])
 @login_required
-@permission_required("yeast_bank_items.list")
+@permission_required("yeast_containers.list")
 def save_column_prefs():
     from model.core.user_list_preference import UserListPreference
 
@@ -242,15 +242,15 @@ def save_column_prefs():
     db.session.commit()
 
     flash("Colunas atualizadas.", "success")
-    return redirect(url_for("yeast_bank_items.manage"))
+    return redirect(url_for("yeast_containers.manage"))
 
 
-@yeast_bank_items_bp.route("/export.csv", methods=["GET"])
+@yeast_containers_bp.route("/export.csv", methods=["GET"])
 @login_required
-@permission_required("yeast_bank_items.list")
+@permission_required("yeast_containers.list")
 def export_csv():
-    query = _apply_filters(YeastBankItem.query.filter(YeastBankItem.is_deleted.is_(False)))
-    items = query.order_by(YeastBankItem.id.desc()).all()
+    query = _apply_filters(YeastContainer.query.filter(YeastContainer.is_deleted.is_(False)))
+    items = query.order_by(YeastContainer.id.desc()).all()
 
     buffer = io.StringIO()
     writer = csv.writer(buffer)
@@ -266,18 +266,18 @@ def export_csv():
     )
 
 
-@yeast_bank_items_bp.route("/export.xlsx", methods=["GET"])
+@yeast_containers_bp.route("/export.xlsx", methods=["GET"])
 @login_required
-@permission_required("yeast_bank_items.list")
+@permission_required("yeast_containers.list")
 def export_xlsx():
     from openpyxl import Workbook
 
-    query = _apply_filters(YeastBankItem.query.filter(YeastBankItem.is_deleted.is_(False)))
-    items = query.order_by(YeastBankItem.id.desc()).all()
+    query = _apply_filters(YeastContainer.query.filter(YeastContainer.is_deleted.is_(False)))
+    items = query.order_by(YeastContainer.id.desc()).all()
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Item do Banco"[:31]  # limite do Excel pro nome da aba
+    ws.title = "Container"[:31]  # limite do Excel pro nome da aba
     ws.append(["id"] + _EDITABLE_FIELDS)
     for item in items:
         data = item.to_dict()
@@ -294,17 +294,17 @@ def export_xlsx():
     )
 
 
-@yeast_bank_items_bp.route("/<int:id>", methods=["GET"])
+@yeast_containers_bp.route("/<int:id>", methods=["GET"])
 @login_required
-@permission_required("yeast_bank_items.detail")
+@permission_required("yeast_containers.detail")
 def detail(id: int):
     item = _service.get_by_id(id)
     if not item:
         flash("Registro não encontrado.", "error")
-        return redirect(url_for("yeast_bank_items.manage"))
+        return redirect(url_for("yeast_containers.manage"))
     return render_template(
-        "yeast_bank_items/detail.html",
-        item=item, label="Item do Banco", fields=_EDITABLE_FIELDS,
+        "yeast_containers/detail.html",
+        item=item, label="Container", fields=_EDITABLE_FIELDS,
         field_rules=_get_field_rules(),
         weak_ref_fields=_WEAK_REF_FIELDS,
         weak_ref_display=_resolve_weak_ref_display(item),
@@ -315,55 +315,55 @@ def detail(id: int):
     )
 
 
-@yeast_bank_items_bp.route("/", methods=["POST"])
+@yeast_containers_bp.route("/", methods=["POST"])
 @login_required
-@permission_required("yeast_bank_items.create")
+@permission_required("yeast_containers.create")
 def create():
     result = _service.create(request.form.to_dict())
     if not result.success:
         flash(result.error, "error")
     else:
         flash("Criado com sucesso.", "success")
-    return redirect(url_for("yeast_bank_items.manage"))
+    return redirect(url_for("yeast_containers.manage"))
 
 
-@yeast_bank_items_bp.route("/<int:id>", methods=["POST"])
+@yeast_containers_bp.route("/<int:id>", methods=["POST"])
 @login_required
-@permission_required("yeast_bank_items.update")
+@permission_required("yeast_containers.update")
 def update(id: int):
     result = _service.update(id, request.form.to_dict())
     if not result.success:
         flash(result.error, "error")
     else:
         flash("Salvo com sucesso.", "success")
-    return redirect(url_for("yeast_bank_items.detail", id=id))
+    return redirect(url_for("yeast_containers.detail", id=id))
 
 
-@yeast_bank_items_bp.route("/<int:id>/trash", methods=["POST"])
+@yeast_containers_bp.route("/<int:id>/trash", methods=["POST"])
 @login_required
-@permission_required("yeast_bank_items.trash")
+@permission_required("yeast_containers.trash")
 def trash(id: int):
     result = _service.trash(id)
     if not result.success:
         flash(result.error, "error")
-    return redirect(url_for("yeast_bank_items.manage"))
+    return redirect(url_for("yeast_containers.manage"))
 
 
-@yeast_bank_items_bp.route("/<int:id>/restore", methods=["POST"])
+@yeast_containers_bp.route("/<int:id>/restore", methods=["POST"])
 @login_required
-@permission_required("yeast_bank_items.restore")
+@permission_required("yeast_containers.restore")
 def restore(id: int):
     result = _service.restore(id)
     if not result.success:
         flash(result.error, "error")
-    return redirect(url_for("yeast_bank_items.manage"))
+    return redirect(url_for("yeast_containers.manage"))
 
 
-@yeast_bank_items_bp.route("/<int:id>/delete-permanent", methods=["POST"])
+@yeast_containers_bp.route("/<int:id>/delete-permanent", methods=["POST"])
 @login_required
-@permission_required("yeast_bank_items.delete_permanent")
+@permission_required("yeast_containers.delete_permanent")
 def delete_permanent(id: int):
     result = _service.delete_permanent(id)
     if not result.success:
         flash(result.error, "error")
-    return redirect(url_for("yeast_bank_items.manage"))
+    return redirect(url_for("yeast_containers.manage"))

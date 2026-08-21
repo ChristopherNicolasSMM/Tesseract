@@ -54,36 +54,36 @@ def pai_apply_fields(obj, data):
         if not strain_name:
             strain_name = f"Strain #{obj.strain_id}"
 
-    storage_device_name = None
+    container_name = None
 
-    if obj.storage_device:
+    if obj.container:
         display_field = getattr(
-            obj.storage_device,
+            obj.container,
             "_display_field",
             "id",
         )
 
-        storage_device_name = getattr(
-            obj.storage_device,
+        container_name = getattr(
+            obj.container,
             display_field,
             None,
         )
 
-        if not storage_device_name:
-            storage_device_name = getattr(
-                obj.storage_device,
+        if not container_name:
+            container_name = getattr(
+                obj.container,
                 "name",
                 None,
             )
 
-        if not storage_device_name:
-            storage_device_name = f"Device #{obj.storage_device_id}"
+        if not container_name:
+            container_name = f"Container #{obj.container_id}"
 
     parts = [
         strain_name,
         obj.storage_slot,
         obj.location,
-        storage_device_name,
+        container_name,
     ]
 
     # Remove valores vazios.

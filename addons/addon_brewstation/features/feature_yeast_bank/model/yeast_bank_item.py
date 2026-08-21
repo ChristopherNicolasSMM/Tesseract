@@ -24,9 +24,9 @@ from annotations import label, plural, required, permission, weak_ref, choices, 
     description="Recalcular viabilidade estimada de todos os itens do banco",
 )
 
-@weak_ref("storage_device_id",
-    resolver=("addons.addon_brewstation.features.feature_yeast_bank.services.yeast_reference_lookup.get_yeast_storage_device"),
-    options="yeast_storage_devices")
+@weak_ref("container_id",
+    resolver=("addons.addon_brewstation.features.feature_yeast_bank.services.yeast_reference_lookup.get_yeast_container"),
+    options="yeast_containers")
 
 @weak_ref(
     "strain_id",
@@ -43,9 +43,9 @@ class YeastBankItem(db.Model):
 
     storage_type = db.Column(db.String(40), nullable=False)
     location = db.Column(db.String(120), nullable=True)
-    storage_device_id = db.Column(db.Integer, db.ForeignKey("storage_device.id"), nullable=True)
-    storage_device = db.relationship("YeastStorageDevice", backref=db.backref("bank_items", lazy=True))
-    storage_slot = db.Column(db.String(120), nullable=True)
+    container_id = db.Column(db.Integer, db.ForeignKey("container.id"), nullable=False)
+    container = db.relationship("YeastContainer", backref=db.backref("bank_items", lazy=True))
+    storage_slot = db.Column(db.String(120), nullable=True)  # posição dentro do container (skill 19)
     label_text = db.Column(db.String(120), nullable=True)  # "label" é nome reservado pelo @label
 
     prepared_date = db.Column(db.Date, nullable=True)
@@ -83,7 +83,7 @@ class YeastBankItem(db.Model):
             "strain": self.strain.to_dict() if self.strain else None,
             "storage_type": self.storage_type,
             "location": self.location,
-            "storage_device_id": self.storage_device_id,
+            "container_id": self.container_id,
             "storage_slot": self.storage_slot,
             "label_text": self.label_text,
             "prepared_date": self.prepared_date.isoformat() if self.prepared_date else None,

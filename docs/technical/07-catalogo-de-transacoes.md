@@ -2,7 +2,7 @@
 
 > Gerado automaticamente por `python run.py transactions-doc` a partir do banco real — não editar manualmente, as edições se perdem na próxima geração. Para mudar uma transação vinda do código, edite o `get_transactions()`/`transactions_catalog.py` correspondente. Para uma transação manual, use a tela `/admin/transactions/`. Árvore de profundidade arbitrária (skill 10) — cada nível vira uma seção aninhada.
 
-Total: 77 transação(ões), 77 ativa(s).
+Total: 78 transação(ões), 78 ativa(s).
 
 ## BrewStation
 
@@ -12,6 +12,7 @@ Total: 77 transação(ões), 77 ativa(s).
 |---|---|---|---|---|---|
 | `TX_YEAST_BANK` | Cepas de Levedura | `/brewstation/yeast-strains` | `yeast_strains.list` | brewstation | Ativa |
 | `TX_YEAST_BANK_ITEMS` | Itens do Banco | `/brewstation/yeast-bank-items` | `yeast_bank_items.list` | brewstation | Ativa |
+| `TX_YEAST_CONTAINERS` | Containers | `/brewstation/yeast-containers` | `yeast_containers.list` | brewstation | Ativa |
 | `TX_YEAST_STORAGE_DEVICES` | Dispositivos de Armazenamento | `/brewstation/yeast-storage-devices` | `yeast_storage_devices.list` | brewstation | Ativa |
 | `TX_YEAST_STORAGE_READINGS` | Leituras de Temperatura | `/brewstation/yeast-storage-readings` | `yeast_storage_readings.list` | brewstation | Ativa |
 | `TX_YEAST_STARTER_LOGS` | Starters | `/brewstation/yeast-starter-logs` | `yeast_starter_logs.list` | brewstation | Ativa |

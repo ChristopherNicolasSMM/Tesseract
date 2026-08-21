@@ -43,6 +43,15 @@ class FeatureYeastBank(FeatureBase):
                 "permission_required": "yeast_bank_items.list",
             },
             {
+                "code": "TX_YEAST_CONTAINERS",
+                "label": "Containers",
+                "parent_code": "TX_GROUP_YEAST_BANK",
+                "description": "Caixas/estantes de armazenamento dentro de um dispositivo (skill 19).",
+                "icon": "bi-archive",
+                "route": "/brewstation/yeast-containers",
+                "permission_required": "yeast_containers.list",
+            },
+            {
                 "code": "TX_YEAST_STORAGE_DEVICES",
                 "label": "Dispositivos de Armazenamento",
                 "parent_code": "TX_GROUP_YEAST_BANK",
