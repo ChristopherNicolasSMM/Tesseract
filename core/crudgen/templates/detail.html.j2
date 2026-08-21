@@ -8,8 +8,11 @@
 <section class="section">
   <div class="card">
     <div class="card-body">
+      {% if form_error %}
+      <div class="alert alert-danger" role="alert">{{ form_error }}</div>
+      {% endif %}
       <form method="post" action="{{ url_for('@@plural@@.update', id=item.id) }}" class="row g-3" id="editForm">
-        {% set data = item.to_dict() %}
+        {% set data = submitted_data if submitted_data else item.to_dict() %}
         {% for field in fields %}
         {% set fv = field_html_validations.get(field, {}) %}
         <div class="col-md-4">

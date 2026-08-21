@@ -3784,3 +3784,47 @@ saída gerada.
       decidir se a #2 vira item próprio (mais urgente, perda de
       trabalho digitado) ou entra junto na mesma análise.
 
+## Fase 16 — CrudGen: formulário nunca mais perde dado digitado em erro (causa #2 da Fase 15 — implementada)
+
+Christopher priorizou a causa #2 registrada na Fase 15 (perda do
+formulário inteiro em qualquer erro, independente de tipo) como
+separada e mais urgente que a análise de introspecção de tipo. Achado
+adicional durante a implementação: a causa raiz real era mais rasa que
+`redirect()` sozinho.
+
+- [x] **`create()`/`update()` não fazem mais `redirect()` em erro** —
+      `core/crudgen/templates/controller.py.j2`: `manage()` e
+      `detail()` (GET) extraídos pra helpers `_manage_context()`/
+      `_detail_context()`, reaproveitados por `create()`/`update()`
+      quando falham — re-renderiza a própria tela com
+      `submitted_data`/`form_error`, sem perder o que a pessoa já
+      tinha digitado. `manage.html.j2`/`detail.html.j2`: campos do
+      formulário passam a usar `submitted_data` (quando presente) no
+      lugar do valor persistido/vazio, e um banner
+      `alert-danger` mostra `form_error`.
+- [x] **Achado real durante o teste do fix**: o erro de conversão de
+      tipo (`float("0,5")`) nem sempre chegava no `try/except` que já
+      existia em `_service.update()` envolvendo só o
+      `db.session.commit()` — um hook (`pai_apply_fields`) que acessa
+      relationship (`if obj.strain:`) dispara autoflush do
+      SQLAlchemy **antes** desse try/except, e o erro escapava direto
+      pro controller sem virar `ServiceResult`, resultando em 500 (não
+      só perda de dado — quebra de tela). Fechado com
+      `try/except Exception` também no controller, em volta da
+      chamada ao service — captura qualquer erro que escape do
+      `ServiceResult`, não só os que o service já tratava.
+- [x] Aplicado em `YeastContainer`/`YeastBankItem` (regenerados com
+      `--overwrite`) — mudança no *core* do CrudGen, vale pra qualquer
+      entidade que regenerar daqui pra frente.
+- [x] **Testes**: 2 novos em `test_phase14_yeast_container.py`
+      (`test_create_via_html_com_erro_reabre_formulario_com_dados_digitados`,
+      `test_update_via_html_com_erro_reabre_formulario_com_dados_digitados`)
+      reproduzindo o cenário exato relatado (vírgula num campo Float,
+      via rota HTML) — o segundo pegou o bug do autoflush prematuro
+      antes do fix estar completo. Suíte relevante: 144 passando,
+      1 falha pré-existente não relacionada.
+- [ ] Causa #1 (tipo do campo → `type="number"` só com `@min_value`
+      explícito, separador decimal PT-BR) continua na análise maior
+      de introspecção de tipo do CrudGen — backlog já registrado, não
+      implementada nesta fase.
+

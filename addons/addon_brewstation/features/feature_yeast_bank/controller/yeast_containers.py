@@ -7,6 +7,7 @@ Customizações via yeast_containers_hooks.py (nunca sobrescrito).
 import csv
 import importlib
 import io
+import logging
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
 from flask_login import login_required, current_user
@@ -16,6 +17,8 @@ from core.permissions import permission_required
 from annotations import get_choices_fields, get_weak_refs, get_enum_fields, get_model_metadata, get_field_labels
 from addons.addon_brewstation.features.feature_yeast_bank.services.yeast_container_service import YeastContainerService
 from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_container import YeastContainer
+
+logger = logging.getLogger(__name__)
 
 yeast_containers_bp = Blueprint(
     "yeast_containers", __name__, url_prefix="/brewstation/yeast-containers"
@@ -198,10 +201,16 @@ def _choices_options() -> dict:
     return options
 
 
-@yeast_containers_bp.route("/", methods=["GET"])
-@login_required
-@permission_required("yeast_containers.list")
-def manage():
+def _manage_context(submitted_data: dict | None = None, form_error: str | None = None) -> dict:
+    """
+    Monta o context de manage.html. Compartilhado entre manage() (GET)
+    e create() (POST, quando falha) — achado real (BACKLOG.md): antes
+    disso, um erro de validação no create() fazia redirect() e
+    descartava TUDO que o usuário tinha digitado, forçando digitar de
+    novo do zero. Com submitted_data preenchido, o formulário de
+    "Novo registro" reabre com os valores que a pessoa já tinha
+    digitado, só o(s) campo(s) com problema precisam ser corrigidos.
+    """
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
     search = (request.args.get("q") or "").strip()
@@ -212,8 +221,7 @@ def manage():
     items = query.order_by(YeastContainer.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
     pages = max(1, (total + per_page - 1) // per_page)
 
-    return render_template(
-        "yeast_containers/manage.html",
+    return dict(
         items=items, label="Container", fields=_EDITABLE_FIELDS, summary_field=_SUMMARY_FIELD,
         page=page, pages=pages, total=total, per_page=per_page, search=search,
         visible_columns=_get_column_prefs(),
@@ -227,7 +235,16 @@ def manage():
         enum_field_options=_ENUM_FIELD_OPTIONS,
         field_html_validations=_FIELD_HTML_VALIDATIONS,
         field_labels=_FIELD_LABELS,
+        submitted_data=submitted_data,
+        form_error=form_error,
     )
+
+
+@yeast_containers_bp.route("/", methods=["GET"])
+@login_required
+@permission_required("yeast_containers.list")
+def manage():
+    return render_template("yeast_containers/manage.html", **_manage_context())
 
 
 @yeast_containers_bp.route("/column-prefs", methods=["POST"])
@@ -300,16 +317,10 @@ def export_xlsx():
     )
 
 
-@yeast_containers_bp.route("/<int:id>", methods=["GET"])
-@login_required
-@permission_required("yeast_containers.detail")
-def detail(id: int):
-    item = _service.get_by_id(id)
-    if not item:
-        flash("Registro não encontrado.", "error")
-        return redirect(url_for("yeast_containers.manage"))
-    return render_template(
-        "yeast_containers/detail.html",
+def _detail_context(item, submitted_data: dict | None = None, form_error: str | None = None) -> dict:
+    """Compartilhado entre detail() (GET) e update() (POST, quando
+    falha) — mesmo raciocínio do _manage_context() acima."""
+    return dict(
         item=item, label="Container", fields=_EDITABLE_FIELDS,
         field_rules=_get_field_rules(),
         weak_ref_fields=_WEAK_REF_FIELDS,
@@ -319,18 +330,53 @@ def detail(id: int):
         enum_field_options=_ENUM_FIELD_OPTIONS,
         field_html_validations=_FIELD_HTML_VALIDATIONS,
         field_labels=_FIELD_LABELS,
+        submitted_data=submitted_data,
+        form_error=form_error,
     )
+
+
+@yeast_containers_bp.route("/<int:id>", methods=["GET"])
+@login_required
+@permission_required("yeast_containers.detail")
+def detail(id: int):
+    item = _service.get_by_id(id)
+    if not item:
+        flash("Registro não encontrado.", "error")
+        return redirect(url_for("yeast_containers.manage"))
+    return render_template("yeast_containers/detail.html", **_detail_context(item))
 
 
 @yeast_containers_bp.route("/", methods=["POST"])
 @login_required
 @permission_required("yeast_containers.create")
 def create():
-    result = _service.create(request.form.to_dict())
-    if not result.success:
-        flash(result.error, "error")
-    else:
-        flash("Criado com sucesso.", "success")
+    submitted = request.form.to_dict()
+    try:
+        result = _service.create(submitted)
+        success, error = result.success, result.error
+    except Exception as e:  # noqa: BLE001
+        # Achado real (BACKLOG.md): um hook que acessa relationship
+        # (ex.: `if obj.strain:`) pode disparar autoflush ANTES do
+        # try/except do service alcançar o commit — nesse caso o erro
+        # (ex.: ValueError de coerção de tipo) escapa do
+        # ServiceResult e vem parar aqui. Sem este catch, vira 500 e
+        # perde o formulário do mesmo jeito que o redirect perdia.
+        db.session.rollback()
+        logger.warning("Erro inesperado ao criar YeastContainer: %s", e)
+        success, error = False, str(e)
+    if not success:
+        # Achado real (BACKLOG.md): redirect() aqui descartava TUDO
+        # que a pessoa tinha digitado em qualquer erro de validação —
+        # não só erro de tipo (ex.: vírgula num Float), qualquer erro
+        # de regra de negócio também. Re-renderiza com os valores
+        # submetidos em vez de redirecionar; só o(s) campo(s) com
+        # problema precisam ser corrigidos, o resto continua
+        # preenchido.
+        return render_template(
+            "yeast_containers/manage.html",
+            **_manage_context(submitted_data=submitted, form_error=error),
+        )
+    flash("Criado com sucesso.", "success")
     return redirect(url_for("yeast_containers.manage"))
 
 
@@ -338,11 +384,28 @@ def create():
 @login_required
 @permission_required("yeast_containers.update")
 def update(id: int):
-    result = _service.update(id, request.form.to_dict())
-    if not result.success:
-        flash(result.error, "error")
-    else:
-        flash("Salvo com sucesso.", "success")
+    item = _service.get_by_id(id)
+    if not item:
+        flash("Registro não encontrado.", "error")
+        return redirect(url_for("yeast_containers.manage"))
+
+    submitted = request.form.to_dict()
+    try:
+        result = _service.update(id, submitted)
+        success, error = result.success, result.error
+    except Exception as e:  # noqa: BLE001
+        # Mesmo raciocínio do create() acima.
+        db.session.rollback()
+        logger.warning("Erro inesperado ao atualizar YeastContainer id=%s: %s", id, e)
+        success, error = False, str(e)
+    if not success:
+        # Mesmo raciocínio do create() acima — re-renderiza com os
+        # valores submetidos em vez de redirect() + perder tudo.
+        return render_template(
+            "yeast_containers/detail.html",
+            **_detail_context(item, submitted_data=submitted, form_error=error),
+        )
+    flash("Salvo com sucesso.", "success")
     return redirect(url_for("yeast_containers.detail", id=id))
 
 

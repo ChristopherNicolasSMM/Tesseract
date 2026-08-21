@@ -10,7 +10,10 @@
       <button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#novoRegistroForm">
         <i class="bi bi-plus-lg"></i> Novo registro
       </button>
-      <div class="collapse" id="novoRegistroForm">
+      {% if form_error %}
+      <div class="alert alert-danger" role="alert">{{ form_error }}</div>
+      {% endif %}
+      <div class="collapse{% if submitted_data %} show{% endif %}" id="novoRegistroForm">
         <form method="post" action="{{ url_for('yeast_containers.create') }}" class="row g-3" id="createForm">
           {% for field in fields %}
           {% set fv = field_html_validations.get(field, {}) %}
@@ -20,21 +23,23 @@
             <select name="{{ field }}" class="form-select"
                     {% if fv.get('required') %}required{% endif %}
                     {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
-              {% if not fv.get('required') %}<option value="">—</option>{% endif %}
+              {% if not fv.get('required') %}<option value="" {{ 'selected' if submitted_data and not submitted_data.get(field) else '' }}>—</option>{% endif %}
               {% for opt in enum_field_options[field] %}
-              <option value="{{ opt.value }}">{{ opt.label }}</option>
+              <option value="{{ opt.value }}" {{ 'selected' if submitted_data and submitted_data.get(field) == opt.value else '' }}>{{ opt.label }}</option>
               {% endfor %}
             </select>
             {% elif field in weak_ref_fields and weak_ref_options.get(field) %}
             <div class="weakref-combo" data-weakref-source="{{ weak_ref_options[field] }}"
                  {% if weak_ref_value_fields.get(field) %}data-weakref-value-field="{{ weak_ref_value_fields[field] }}"{% endif %}>
-              <input type="hidden" name="{{ field }}" class="weakref-combo-value" value="">
+              <input type="hidden" name="{{ field }}" class="weakref-combo-value" value="{{ submitted_data.get(field, '') if submitted_data else '' }}">
               <input type="text" class="form-control weakref-combo-search" autocomplete="off"
                      {% if fv.get('required') %}required{% endif %} placeholder="Buscar...">
               <ul class="list-group weakref-combo-results"></ul>
             </div>
+            {% if submitted_data and submitted_data.get(field) %}<small class="text-muted">Valor anterior mantido (id {{ submitted_data.get(field) }}) — busque de novo se quiser trocar.</small>{% endif %}
             {% else %}
             <input type="{{ 'number' if fv.get('min_value') is not none else 'text' }}" name="{{ field }}" class="form-control"
+                   value="{{ submitted_data.get(field, '') if submitted_data else '' }}"
                    {% if fv.get('required') %}required{% endif %}
                    {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
                    {% if fv.get('minlength') %}minlength="{{ fv['minlength'] }}"{% endif %}

@@ -109,3 +109,79 @@ def test_listagem_de_itens_permite_filtrar_por_container(app, client):
     assert r.status_code == 200
     ids = [i["id"] for i in r.get_json()["items"]]
     assert item_id in ids
+
+
+# ── Fase 15: preservação de dados do formulário em caso de erro ────────────
+# Achado real (BACKLOG.md): antes desta fase, create()/update() faziam
+# redirect() em qualquer erro de validação, descartando o formulário
+# inteiro digitado. Cobertura via HTML (rota web, não API), que é onde
+# o bug ocorria.
+
+def test_create_via_html_com_erro_reabre_formulario_com_dados_digitados(app, client):
+    _login_admin(app, client)
+
+    r = client.post("/api/brewstation/yeast-strains/", json={"name": "US-05"})
+    strain_id = r.get_json()["item"]["id"]
+    r = client.post("/api/brewstation/yeast-storage-devices/", json={"name": "Freezer X"})
+    device_id = r.get_json()["item"]["id"]
+    r = client.post(
+        "/api/brewstation/yeast-containers/",
+        json={"name": "Caixa 1", "device_id": device_id},
+    )
+    container_id = r.get_json()["item"]["id"]
+
+    # "0,5" num Float — vírgula em vez de ponto (o bug relatado)
+    r = client.post(
+        "/brewstation/yeast-bank-items/",
+        data={
+            "strain_id": str(strain_id), "storage_type": "Agar Inclinado",
+            "container_id": str(container_id), "estimated_viability_pct": "0,5",
+            "identification": "TESTE-PRESERVACAO",
+        },
+    )
+    html = r.get_data(as_text=True)
+
+    # Não é mais redirect (302) — reabre a própria tela (200) com o erro.
+    assert r.status_code == 200
+    assert "alert-danger" in html
+    # O que a pessoa já tinha digitado continua no formulário.
+    assert "TESTE-PRESERVACAO" in html
+    assert 'value="0,5"' in html
+
+    from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_item import YeastBankItem
+    with app.app_context():
+        assert YeastBankItem.query.count() == 0  # nada foi salvo (correto)
+
+
+def test_update_via_html_com_erro_reabre_formulario_com_dados_digitados(app, client):
+    _login_admin(app, client)
+
+    r = client.post("/api/brewstation/yeast-strains/", json={"name": "US-05"})
+    strain_id = r.get_json()["item"]["id"]
+    r = client.post("/api/brewstation/yeast-storage-devices/", json={"name": "Freezer X"})
+    device_id = r.get_json()["item"]["id"]
+    r = client.post(
+        "/api/brewstation/yeast-containers/",
+        json={"name": "Caixa 1", "device_id": device_id},
+    )
+    container_id = r.get_json()["item"]["id"]
+    r = client.post(
+        "/api/brewstation/yeast-bank-items/",
+        json={"strain_id": strain_id, "storage_type": "slant", "container_id": container_id},
+    )
+    item_id = r.get_json()["item"]["id"]
+
+    r = client.post(
+        f"/brewstation/yeast-bank-items/{item_id}",
+        data={
+            "strain_id": str(strain_id), "storage_type": "Agar Inclinado",
+            "container_id": str(container_id), "estimated_viability_pct": "1,5",
+            "identification": "EDITANDO-TESTE",
+        },
+    )
+    html = r.get_data(as_text=True)
+
+    assert r.status_code == 200
+    assert "alert-danger" in html
+    assert "EDITANDO-TESTE" in html
+    assert 'value="1,5"' in html
