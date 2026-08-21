@@ -9,13 +9,20 @@ de singleton ainda) — a aplicação decide usar só o primeiro registro.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, enum_field, required
+from annotations import label, plural, enum_field, required, field_labels
 
 
 @label("Configuração do Banco de Levedura")
 @plural("yeast_bank_configs")
 @required("storage_type", message="Tipo de armazenamento é obrigatório")
 @enum_field("storage_type", options=["Agar Inclinado", "Óleo", "Agar Inc. + Óleo" , "Solu. NaCl 0.9%", "Gligerina", "Seca","Lama"])
+@field_labels({
+    "storage_type": "Tipo de Armazenamento",
+    "expiry_master_days": "Validade — Matriz (dias)",
+    "expiry_work_days": "Validade — Trabalho (dias)",
+    "expiry_plate_days": "Validade — Placa (dias)",
+    "expiry_saline_days": "Validade — Solução Salina (dias)",
+})
 class YeastBankConfig(db.Model):
     __tablename__ = "bank_config"
 

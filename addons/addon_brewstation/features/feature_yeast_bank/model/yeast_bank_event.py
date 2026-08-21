@@ -7,12 +7,22 @@ Histórico operacional simples para rastreabilidade de decisões
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required
+from annotations import label, plural, required, field_labels
 
 
 @label("Evento do Banco")
 @plural("yeast_bank_events")
 @required("event_type", message="Tipo do evento é obrigatório")
+@field_labels({
+    "bank_item_id": "Item do Banco",
+    "strain_id": "Cepa",
+    "starter_id": "Starter",
+    "event_type": "Tipo do Evento",
+    "status_before": "Status Anterior",
+    "status_after": "Status Posterior",
+    "notes": "Observações",
+    "metadata_json": "Metadados (JSON)",
+})
 class YeastBankEvent(db.Model):
     __tablename__ = "bank_event"
 

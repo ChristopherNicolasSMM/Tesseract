@@ -7,12 +7,21 @@ YeastStorageDevice (mesma Feature, permitido pela skill 02).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, weak_ref, choices, enum_field
+from annotations import label, plural, required, weak_ref, choices, enum_field, field_labels
 
 
 @label("Leitura de Armazenamento")
 @plural("yeast_storage_readings")
 @required("temperature_c", message="Temperatura é obrigatória")
+@field_labels({
+    "device_id": "Dispositivo",
+    "recorded_at": "Registrado em",
+    "temperature_c": "Temperatura (°C)",
+    "humidity_percent": "Umidade (%)",
+    "source_type": "Origem",
+    "source_ref": "Referência da Origem",
+    "notes": "Observações",
+})
 @weak_ref("device_id",
     resolver=("addons.addon_brewstation.features.feature_yeast_bank.services.yeast_reference_lookup.get_yeast_storage_device"),
     options="yeast_storage_devices",

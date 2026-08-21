@@ -3889,3 +3889,49 @@ alternativas → solução escolhida → plano em etapas).
         intactos — introspecção de tipo não disputou com nenhum dos
         dois.
 
+## Fase 18 — Yeast Bank: `@field_labels` em todas as entidades + auditoria de campos não usados
+
+Primeira parte do pedido "retroaplicar `@field_labels` no yeastbank
+completo, documentar campos com fluxo e funcionalidade, depois
+remover o que não usa". Cobre as 6 entidades que faltavam
+(`Container`/`BankItem`/`StarterLog` já tinham `@field_labels` desde
+as Fases 15/17).
+
+- [x] `@field_labels` aplicado em `YeastStrain`, `YeastStorageDevice`,
+      `YeastStorageReading`, `YeastBankConfig`, `YeastBankEvent`,
+      `YeastCellCountHistory` — todas regeneradas com `--overwrite`.
+      Toda a Feature agora mostra rótulo em PT-BR, não só
+      Container/Item.
+- [x] **Auditoria de uso real** (grep no código, não achismo) —
+      `docs/technical/04-modelo-de-dados.md` reescrito com tabela
+      campo-a-campo por entidade, marcando quem consome cada campo.
+      Achados reais (marcados `⚠` no documento):
+      1. **Bug confirmado**: `YeastStrain.viability_model` — as
+         opções do `@enum_field` (`"Linear Decayment"`/`"Other"`)
+         nunca bateram com o que `viability_engine.py` realmente
+         reconhece (`"exp_decay"` ou linear pra qualquer outro
+         valor) — selecionar "Other" na tela nunca ativa o modelo
+         exponencial, sempre cai no linear silenciosamente.
+      2. **Entidade inteira sem consumidor**: `YeastBankConfig`
+         (`expiry_master_days`/`expiry_work_days`/`expiry_plate_days`/
+         `expiry_saline_days`) — pensada pra calcular `expiry_date`
+         automaticamente a partir do `storage_type` do Item, mas essa
+         ligação nunca foi implementada.
+      3. **Campos com nome de funcionalidade que não existe**:
+         `YeastStarterLog.action_on_bank_item`,
+         `YeastCellCountHistory.calc_method_id`/`raw_inputs`,
+         `YeastBankEvent.metadata_json` — todos sugerem uma ação/uso
+         automático pelo nome, mas são só texto livre sem nenhum
+         consumidor.
+      4. **Campo órfão de outra origem**: `YeastStorageDevice.virtual_address`
+         — nome sugere endereço de rede/IoT, mas este dispositivo não
+         é integrado a nada; sobrou do model original do
+         `plugin_yeast_bank` (BrewStation).
+      5. Confirma achado já registrado no início da sessão:
+         `temperature_min_c`/`temperature_max_c` geram `alert_low`/
+         `alert_high` no badge (`status_badge()`), mas não disparam
+         notificação nenhuma.
+- [ ] **Decisão de remoção pendente** — nenhum campo/tabela removido
+      ainda. Aguardando Christopher decidir, item por item, o que
+      remover (schema change = migration, mesmo cuidado da skill 19).
+

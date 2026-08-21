@@ -8,11 +8,26 @@ registro pode ser um cálculo livre, não necessariamente atrelado).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural
+from annotations import label, plural, field_labels
 
 
 @label("Histórico de Contagem")
 @plural("yeast_cell_count_histories")
+@field_labels({
+    "strain_id": "Cepa",
+    "bank_item_id": "Item do Banco",
+    "starter_id": "Starter",
+    "sample_date": "Data da Amostra",
+    "lot_code": "Código do Lote",
+    "calc_method_id": "Método de Cálculo",
+    "cells_per_ml": "Células/mL",
+    "viability_percent": "Viabilidade Real (%)",
+    "viable_cells_per_ml": "Células Viáveis/mL",
+    "estimated_viability_percent": "Viabilidade Estimada (%)",
+    "contamination_detected": "Contaminação Detectada",
+    "notes": "Observações",
+    "raw_inputs": "Dados Brutos",
+})
 class YeastCellCountHistory(db.Model):
     __tablename__ = "cell_count_history"
 

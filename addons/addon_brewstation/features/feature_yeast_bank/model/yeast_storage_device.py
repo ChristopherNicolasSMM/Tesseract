@@ -8,7 +8,7 @@ plugin_yeast_bank/model/yeast_bank_models.py (BrewStation). Sem FK
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length, enum_field, choices, display_field
+from annotations import label, plural, required, max_length, enum_field, choices, display_field, field_labels
 
 
 @label("Dispositivo de Armazenamento")
@@ -20,6 +20,23 @@ from annotations import label, plural, required, max_length, enum_field, choices
 @choices("brand", label="Marca / Fabricante")
 @choices("machcode", label="Código / Identificador")
 @choices("model", label="Modelo")
+@field_labels({
+    "name": "Nome",
+    "machcode": "Código / Identificador",
+    "device_type": "Tipo de Dispositivo",
+    "status": "Status",
+    "description": "Descrição",
+    "brand": "Marca",
+    "model": "Modelo",
+    "serial_number": "Número de Série",
+    "physical_location": "Localização Física",
+    "virtual_address": "Endereço Virtual",
+    "target_temperature_c": "Temperatura Alvo (°C)",
+    "temperature_min_c": "Temperatura Mínima (°C)",
+    "temperature_max_c": "Temperatura Máxima (°C)",
+    "current_temperature_c": "Temperatura Atual (°C)",
+    "last_temperature_at": "Última Leitura em",
+})
 
 class YeastStorageDevice(db.Model):
     __tablename__ = "storage_device"  # nome curto — CrudGen/ModuleManager aplicam o prefixo

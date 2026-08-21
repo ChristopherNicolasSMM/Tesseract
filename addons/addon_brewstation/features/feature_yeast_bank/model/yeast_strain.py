@@ -15,7 +15,7 @@ central e mais simples de yeast_bank.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length, choices, odata_expose, enum_field, display_field
+from annotations import label, plural, required, max_length, choices, odata_expose, enum_field, display_field, field_labels
 
 
 @label("Cepa de Levedura")
@@ -27,6 +27,20 @@ from annotations import label, plural, required, max_length, choices, odata_expo
 @odata_expose("yeast_strain", permission_required="yeast_strains.list")
 @enum_field("viability_model", options=["Linear Decayment", "Other"])
 @enum_field("family", options=["Ale", "Lager", "Kveik", "Other"])
+@field_labels({
+    "code": "Código",
+    "name": "Nome",
+    "family": "Família",
+    "supplier": "Fornecedor",
+    "notes": "Observações",
+    "status": "Status",
+    "viability_model": "Modelo de Viabilidade",
+    "daily_viability_loss_pct": "Perda de Viabilidade Diária (%)",
+    "viability_correction_factor": "Fator de Correção de Viabilidade",
+    "initial_reference_viability_pct": "Viabilidade Inicial de Referência (%)",
+    "viability_floor_pct": "Piso de Viabilidade (%)",
+    "viability_notes": "Observações de Viabilidade",
+})
 class YeastStrain(db.Model):
     __tablename__ = "strain"  # nome curto — CrudGen/ModuleManager aplicam o prefixo
 

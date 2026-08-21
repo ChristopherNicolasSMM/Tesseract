@@ -1,5 +1,5 @@
 """
-addons\addon_brewstation\features\feature_yeast_bank/controller/yeast_storage_devices.py
+addons/addon_brewstation/features/feature_yeast_bank/controller/yeast_storage_devices.py
 
 Rotas web (HTML) — gerado pelo CrudGen. NÃO editar diretamente.
 Customizações via yeast_storage_devices_hooks.py (nunca sobrescrito).
@@ -7,15 +7,19 @@ Customizações via yeast_storage_devices_hooks.py (nunca sobrescrito).
 import csv
 import importlib
 import io
+import logging
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
 from flask_login import login_required, current_user
 
 from core.db import db
 from core.permissions import permission_required
-from annotations import get_choices_fields, get_weak_refs, get_enum_fields, get_model_metadata
+from annotations import get_choices_fields, get_weak_refs, get_enum_fields, get_model_metadata, get_field_labels
+from core.crudgen.field_types import html_types_for_model
 from addons.addon_brewstation.features.feature_yeast_bank.services.yeast_storage_device_service import YeastStorageDeviceService
 from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_storage_device import YeastStorageDevice
+
+logger = logging.getLogger(__name__)
 
 yeast_storage_devices_bp = Blueprint(
     "yeast_storage_devices", __name__, url_prefix="/brewstation/yeast-storage-devices"
@@ -82,6 +86,21 @@ for _field, _rules in get_model_metadata(YeastStorageDevice).get("validations", 
             _attrs["min_value"] = _rule.get("min")
     if _attrs:
         _FIELD_HTML_VALIDATIONS[_field] = _attrs
+
+# Tipo real da coluna SQLAlchemy -> html_type (skill 20 — date,
+# datetime-local, time, number+step, checkbox, textarea). Mescla no
+# MESMO dict acima (chave html_type/step nova), nunca substitui o que
+# já foi calculado por @required/@max_length/etc. Precedência real
+# fica no template: @enum_field e @weak_ref continuam decidindo o
+# campo ANTES de html_type ser consultado (skill 20, seção J) — este
+# dict só alimenta o fallback final.
+for _field, _html_attrs in html_types_for_model(YeastStorageDevice, _EDITABLE_FIELDS).items():
+    _FIELD_HTML_VALIDATIONS.setdefault(_field, {}).update(_html_attrs)
+
+# Rótulos de campo em PT-BR (skill 12, @field_labels) — sem a
+# anotação no model, o template cai no fallback de sempre
+# (field.replace('_', ' ').title()).
+_FIELD_LABELS: dict = get_field_labels(YeastStorageDevice)
 
 _LIST_KEY = "yeast_storage_devices"
 
@@ -193,10 +212,16 @@ def _choices_options() -> dict:
     return options
 
 
-@yeast_storage_devices_bp.route("/", methods=["GET"])
-@login_required
-@permission_required("yeast_storage_devices.list")
-def manage():
+def _manage_context(submitted_data: dict | None = None, form_error: str | None = None) -> dict:
+    """
+    Monta o context de manage.html. Compartilhado entre manage() (GET)
+    e create() (POST, quando falha) — achado real (BACKLOG.md): antes
+    disso, um erro de validação no create() fazia redirect() e
+    descartava TUDO que o usuário tinha digitado, forçando digitar de
+    novo do zero. Com submitted_data preenchido, o formulário de
+    "Novo registro" reabre com os valores que a pessoa já tinha
+    digitado, só o(s) campo(s) com problema precisam ser corrigidos.
+    """
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
     search = (request.args.get("q") or "").strip()
@@ -207,8 +232,7 @@ def manage():
     items = query.order_by(YeastStorageDevice.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
     pages = max(1, (total + per_page - 1) // per_page)
 
-    return render_template(
-        "yeast_storage_devices/manage.html",
+    return dict(
         items=items, label="Dispositivo de Armazenamento", fields=_EDITABLE_FIELDS, summary_field=_SUMMARY_FIELD,
         page=page, pages=pages, total=total, per_page=per_page, search=search,
         visible_columns=_get_column_prefs(),
@@ -221,7 +245,17 @@ def manage():
         weak_ref_value_fields={wr["field"]: wr["value_field"] for wr in _WEAK_REFS if wr.get("value_field")},
         enum_field_options=_ENUM_FIELD_OPTIONS,
         field_html_validations=_FIELD_HTML_VALIDATIONS,
+        field_labels=_FIELD_LABELS,
+        submitted_data=submitted_data,
+        form_error=form_error,
     )
+
+
+@yeast_storage_devices_bp.route("/", methods=["GET"])
+@login_required
+@permission_required("yeast_storage_devices.list")
+def manage():
+    return render_template("yeast_storage_devices/manage.html", **_manage_context())
 
 
 @yeast_storage_devices_bp.route("/column-prefs", methods=["POST"])
@@ -294,16 +328,10 @@ def export_xlsx():
     )
 
 
-@yeast_storage_devices_bp.route("/<int:id>", methods=["GET"])
-@login_required
-@permission_required("yeast_storage_devices.detail")
-def detail(id: int):
-    item = _service.get_by_id(id)
-    if not item:
-        flash("Registro não encontrado.", "error")
-        return redirect(url_for("yeast_storage_devices.manage"))
-    return render_template(
-        "yeast_storage_devices/detail.html",
+def _detail_context(item, submitted_data: dict | None = None, form_error: str | None = None) -> dict:
+    """Compartilhado entre detail() (GET) e update() (POST, quando
+    falha) — mesmo raciocínio do _manage_context() acima."""
+    return dict(
         item=item, label="Dispositivo de Armazenamento", fields=_EDITABLE_FIELDS,
         field_rules=_get_field_rules(),
         weak_ref_fields=_WEAK_REF_FIELDS,
@@ -312,18 +340,70 @@ def detail(id: int):
         weak_ref_value_fields={wr["field"]: wr["value_field"] for wr in _WEAK_REFS if wr.get("value_field")},
         enum_field_options=_ENUM_FIELD_OPTIONS,
         field_html_validations=_FIELD_HTML_VALIDATIONS,
+        field_labels=_FIELD_LABELS,
+        submitted_data=submitted_data,
+        form_error=form_error,
     )
+
+
+@yeast_storage_devices_bp.route("/<int:id>", methods=["GET"])
+@login_required
+@permission_required("yeast_storage_devices.detail")
+def detail(id: int):
+    item = _service.get_by_id(id)
+    if not item:
+        flash("Registro não encontrado.", "error")
+        return redirect(url_for("yeast_storage_devices.manage"))
+    return render_template("yeast_storage_devices/detail.html", **_detail_context(item))
+
+
+def _normalize_checkbox_fields(submitted: dict) -> dict:
+    """
+    HTML nunca manda o campo no POST quando um checkbox está
+    desmarcado — sem isso, desmarcar um campo boolean que já estava
+    `True` não teria efeito nenhum (o campo simplesmente não aparece
+    em `request.form`, `_apply_fields` nunca o toca, o valor antigo
+    persiste). Achado real (skill 20, risco documentado antes de
+    implementar): força "false" pra todo `_BOOLEAN_FIELDS` ausente do
+    submit, sem mexer nos que já vieram marcados.
+    """
+    for field in _BOOLEAN_FIELDS:
+        if field not in submitted:
+            submitted[field] = "false"
+    return submitted
 
 
 @yeast_storage_devices_bp.route("/", methods=["POST"])
 @login_required
 @permission_required("yeast_storage_devices.create")
 def create():
-    result = _service.create(request.form.to_dict())
-    if not result.success:
-        flash(result.error, "error")
-    else:
-        flash("Criado com sucesso.", "success")
+    submitted = _normalize_checkbox_fields(request.form.to_dict())
+    try:
+        result = _service.create(submitted)
+        success, error = result.success, result.error
+    except Exception as e:  # noqa: BLE001
+        # Achado real (BACKLOG.md): um hook que acessa relationship
+        # (ex.: `if obj.strain:`) pode disparar autoflush ANTES do
+        # try/except do service alcançar o commit — nesse caso o erro
+        # (ex.: ValueError de coerção de tipo) escapa do
+        # ServiceResult e vem parar aqui. Sem este catch, vira 500 e
+        # perde o formulário do mesmo jeito que o redirect perdia.
+        db.session.rollback()
+        logger.warning("Erro inesperado ao criar YeastStorageDevice: %s", e)
+        success, error = False, str(e)
+    if not success:
+        # Achado real (BACKLOG.md): redirect() aqui descartava TUDO
+        # que a pessoa tinha digitado em qualquer erro de validação —
+        # não só erro de tipo (ex.: vírgula num Float), qualquer erro
+        # de regra de negócio também. Re-renderiza com os valores
+        # submetidos em vez de redirecionar; só o(s) campo(s) com
+        # problema precisam ser corrigidos, o resto continua
+        # preenchido.
+        return render_template(
+            "yeast_storage_devices/manage.html",
+            **_manage_context(submitted_data=submitted, form_error=error),
+        )
+    flash("Criado com sucesso.", "success")
     return redirect(url_for("yeast_storage_devices.manage"))
 
 
@@ -331,11 +411,28 @@ def create():
 @login_required
 @permission_required("yeast_storage_devices.update")
 def update(id: int):
-    result = _service.update(id, request.form.to_dict())
-    if not result.success:
-        flash(result.error, "error")
-    else:
-        flash("Salvo com sucesso.", "success")
+    item = _service.get_by_id(id)
+    if not item:
+        flash("Registro não encontrado.", "error")
+        return redirect(url_for("yeast_storage_devices.manage"))
+
+    submitted = _normalize_checkbox_fields(request.form.to_dict())
+    try:
+        result = _service.update(id, submitted)
+        success, error = result.success, result.error
+    except Exception as e:  # noqa: BLE001
+        # Mesmo raciocínio do create() acima.
+        db.session.rollback()
+        logger.warning("Erro inesperado ao atualizar YeastStorageDevice id=%s: %s", id, e)
+        success, error = False, str(e)
+    if not success:
+        # Mesmo raciocínio do create() acima — re-renderiza com os
+        # valores submetidos em vez de redirect() + perder tudo.
+        return render_template(
+            "yeast_storage_devices/detail.html",
+            **_detail_context(item, submitted_data=submitted, form_error=error),
+        )
+    flash("Salvo com sucesso.", "success")
     return redirect(url_for("yeast_storage_devices.detail", id=id))
 
 
