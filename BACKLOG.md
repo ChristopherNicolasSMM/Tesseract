@@ -3828,3 +3828,26 @@ adicional durante a implementação: a causa raiz real era mais rasa que
       de introspecção de tipo do CrudGen — backlog já registrado, não
       implementada nesta fase.
 
+## Fase 17 — CrudGen: proposta de introspecção de tipo SQLAlchemy (skill 20 — só análise, sem código)
+
+Causa #1 registrada na Fase 15/16 formalizada como proposta completa,
+seguindo o mesmo formato de decisão da skill 05/19 (diagnóstico →
+alternativas → solução escolhida → plano em etapas).
+
+- [x] **Skill 20 escrita** (`docs/skills/20-proposta-crudgen-tipo-sqlalchemy-html.md`):
+      diagnóstico real do mecanismo `_FIELD_HTML_VALIDATIONS` (só
+      olha `@min_value`, nunca o tipo da coluna — confirmado lendo o
+      código, não presumido); mapeamento SQLAlchemy → HTML
+      recomendado (Date/DateTime/Time/Integer/Float/Numeric/Boolean/
+      Text); precedência confirmada lendo o `if/elif` real dos
+      templates (`@enum_field` → `@weak_ref` com options → `@weak_ref`
+      sem options → tipo → fallback, sem mudar a ordem existente);
+      decisão de **não criar `@calendar`** (redundante com `db.Date`);
+      riscos identificados (tipo customizado, timezone de
+      `datetime-local`, checkbox ausente no POST); exemplos concretos
+      de `YeastBankItem`/`YeastStorageReading` com os tipos reais
+      confirmados no código.
+- [ ] Implementação — aguardando autorização explícita (o documento é
+      só a proposta, como já era o combinado desde o registro inicial
+      do backlog).
+

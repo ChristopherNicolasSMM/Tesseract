@@ -98,6 +98,14 @@ Ordem de leitura recomendada:
     drill-down proposta para a futura tela integrada (BACKLOG, Fase
     14). Model, CrudGen e as 6 migrations já implementados; falta só
     a tela integrada de navegação.
+21. **20-proposta-crudgen-tipo-sqlalchemy-html.md** — proposta (sem
+    implementação) pra `_FIELD_HTML_VALIDATIONS` (skill 12) ganhar
+    `html_type` via introspecção real de `db.Date`/`DateTime`/`Time`/
+    `Integer`/`Float`/`Numeric`/`Boolean`/`Text`, mantendo
+    `@enum_field`/`@weak_ref` com prioridade (confirmada lendo o
+    `if/elif` real dos templates). Sem `@calendar` nova — decisão
+    justificada na própria skill. Aguardando autorização pra
+    implementar.
 
 ## Status
 
