@@ -238,6 +238,21 @@ python run.py generate --model <path> --addon <nome> --overwrite --only template
 Não roda o seed de `FieldRule` (seção 2.2) — esse é só de geração
 completa.
 
+**Risco real testado (skill 20)**: `--only templates` sozinho **quebra**
+(`jinja2.exceptions.UndefinedError`) numa entidade cujo `controller.py`
+nunca foi regenerado desde que uma variável nova passou a ser exigida
+pelo template (`field_labels` — skill 15; `html_type` dentro de
+`field_html_validations` — skill 20). O HTML novo referencia uma
+variável que o controller antigo nunca calculou nem passou pro
+`render_template()`. Reproduzido de propósito rodando `--only
+templates` em `DeviceFunction` (fora do `feature_yeast_bank`, controller
+gerado antes da skill 15) — `manage()` quebrou com 500 na hora.
+**Regra prática**: depois de uma mudança que adiciona uma variável nova
+consumida pelos templates (não só ajusta HTML), a primeira regeneração
+de cada entidade precisa ser **sem** `--only` (os 5 artefatos, controller
+incluído) — só depois disso `--only templates` volta a ser seguro pra
+essa entidade.
+
 **Dois modos de template**: `.py.j2` usa Jinja2 real na hora de
 gerar; `.html.j2` usa substituição de string simples
 (`@@label@@`/`@@plural@@`/`@@class_name_lower@@`) porque o HTML

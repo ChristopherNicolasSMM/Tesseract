@@ -3847,7 +3847,45 @@ alternativas → solução escolhida → plano em etapas).
       `datetime-local`, checkbox ausente no POST); exemplos concretos
       de `YeastBankItem`/`YeastStorageReading` com os tipos reais
       confirmados no código.
-- [ ] Implementação — aguardando autorização explícita (o documento é
-      só a proposta, como já era o combinado desde o registro inicial
-      do backlog).
+- [x] **Implementação completa**, seguindo o plano em etapas da skill
+      (seção Q), sem desvio da proposta:
+      - `core/crudgen/field_types.py` (novo) — `html_type_for_column()`
+        mapeia Date/DateTime/Time/Integer/Float/Numeric/Boolean/Text,
+        `try/except` pra tipo customizado (nunca quebra a geração).
+      - `controller.py.j2` — mescla `html_type`/`step` no MESMO
+        `_FIELD_HTML_VALIDATIONS` que já existia (skill 12), sem criar
+        dict novo; `_normalize_checkbox_fields()` novo em `create()`/
+        `update()` — corrige o risco documentado (checkbox desmarcado
+        não manda a chave no POST, valor antigo persistia sem isso).
+      - `detail.html.j2`/`manage.html.j2` — branches novos pra
+        `checkbox`/`textarea` (não são `<input>` simples), fallback
+        final troca a heurística antiga (`number` só com `@min_value`)
+        por `fv.get('html_type', 'text')` + `step`.
+      - `static/js/decimal_input_normalizer.js` (novo) — normaliza
+        vírgula→ponto em `blur`/`submit`, sem framework externo
+        (escopo travado como decidido na proposta).
+      - **Achado real durante a implementação** (não previsto na
+        proposta): `--only templates` sozinho quebra
+        (`UndefinedError`) numa entidade cujo `controller.py` nunca foi
+        regenerado desde que uma variável nova passou a ser exigida
+        pelo template — reproduzido de propósito em `DeviceFunction`
+        (fora do `feature_yeast_bank`, revertido depois de confirmar o
+        problema, não fica no código). Documentado como risco prático
+        na skill 12, seção `--only templates`.
+      - Aplicado em `YeastContainer`/`YeastBankItem`/`YeastStarterLog`
+        (regenerados com `--overwrite`) — `YeastStarterLog` entrou de
+        brinde por já ter `Date`/`Float`/`Text`/`Boolean` reais,
+        útil pra confirmar a introspecção numa 3ª entidade sem
+        depender só das dele mesmo.
+      - **Testes**: 8 novos em `test_phase14_yeast_container.py`
+        (date, datetime-local, number+step com classe de
+        normalização, textarea, precedência de `@enum_field` mantida,
+        precedência de `@weak_ref` mantida, script incluído na
+        página, checkbox desmarcado zera o campo — confirmado ao vivo
+        em `YeastStarterLog`). Confirmado ao vivo via HTTP real:
+        `type="date"`, `type="number"` com `step="any"` e classe
+        `crudgen-decimal-input`, `<textarea>`, e que `status`
+        (`@enum_field`) e `container_id` (`@weak_ref`) continuam
+        intactos — introspecção de tipo não disputou com nenhum dos
+        dois.
 

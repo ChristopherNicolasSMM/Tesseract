@@ -1,13 +1,16 @@
 # 20 — Proposta: CrudGen reconhece tipo SQLAlchemy e gera HTML + validação correspondente
 
-> **Status: [PROPOSTA] — documento de análise, nenhuma linha de
-> implementação nesta skill.** Registrado como backlog em 2026-08-20,
-> expandido em 2026-08-21 (achados reais ao usar `YeastContainer`/
-> `YeastBankItem` — skills 14/15/16). Esta skill é só a Etapa 1
-> (diagnóstico + proposta); a implementação é uma fase própria,
-> aguardando autorização explícita depois de revisar este documento —
-> mesma regra de ouro do projeto (skill 00: ajustar/registrar a
-> decisão antes de codar).
+> **Status: [EXECUTADO] (2026-08-21).** Registrado como backlog em
+> 2026-08-20, expandido em 2026-08-21 (achados reais ao usar
+> `YeastContainer`/`YeastBankItem` — skills 14/15/16), proposta escrita
+> e autorizada no mesmo dia, implementada em seguida (BACKLOG.md, Fase
+> 17). Seções A–Q abaixo permanecem como registro do raciocínio —
+> **implementadas exatamente como propostas**, sem desvio: mesmo dict
+> `_FIELD_HTML_VALIDATIONS` estendido (não criou camada nova), sem
+> `@calendar`, mesma precedência `@enum_field` → `@weak_ref` → tipo →
+> fallback. Um achado real durante a implementação (risco do `--only
+> templates` contra controller.py desatualizado, seção N) está
+> documentado na skill 12, não nesta.
 
 ---
 

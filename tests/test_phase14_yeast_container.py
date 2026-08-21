@@ -153,6 +153,113 @@ def test_create_via_html_com_erro_reabre_formulario_com_dados_digitados(app, cli
         assert YeastBankItem.query.count() == 0  # nada foi salvo (correto)
 
 
+# ── Fase 17/skill 20: introspecção de tipo SQLAlchemy → html_type ──────────
+
+def _detail_html(client, item_id):
+    r = client.get(f"/brewstation/yeast-bank-items/{item_id}")
+    return r.get_data(as_text=True)
+
+
+def _setup_item(app, client):
+    _login_admin(app, client)
+    r = client.post("/api/brewstation/yeast-strains/", json={"name": "US-05"})
+    strain_id = r.get_json()["item"]["id"]
+    r = client.post("/api/brewstation/yeast-storage-devices/", json={"name": "Freezer X"})
+    device_id = r.get_json()["item"]["id"]
+    r = client.post(
+        "/api/brewstation/yeast-containers/",
+        json={"name": "Caixa 1", "device_id": device_id},
+    )
+    container_id = r.get_json()["item"]["id"]
+    r = client.post(
+        "/api/brewstation/yeast-bank-items/",
+        json={"strain_id": strain_id, "storage_type": "slant", "container_id": container_id},
+    )
+    return r.get_json()["item"]["id"]
+
+
+def test_campo_date_vira_input_type_date(app, client):
+    item_id = _setup_item(app, client)
+    html = _detail_html(client, item_id)
+    assert 'type="date" name="prepared_date"' in html
+    assert 'type="date" name="expiry_date"' in html
+
+
+def test_campo_datetime_vira_input_type_datetime_local(app, client):
+    item_id = _setup_item(app, client)
+    html = _detail_html(client, item_id)
+    assert 'type="datetime-local" name="estimated_viability_updated_at"' in html
+
+
+def test_campo_float_vira_input_type_number_com_step_any(app, client):
+    item_id = _setup_item(app, client)
+    html = _detail_html(client, item_id)
+    assert 'type="number" name="estimated_viability_pct"' in html
+    assert 'class="form-control crudgen-decimal-input"' in html
+    assert 'step="any"' in html
+
+
+def test_campo_text_vira_textarea(app, client):
+    item_id = _setup_item(app, client)
+    html = _detail_html(client, item_id)
+    assert '<textarea name="viability_notes"' in html
+    assert '<textarea name="discard_reason"' in html
+
+
+def test_enum_field_continua_select_mesmo_com_introspeccao_de_tipo(app, client):
+    # Precedência (skill 20, seção J): @enum_field sempre vence o tipo
+    # da coluna, mesmo status sendo String (que sem @enum_field cairia
+    # em text).
+    item_id = _setup_item(app, client)
+    html = _detail_html(client, item_id)
+    assert '<select name="status"' in html
+    assert 'type="text" name="status"' not in html
+
+
+def test_weak_ref_continua_combo_mesmo_com_introspeccao_de_tipo(app, client):
+    # Precedência (skill 20, seção J): @weak_ref sempre vence o tipo
+    # da coluna, mesmo container_id sendo Integer (que sem @weak_ref
+    # viraria number).
+    item_id = _setup_item(app, client)
+    html = _detail_html(client, item_id)
+    assert 'class="weakref-combo-value"' in html
+    assert 'type="number" name="container_id"' not in html
+
+
+def test_script_de_normalizacao_decimal_incluido_na_pagina(app, client):
+    item_id = _setup_item(app, client)
+    html = _detail_html(client, item_id)
+    assert "decimal_input_normalizer.js" in html
+
+
+def test_checkbox_desmarcado_no_post_zera_campo_boolean(app, client):
+    # Risco documentado na skill 20: HTML nunca manda o campo no POST
+    # quando um checkbox está desmarcado — sem normalização, o valor
+    # antigo persistiria mesmo a pessoa "desmarcando" na tela.
+    # YeastStarterLog.contamination_detected é Boolean editável real.
+    item_id = _setup_item(app, client)
+    r = client.post(
+        "/api/brewstation/yeast-starter-logs/",
+        json={"bank_item_id": item_id, "contamination_detected": True},
+    )
+    starter_id = r.get_json()["item"]["id"]
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_starter_log import YeastStarterLog
+        starter = YeastStarterLog.query.get(starter_id)
+        assert starter.contamination_detected is True
+
+    # POST via HTML sem "contamination_detected" no corpo — simula
+    # checkbox desmarcado (o browser não manda a chave nesse caso).
+    client.post(
+        f"/brewstation/yeast-starter-logs/{starter_id}",
+        data={"bank_item_id": str(item_id)},
+    )
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_starter_log import YeastStarterLog
+        starter = YeastStarterLog.query.get(starter_id)
+        assert starter.contamination_detected is False
+
+
 def test_update_via_html_com_erro_reabre_formulario_com_dados_digitados(app, client):
     _login_admin(app, client)
 

@@ -1,5 +1,5 @@
 """
-addons\addon_brewstation\features\feature_yeast_bank/api/routes/yeast_starter_logs_routes.py
+addons/addon_brewstation/features/feature_yeast_bank/api/routes/yeast_starter_logs_routes.py
 
 API JSON — gerado pelo CrudGen. NÃO editar diretamente.
 Customizações via yeast_starter_logs_routes_hooks.py (nunca sobrescrito).

@@ -15,6 +15,7 @@ from flask_login import login_required, current_user
 from core.db import db
 from core.permissions import permission_required
 from annotations import get_choices_fields, get_weak_refs, get_enum_fields, get_model_metadata, get_field_labels
+from core.crudgen.field_types import html_types_for_model
 from addons.addon_brewstation.features.feature_yeast_bank.services.yeast_container_service import YeastContainerService
 from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_container import YeastContainer
 
@@ -85,6 +86,16 @@ for _field, _rules in get_model_metadata(YeastContainer).get("validations", {}).
             _attrs["min_value"] = _rule.get("min")
     if _attrs:
         _FIELD_HTML_VALIDATIONS[_field] = _attrs
+
+# Tipo real da coluna SQLAlchemy -> html_type (skill 20 — date,
+# datetime-local, time, number+step, checkbox, textarea). Mescla no
+# MESMO dict acima (chave html_type/step nova), nunca substitui o que
+# já foi calculado por @required/@max_length/etc. Precedência real
+# fica no template: @enum_field e @weak_ref continuam decidindo o
+# campo ANTES de html_type ser consultado (skill 20, seção J) — este
+# dict só alimenta o fallback final.
+for _field, _html_attrs in html_types_for_model(YeastContainer, _EDITABLE_FIELDS).items():
+    _FIELD_HTML_VALIDATIONS.setdefault(_field, {}).update(_html_attrs)
 
 # Rótulos de campo em PT-BR (skill 12, @field_labels) — sem a
 # anotação no model, o template cai no fallback de sempre
@@ -346,11 +357,27 @@ def detail(id: int):
     return render_template("yeast_containers/detail.html", **_detail_context(item))
 
 
+def _normalize_checkbox_fields(submitted: dict) -> dict:
+    """
+    HTML nunca manda o campo no POST quando um checkbox está
+    desmarcado — sem isso, desmarcar um campo boolean que já estava
+    `True` não teria efeito nenhum (o campo simplesmente não aparece
+    em `request.form`, `_apply_fields` nunca o toca, o valor antigo
+    persiste). Achado real (skill 20, risco documentado antes de
+    implementar): força "false" pra todo `_BOOLEAN_FIELDS` ausente do
+    submit, sem mexer nos que já vieram marcados.
+    """
+    for field in _BOOLEAN_FIELDS:
+        if field not in submitted:
+            submitted[field] = "false"
+    return submitted
+
+
 @yeast_containers_bp.route("/", methods=["POST"])
 @login_required
 @permission_required("yeast_containers.create")
 def create():
-    submitted = request.form.to_dict()
+    submitted = _normalize_checkbox_fields(request.form.to_dict())
     try:
         result = _service.create(submitted)
         success, error = result.success, result.error
@@ -389,7 +416,7 @@ def update(id: int):
         flash("Registro não encontrado.", "error")
         return redirect(url_for("yeast_containers.manage"))
 
-    submitted = request.form.to_dict()
+    submitted = _normalize_checkbox_fields(request.form.to_dict())
     try:
         result = _service.update(id, submitted)
         success, error = result.success, result.error
