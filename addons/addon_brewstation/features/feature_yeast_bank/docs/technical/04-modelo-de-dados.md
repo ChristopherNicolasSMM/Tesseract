@@ -227,7 +227,7 @@ viabilidade) são lidos por `viability_engine.py` ou pela tela.
 | `..._bank_item` | `estimated_viability_pct` | Viabilidade **estimada do item físico** — diferente dos parâmetros de modelo da cepa; é o valor calculado ao longo do tempo |
 | `..._bank_item` | `label_text` | Renomeado de `label` (BrewStation original) para não colidir com o decorator `@label` das anotações |
 | `..._cell_count_history` | FKs (`strain_id`/`bank_item_id`/`starter_id`) | Todas **opcionais** de propósito — um registro pode ser um cálculo livre, não necessariamente vinculado |
-| `..._bank_config` | (toda a tabela) | Pensada como singleton (1 linha), mas modelada como tabela normal — CrudGen não tem conceito de singleton ainda |
+| `..._bank_config` | `storage_type` | Único por linha **ativa** — índice parcial (`WHERE is_deleted = 0`), não `Column(unique=True)` puro (skill 18/redesign 2026-08-21: uma constraint cheia colidiria até com linha na lixeira, incompatível com soft-delete) |
 
 ## Regra de soft-delete
 
