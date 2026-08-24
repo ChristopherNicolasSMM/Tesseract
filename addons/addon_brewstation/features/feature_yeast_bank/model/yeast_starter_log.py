@@ -21,7 +21,6 @@ from annotations import label, plural, weak_ref, field_labels
     "status": "Status",
     "result_viability_percent": "Viabilidade Resultante (%)",
     "contamination_detected": "Contaminação Detectada",
-    "action_on_bank_item": "Ação no Item do Banco",
 })
 
 @weak_ref("bank_item_id",
@@ -45,7 +44,6 @@ class YeastStarterLog(db.Model):
     status = db.Column(db.String(30), default="planned", nullable=False)
     result_viability_percent = db.Column(db.Float, nullable=True)
     contamination_detected = db.Column(db.Boolean, nullable=False, default=False)
-    action_on_bank_item = db.Column(db.String(30), nullable=True)
 
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
@@ -70,7 +68,6 @@ class YeastStarterLog(db.Model):
             "status": self.status,
             "result_viability_percent": self.result_viability_percent,
             "contamination_detected": bool(self.contamination_detected),
-            "action_on_bank_item": self.action_on_bank_item,
             "is_deleted": self.is_deleted,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

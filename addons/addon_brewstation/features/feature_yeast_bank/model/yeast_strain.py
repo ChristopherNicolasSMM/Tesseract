@@ -25,7 +25,6 @@ from annotations import label, plural, required, max_length, choices, odata_expo
 @required("name", message="Nome da cepa é obrigatório")
 @max_length("name", 200)
 @odata_expose("yeast_strain", permission_required="yeast_strains.list")
-@enum_field("viability_model", options=["Linear Decayment", "Other"])
 @enum_field("family", options=["Ale", "Lager", "Kveik", "Other"])
 @field_labels({
     "code": "Código",
@@ -34,7 +33,6 @@ from annotations import label, plural, required, max_length, choices, odata_expo
     "supplier": "Fornecedor",
     "notes": "Observações",
     "status": "Status",
-    "viability_model": "Modelo de Viabilidade",
     "daily_viability_loss_pct": "Perda de Viabilidade Diária (%)",
     "viability_correction_factor": "Fator de Correção de Viabilidade",
     "initial_reference_viability_pct": "Viabilidade Inicial de Referência (%)",
@@ -56,8 +54,11 @@ class YeastStrain(db.Model):
     status = db.Column(db.String(30), nullable=False, default="active")
 
     # Parâmetros de viabilidade por cepa — usados para estimar a
-    # viabilidade dos itens do banco ao longo do tempo.
-    viability_model = db.Column(db.String(50), nullable=False, default="linear_decay_default")
+    # viabilidade dos itens do banco ao longo do tempo. Modelo de
+    # decaimento é sempre linear (campo viability_model removido —
+    # a opção exponencial nunca funcionou de verdade: o @enum_field
+    # mostrava "Other" mas o motor só reconhecia "exp_decay" como
+    # valor literal, nenhuma opção da tela produzia essa string).
     daily_viability_loss_pct = db.Column(db.Float, nullable=True, default=0.35)
     viability_correction_factor = db.Column(db.Float, nullable=True, default=1.0)
     initial_reference_viability_pct = db.Column(db.Float, nullable=True, default=95.0)
@@ -86,7 +87,6 @@ class YeastStrain(db.Model):
             "supplier": self.supplier,
             "notes": self.notes,
             "status": self.status,
-            "viability_model": self.viability_model,
             "daily_viability_loss_pct": self.daily_viability_loss_pct,
             "viability_correction_factor": self.viability_correction_factor,
             "initial_reference_viability_pct": self.initial_reference_viability_pct,

@@ -9,7 +9,7 @@ Hooks disponíveis (todos opcionais):
     pai_apply_fields(obj, data) -> None          # depois de aplicar campos
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_item import (
     YeastBankItem,
@@ -29,6 +29,36 @@ def pbo_apply_fields(obj, data):
     return data
 
 
+def _auto_fill_expiry_date(obj) -> None:
+    """
+    Preenche `expiry_date` automaticamente a partir de
+    `YeastBankConfig.expiry_days` do `storage_type` do item, quando:
+    - `expiry_date` ainda está vazio (nunca sobrescreve valor já
+      informado manualmente — o auto-preenchimento é só um ponto de
+      partida, a pessoa pode sempre ajustar na tela depois);
+    - existe `prepared_date` (a partir de quando contar os dias);
+    - existe config cadastrada pro `storage_type` do item, com
+      `expiry_days` preenchido.
+
+    Decisão do Christopher (2026-08-21): a config por tipo de
+    armazenamento passou a alimentar validade + decaimento — ver
+    model/yeast_bank_config.py e viability_engine.recalculate_all().
+    """
+    if obj.expiry_date is not None or obj.prepared_date is None or not obj.storage_type:
+        return
+
+    from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_config import (
+        YeastBankConfig,
+    )
+
+    config = YeastBankConfig.query.filter_by(
+        storage_type=obj.storage_type, is_deleted=False,
+    ).first()
+
+    if config and config.expiry_days:
+        obj.expiry_date = obj.prepared_date + timedelta(days=config.expiry_days)
+
+
 def pai_apply_fields(obj, data):
     """
     PAI = After Apply.
@@ -39,6 +69,7 @@ def pai_apply_fields(obj, data):
     A identificação é um campo persistido no banco, mas não é um
     campo editável pelo usuário.
     """
+    _auto_fill_expiry_date(obj)
 
     strain_name = None
 

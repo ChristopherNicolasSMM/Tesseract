@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 
 from core.db import db
@@ -149,6 +149,18 @@ class YeastStorageReadingService:
         value: 'true'` ao tentar salvar (bug real encontrado só ao
         testar filtro/checkbox de verdade, não em uso via API JSON,
         que já manda o tipo certo).
+
+        Date/DateTime/Time — achado real (skill 20/BACKLOG Fase 18):
+        faltava aqui desde sempre. `type="date"`/`type="datetime-local"`
+        (skill 20) mandam string ISO (`"2026-01-01"`/
+        `"2026-01-01T10:30"`), mas sem conversão explícita o valor
+        ficava STRING no objeto — "funcionava" por acaso porque SQLite
+        não valida tipo de coluna, até qualquer código tentar fazer
+        aritmética de data de verdade (`date + timedelta`), que quebra
+        com string. `try/except` silencioso, igual ao padrão de
+        int/float acima — valor mal formatado não trava o salvamento
+        inteiro, só não converte (fica string, mesmo comportamento de
+        antes desta correção).
         """
         if column is None or not isinstance(value, str):
             return value
@@ -168,6 +180,18 @@ class YeastStorageReadingService:
         if python_type is float and value.strip() != "":
             try:
                 return float(value)
+            except ValueError:
+                return value
+        if python_type is date and value.strip() != "":
+            try:
+                return date.fromisoformat(value.strip())
+            except ValueError:
+                return value
+        if python_type is datetime and value.strip() != "":
+            try:
+                # <input type="datetime-local"> manda "YYYY-MM-DDTHH:MM"
+                # (sem segundos) — fromisoformat aceita os dois formatos.
+                return datetime.fromisoformat(value.strip())
             except ValueError:
                 return value
         if value == "":

@@ -15,13 +15,11 @@ anterior desta migração tinha feito por engano.
 """
 from __future__ import annotations
 
-import math
 from datetime import date, datetime, timezone
 
 
 def compute_estimated_viability(
     *,
-    model_id: str | None,
     reference_viability: float | None,
     days: int | float | None,
     daily_loss_pct: float | None,
@@ -29,24 +27,18 @@ def compute_estimated_viability(
     floor_pct: float | None,
 ) -> float:
     """
-    Regra de estimativa de viabilidade.
-
-    `daily_loss_pct` é interpretado como "pontos percentuais/dia" no
-    modelo linear (`linear_decay_default`) e como taxa diária
-    aproximada (pct/100) no exponencial (`exp_decay`).
+    Regra de estimativa de viabilidade — sempre linear (o modelo
+    exponencial foi removido: nunca funcionou de verdade, ver
+    model/yeast_strain.py; opção travada em "só linear" por decisão
+    do Christopher em vez de consertar o mapeamento de opções).
     """
     v0 = max(0.0, min(100.0, float(reference_viability or 0.0)))
     days = max(0.0, float(days or 0.0))
     daily_loss_pct = max(0.0, float(daily_loss_pct if daily_loss_pct is not None else 0.35))
     correction_factor = float(correction_factor if correction_factor is not None else 1.0)
     floor_pct = max(0.0, min(100.0, float(floor_pct if floor_pct is not None else 0.0)))
-    model_id = (model_id or "linear_decay_default").strip()
 
-    if model_id == "exp_decay":
-        k = daily_loss_pct / 100.0
-        base = v0 * math.exp(-k * days)
-    else:
-        base = v0 - (daily_loss_pct * days)
+    base = v0 - (daily_loss_pct * days)
 
     corrected = base * correction_factor
     corrected = max(floor_pct, min(100.0, corrected))
@@ -144,10 +136,22 @@ def recalculate_all(*, today: date | None = None) -> dict:
     """
     from core.db import db
     from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_item import YeastBankItem
+    from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_config import YeastBankConfig
 
     today = today or datetime.now(timezone.utc).date()
 
     items = YeastBankItem.query.order_by(YeastBankItem.id.asc()).all()
+
+    # Config por storage_type — carregada uma vez, indexada pelo tipo.
+    # Christopher decidiu (2026-08-21): quando existe config pro
+    # storage_type do item, o % de decaimento dela SUBSTITUI o da
+    # cepa (ignora daily_viability_loss_pct da YeastStrain nesse
+    # caso) — correction_factor/floor_pct continuam vindo da cepa,
+    # só o decaimento em si é trocado.
+    configs_by_type = {
+        c.storage_type: c
+        for c in YeastBankConfig.query.filter(YeastBankConfig.is_deleted.is_(False)).all()
+    }
 
     processed = 0
     updated = 0
@@ -169,12 +173,17 @@ def recalculate_all(*, today: date | None = None) -> dict:
             continue
 
         strain = item.strain
+        config = configs_by_type.get(item.storage_type)
+        if config is not None and config.daily_viability_loss_pct is not None:
+            daily_loss_pct = config.daily_viability_loss_pct
+        else:
+            daily_loss_pct = strain.daily_viability_loss_pct if strain else None
+
         days = max(0, (today - ref["date"]).days) if ref.get("date") else 0
         estimated = compute_estimated_viability(
-            model_id=(strain.viability_model if strain else None),
             reference_viability=ref.get("value"),
             days=days,
-            daily_loss_pct=(strain.daily_viability_loss_pct if strain else None),
+            daily_loss_pct=daily_loss_pct,
             correction_factor=(strain.viability_correction_factor if strain else None),
             floor_pct=(strain.viability_floor_pct if strain else None),
         )

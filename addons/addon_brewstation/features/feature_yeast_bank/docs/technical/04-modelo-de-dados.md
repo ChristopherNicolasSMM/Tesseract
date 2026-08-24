@@ -31,7 +31,6 @@ erDiagram
         int id PK
         string name
         string family
-        string viability_model
         float daily_viability_loss_pct
         bool is_deleted
     }
@@ -88,8 +87,11 @@ erDiagram
     }
     tesseract_brewstation_yeastbank_bank_config {
         int id PK
-        int expiry_master_days
-        int expiry_work_days
+        string storage_type "UNIQUE (índice parcial, só is_deleted=0)"
+        float daily_viability_loss_pct
+        int expiry_days
+        int alert_days_before_expiry
+        float alert_min_viability_pct
     }
 ```
 
@@ -104,6 +106,15 @@ erDiagram
 
 ### `YeastStrain` (cepa)
 
+> **Nota (2026-08-21)**: `viability_model` foi removido. Achado
+> durante a auditoria de campos: o `@enum_field` mostrava as opções
+> `"Linear Decayment"`/`"Other"`, mas o motor só reconhecia o valor
+> literal `"exp_decay"` — selecionar `"Other"` nunca ativava o modelo
+> exponencial de verdade, sempre caía no linear em silêncio. Decisão
+> do Christopher: remover o exponencial de vez (nunca foi usado de
+> propósito), em vez de consertar o mapeamento — `compute_estimated_viability()`
+> agora é sempre linear.
+
 | Campo | Consumido por | Observação |
 |---|---|---|
 | `code` | — | Informativo, sem lookup por ele em nenhum lugar |
@@ -112,8 +123,7 @@ erDiagram
 | `supplier` | — | Informativo |
 | `notes` | — | Nota livre pro usuário |
 | `status` | — | Estado estratégico (`active`/`discontinued`) — não usado em nenhuma regra ainda (ex.: bloquear novo Item de cepa `discontinued`) |
-| `viability_model` | `viability_engine.compute_estimated_viability()` | **⚠ Bug real encontrado nesta revisão**: `@enum_field` mostra as opções `"Linear Decayment"`/`"Other"`, mas o motor só reconhece o valor literal `"exp_decay"` (ou usa linear pra qualquer outra coisa, inclusive o próprio default da coluna, `"linear_decay_default"`). Selecionar `"Other"` na tela **nunca** ativa o modelo exponencial — sempre cai no linear, silenciosamente. As opções do enum nunca bateram com os valores reais que o motor espera |
-| `daily_viability_loss_pct` | `viability_engine` | Usado de verdade no cálculo |
+| `daily_viability_loss_pct` | `viability_engine` | Usado de verdade no cálculo — **SUBSTITUÍDO** pelo `daily_viability_loss_pct` de `YeastBankConfig` quando existe config ativa pro `storage_type` do item (decisão do Christopher, 2026-08-21 — ver seção `YeastBankConfig` abaixo) |
 | `viability_correction_factor` | `viability_engine` | Usado de verdade no cálculo |
 | `initial_reference_viability_pct` | `viability_engine.best_viability_reference_for_item()` | Usado de verdade — última prioridade de referência quando não há histórico/starter |
 | `viability_floor_pct` | `viability_engine` | Usado de verdade no cálculo |
@@ -130,7 +140,6 @@ erDiagram
 | `description` | — | Nota livre |
 | `brand` / `model` / `serial_number` | — | Informativo — ficha técnica do equipamento |
 | `physical_location` | — | Informativo |
-| `virtual_address` | — | **⚠** Nome sugere endereço de rede/IoT (ex.: MQTT), mas este dispositivo não é integrado a nada — sobrou do model original do BrewStation (`plugin_yeast_bank`, ver docstring do arquivo). Sem consumidor |
 | `target_temperature_c` | — | Informativo — não há alarme se a leitura real se afastar do alvo |
 | `temperature_min_c` / `temperature_max_c` | `status_badge()` | Usado — gera `alert_low`/`alert_high` no badge, mas **não dispara nenhuma notificação** (achado já registrado no início desta sessão) |
 | `current_temperature_c` / `last_temperature_at` | `status_badge()` | Usado — cache do último valor, atualizado manualmente hoje (sem sensor integrado ainda) |
@@ -165,7 +174,6 @@ viabilidade) são lidos por `viability_engine.py` ou pela tela.
 | `status` | — | Livre (`planned`/outros) — sem máquina de estado, sem gatilho |
 | `result_viability_percent` | `viability_engine.best_viability_reference_for_item()` | Usado de verdade — 3ª prioridade de referência |
 | `contamination_detected` | `viability_engine` | Usado de verdade — exclui o registro como referência válida |
-| `action_on_bank_item` | — | **⚠** Nome sugere que preencher isso deveria fazer algo acontecer no Item de origem (ex.: descartar automaticamente) — mas nada lê esse campo. Hoje é só texto anotado, sem efeito |
 
 ### `YeastCellCountHistory` (histórico de contagem)
 
@@ -174,13 +182,11 @@ viabilidade) são lidos por `viability_engine.py` ou pela tela.
 | `strain_id` / `bank_item_id` / `starter_id` | FKs opcionais de propósito | Estrutural |
 | `sample_date` | `viability_engine` | Usado — ordena qual histórico é "mais recente" |
 | `lot_code` | — | Informativo |
-| `calc_method_id` | — | **⚠** Nome sugere identificar qual método gerou o cálculo, mas nada grava nem lê — texto livre sem uso |
 | `cells_per_ml` / `viable_cells_per_ml` | — | Dado bruto de contagem — informativo, não entra na fórmula de viabilidade (só os dois campos de `_percent` abaixo entram) |
 | `viability_percent` | `viability_engine.best_viability_reference_for_item()` | Usado de verdade — 1ª prioridade de referência (histórico real) |
 | `estimated_viability_percent` | `viability_engine` | Usado de verdade — 2ª prioridade (histórico estimado) |
 | `contamination_detected` | `viability_engine` | Usado de verdade — exclui o registro como referência |
 | `notes` | — | Nota livre |
-| `raw_inputs` | — | **⚠** Nome sugere guardar os valores brutos de entrada do cálculo (auditoria/recálculo), mas nada grava nele — texto livre sem uso |
 
 ### `YeastBankEvent` (evento)
 
@@ -190,14 +196,24 @@ viabilidade) são lidos por `viability_engine.py` ou pela tela.
 | `event_type` | — | Obrigatório, texto livre — sem catálogo fechado (`@enum_field`) apesar do nome sugerir categorias fixas |
 | `status_before` / `status_after` | — | Texto livre — **nenhum outro service preenche isso automaticamente** (achado já registrado no início desta sessão: evento não é gerado a partir de mudança real em Item/Starter/Contagem, só manual) |
 | `notes` | — | Nota livre |
-| `metadata_json` | — | **⚠** JSON serializado manualmente em texto — sem consumidor, sem geração automática |
 
-### `YeastBankConfig` (configuração)
+### `YeastBankConfig` (configuração por tipo de armazenamento)
+
+> **Redesenhado em 2026-08-21** (decisão do Christopher). Os 4 campos
+> antigos de validade (`expiry_master_days`/`expiry_work_days`/
+> `expiry_plate_days`/`expiry_saline_days`) nunca tiveram consumidor
+> (achado da auditoria original) e não faziam sentido numa linha já
+> específica de 1 `storage_type`. Substituídos por um desenho mais
+> simples: **1 config ativa por `storage_type`**, com decaimento +
+> validade + limites de alerta.
 
 | Campo | Consumido por | Observação |
 |---|---|---|
-| `storage_type` | — | Obrigatório, mas nada relaciona essa config com um `YeastBankItem.storage_type` real pra aplicar a validade |
-| `expiry_master_days` / `expiry_work_days` / `expiry_plate_days` / `expiry_saline_days` | — | **⚠ Entidade inteira sem consumidor.** Pensada pra calcular `expiry_date` automaticamente a partir do `storage_type` do Item (o nome dos 4 campos sugere exatamente isso), mas essa ligação nunca foi implementada — `YeastBankItem.expiry_date` é preenchido manualmente na tela, sempre. Nenhum service, hook ou rota lê `YeastBankConfig` |
+| `storage_type` | `viability_engine.recalculate_all()`, `yeast_bank_item_service_hooks.py` | Único por linha ativa (índice único parcial, `WHERE is_deleted = 0` — uma linha na lixeira não bloqueia recriar o tipo) |
+| `daily_viability_loss_pct` | `viability_engine.recalculate_all()` | Quando preenchido, **SUBSTITUI** (não combina com) o `daily_viability_loss_pct` da `YeastStrain` do item — decisão explícita do Christopher. `correction_factor`/`floor_pct` continuam vindo sempre da cepa |
+| `expiry_days` | `yeast_bank_item_service_hooks.py::_auto_fill_expiry_date()` | Preenche `YeastBankItem.expiry_date` automaticamente (`prepared_date + expiry_days`) **só quando `expiry_date` ainda está vazio** — nunca sobrescreve valor informado manualmente |
+| `alert_days_before_expiry` | — | Limite cadastrado, mas a lógica de disparo/notificação ainda não existe — fase própria (mesmo tema do achado "`YeastBankEvent` não é gerado automaticamente", registrado no BACKLOG) |
+| `alert_min_viability_pct` | — | Mesmo caso acima — limite existe, disparo ainda não |
 
 ## Colunas não óbvias (registro histórico, mantido)
 

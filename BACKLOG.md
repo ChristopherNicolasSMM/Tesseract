@@ -3931,7 +3931,73 @@ as Fases 15/17).
          `temperature_min_c`/`temperature_max_c` geram `alert_low`/
          `alert_high` no badge (`status_badge()`), mas não disparam
          notificação nenhuma.
-- [ ] **Decisão de remoção pendente** — nenhum campo/tabela removido
-      ainda. Aguardando Christopher decidir, item por item, o que
-      remover (schema change = migration, mesmo cuidado da skill 19).
+- [x] **Decisão de remoção resolvida** — ver Fase 19 abaixo (todos os
+      3 achados decididos e implementados por Christopher em
+      2026-08-21).
+
+## Fase 19 — Yeast Bank: viability_model removido, YeastBankConfig redesenhado, 5 campos vestigiais removidos
+
+Fecha as 3 decisões da Fase 18. Todas as 3 implementadas juntas (fazem
+parte do mesmo conjunto de migrations).
+
+- [x] **`viability_model` removido** (`YeastStrain`) — opção B
+      (Christopher): simplificar pra só linear, em vez de consertar o
+      mapeamento do enum. `viability_engine.compute_estimated_viability()`
+      perdeu o parâmetro `model_id` e o ramo exponencial inteiro
+      (dead code confirmado — nenhuma opção da tela produzia
+      `"exp_decay"` de verdade).
+- [x] **`YeastBankConfig` redesenhado** — 1 config ativa por
+      `storage_type` (índice único **parcial**, `WHERE is_deleted = 0`),
+      com `daily_viability_loss_pct` (substitui o da cepa quando
+      presente — decisão explícita: substitui, não combina),
+      `expiry_days` (único, no lugar dos 4 antigos), e os dois limites
+      de alerta (`alert_days_before_expiry`/`alert_min_viability_pct`
+      — ambos, disparo em qualquer um dos dois, lógica de notificação
+      ainda não implementada, fica pra fase própria).
+  - `viability_engine.recalculate_all()` já busca a config pelo
+    `storage_type` do item antes de decidir o decaimento.
+  - `yeast_bank_item_service_hooks.py::_auto_fill_expiry_date()` novo
+    — preenche `expiry_date` automaticamente a partir da config,
+    só quando ainda está vazio (nunca sobrescreve valor manual).
+  - **Achado real durante a validação**: `UNIQUE` simples em
+    `storage_type` colidia até com linha **na lixeira**
+    (`is_deleted=1`) — SQLite não distingue. Corrigido com índice
+    único **parcial** (`sqlite_where=is_deleted = 0`), declarado
+    também no `__table_args__` do model (não só na migration) pra
+    `flask db migrate` não ficar detectando diff fantasma pra sempre.
+  - Migration testada com `flask db upgrade` real: recusou duplicata
+    ativa com erro claro, aceitou duplicata já na lixeira sem
+    problema, resolvi a ativa manualmente e completou.
+- [x] **5 campos vestigiais removidos**: `YeastStrain.viability_model`
+      (junto com o item acima), `YeastStarterLog.action_on_bank_item`,
+      `YeastCellCountHistory.calc_method_id`/`raw_inputs`,
+      `YeastBankEvent.metadata_json`,
+      `YeastStorageDevice.virtual_address`.
+- [x] **2 migrations Alembic** (`fe43a3c39159` remove os 5 campos
+      vestigiais; `0b8fa81614a6` redesenha `bank_config`) — estilo
+      defensivo, testadas com dados reais incluindo os casos de borda
+      (duplicata ativa recusada, duplicata na lixeira aceita).
+- [x] **Achado real fora do escopo original, corrigido junto**:
+      `_coerce_value()` (`core/crudgen/templates/service.py.j2`) nunca
+      convertia string de formulário HTML pra `date`/`datetime` — só
+      bool/int/float. "Funcionava" por acaso porque SQLite não valida
+      tipo de coluna, até `_auto_fill_expiry_date()` tentar
+      `date + timedelta` numa string. Corrigido no template-fonte
+      (não só numa entidade) — `type="date"`/`type="datetime-local"`
+      (skill 20) agora produzem objetos Python de verdade em toda
+      entidade regenerada, não só string armazenada por acidente.
+      Todas as 9 entidades de `feature_yeast_bank` regeneradas com
+      `--overwrite` pra pegar essa correção uniformemente.
+- [x] **Testes**: `test_viability_engine.py` atualizado (removido o
+      teste do modelo exponencial; adicionados: config substitui
+      decaimento da cepa, config sem decaimento não substitui,
+      `expiry_date` automático, `expiry_date` manual não sobrescrito,
+      recusa de `storage_type` duplicado ativo).
+      `test_bank_config_eh_um_crud_normal_sem_fk` corrigido pra usar o
+      schema novo (a mesma falha "pré-existente" carregada desde o
+      início da sessão — finalmente resolvida). **Suíte completa do
+      yeast_bank: 79 passando, 0 falhas.**
+- [x] `docs/technical/04-modelo-de-dados.md` atualizado — ER e tabela
+      de campos refletem o estado novo, achados antigos marcados como
+      resolvidos em vez de deixados como pendência desatualizada.
 

@@ -21,7 +21,6 @@ from annotations import label, plural, required, field_labels
     "status_before": "Status Anterior",
     "status_after": "Status Posterior",
     "notes": "Observações",
-    "metadata_json": "Metadados (JSON)",
 })
 class YeastBankEvent(db.Model):
     __tablename__ = "bank_event"
@@ -41,7 +40,6 @@ class YeastBankEvent(db.Model):
     status_before = db.Column(db.String(30), nullable=True)
     status_after = db.Column(db.String(30), nullable=True)
     notes = db.Column(db.Text, nullable=True)
-    metadata_json = db.Column(db.Text, nullable=True)
 
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
@@ -64,7 +62,6 @@ class YeastBankEvent(db.Model):
             "status_before": self.status_before,
             "status_after": self.status_after,
             "notes": self.notes,
-            "metadata_json": self.metadata_json,
             "is_deleted": self.is_deleted,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

@@ -19,14 +19,12 @@ from annotations import label, plural, field_labels
     "starter_id": "Starter",
     "sample_date": "Data da Amostra",
     "lot_code": "Código do Lote",
-    "calc_method_id": "Método de Cálculo",
     "cells_per_ml": "Células/mL",
     "viability_percent": "Viabilidade Real (%)",
     "viable_cells_per_ml": "Células Viáveis/mL",
     "estimated_viability_percent": "Viabilidade Estimada (%)",
     "contamination_detected": "Contaminação Detectada",
     "notes": "Observações",
-    "raw_inputs": "Dados Brutos",
 })
 class YeastCellCountHistory(db.Model):
     __tablename__ = "cell_count_history"
@@ -44,7 +42,6 @@ class YeastCellCountHistory(db.Model):
 
     sample_date = db.Column(db.Date, nullable=True)
     lot_code = db.Column(db.String(120), nullable=True)
-    calc_method_id = db.Column(db.String(80), nullable=True)
 
     cells_per_ml = db.Column(db.Float, nullable=True)
     viability_percent = db.Column(db.Float, nullable=True)
@@ -53,7 +50,6 @@ class YeastCellCountHistory(db.Model):
 
     contamination_detected = db.Column(db.Boolean, nullable=False, default=False)
     notes = db.Column(db.Text, nullable=True)
-    raw_inputs = db.Column(db.Text, nullable=True)
 
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
@@ -74,14 +70,12 @@ class YeastCellCountHistory(db.Model):
             "starter_id": self.starter_id,
             "sample_date": self.sample_date.isoformat() if self.sample_date else None,
             "lot_code": self.lot_code,
-            "calc_method_id": self.calc_method_id,
             "cells_per_ml": self.cells_per_ml,
             "viability_percent": self.viability_percent,
             "viable_cells_per_ml": self.viable_cells_per_ml,
             "estimated_viability_percent": self.estimated_viability_percent,
             "contamination_detected": bool(self.contamination_detected),
             "notes": self.notes,
-            "raw_inputs": self.raw_inputs,
             "is_deleted": self.is_deleted,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

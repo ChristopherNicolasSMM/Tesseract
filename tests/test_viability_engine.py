@@ -45,28 +45,19 @@ def _login_admin(app, client):
     client.post("/api/auth/login", json={"username": "admin", "password": "senha123"})
 
 
-# ── Função pura de cálculo ───────────────────────────────────────────────────
+# ── Função pura de cálculo (sempre linear — exponencial removido) ──────────
 
 def test_modelo_linear_decai_corretamente():
     result = compute_estimated_viability(
-        model_id="linear_decay_default", reference_viability=90.0,
+        reference_viability=90.0,
         days=10, daily_loss_pct=1.0, correction_factor=1.0, floor_pct=0.0,
     )
     assert result == 80.0
 
 
-def test_modelo_exponencial_decai_corretamente():
-    result = compute_estimated_viability(
-        model_id="exp_decay", reference_viability=100.0,
-        days=10, daily_loss_pct=5.0, correction_factor=1.0, floor_pct=0.0,
-    )
-    # 100 * e^(-0.05*10) ≈ 60.6531
-    assert abs(result - 60.6531) < 0.01
-
-
 def test_correction_factor_eh_aplicado():
     result = compute_estimated_viability(
-        model_id="linear_decay_default", reference_viability=90.0,
+        reference_viability=90.0,
         days=0, daily_loss_pct=1.0, correction_factor=0.5, floor_pct=0.0,
     )
     assert result == 45.0
@@ -74,7 +65,7 @@ def test_correction_factor_eh_aplicado():
 
 def test_nunca_passa_do_piso_minimo():
     result = compute_estimated_viability(
-        model_id="linear_decay_default", reference_viability=10.0,
+        reference_viability=10.0,
         days=1000, daily_loss_pct=1.0, correction_factor=1.0, floor_pct=5.0,
     )
     assert result == 5.0
@@ -82,7 +73,7 @@ def test_nunca_passa_do_piso_minimo():
 
 def test_nunca_passa_de_100():
     result = compute_estimated_viability(
-        model_id="linear_decay_default", reference_viability=90.0,
+        reference_viability=90.0,
         days=0, daily_loss_pct=1.0, correction_factor=2.0, floor_pct=0.0,
     )
     assert result == 100.0
@@ -233,6 +224,152 @@ def test_permissao_e_rota_estao_no_lugar_certo_yeast_bank_items(app, client):
         nomes = {p.name for p in Permission.query.all()}
         assert "yeast_bank_items.recalculate_viability" in nomes
         assert "yeast_strains.recalculate_viability" not in nomes
+
+
+# ── YeastBankConfig por storage_type (BACKLOG Fase 18) ──────────────────────
+
+def test_config_do_storage_type_substitui_decaimento_da_cepa(app):
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_config import (
+            YeastBankConfig,
+        )
+
+        strain, item = _make_strain_and_item(app)
+        strain.daily_viability_loss_pct = 1.0  # decaimento da cepa
+        db.session.commit()
+
+        # Config do storage_type do item com decaimento BEM diferente
+        # do da cepa — se a config for consultada de verdade, o
+        # resultado bate com ela, não com o da cepa.
+        config = YeastBankConfig(storage_type=item.storage_type, daily_viability_loss_pct=5.0)
+        db.session.add(config)
+        db.session.commit()
+
+        item.prepared_date = datetime.date.today() - datetime.timedelta(days=10)
+        db.session.commit()
+
+        result = recalculate_all()
+        assert result["updated"] == 1
+
+        item = db.session.get(type(item), item.id)
+        # referência = strain_default (90.0), 10 dias, 5%/dia (config) = 40.0
+        # se estivesse usando o da cepa (1%/dia) daria 80.0
+        assert item.estimated_viability_pct == 40.0
+
+
+def test_sem_config_para_o_storage_type_usa_decaimento_da_cepa(app):
+    with app.app_context():
+        strain, item = _make_strain_and_item(app)
+        strain.daily_viability_loss_pct = 1.0
+        item.prepared_date = datetime.date.today() - datetime.timedelta(days=10)
+        db.session.commit()
+
+        # Nenhuma YeastBankConfig cadastrada pro storage_type do item.
+        result = recalculate_all()
+        assert result["updated"] == 1
+
+        item = db.session.get(type(item), item.id)
+        assert item.estimated_viability_pct == 80.0  # 90 - 1%*10 dias
+
+
+def test_config_com_decaimento_vazio_nao_substitui_o_da_cepa(app):
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_config import (
+            YeastBankConfig,
+        )
+
+        strain, item = _make_strain_and_item(app)
+        strain.daily_viability_loss_pct = 1.0
+        item.prepared_date = datetime.date.today() - datetime.timedelta(days=10)
+        db.session.commit()
+
+        # Config existe pro storage_type, mas sem decaimento preenchido
+        # — não deve substituir o da cepa (só substitui quando presente).
+        config = YeastBankConfig(storage_type=item.storage_type, expiry_days=90)
+        db.session.add(config)
+        db.session.commit()
+
+        result = recalculate_all()
+        item = db.session.get(type(item), item.id)
+        assert item.estimated_viability_pct == 80.0
+
+
+def test_expiry_date_e_preenchido_automaticamente_a_partir_da_config(app, client):
+    _login_admin(app, client)
+
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_config import (
+            YeastBankConfig,
+        )
+        config = YeastBankConfig(storage_type="Seca", expiry_days=180)
+        db.session.add(config)
+        db.session.commit()
+
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_strain import YeastStrain
+        strain = YeastStrain(name="US-05")
+        db.session.add(strain)
+        db.session.commit()
+        strain_id = strain.id
+        container = _make_container(app)
+        container_id = container.id
+
+    r = client.post("/brewstation/yeast-bank-items/", data={
+        "strain_id": str(strain_id), "storage_type": "Seca",
+        "container_id": str(container_id), "prepared_date": "2026-01-01",
+    })
+    assert r.status_code in (200, 302)
+
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_item import (
+            YeastBankItem,
+        )
+        item = YeastBankItem.query.filter_by(strain_id=strain_id).first()
+        assert item.expiry_date is not None
+        assert item.expiry_date.isoformat() == "2026-06-30"  # 2026-01-01 + 180 dias
+
+
+def test_expiry_date_manual_nao_e_sobrescrito_pela_config(app, client):
+    _login_admin(app, client)
+
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_config import (
+            YeastBankConfig,
+        )
+        config = YeastBankConfig(storage_type="Seca", expiry_days=180)
+        db.session.add(config)
+        db.session.commit()
+
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_strain import YeastStrain
+        strain = YeastStrain(name="US-05")
+        db.session.add(strain)
+        db.session.commit()
+        strain_id = strain.id
+        container = _make_container(app)
+        container_id = container.id
+
+    r = client.post("/brewstation/yeast-bank-items/", data={
+        "strain_id": str(strain_id), "storage_type": "Seca",
+        "container_id": str(container_id), "prepared_date": "2026-01-01",
+        "expiry_date": "2026-03-01",  # informado manualmente
+    })
+    assert r.status_code in (200, 302)
+
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_item import (
+            YeastBankItem,
+        )
+        item = YeastBankItem.query.filter_by(strain_id=strain_id).first()
+        assert item.expiry_date.isoformat() == "2026-03-01"  # não sobrescrito
+
+
+def test_bank_config_recusa_storage_type_duplicado_ativo(app, client):
+    _login_admin(app, client)
+
+    r = client.post("/api/brewstation/yeast-bank-configs/", json={"storage_type": "Seca"})
+    assert r.status_code == 201
+
+    r = client.post("/api/brewstation/yeast-bank-configs/", json={"storage_type": "Seca"})
+    assert r.status_code != 201  # índice único parcial recusa duplicata ativa
 
 
 def test_fluxo_completo_via_http(app, client):

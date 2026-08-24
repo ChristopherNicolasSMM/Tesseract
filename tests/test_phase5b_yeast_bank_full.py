@@ -130,10 +130,10 @@ def test_bank_config_eh_um_crud_normal_sem_fk(app, client):
 
     r = client.post(
         "/api/brewstation/yeast-bank-configs/",
-        json={"expiry_master_days": 365, "expiry_work_days": 14},
+        json={"storage_type": "Seca", "expiry_days": 365, "daily_viability_loss_pct": 0.2},
     )
     assert r.status_code == 201
-    assert r.get_json()["item"]["expiry_master_days"] == 365
+    assert r.get_json()["item"]["expiry_days"] == 365
 
 
 def test_soft_delete_funciona_em_entidade_nova(app, client):

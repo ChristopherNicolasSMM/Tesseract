@@ -30,7 +30,6 @@ from annotations import label, plural, required, max_length, enum_field, choices
     "model": "Modelo",
     "serial_number": "Número de Série",
     "physical_location": "Localização Física",
-    "virtual_address": "Endereço Virtual",
     "target_temperature_c": "Temperatura Alvo (°C)",
     "temperature_min_c": "Temperatura Mínima (°C)",
     "temperature_max_c": "Temperatura Máxima (°C)",
@@ -55,7 +54,6 @@ class YeastStorageDevice(db.Model):
     model = db.Column(db.String(120), nullable=True)
     serial_number = db.Column(db.String(120), nullable=True)
     physical_location = db.Column(db.String(180), nullable=True)
-    virtual_address = db.Column(db.String(180), nullable=True)
 
     target_temperature_c = db.Column(db.Float, nullable=True)
     temperature_min_c = db.Column(db.Float, nullable=True)
@@ -97,7 +95,6 @@ class YeastStorageDevice(db.Model):
             "model": self.model,
             "serial_number": self.serial_number,
             "physical_location": self.physical_location,
-            "virtual_address": self.virtual_address,
             "target_temperature_c": self.target_temperature_c,
             "temperature_min_c": self.temperature_min_c,
             "temperature_max_c": self.temperature_max_c,
