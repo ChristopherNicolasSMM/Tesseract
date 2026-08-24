@@ -4262,3 +4262,32 @@ computados, sem alteração de schema.
 
 Nenhuma migration necessária.
 
+## Fase 25 — Painel: status não traduzido + correspondência de contagem sumindo (bfcache)
+
+Christopher testou de novo e achou 2 problemas reais.
+
+- [x] **Status não tratava todos os valores**: `item.status` era
+      mostrado bruto (`active`/`discarded`/`contaminated`) em vez de
+      traduzido, e a cor só distinguia `active` do resto — Descartado
+      e Contaminado caíam na mesma cor cinza, sem diferenciação real.
+      Corrigido com um mapa `{active: Ativo, discarded: Descartado,
+      contaminated: Contaminado}` (rótulo + cor por status), aplicado
+      na coluna Status da grid de Itens (aba Cepas), no card "Status
+      do Item" e na "Transição" (aba Eventos).
+- [x] **Contagem "sumindo" ao voltar pro Painel** — investigado a
+      fundo antes de mexer: reproduzi o fluxo completo via requisição
+      HTTP real (criar via atalho → abrir a tela → editar → salvar →
+      listar via API → conferir o evento) e o backend está 100%
+      correto em todos os passos, a correspondência bank_item_id
+      nunca se perde. A causa real é do lado do navegador: as duas
+      abas buscam o dado **uma vez só**, ao carregar a página — se a
+      pessoa volta pro Painel pelo botão "Voltar" (não por um link),
+      alguns navegadores restauram a página inteira do cache (bfcache)
+      sem rodar a busca de novo, mostrando o estado de antes da
+      contagem existir. Corrigido com `pageshow`/`event.persisted`
+      forçando busca nova nesse caso específico, nas duas abas.
+- [x] **Testes**: 3 novos, checagem estática de conteúdo dos arquivos
+      JS (sem navegador neste ambiente — mesma limitação já registrada
+      nas Fases 22/24). Suíte completa: 101 passando, 0 falhas.
+
+Nenhuma migration necessária.

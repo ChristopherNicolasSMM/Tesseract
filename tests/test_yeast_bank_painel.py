@@ -213,3 +213,33 @@ def test_atalho_nova_contagem_cria_registro_vinculado_ao_item(app, client):
         )
         count = YeastCellCountHistory.query.first()
         assert count.bank_item_id == item_id
+
+
+def test_js_traduz_todos_os_status_possiveis_do_item():
+    # Achado de uso real (2026-08-24): status era mostrado bruto
+    # (active/discarded/contaminated) e só "active" tinha cor própria
+    # — os 3 valores possíveis precisam de rótulo E cor tratados.
+    for arquivo in [
+        "static/js/yeast_bank_painel/painel-cepas.js",
+        "static/js/yeast_bank_painel/painel-eventos.js",
+    ]:
+        with open(arquivo, encoding="utf-8") as f:
+            js = f.read()
+        assert "active" in js and "Ativo" in js, arquivo
+        assert "discarded" in js and "Descartado" in js, arquivo
+        assert "contaminated" in js and "Contaminado" in js, arquivo
+
+
+def test_js_tem_protecao_contra_bfcache():
+    # Achado de uso real (2026-08-24): voltar pelo botão "Voltar" do
+    # navegador depois de criar uma Contagem podia restaurar a página
+    # do cache (bfcache) sem buscar dado novo — pageshow com
+    # event.persisted força a busca de novo nesse caso.
+    for arquivo in [
+        "static/js/yeast_bank_painel/painel-cepas.js",
+        "static/js/yeast_bank_painel/painel-eventos.js",
+    ]:
+        with open(arquivo, encoding="utf-8") as f:
+            js = f.read()
+        assert "pageshow" in js, arquivo
+        assert "event.persisted" in js, arquivo

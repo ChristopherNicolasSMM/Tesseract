@@ -13,6 +13,21 @@
   const cfg = TesseractData.config();
   let todasAsContagens = [];
 
+  // Achado de uso real (2026-08-24): "Status do Item" mostrava o
+  // valor bruto (active/discarded/contaminated) sem traduzir, e só
+  // distinguia "active" do resto — Descartado e Contaminado caíam na
+  // mesma cor, sem diferenciação real.
+  const ROTULO_STATUS = { active: 'Ativo', discarded: 'Descartado', contaminated: 'Contaminado' };
+  const COR_STATUS = { active: 'border-success', discarded: 'border-secondary', contaminated: 'border-danger' };
+
+  function rotuloStatus(status) {
+    return ROTULO_STATUS[status] || status || '—';
+  }
+
+  function corStatus(status) {
+    return COR_STATUS[status] || '';
+  }
+
   function badgeTipo(tipo) {
     const cores = {
       'Starter': 'bg-info',
@@ -80,8 +95,7 @@
 
     let html = '<div class="row g-2 mb-3">';
     html += cardStatus('Cepa', TesseractData.esc(cepa ? cepa.name : '—'));
-    html += cardStatus('Status do Item', TesseractData.esc(item.status || '—'),
-      item.status === 'active' ? 'border-success' : 'border-secondary');
+    html += cardStatus('Status do Item', TesseractData.esc(rotuloStatus(item.status)), corStatus(item.status));
     html += cardStatus('Viabilidade Estimada',
       (viabilidade !== null && viabilidade !== undefined ? viabilidade + '%' : '—'),
       alertaTexto.length ? 'border-warning' : '');
@@ -92,8 +106,8 @@
 
     if (evento.status_before || evento.status_after) {
       html += '<p><strong>Transição:</strong> ' +
-        TesseractData.esc(evento.status_before || '—') + ' &rarr; ' +
-        TesseractData.esc(evento.status_after || '—') + '</p>';
+        TesseractData.esc(evento.status_before ? rotuloStatus(evento.status_before) : '—') + ' &rarr; ' +
+        TesseractData.esc(evento.status_after ? rotuloStatus(evento.status_after) : '—') + '</p>';
     }
     if (evento.notes) {
       html += '<p><strong>Observações:</strong> ' + TesseractData.esc(evento.notes) + '</p>';
@@ -156,4 +170,14 @@
   }
 
   document.addEventListener('DOMContentLoaded', carregar);
+
+  // Achado de uso real (2026-08-24): criar uma Contagem redireciona
+  // pra fora do Painel; ao voltar pelo botão "Voltar" do navegador,
+  // alguns navegadores restauram a página do cache (bfcache) sem
+  // rodar carregar() de novo — mostrando o estado de ANTES da
+  // contagem existir. `pageshow` com `event.persisted` detecta essa
+  // restauração e força a busca de novo.
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted) carregar();
+  });
 })();

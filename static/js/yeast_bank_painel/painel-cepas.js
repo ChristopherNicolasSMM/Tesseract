@@ -21,6 +21,14 @@
   let todosOsItens = [];
   let todasAsContagens = [];
 
+  // Mesmo helper de painel-eventos.js — achado de uso real
+  // (2026-08-24): status era mostrado bruto (active/discarded/
+  // contaminated), sem traduzir.
+  const ROTULO_STATUS = { active: 'Ativo', discarded: 'Descartado', contaminated: 'Contaminado' };
+  function rotuloStatus(status) {
+    return ROTULO_STATUS[status] || status || '—';
+  }
+
   function linhaCepa(cepa) {
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
@@ -56,7 +64,7 @@
       '<td>' + (viabilidade !== null && viabilidade !== undefined ? viabilidade + '%' : '—') +
         (alerta ? ' <i class="bi bi-exclamation-triangle-fill text-warning" title="Alerta de validade/viabilidade"></i>' : '') +
       '</td>' +
-      '<td>' + TesseractData.esc(item.status || '—') + '</td>' +
+      '<td>' + TesseractData.esc(rotuloStatus(item.status)) + '</td>' +
       '<td class="text-end"><a href="/brewstation/yeast-bank-items/' + item.id + '" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation()"><i class="bi bi-pencil"></i></a></td>';
     tr.addEventListener('click', function () {
       document.querySelectorAll('#painel-tabela-itens tbody tr').forEach(function (r) {
@@ -220,4 +228,12 @@
   }
 
   document.addEventListener('DOMContentLoaded', carregar);
+
+  // Mesma proteção contra bfcache do painel-eventos.js (achado de uso
+  // real, 2026-08-24) — a aba Cepas também busca dado uma vez só ao
+  // carregar; "Nova Contagem pra este Item" sai da página, então
+  // voltar pelo "Voltar" do navegador precisa da mesma garantia.
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted) carregar();
+  });
 })();
