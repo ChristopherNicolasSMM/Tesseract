@@ -148,6 +148,47 @@ decisão em aberto da análise de field metadata registrada no backlog
 anotação é o mínimo pra parar de mostrar rótulo em inglês nas telas
 que já existem, sem esperar a análise maior.
 
+**`@readonly_fields([campo, ...])`** — adicionado na skill 21. Soma
+campos ao conjunto padrão que já é somente-leitura no formulário
+(`id`/`created_at`/`updated_at`/`is_deleted`/`deleted_at`). Uso real:
+`YeastBankEvent.starter_id`/`cell_count_id` são preenchidos só pelo
+hook `post_create_redirect` (abaixo), nunca escolhidos na tela — sem
+essa anotação, apareceriam como campo numérico editável comum (são
+FK reais).
+```python
+@readonly_fields(["starter_id", "cell_count_id"])
+```
+
+**Hooks de controller — achado real (skill 21): nunca eram chamados de
+verdade.** `controller.py.j2`/`routes.py.j2` sempre tiveram o
+docstring "Customizações via `X_hooks.py`" — mas nenhum dos dois
+importava ou chamava esse arquivo. `X_hooks.py` existia, era criado
+pelo CrudGen, só nunca foi conectado a nada (diferente de
+`X_service_hooks.py`, que sempre teve `pbo_apply_fields`/
+`pai_apply_fields` reais). Corrigido com o mesmo padrão seguro já
+usado no service (`try/except ImportError` + `_hook(name)` com
+fallback no-op — hook ausente nunca quebra nada). Dois hooks reais
+adicionados nesta sessão, ambos opcionais:
+
+- **`block_create(data) -> str | None`** — chamado no início de
+  `create()` (web **e** API). Retornar uma string bloqueia a criação
+  (mostra a string como erro); retornar `None` (ou não definir a
+  função) deixa criar normalmente. Uso real: `YeastStarterLog` só
+  pode ser criado a partir de um `YeastBankEvent` tipo "Starter"
+  (skill 21) — a tela própria do Starter bloqueia `create()` direto.
+- **`post_create_redirect(item) -> Response | None`** — chamado depois
+  que `create()` salva com sucesso, **tanto na rota web quanto na
+  API** (achado real: a primeira versão só chamava na web, e a API
+  virava um jeito de criar o evento sem disparar a criação
+  automática do registro especializado — bug de contorno silencioso).
+  Na web, um `Response` retornado (via `redirect(url_for(...))`) troca
+  o destino padrão (`{{ plural }}.manage`); na API o valor de retorno
+  é descartado de propósito (JSON não redireciona) — só os efeitos
+  colaterais do hook importam ali. Uso real: criar um `YeastBankEvent`
+  tipo "Starter"/"Contagem de Células" cria automaticamente o
+  registro especializado (`YeastStarterLog`/`YeastCellCountHistory`)
+  e, na web, redireciona pra edição dele.
+
 ### 2.3 Referência fraca e busca cross-módulo
 
 **`@display_field(valor)`**

@@ -1,22 +1,23 @@
 """
 addons/addon_brewstation/features/feature_yeast_bank/model/yeast_cell_count_history.py
 
-Histórico de contagem/viabilidade — pode estar vinculado a cepa, item
-do banco e/ou starter (todas as FKs são opcionais, de propósito: o
-registro pode ser um cálculo livre, não necessariamente atrelado).
+Histórico de contagem/viabilidade — redesenhado na skill 21:
+bank_item_id passa a ser obrigatório (era opcional), strain_id e
+starter_id removidos (decisão do Christopher, 2026-08-24: cepa é
+sempre resolvida via bank_item.strain; contagem é sempre do item,
+sem distinguir se veio de um starter específico).
 """
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, field_labels
+from annotations import label, plural, required, field_labels, weak_ref
 
 
 @label("Histórico de Contagem")
 @plural("yeast_cell_count_histories")
+@required("bank_item_id", message="Item do banco é obrigatório")
 @field_labels({
-    "strain_id": "Cepa",
     "bank_item_id": "Item do Banco",
-    "starter_id": "Starter",
     "sample_date": "Data da Amostra",
     "lot_code": "Código do Lote",
     "cells_per_ml": "Células/mL",
@@ -26,19 +27,16 @@ from annotations import label, plural, field_labels
     "contamination_detected": "Contaminação Detectada",
     "notes": "Observações",
 })
+@weak_ref("bank_item_id",
+    resolver=("addons.addon_brewstation.features.feature_yeast_bank.services.yeast_reference_lookup.get_yeast_bank_item"),
+    options="yeast_bank_items")
 class YeastCellCountHistory(db.Model):
     __tablename__ = "cell_count_history"
 
     id = db.Column(db.Integer, primary_key=True)
 
-    strain_id = db.Column(db.Integer, db.ForeignKey("strain.id"), nullable=True)
-    strain = db.relationship("YeastStrain", backref=db.backref("count_history", lazy=True))
-
-    bank_item_id = db.Column(db.Integer, db.ForeignKey("bank_item.id"), nullable=True)
+    bank_item_id = db.Column(db.Integer, db.ForeignKey("bank_item.id"), nullable=False)
     bank_item = db.relationship("YeastBankItem", backref=db.backref("count_history", lazy=True))
-
-    starter_id = db.Column(db.Integer, db.ForeignKey("starter_log.id"), nullable=True)
-    starter = db.relationship("YeastStarterLog", backref=db.backref("count_history", lazy=True))
 
     sample_date = db.Column(db.Date, nullable=True)
     lot_code = db.Column(db.String(120), nullable=True)
@@ -65,9 +63,7 @@ class YeastCellCountHistory(db.Model):
     def to_dict(self) -> dict:
         return {
             "id": self.id,
-            "strain_id": self.strain_id,
             "bank_item_id": self.bank_item_id,
-            "starter_id": self.starter_id,
             "sample_date": self.sample_date.isoformat() if self.sample_date else None,
             "lot_code": self.lot_code,
             "cells_per_ml": self.cells_per_ml,

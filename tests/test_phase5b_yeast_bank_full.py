@@ -37,11 +37,10 @@ def _login_admin(app, client):
     client.post("/api/auth/login", json={"username": "admin", "password": "senha123"})
 
 
-def test_todas_as_8_tabelas_de_yeast_bank_existem_com_prefixo_correto(app):
+def test_todas_as_tabelas_de_yeast_bank_existem_com_prefixo_correto(app):
     esperado = {
         "tesseract_brewstation_yeastbank_strain",
         "tesseract_brewstation_yeastbank_storage_device",
-        "tesseract_brewstation_yeastbank_reading",
         "tesseract_brewstation_yeastbank_bank_item",
         "tesseract_brewstation_yeastbank_starter_log",
         "tesseract_brewstation_yeastbank_cell_count_history",
@@ -60,7 +59,7 @@ def test_permissoes_camada_1_existem_para_todas_as_7_entidades_novas(app):
     with app.app_context():
         nomes = {p.name for p in Permission.query.all()}
         plurals = [
-            "yeast_storage_devices", "yeast_storage_readings", "yeast_bank_items",
+            "yeast_storage_devices", "yeast_bank_items",
             "yeast_starter_logs", "yeast_cell_count_histories", "yeast_bank_events",
             "yeast_bank_configs", "yeast_containers",
         ]
@@ -104,25 +103,22 @@ def test_cadeia_de_fk_strain_device_container_item_starter_via_http(app, client)
     assert item_data["strain"]["name"] == "US-05"
 
     r = client.post(
+        "/api/brewstation/yeast-bank-events/",
+        json={"bank_item_id": item_id, "event_type": "Starter"},
+    )
+    assert r.status_code == 201
+    event_data = r.get_json()["item"]
+    assert event_data["bank_item_id"] == item_id
+    # skill 21: criar evento tipo Starter cria o YeastStarterLog
+    # automaticamente e vincula via starter_id — não existe mais
+    # criação direta de Starter (bloqueada por block_create).
+    assert event_data["starter_id"] is not None
+
+    r = client.post(
         "/api/brewstation/yeast-starter-logs/",
         json={"bank_item_id": item_id, "objective": "propagacao"},
     )
-    assert r.status_code == 201
-    assert r.get_json()["item"]["bank_item_id"] == item_id
-
-
-def test_leitura_de_temperatura_vinculada_a_device(app, client):
-    _login_admin(app, client)
-
-    r = client.post("/api/brewstation/yeast-storage-devices/", json={"name": "Freezer 2"})
-    device_id = r.get_json()["item"]["id"]
-
-    r = client.post(
-        "/api/brewstation/yeast-storage-readings/",
-        json={"device_id": device_id, "temperature_c": -1.5},
-    )
-    assert r.status_code == 201
-    assert r.get_json()["item"]["temperature_c"] == -1.5
+    assert r.status_code != 201  # criação direta bloqueada (skill 21)
 
 
 def test_bank_config_eh_um_crud_normal_sem_fk(app, client):

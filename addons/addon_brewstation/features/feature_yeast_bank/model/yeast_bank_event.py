@@ -1,42 +1,56 @@
 """
 addons/addon_brewstation/features/feature_yeast_bank/model/yeast_bank_event.py
 
-Histórico operacional simples para rastreabilidade de decisões
-(ex.: "item movido pra lixeira", "starter resultou em contaminação").
+Ponto de entrada único da linha do tempo do Yeast Bank (skill 21).
+Todo evento nasce aqui — quando o tipo exige campos especializados
+(Starter, Contagem de Células), o próprio fluxo de criação
+(controller hook `post_create_redirect`) cria o registro na tabela
+especializada e redireciona pra lá. `starter_id`/`cell_count_id` são
+preenchidos só por esse fluxo — nunca escolhidos manualmente
+(`@readonly_fields`).
 """
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, field_labels
+from annotations import label, plural, required, enum_field, field_labels, readonly_fields, weak_ref
 
 
 @label("Evento do Banco")
 @plural("yeast_bank_events")
 @required("event_type", message="Tipo do evento é obrigatório")
+@required("bank_item_id", message="Item do banco é obrigatório")
+@enum_field("event_type", options=["Starter", "Contagem de Células", "Descarte", "Outro"])
+@readonly_fields(["starter_id", "cell_count_id"])
 @field_labels({
     "bank_item_id": "Item do Banco",
-    "strain_id": "Cepa",
-    "starter_id": "Starter",
     "event_type": "Tipo do Evento",
+    "starter_id": "Starter Gerado",
+    "cell_count_id": "Contagem Gerada",
     "status_before": "Status Anterior",
     "status_after": "Status Posterior",
     "notes": "Observações",
 })
+@weak_ref("bank_item_id",
+    resolver=("addons.addon_brewstation.features.feature_yeast_bank.services.yeast_reference_lookup.get_yeast_bank_item"),
+    options="yeast_bank_items")
 class YeastBankEvent(db.Model):
     __tablename__ = "bank_event"
 
     id = db.Column(db.Integer, primary_key=True)
 
-    bank_item_id = db.Column(db.Integer, db.ForeignKey("bank_item.id"), nullable=True)
+    bank_item_id = db.Column(db.Integer, db.ForeignKey("bank_item.id"), nullable=False)
     bank_item = db.relationship("YeastBankItem", backref=db.backref("events", lazy=True))
 
-    strain_id = db.Column(db.Integer, db.ForeignKey("strain.id"), nullable=True)
-    strain = db.relationship("YeastStrain", backref=db.backref("events", lazy=True))
+    event_type = db.Column(db.String(50), nullable=False)
 
+    # Preenchidos só pelo fluxo automático de criação (post_create_redirect,
+    # controller hook) — nunca escolhidos manualmente (@readonly_fields acima).
     starter_id = db.Column(db.Integer, db.ForeignKey("starter_log.id"), nullable=True)
     starter = db.relationship("YeastStarterLog", backref=db.backref("events", lazy=True))
 
-    event_type = db.Column(db.String(50), nullable=False)
+    cell_count_id = db.Column(db.Integer, db.ForeignKey("cell_count_history.id"), nullable=True)
+    cell_count = db.relationship("YeastCellCountHistory", backref=db.backref("events", lazy=True))
+
     status_before = db.Column(db.String(30), nullable=True)
     status_after = db.Column(db.String(30), nullable=True)
     notes = db.Column(db.Text, nullable=True)
@@ -56,9 +70,9 @@ class YeastBankEvent(db.Model):
         return {
             "id": self.id,
             "bank_item_id": self.bank_item_id,
-            "strain_id": self.strain_id,
-            "starter_id": self.starter_id,
             "event_type": self.event_type,
+            "starter_id": self.starter_id,
+            "cell_count_id": self.cell_count_id,
             "status_before": self.status_before,
             "status_after": self.status_after,
             "notes": self.notes,

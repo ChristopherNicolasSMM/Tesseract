@@ -4001,3 +4001,87 @@ parte do mesmo conjunto de migrations).
       de campos refletem o estado novo, achados antigos marcados como
       resolvidos em vez de deixados como pendência desatualizada.
 
+## Fase 20 — Tela integrada de navegação (planejamento) + unificação Evento/Starter/Contagem (skill 21 — implementada)
+
+Item 2 da sequência definida pelo Christopher (BACKLOG, após as Fases
+14–19). Cobre a unificação de schema/fluxo; a tela integrada em si
+(as 2 abas + botões) fica pra uma etapa própria de frontend, ainda não
+iniciada — esta fase fecha a base de dados/backend que ela vai
+consumir.
+
+- [x] **Skill 21 escrita e aprovada** (`docs/skills/21-tela-integrada-navegacao-unificacao-evento-starter-contagem.md`):
+      `YeastBankEvent` como ponto de entrada único (Starter/Contagem
+      de Células criam automaticamente o registro especializado e
+      redirecionam; Descarte/Outro ficam só no evento);
+      `YeastStorageReading` removida (decisão do Christopher: "seria
+      útil em etapa de fermentação, não é o caso aqui"); `strain_id`
+      removido de `bank_event`/`cell_count_history` (resolvido via
+      `bank_item.strain`); `starter_id` removido de
+      `cell_count_history` (decisão: contagem é sempre do item, sem
+      distinguir se veio de starter); criação direta de Starter
+      bloqueada (opção A confirmada) — só nasce via Evento do Banco.
+- [x] **Hooks de controller ficaram reais pela primeira vez** —
+      achado importante durante a implementação:
+      `controller.py.j2`/`routes.py.j2` sempre tiveram o docstring
+      "Customizações via `X_hooks.py`", mas nunca importavam nem
+      chamavam esse arquivo de verdade (diferente do
+      `service.py.j2`, que sempre teve isso). Corrigido com o mesmo
+      padrão seguro do service (`try/except ImportError` + `_hook()`
+      com fallback no-op). Dois hooks novos, reutilizáveis por
+      qualquer entidade futura:
+      - `block_create(data) -> str | None` — bloqueia criação direta
+        com uma mensagem de erro (web e API).
+      - `post_create_redirect(item) -> Response | None` — troca o
+        destino do redirect depois de criar com sucesso (só web usa
+        o retorno; API roda pelo efeito colateral).
+      - **Achado real durante o teste**: a primeira versão só chamava
+        `post_create_redirect` na rota web — criar o evento via API
+        não disparava a criação automática do Starter/Contagem.
+        Corrigido pra chamar nos dois lugares.
+- [x] **`@readonly_fields([...])`** — annotation nova, mesmo padrão do
+      `@field_labels` — soma campos ao conjunto padrão somente-leitura
+      do formulário. Usada em `starter_id`/`cell_count_id` de
+      `YeastBankEvent` (preenchidos só pelo fluxo automático).
+- [x] **3 migrations Alembic**, estilo defensivo, testadas com dados
+      reais incluindo casos de borda (evento órfão sem `bank_item_id`
+      — recusado com erro claro; contagem/evento sem item — mesma
+      recusa):
+      - Redesenho de `bank_event` (`bank_item_id` obrigatório, remove
+        `strain_id`, adiciona `cell_count_id`).
+      - Redesenho de `cell_count_history` (`bank_item_id`
+        obrigatório, remove `strain_id`/`starter_id`).
+      - Remoção de `YeastStorageReading`.
+      - **Achado real durante a validação**: a migration de remoção
+        usou o nome de tabela errado por suposição a partir do nome
+        do arquivo (`storage_reading`) — o `__tablename__` real era o
+        nome curto `reading`. `flask db upgrade` "passou" sem erro na
+        primeira tentativa porque a checagem defensiva
+        (`if _table_exists`) simplesmente não achou a tabela com o
+        nome errado e pulou — só apareceu no `flask db migrate` final
+        (diff detectado). Corrigido antes de aplicar em qualquer
+        ambiente real; virou nota na própria migration pra não
+        repetir o erro.
+      - `flask db migrate` final confirmou "No changes in schema
+        detected" — model e migrations 100% sincronizados.
+- [x] **Testes**: cobertura nova pro fluxo de criação via evento
+      (Starter e Contagem de Células, incluindo o caso "Descarte não
+      cria nada extra"), bloqueio de criação direta de Starter,
+      config substituindo decaimento da cepa. Testes antigos ajustados
+      (tabela removida, cadeia de FK via evento em vez de starter
+      direto, checkbox usando `YeastCellCountHistory` em vez de
+      `YeastStarterLog`). **Achado real, não relacionado a esta fase**:
+      um teste da skill 20 comparava HTML por string exata
+      (`b'name="name" class="form-control"'`) — quebrou porque o
+      atributo `class` passou a ficar em linha própria (classe
+      condicional `crudgen-decimal-input`); corrigido pra checar
+      presença dos atributos, não formatação exata. Suíte completa do
+      yeast_bank + regressão ampla do CrudGen: 157 passando, 0 falhas.
+- [x] `docs/manual/` (feature_yeast_bank) e `docs/technical/03-fluxos.md`/
+      `04-modelo-de-dados.md` atualizados — exigência explícita do
+      Christopher ("isso tem der ser documentado no manual e nos
+      fluxos").
+- [ ] **Tela integrada em si** (2 abas + botões de atalho, mapa de
+      navegação da skill 21 seção 3) — fase própria de frontend, ainda
+      não iniciada. Risco de browser já documentado (mesma lição da
+      remoção do Designer v2).
+

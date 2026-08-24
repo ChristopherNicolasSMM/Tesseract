@@ -362,6 +362,69 @@ def test_expiry_date_manual_nao_e_sobrescrito_pela_config(app, client):
         assert item.expiry_date.isoformat() == "2026-03-01"  # não sobrescrito
 
 
+def test_evento_tipo_contagem_cria_cell_count_automaticamente(app, client):
+    _login_admin(app, client)
+
+    r = client.post("/api/brewstation/yeast-strains/", json={"name": "US-05"})
+    strain_id = r.get_json()["item"]["id"]
+    r = client.post("/api/brewstation/yeast-storage-devices/", json={"name": "Freezer X"})
+    device_id = r.get_json()["item"]["id"]
+    r = client.post(
+        "/api/brewstation/yeast-containers/",
+        json={"name": "Caixa 1", "device_id": device_id},
+    )
+    container_id = r.get_json()["item"]["id"]
+    r = client.post(
+        "/api/brewstation/yeast-bank-items/",
+        json={"strain_id": strain_id, "storage_type": "slant", "container_id": container_id},
+    )
+    item_id = r.get_json()["item"]["id"]
+
+    r = client.post(
+        "/api/brewstation/yeast-bank-events/",
+        json={"bank_item_id": item_id, "event_type": "Contagem de Células"},
+    )
+    assert r.status_code == 201
+    event_data = r.get_json()["item"]
+    assert event_data["cell_count_id"] is not None
+    assert event_data["starter_id"] is None  # não confunde os dois tipos
+
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_cell_count_history import (
+            YeastCellCountHistory,
+        )
+        count = YeastCellCountHistory.query.get(event_data["cell_count_id"])
+        assert count.bank_item_id == item_id
+
+
+def test_evento_tipo_descarte_nao_cria_registro_especializado(app, client):
+    _login_admin(app, client)
+
+    r = client.post("/api/brewstation/yeast-strains/", json={"name": "US-05"})
+    strain_id = r.get_json()["item"]["id"]
+    r = client.post("/api/brewstation/yeast-storage-devices/", json={"name": "Freezer X"})
+    device_id = r.get_json()["item"]["id"]
+    r = client.post(
+        "/api/brewstation/yeast-containers/",
+        json={"name": "Caixa 1", "device_id": device_id},
+    )
+    container_id = r.get_json()["item"]["id"]
+    r = client.post(
+        "/api/brewstation/yeast-bank-items/",
+        json={"strain_id": strain_id, "storage_type": "slant", "container_id": container_id},
+    )
+    item_id = r.get_json()["item"]["id"]
+
+    r = client.post(
+        "/api/brewstation/yeast-bank-events/",
+        json={"bank_item_id": item_id, "event_type": "Descarte", "notes": "Contaminado"},
+    )
+    assert r.status_code == 201
+    event_data = r.get_json()["item"]
+    assert event_data["starter_id"] is None
+    assert event_data["cell_count_id"] is None
+
+
 def test_bank_config_recusa_storage_type_duplicado_ativo(app, client):
     _login_admin(app, client)
 

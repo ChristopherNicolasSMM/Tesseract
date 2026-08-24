@@ -8,8 +8,7 @@ Dispositivo, nem um Item sem escolher um Container.
 ## Ordem de cadastro
 
 1. **Dispositivo de Armazenamento** — cadastre primeiro o freezer,
-   geladeira ou câmara fria onde as amostras vão ficar. Se ele tiver
-   sensor de temperatura, as leituras entram automaticamente depois.
+   geladeira ou câmara fria onde as amostras vão ficar.
 2. **Cepa** — cadastre a cepa de levedura em si (nome, família,
    fornecedor). Pode fazer isso em paralelo ao passo 1, não depende
    dele.
@@ -17,13 +16,14 @@ Dispositivo, nem um Item sem escolher um Container.
    cadastrar, crie o Container: a caixa, estante ou prateleira onde
    as amostras dessa cepa (ou de outras) vão ficar organizadas.
 4. **Item do Banco** — agora sim, registre o item físico: escolha a
-   Cepa e o Container onde ele vai ficar, e preencha data de preparo,
-   validade, etc.
-5. **Starter** (quando fizer uma propagação) — registre vinculado ao
-   Item do Banco de origem.
-6. **Contagem de Célula** (quando tiver uma contagem real, ao
-   microscópio) — vincule ao Item e, se veio de um Starter, ao
-   Starter também.
+   Cepa e o Container onde ele vai ficar, e preencha data de preparo.
+   Se você tiver cadastrado uma Configuração do Banco (passo
+   opcional, ver `03-funcionalidades.md`) pro tipo de armazenamento
+   escolhido, a data de validade é preenchida sozinha.
+5. **Starter/Contagem de Célula** (quando precisar) — vá em "Eventos
+   do Banco", crie um evento novo escolhendo o tipo (Starter ou
+   Contagem de Células) e o Item de origem. O sistema já cria o
+   registro certo e te leva direto pra edição dele.
 
 ## Passo a passo na tela
 
@@ -35,9 +35,9 @@ Dispositivo, nem um Item sem escolher um Container.
    e dê um nome pro Container (ex.: "Caixa 1", "Estante A").
 5. Em "Itens do Banco", clique em "Novo", escolha a Cepa e o Container
    que você acabou de criar.
-6. Sempre que fizer um starter com essa cepa, registre em "Starters",
-   vinculado ao Item correspondente — é outra fonte de referência pro
-   cálculo de viabilidade.
+6. Sempre que fizer um starter ou uma contagem com esse item, vá em
+   "Eventos do Banco" → "Novo evento", escolha o tipo certo — o
+   sistema cria o registro especializado e já abre a edição dele.
 
 ## Se você já usava o sistema antes
 

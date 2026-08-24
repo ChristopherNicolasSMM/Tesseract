@@ -138,6 +138,33 @@ def get_field_labels(cls) -> dict:
     return getattr(cls, '_field_labels', {})
 
 
+def readonly_fields(fields: list):
+    """
+    Marca campos como somente-leitura nos formulários gerados
+    (`manage.html`/`detail.html`) — além do conjunto padrão
+    (`id`/`created_at`/`updated_at`/`is_deleted`/`deleted_at`).
+
+    Uso real (skill 21): `YeastBankEvent.starter_id`/`cell_count_id`
+    são preenchidos só pelo fluxo automático de criação (hook
+    `post_create_redirect`), nunca escolhidos pela pessoa na tela —
+    sem isso, a coluna apareceria como campo numérico editável comum,
+    já que são FK reais.
+
+    ```python
+    @readonly_fields(["starter_id", "cell_count_id"])
+    ```
+    """
+    def decorator(cls):
+        cls._readonly_fields = set(getattr(cls, '_readonly_fields', set())) | set(fields)
+        return cls
+    return decorator
+
+
+def get_readonly_fields(cls) -> set:
+    """Retorna o set de campos extras marcados via @readonly_fields no model."""
+    return getattr(cls, '_readonly_fields', set())
+
+
 # ---- Decorators de UI (SmartList) ----
 class Column:
     def __init__(self, name: str, label: Optional[str] = None, width: Optional[str] = None,

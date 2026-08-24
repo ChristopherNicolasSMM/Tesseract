@@ -2,30 +2,25 @@
 
 > ER completo — as 8 entidades originais do BrewStation foram
 > migradas na Fase 5/5b. A 9ª entidade, `Container`, entrou na Fase 14
-> (skill 19 — `docs/skills/19-proposta-reestruturacao-yeast-bank-container.md`)
-> como nível intermediário entre Dispositivo e Item do Banco.
->
-> **Correção de nome de tabela nesta revisão**: as entidades abaixo
-> chamadas `Container`/`Dispositivo`/`Leitura` usam os nomes de tabela
-> curtos reais do código (`container`/`storage_device`/`reading`) — a
-> versão anterior deste diagrama usava `device` (nunca existiu como
-> nome curto real; foi renomeado para `storage_device` na Fase 6 para
-> não colidir com `DeviceMetadata` de `feature_device_manager`, skill
-> 02, mas o diagrama nunca tinha sido corrigido).
+> (skill 19). Na skill 21 (2026-08-24): `YeastStorageReading`
+> (`reading`) foi **removida** por completo (sem consumidor real —
+> achado da auditoria de campos, BACKLOG Fase 18); `YeastBankEvent`
+> vira o ponto de entrada único da linha do tempo, com `strain_id`
+> removido de `bank_event`/`cell_count_history` (cepa sempre resolvida
+> via `bank_item.strain`) e `starter_id` removido de
+> `cell_count_history` (contagem é sempre do item, sem distinguir se
+> veio de um starter).
 
 ```mermaid
 erDiagram
     tesseract_brewstation_yeastbank_strain ||--o{ tesseract_brewstation_yeastbank_bank_item : "tem"
-    tesseract_brewstation_yeastbank_storage_device ||--o{ tesseract_brewstation_yeastbank_reading : "registra"
     tesseract_brewstation_yeastbank_storage_device ||--o{ tesseract_brewstation_yeastbank_container : "contém"
     tesseract_brewstation_yeastbank_container ||--o{ tesseract_brewstation_yeastbank_bank_item : "armazena"
     tesseract_brewstation_yeastbank_bank_item ||--o{ tesseract_brewstation_yeastbank_starter_log : "origina"
-    tesseract_brewstation_yeastbank_strain ||--o{ tesseract_brewstation_yeastbank_cell_count_history : "referencia (opcional)"
-    tesseract_brewstation_yeastbank_bank_item ||--o{ tesseract_brewstation_yeastbank_cell_count_history : "referencia (opcional)"
-    tesseract_brewstation_yeastbank_starter_log ||--o{ tesseract_brewstation_yeastbank_cell_count_history : "referencia (opcional)"
-    tesseract_brewstation_yeastbank_bank_item ||--o{ tesseract_brewstation_yeastbank_bank_event : "gera (opcional)"
-    tesseract_brewstation_yeastbank_strain ||--o{ tesseract_brewstation_yeastbank_bank_event : "gera (opcional)"
-    tesseract_brewstation_yeastbank_starter_log ||--o{ tesseract_brewstation_yeastbank_bank_event : "gera (opcional)"
+    tesseract_brewstation_yeastbank_bank_item ||--o{ tesseract_brewstation_yeastbank_cell_count_history : "origina"
+    tesseract_brewstation_yeastbank_bank_item ||--o{ tesseract_brewstation_yeastbank_bank_event : "origina"
+    tesseract_brewstation_yeastbank_bank_event |o--o| tesseract_brewstation_yeastbank_starter_log : "cria automaticamente (event_type=Starter)"
+    tesseract_brewstation_yeastbank_bank_event |o--o| tesseract_brewstation_yeastbank_cell_count_history : "cria automaticamente (event_type=Contagem)"
 
     tesseract_brewstation_yeastbank_strain {
         int id PK
@@ -40,12 +35,6 @@ erDiagram
         string device_type
         float current_temperature_c
         bool is_deleted
-    }
-    tesseract_brewstation_yeastbank_reading {
-        int id PK
-        int device_id FK
-        datetime recorded_at
-        float temperature_c
     }
     tesseract_brewstation_yeastbank_container {
         int id PK
@@ -66,24 +55,22 @@ erDiagram
     }
     tesseract_brewstation_yeastbank_starter_log {
         int id PK
-        int bank_item_id FK
+        int bank_item_id FK "obrigatório — criação direta bloqueada, só via bank_event"
         string status
         bool contamination_detected
     }
     tesseract_brewstation_yeastbank_cell_count_history {
         int id PK
-        int strain_id FK
-        int bank_item_id FK
-        int starter_id FK
+        int bank_item_id FK "obrigatório"
         float cells_per_ml
         float viability_percent
     }
     tesseract_brewstation_yeastbank_bank_event {
         int id PK
-        int bank_item_id FK
-        int strain_id FK
-        int starter_id FK
-        string event_type
+        int bank_item_id FK "obrigatório"
+        string event_type "Starter / Contagem de Células / Descarte / Outro"
+        int starter_id FK "preenchido só pelo fluxo automático"
+        int cell_count_id FK "preenchido só pelo fluxo automático"
     }
     tesseract_brewstation_yeastbank_bank_config {
         int id PK
@@ -144,17 +131,6 @@ erDiagram
 | `temperature_min_c` / `temperature_max_c` | `status_badge()` | Usado — gera `alert_low`/`alert_high` no badge, mas **não dispara nenhuma notificação** (achado já registrado no início desta sessão) |
 | `current_temperature_c` / `last_temperature_at` | `status_badge()` | Usado — cache do último valor, atualizado manualmente hoje (sem sensor integrado ainda) |
 
-### `YeastStorageReading` (leitura)
-
-| Campo | Consumido por | Observação |
-|---|---|---|
-| `device_id` | FK real + `@weak_ref` | Estrutural |
-| `recorded_at` | — | Timestamp da leitura |
-| `temperature_c` | — | O dado em si — mas **nada lê o histórico de leituras** pra alimentar `current_temperature_c`/`status_badge()` do Dispositivo automaticamente; é preenchimento paralelo, não conectado |
-| `humidity_percent` | — | Informativo |
-| `source_type` / `source_ref` | — | Informativo (`manual` é o único valor usado na prática hoje) |
-| `notes` | — | Nota livre |
-
 ### `YeastContainer` / `YeastBankItem`
 
 Já cobertos na íntegra na skill 19 e na tabela "Colunas não óbvias"
@@ -162,7 +138,11 @@ original (mantida abaixo) — sem achado novo de campo morto nesta
 revisão; todos os campos de `YeastBankItem` (inclusive os de
 viabilidade) são lidos por `viability_engine.py` ou pela tela.
 
-### `YeastStarterLog` (starter)
+### `YeastStarterLog` (starter) — criação via `YeastBankEvent` desde a skill 21
+
+> Tela própria bloqueia criação direta (`block_create`, controller
+> hook) — só nasce a partir de um `YeastBankEvent` tipo "Starter".
+> Edição/consulta de registros já existentes continua normal.
 
 | Campo | Consumido por | Observação |
 |---|---|---|
@@ -175,11 +155,16 @@ viabilidade) são lidos por `viability_engine.py` ou pela tela.
 | `result_viability_percent` | `viability_engine.best_viability_reference_for_item()` | Usado de verdade — 3ª prioridade de referência |
 | `contamination_detected` | `viability_engine` | Usado de verdade — exclui o registro como referência válida |
 
-### `YeastCellCountHistory` (histórico de contagem)
+### `YeastCellCountHistory` (histórico de contagem) — redesenhado na skill 21
+
+> `strain_id` e `starter_id` removidos (decisão do Christopher:
+> contagem é sempre do item, sem distinguir se veio de um starter;
+> cepa sempre resolvida via `bank_item.strain`). `bank_item_id` agora
+> obrigatório.
 
 | Campo | Consumido por | Observação |
 |---|---|---|
-| `strain_id` / `bank_item_id` / `starter_id` | FKs opcionais de propósito | Estrutural |
+| `bank_item_id` | FK real + `@weak_ref`, obrigatório | Estrutural |
 | `sample_date` | `viability_engine` | Usado — ordena qual histórico é "mais recente" |
 | `lot_code` | — | Informativo |
 | `cells_per_ml` / `viable_cells_per_ml` | — | Dado bruto de contagem — informativo, não entra na fórmula de viabilidade (só os dois campos de `_percent` abaixo entram) |
@@ -188,13 +173,21 @@ viabilidade) são lidos por `viability_engine.py` ou pela tela.
 | `contamination_detected` | `viability_engine` | Usado de verdade — exclui o registro como referência |
 | `notes` | — | Nota livre |
 
-### `YeastBankEvent` (evento)
+### `YeastBankEvent` (evento) — redesenhado na skill 21
+
+> Ponto de entrada único da linha do tempo. `strain_id` removido
+> (resolvido via `bank_item.strain`); `starter_id`/`cell_count_id`
+> preenchidos só pelo fluxo automático (`post_create_redirect`,
+> controller hook), nunca escolhidos manualmente
+> (`@readonly_fields`).
 
 | Campo | Consumido por | Observação |
 |---|---|---|
-| `bank_item_id` / `strain_id` / `starter_id` | FKs opcionais | Estrutural — preenchidas manualmente na tela do próprio evento |
-| `event_type` | — | Obrigatório, texto livre — sem catálogo fechado (`@enum_field`) apesar do nome sugerir categorias fixas |
-| `status_before` / `status_after` | — | Texto livre — **nenhum outro service preenche isso automaticamente** (achado já registrado no início desta sessão: evento não é gerado a partir de mudança real em Item/Starter/Contagem, só manual) |
+| `bank_item_id` | `@weak_ref`, obrigatório | Estrutural |
+| `event_type` | `yeast_bank_events_hooks.py::post_create_redirect()` | Catálogo fechado (`@enum_field`): Starter / Contagem de Células / Descarte / Outro — decide o que acontece ao criar |
+| `starter_id` | Preenchido pelo `post_create_redirect` quando `event_type="Starter"` | Somente leitura na tela (`@readonly_fields`) |
+| `cell_count_id` | Preenchido pelo `post_create_redirect` quando `event_type="Contagem de Células"` | Somente leitura na tela (`@readonly_fields`) |
+| `status_before` / `status_after` | — | Texto livre — continua sem gatilho automático a partir de mudança real noutro service (fica pra próxima fase, registrado no BACKLOG) |
 | `notes` | — | Nota livre |
 
 ### `YeastBankConfig` (configuração por tipo de armazenamento)
@@ -226,12 +219,13 @@ viabilidade) são lidos por `viability_engine.py` ou pela tela.
 | `..._bank_item` | `storage_slot` | Desde a skill 19, significa posição **dentro do Container** (ex.: "gaveta 2"), não mais posição solta no dispositivo inteiro |
 | `..._bank_item` | `estimated_viability_pct` | Viabilidade **estimada do item físico** — diferente dos parâmetros de modelo da cepa; é o valor calculado ao longo do tempo |
 | `..._bank_item` | `label_text` | Renomeado de `label` (BrewStation original) para não colidir com o decorator `@label` das anotações |
-| `..._cell_count_history` | FKs (`strain_id`/`bank_item_id`/`starter_id`) | Todas **opcionais** de propósito — um registro pode ser um cálculo livre, não necessariamente vinculado |
+| `..._cell_count_history` | `bank_item_id` | Obrigatório desde a skill 21 — `strain_id`/`starter_id` removidos (redundantes, resolvidos via `bank_item`) |
 | `..._bank_config` | `storage_type` | Único por linha **ativa** — índice parcial (`WHERE is_deleted = 0`), não `Column(unique=True)` puro (skill 18/redesign 2026-08-21: uma constraint cheia colidiria até com linha na lixeira, incompatível com soft-delete) |
 
 ## Regra de soft-delete
 
-Todas as 9 tabelas seguem `is_deleted`/`deleted_at` (skill 02).
+Todas as 8 tabelas seguem `is_deleted`/`deleted_at` (skill 02) — 9
+menos `YeastStorageReading`, removida na skill 21.
 
 ## FK entre módulos
 

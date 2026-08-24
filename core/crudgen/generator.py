@@ -104,6 +104,10 @@ def generate(
     model_module_path = _module_path_for(project_root, output_dir) + f".model.{snake_singular}"
     service_module_path = _module_path_for(project_root, output_dir) + f".services.{snake_singular}_service"
     hooks_module_path = _module_path_for(project_root, output_dir) + ".services"
+    # Achado real (skill 21): controller_hooks (yeast_bank_events_hooks.py
+    # etc.) mora em .controller, não em .services — hooks_module_path
+    # acima serve só pro service.py.j2, não pode ser reaproveitado aqui.
+    controller_hooks_module_path = _module_path_for(project_root, output_dir) + ".controller"
     output_module_path_label = str(output_dir.relative_to(project_root))
 
     web_prefix = f"/{addon.replace('_', '-')}/{plural.replace('_', '-')}"
@@ -123,6 +127,7 @@ def generate(
         "model_import_path": model_module_path,
         "service_import_path": service_module_path,
         "hooks_import_path": hooks_module_path,
+        "controller_hooks_import_path": controller_hooks_module_path,
         "output_module_path": output_module_path_label,
         "web_prefix": web_prefix,
         "api_prefix": api_prefix,

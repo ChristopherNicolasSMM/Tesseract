@@ -3,14 +3,15 @@
 ## Cepas
 
 Cadastro/edição: nome, família, fornecedor, notas, e parâmetros de
-viabilidade (avançado — pode deixar no padrão). Lista mostra só as
+viabilidade (avançado — pode deixar no padrão, ou usar a Configuração
+do Banco por tipo de armazenamento, ver abaixo). Lista mostra só as
 ativas (lixeira separada).
 
 ## Dispositivos de Armazenamento
 
-O freezer, geladeira ou câmara fria físico. Se tiver sensor, as
-leituras de temperatura aparecem automaticamente no histórico —
-senão, dá pra lançar manualmente.
+O freezer, geladeira ou câmara fria físico. Guarda a última
+temperatura registrada (atualizada manualmente por enquanto, sem
+sensor integrado ainda).
 
 ## Containers
 
@@ -19,6 +20,23 @@ prateleira. Todo Container pertence a exatamente um Dispositivo (não
 existe Container "solto", fora de um freezer/geladeira). É aqui que
 você agrupa as amostras pra saber onde procurar fisicamente sem abrir
 o freezer inteiro.
+
+## Configuração do Banco
+
+Botão de atalho (não é uma lista que você navega dentro dela) — define,
+por tipo de armazenamento (Agar Inclinado, Seca, etc.), três coisas
+que alimentam o cálculo automático:
+
+- **Prazo de validade** — quantos dias depois de preparado o item
+  vence. Preenche a data de validade sozinho quando você cadastra um
+  Item do Banco daquele tipo (só se você não tiver digitado uma data
+  manualmente).
+- **Decaimento diário** — se cadastrado, passa a valer no lugar do
+  decaimento da cepa pra todo item daquele tipo de armazenamento.
+- **Alertas** — dias antes de vencer e/ou viabilidade mínima que
+  merecem atenção.
+
+Só existe uma configuração ativa por tipo de armazenamento.
 
 ## Itens do Banco
 
@@ -29,28 +47,45 @@ Container escolhido — você não escolhe o dispositivo direto no item.
 Um item descartado ou contaminado é ignorado no cálculo de
 viabilidade.
 
-## Leituras de Armazenamento
+## Eventos do Banco
 
-Histórico de temperatura do Dispositivo — vem automaticamente se ele
-tiver sensor vinculado, ou pode ser lançada manualmente.
+Ponto de entrada pra registrar o que acontece com um item — todo
+evento novo nasce aqui. Ao criar um evento, você escolhe o tipo:
+
+- **Starter** — cria automaticamente um novo registro de Starter
+  vinculado e já te leva direto pra tela dele, pra você preencher os
+  detalhes (data, volume, objetivo).
+- **Contagem de Células** — mesma ideia, mas cria e abre um registro
+  de Contagem.
+- **Descarte** / **Outro** — fica só no próprio evento, com
+  observações e status anterior/posterior.
+
+Starters e Contagens **não têm mais botão de criação direto nas suas
+próprias telas** — nascem sempre a partir de um Evento do Banco. Você
+ainda pode editar/consultar um Starter ou Contagem já existente
+normalmente, só a criação passa por aqui.
 
 ## Starters
 
-Registro de cada starter (propagação) feito com uma cepa — serve tanto
-de histórico quanto de referência pro cálculo de viabilidade quando
-não há uma contagem de célula real disponível.
+Cada starter (propagação) feito com uma cepa — nasce a partir de um
+Evento do Banco tipo "Starter" (veja acima). Serve tanto de histórico
+quanto de referência pro cálculo de viabilidade quando não há uma
+contagem de célula real disponível.
 
 ## Contagens de Célula
 
-Registro manual de uma contagem real (ao microscópio, por exemplo) —
-é a fonte mais confiável pro cálculo de viabilidade, quando disponível.
+Registro de uma contagem real (ao microscópio, por exemplo) — nasce a
+partir de um Evento do Banco tipo "Contagem de Células". É a fonte
+mais confiável pro cálculo de viabilidade, quando disponível.
 
 ## Recalcular Viabilidade
 
-Botão que recalcula a viabilidade estimada de **todas** as suas cepas
-de uma vez. Pra cada item, o sistema usa a melhor referência
-disponível, nesta ordem de prioridade: contagem real → viabilidade
-estimada anterior → starter → valor inicial cadastrado da cepa. Itens
+Botão que recalcula a viabilidade estimada de **todos** os itens de
+uma vez. Pra cada item, o sistema usa a melhor referência disponível,
+nesta ordem de prioridade: contagem real → viabilidade estimada
+anterior → starter → valor inicial cadastrado da cepa. O decaimento
+usado é o da Configuração do Banco (se existir uma pro tipo de
+armazenamento do item) ou o da cepa, como padrão. Itens
 descartados/contaminados são pulados.
 
 ## Lixeira

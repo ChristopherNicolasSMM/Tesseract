@@ -237,15 +237,17 @@ def test_checkbox_desmarcado_no_post_zera_campo_boolean(app, client):
     # quando um checkbox está desmarcado — sem normalização, o valor
     # antigo persistiria mesmo a pessoa "desmarcando" na tela.
     # YeastStarterLog.contamination_detected é Boolean editável real.
+    # Criação via API/web está bloqueada desde a skill 21 (Starter só
+    # nasce via Evento do Banco) — cria direto no banco pra testar só
+    # o update(), que não tem esse bloqueio.
     item_id = _setup_item(app, client)
-    r = client.post(
-        "/api/brewstation/yeast-starter-logs/",
-        json={"bank_item_id": item_id, "contamination_detected": True},
-    )
-    starter_id = r.get_json()["item"]["id"]
     with app.app_context():
         from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_starter_log import YeastStarterLog
-        starter = YeastStarterLog.query.get(starter_id)
+        from core.db import db
+        starter = YeastStarterLog(bank_item_id=item_id, contamination_detected=True)
+        db.session.add(starter)
+        db.session.commit()
+        starter_id = starter.id
         assert starter.contamination_detected is True
 
     # POST via HTML sem "contamination_detected" no corpo — simula

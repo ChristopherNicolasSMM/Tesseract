@@ -61,15 +61,6 @@ class FeatureYeastBank(FeatureBase):
                 "permission_required": "yeast_storage_devices.list",
             },
             {
-                "code": "TX_YEAST_STORAGE_READINGS",
-                "label": "Leituras de Temperatura",
-                "parent_code": "TX_GROUP_YEAST_BANK",
-                "description": "Histórico de temperatura dos dispositivos de armazenamento.",
-                "icon": "bi-thermometer-snow",
-                "route": "/brewstation/yeast-storage-readings",
-                "permission_required": "yeast_storage_readings.list",
-            },
-            {
                 "code": "TX_YEAST_STARTER_LOGS",
                 "label": "Starters",
                 "parent_code": "TX_GROUP_YEAST_BANK",

@@ -36,3 +36,21 @@ dentro do mesmo freezer, por exemplo).
 R: Edite o Item do Banco e troque o Container selecionado — o
 histórico do item (starters, contagens) continua vinculado normalmente,
 só a localização física muda.
+
+**P: Por que não tem mais botão de "Novo Starter" na tela de Starters?**
+R: Criação de Starter passou a ser só pelo "Eventos do Banco" — crie
+um evento tipo "Starter", escolhendo o Item de origem, e o sistema já
+cria o registro e te leva pra edição dele. Editar um Starter que já
+existe continua funcionando normal na tela dele.
+
+**P: O que acontece se eu não cadastrar uma Configuração do Banco pro
+tipo de armazenamento?**
+R: Nada quebra — o sistema usa o decaimento cadastrado na Cepa (como
+sempre foi) e você preenche a data de validade manualmente. A
+Configuração do Banco é opcional, só ajuda a automatizar quando você
+quiser.
+
+**P: Dá pra ter mais de uma Configuração do Banco pro mesmo tipo de
+armazenamento?**
+R: Não — só uma configuração ativa por tipo. Se tentar criar uma
+segunda pro mesmo tipo, o sistema recusa.

@@ -42,14 +42,14 @@ def _login_admin(app, client):
 
 # ── Grupos por Feature/Addon ─────────────────────────────────────────────────
 
-def test_grupo_banco_de_levedura_tem_10_transacoes(app):
-    # 9 originais + TX_YEAST_CONTAINERS (skill 19 — entidade Container
-    # entre Dispositivo e Item do Banco).
+def test_grupo_banco_de_levedura_tem_9_transacoes(app):
+    # 9 originais + TX_YEAST_CONTAINERS (skill 19) - TX_YEAST_STORAGE_READINGS
+    # (skill 21 — YeastStorageReading removida, sem consumidor real).
     with app.app_context():
         folder = Transaction.query.filter_by(code="TX_GROUP_YEAST_BANK").first()
         assert folder is not None
         count = Transaction.query.filter_by(parent_id=folder.id).count()
-        assert count == 10
+        assert count == 9
 
 
 def test_grupo_controle_de_mostura_tem_7_filhos_diretos(app):
@@ -179,7 +179,7 @@ def test_nao_existe_mais_grupo_device_manager_antigo(app):
 # ── As 20 órfãs agora têm transação ──────────────────────────────────────────
 
 ORFAS_RESOLVIDAS = [
-    "TX_YEAST_BANK_ITEMS", "TX_YEAST_STORAGE_DEVICES", "TX_YEAST_STORAGE_READINGS",
+    "TX_YEAST_BANK_ITEMS", "TX_YEAST_STORAGE_DEVICES",
     "TX_YEAST_STARTER_LOGS", "TX_YEAST_CELL_COUNT_HISTORIES", "TX_YEAST_BANK_EVENTS",
     "TX_YEAST_BANK_CONFIGS",
     "TX_BREW_PLANTS", "TX_BREW_PLANT_VESSELS", "TX_BREW_PLANT_MAPPINGS",
