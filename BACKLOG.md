@@ -4140,3 +4140,52 @@ schema pronto, frontend pendente; reanálise de eventos/alertas) estão
 todos endereçados, exceto a tela integrada em si (fase própria de
 frontend, ver item acima).
 
+## Fase 22 — Painel integrado do Yeast Bank (skill 21, seção 0/3 — implementada)
+
+Fecha a última parte pendente da skill 21: a tela em si, 2 abas +
+botões de atalho, conforme o mapa de navegação decidido em conversa.
+
+- [x] **`/brewstation/yeast-bank/painel`** — página customizada (skill
+      17/18), não gerada pelo CrudGen, mesmo padrão de
+      `yeast_bank_viability.py`. Dado 100% via API REST já existente
+      — nenhuma rota nova de dado.
+- [x] **Aba Cepas**: grid de cepas; selecionar uma linha filtra
+      (client-side — achado real: API não tem filtro por query param
+      ainda) a grid de Itens do Banco daquela cepa, mostrando
+      container, dispositivo, posição, tipo e viabilidade. Linhas em
+      alerta (`expiry_alert`/`low_viability_alert`, Fase 21) destacadas
+      visualmente.
+- [x] **Aba Eventos do Banco**: grid de eventos; selecionar uma linha
+      mostra cards de status (cepa derivada, status do item,
+      viabilidade, alerta) e a tabela de contagens daquele item.
+      Botão "Novo Evento" leva pra tela CrudGen existente (onde a
+      criação de verdade já acontece, com o fluxo automático da Fase
+      20) — Painel é navegação/consulta, não reimplementa criação.
+- [x] `YeastBankItem.to_dict()`/`YeastBankEvent.to_dict()` ganharam
+      aninhamento (`container`+`device` no item, `bank_item`+`strain`
+      no evento) — uma chamada por grid, sem N+1 por linha exibida.
+- [x] JS em 3 arquivos (`yeast_bank_painel-tesseract-data.js` — cópia
+      do helper compartilhado da skill 18, "copie este arquivo para
+      suas telas" — `painel-cepas.js`, `painel-eventos.js`), zero
+      `<script>` inline no template (mesma regra testada da skill 18).
+- [x] Transação nova `TX_YEAST_BANK_PAINEL`, primeiro item do grupo
+      Banco de Levedura.
+- [x] **Testes**: 8 novos em `test_yeast_bank_painel.py` (login
+      exigido, renderiza, atalhos presentes, JS servido sem 404, sem
+      script inline, shape de dado que o JS depende — container/
+      device aninhados, sinalizadores de alerta presentes, bank_item/
+      strain aninhados no evento). Suíte completa: 143 passando,
+      0 falhas.
+- [ ] **Ressalva honesta, não resolvida por teste automatizado**:
+      interação de clique-em-linha (selecionar cepa → grid de itens
+      atualiza; selecionar evento → cards atualizam) não é testável
+      via pytest neste ambiente (sem navegador/Playwright). Validado
+      o shape de dado e o carregamento da página — a interação em si
+      só fica confirmada quando o Christopher abrir a tela de
+      verdade. Risco já documentado desde o planejamento da Fase 14.
+
+Com isso, a skill 21 está executada por completo — schema/fluxo (Fase
+20), reanálise de eventos/alertas (Fase 21) e a tela integrada em si
+(esta fase). Os 3 itens da sequência original do Christopher estão
+todos fechados.
+

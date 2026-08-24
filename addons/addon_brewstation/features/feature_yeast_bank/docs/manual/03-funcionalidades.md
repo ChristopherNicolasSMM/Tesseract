@@ -1,5 +1,21 @@
 # 03 — Funcionalidades (Yeast Bank)
 
+## Painel
+
+Tela de entrada (menu "Banco de Levedura" → "Painel") — reúne Cepas e
+Eventos numa tela só, com atalhos pras demais telas.
+
+- **Aba Cepas**: clique numa cepa da lista pra ver, do lado, todos os
+  itens do banco dela — em qual Container/Dispositivo está, posição,
+  tipo de armazenamento, viabilidade estimada e status. Linhas com
+  aviso de validade/viabilidade baixa aparecem destacadas.
+- **Aba Eventos do Banco**: clique num evento pra ver a cepa, status
+  atual em cards, e as contagens de célula daquele item. O botão
+  "Novo Evento" leva pra tela de Eventos do Banco (onde a criação de
+  verdade acontece — Painel é só navegação e consulta).
+- **Atalhos** (botões no topo): Dispositivos de Armazenamento e
+  Configuração do Banco — abrem as telas próprias delas.
+
 ## Cepas
 
 Cadastro/edição: nome, família, fornecedor, notas, e parâmetros de

@@ -42,14 +42,14 @@ def _login_admin(app, client):
 
 # ── Grupos por Feature/Addon ─────────────────────────────────────────────────
 
-def test_grupo_banco_de_levedura_tem_9_transacoes(app):
-    # 9 originais + TX_YEAST_CONTAINERS (skill 19) - TX_YEAST_STORAGE_READINGS
-    # (skill 21 — YeastStorageReading removida, sem consumidor real).
+def test_grupo_banco_de_levedura_tem_10_transacoes(app):
+    # 9 anteriores + TX_YEAST_BANK_PAINEL (skill 21 — tela integrada
+    # de navegação, Cepas e Eventos do Banco).
     with app.app_context():
         folder = Transaction.query.filter_by(code="TX_GROUP_YEAST_BANK").first()
         assert folder is not None
         count = Transaction.query.filter_by(parent_id=folder.id).count()
-        assert count == 9
+        assert count == 10
 
 
 def test_grupo_controle_de_mostura_tem_7_filhos_diretos(app):

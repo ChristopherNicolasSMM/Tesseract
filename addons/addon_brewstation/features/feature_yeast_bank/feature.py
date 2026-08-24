@@ -25,6 +25,15 @@ class FeatureYeastBank(FeatureBase):
                 "icon": "bi-droplet-fill",
             },
             {
+                "code": "TX_YEAST_BANK_PAINEL",
+                "label": "Painel",
+                "parent_code": "TX_GROUP_YEAST_BANK",
+                "description": "Tela integrada de navegação — Cepas e Eventos do Banco (skill 21).",
+                "icon": "bi-grid-1x2",
+                "route": "/brewstation/yeast-bank/painel",
+                "permission_required": None,
+            },
+            {
                 "code": "TX_YEAST_BANK",
                 "label": "Cepas de Levedura",
                 "parent_code": "TX_GROUP_YEAST_BANK",

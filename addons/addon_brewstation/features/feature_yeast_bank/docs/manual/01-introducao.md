@@ -3,9 +3,14 @@
 O Yeast Bank é onde você cadastra e acompanha suas cepas de levedura
 — nome, fornecedor, família, e os parâmetros usados para estimar a
 viabilidade de cada lote ao longo do tempo. Além da cepa em si, você
-registra os itens guardados de fato (congelados, slants), leituras de
-temperatura do local de armazenamento, starters feitos, e contagens
-de célula — tudo isso alimenta o cálculo automático de viabilidade.
+registra os itens guardados de fato (congelados, slants), starters
+feitos, e contagens de célula — tudo isso alimenta o cálculo
+automático de viabilidade.
+
+A tela de entrada é o **Painel** (menu "Banco de Levedura" →
+"Painel") — mostra as cepas e os eventos recentes numa tela só, com
+atalhos pras demais telas. As seções abaixo descrevem cada peça em
+detalhe.
 
 ## Como as coisas se conectam
 

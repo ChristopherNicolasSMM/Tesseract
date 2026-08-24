@@ -148,3 +148,41 @@ sequenceDiagram
     C-->>U: flash da mensagem + redirect pra lista — nada é criado
 ```
 
+## Painel integrado — carregamento e drill-down (skill 21, seção 0/3)
+
+Página customizada (skill 17/18) — dado 100% client-side via API REST
+já existente, nenhuma rota nova de dado.
+
+```mermaid
+sequenceDiagram
+    participant B as Navegador (painel-cepas.js / painel-eventos.js)
+    participant API as API REST do CrudGen
+
+    B->>API: GET /api/brewstation/yeast-strains/
+    B->>API: GET /api/brewstation/yeast-bank-items/
+    B->>API: GET /api/brewstation/yeast-bank-events/
+    B->>API: GET /api/brewstation/yeast-cell-count-histories/
+    Note over B: 4 chamadas em paralelo (Promise.all), uma vez ao carregar a página
+    API-->>B: items[] (container/device já aninhados no item;<br/>bank_item/strain já aninhados no evento)
+    B->>B: guarda tudo em memória (todosOsItens, todasAsContagens)
+
+    Note over B: Clique numa linha da grid de Cepas
+    B->>B: filtra todosOsItens por strain_id (client-side)
+    B->>B: preenche a grid de Itens do Banco
+
+    Note over B: Clique numa linha da grid de Eventos
+    B->>B: filtra todasAsContagens por bank_item_id (client-side)
+    B->>B: monta os cards de status + dashboard de viabilidade
+```
+
+**Achado real de arquitetura**: a API REST do CrudGen não tem filtro
+por query param (`?strain_id=X`) — o filtro acontece inteiro no
+navegador, sobre a lista completa já carregada. Aceitável pro volume
+de uma cervejaria caseira/artesanal; se o volume crescer, filtro
+server-side vira uma melhoria isolada (não muda a estrutura da tela).
+
+Para não multiplicar requisição por linha, `YeastBankItem.to_dict()`
+e `YeastBankEvent.to_dict()` aninham `container`/`device` e
+`bank_item`/`strain` respectivamente — uma chamada por grid, não uma
+por linha exibida.
+

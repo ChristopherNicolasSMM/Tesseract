@@ -1,7 +1,6 @@
 # 21 — Proposta: Tela integrada de navegação + unificação Evento/Starter/Contagem
 
-> **Status: seções 1–2 [EXECUTADO] (2026-08-24), seção 0 (tela em si)
-> ainda [DECIDIDO], pendente de implementação.** Fecha o item 2 da
+> **Status: [EXECUTADO] por completo (2026-08-24).** Fecha o item 2 da
 > sequência definida pelo Christopher (BACKLOG, após as Fases 14–19).
 > Convenção de status igual às skills 05/19 — **[DECIDIDO]** fechado e
 > pronto pra executar quando autorizado, **[EXECUTADO]** já no código,
@@ -10,8 +9,13 @@
 > A unificação de schema/fluxo (seções 1 e 2 — `YeastBankEvent` como
 > ponto de entrada único, remoção de `YeastStorageReading`, hooks de
 > controller reais) está implementada e testada (BACKLOG, Fase 20). A
-> tela integrada em si (2 abas + botões, seção 0/3) é a próxima fase,
-> de frontend — ainda não iniciada.
+> tela integrada em si (seção 0/3 — 2 abas + botões de atalho) também
+> está implementada (BACKLOG, Fase 22): `/brewstation/yeast-bank/painel`,
+> página customizada (skill 17/18), dado 100% via API REST já
+> existente. **Ressalva honesta**: interação de clique-em-linha não é
+> testável via pytest (sem navegador neste ambiente) — validado o
+> shape de dado que o JS consome e a página carregando, mas a
+> interação em si só é confirmada abrindo a tela de verdade.
 >
 > **Reanálise 2026-08-24 (BACKLOG Fase 21)**: evento "Descarte" passou
 > a aplicar a transição de status de verdade no `YeastBankItem`
@@ -20,7 +24,7 @@
 > corrigido (enum não batia com o que o motor de viabilidade
 > esperava); alerta visual (`expiry_alert`/`low_viability_alert`)
 > calculado sob demanda a partir do `YeastBankConfig`, sem criar
-> evento. Ver BACKLOG.md, Fase 21, pro detalhe completo.
+> evento — e é isso que o Painel destaca visualmente na grid de Itens.
 
 ---
 

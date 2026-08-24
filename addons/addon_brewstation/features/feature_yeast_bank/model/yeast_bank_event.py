@@ -77,6 +77,7 @@ class YeastBankEvent(db.Model):
         return {
             "id": self.id,
             "bank_item_id": self.bank_item_id,
+            "bank_item": self.bank_item.to_dict() if self.bank_item else None,
             "event_type": self.event_type,
             "starter_id": self.starter_id,
             "cell_count_id": self.cell_count_id,

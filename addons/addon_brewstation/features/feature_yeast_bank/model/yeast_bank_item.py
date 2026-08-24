@@ -106,6 +106,7 @@ class YeastBankItem(db.Model):
             "storage_type": self.storage_type,
             "location": self.location,
             "container_id": self.container_id,
+            "container": self.container.to_dict() if self.container else None,
             "storage_slot": self.storage_slot,
             "label_text": self.label_text,
             "prepared_date": self.prepared_date.isoformat() if self.prepared_date else None,
