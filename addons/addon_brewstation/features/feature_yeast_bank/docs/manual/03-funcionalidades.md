@@ -9,6 +9,16 @@ Eventos numa tela só, com atalhos pras demais telas.
   itens do banco dela — em qual Container/Dispositivo está, posição,
   tipo de armazenamento, viabilidade estimada e status. Linhas com
   aviso de validade/viabilidade baixa aparecem destacadas.
+  - Logo abaixo, um **resumo da cepa**: total de itens, quantos
+    ativos, quantos descartados/contaminados, e a viabilidade média
+    entre eles.
+  - Clicando num item específico da lista, aparece um **detalhe do
+    item**: última contagem registrada, a contagem anterior a ela
+    (pra comparar a tendência), a viabilidade estimada atual, e uma
+    estimativa de quando vale a pena fazer o próximo starter (com
+    base na configuração de alerta do tipo de armazenamento). Um
+    botão "Nova Contagem pra este Item" já cria o registro vinculado
+    e te leva direto pra edição — sem precisar trocar de aba.
 - **Aba Eventos do Banco**: clique num evento pra ver a cepa, status
   atual em cards, e as contagens de célula daquele item. O botão
   "Novo Evento" leva pra tela de Eventos do Banco (onde a criação de

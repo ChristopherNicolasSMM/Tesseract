@@ -589,9 +589,6 @@ def test_alerta_nao_cria_evento_nenhum(app, client):
         from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_config import (
             YeastBankConfig,
         )
-        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_event import (
-            YeastBankEvent,
-        )
         config = YeastBankConfig(storage_type="Agar Inclinado", alert_min_viability_pct=90.0)
         db.session.add(config)
         db.session.commit()
@@ -603,6 +600,79 @@ def test_alerta_nao_cria_evento_nenhum(app, client):
             YeastBankEvent,
         )
         assert YeastBankEvent.query.count() == 0
+
+
+# ── Painel: estimativa de "próximo starter" (2026-08-24) ───────────────────
+
+def test_proximo_starter_calculado_a_partir_da_config(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_config import (
+            YeastBankConfig,
+        )
+        config = YeastBankConfig(
+            storage_type="Agar Inclinado",
+            daily_viability_loss_pct=1.0,
+            alert_min_viability_pct=50.0,
+        )
+        db.session.add(config)
+        db.session.commit()
+
+    item_id = _make_item_via_api(client, estimated_viability_pct=80.0)
+
+    r = client.get(f"/api/brewstation/yeast-bank-items/{item_id}")
+    data = r.get_json()["item"]
+    assert data["next_starter_days"] == 30  # (80 - 50) / 1.0
+    assert data["next_starter_date"] is not None
+
+
+def test_proximo_starter_zero_quando_ja_abaixo_do_limite(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_config import (
+            YeastBankConfig,
+        )
+        config = YeastBankConfig(
+            storage_type="Agar Inclinado",
+            daily_viability_loss_pct=1.0,
+            alert_min_viability_pct=50.0,
+        )
+        db.session.add(config)
+        db.session.commit()
+
+    item_id = _make_item_via_api(client, estimated_viability_pct=20.0)  # já abaixo
+
+    r = client.get(f"/api/brewstation/yeast-bank-items/{item_id}")
+    assert r.get_json()["item"]["next_starter_days"] == 0
+
+
+def test_proximo_starter_none_sem_decaimento_configurado(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_config import (
+            YeastBankConfig,
+        )
+        # Config existe, mas sem daily_viability_loss_pct — e a cepa
+        # também precisa ter o decaimento zerado explicitamente
+        # (YeastStrain.daily_viability_loss_pct tem default 0.35, não
+        # fica None só por omissão na criação via API).
+        config = YeastBankConfig(storage_type="Agar Inclinado", alert_min_viability_pct=50.0)
+        db.session.add(config)
+        db.session.commit()
+
+    item_id = _make_item_via_api(client, estimated_viability_pct=80.0)
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_item import (
+            YeastBankItem,
+        )
+        item = db.session.get(YeastBankItem, item_id)
+        item.strain.daily_viability_loss_pct = None
+        db.session.commit()
+
+    r = client.get(f"/api/brewstation/yeast-bank-items/{item_id}")
+    assert r.get_json()["item"]["next_starter_days"] is None
+
+
 def test_fluxo_completo_via_http(app, client):
     _login_admin(app, client)
 

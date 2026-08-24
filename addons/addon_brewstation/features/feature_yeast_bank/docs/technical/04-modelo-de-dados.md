@@ -148,11 +148,22 @@ marcar um item como descartado/contaminado. Corrigido pra
 `_SKIP_STATUSES` simplificado (removidos os sinônimos redundantes
 `"descartado"`/`"retired"`, sem uso real).
 
-`to_dict()` ganhou dois campos **computados, não persistidos**:
-`expiry_alert`/`low_viability_alert` (`viability_engine.compute_alert_flags()`)
-— consultam `YeastBankConfig` do `storage_type` do item a cada
-chamada, nunca ficam desatualizados, mas custam 1 query extra por
-item exibido (mesmo trade-off que `weak_ref_display` já tem hoje).
+`to_dict()` ganhou quatro campos **computados, não persistidos**
+(`viability_engine.compute_alert_flags()`), consultando
+`YeastBankConfig` do `storage_type` do item a cada chamada — nunca
+ficam desatualizados, mas custam 1 query extra por item exibido
+(mesmo trade-off que `weak_ref_display` já tem hoje):
+
+- `expiry_alert`/`low_viability_alert` — booleanos, Fase 21.
+- `next_starter_days`/`next_starter_date` — **feedback de uso real do
+  Painel, 2026-08-24**: estimativa de quantos dias faltam até a
+  viabilidade estimada cruzar `alert_min_viability_pct`, usando o
+  mesmo decaimento diário que `recalculate_all()` usa (config do
+  `storage_type`, com fallback pra cepa). Extrapolação linear, não é
+  agendamento real — decisão do Christopher foi basear em cima da
+  configuração de alerta já existente, em vez de criar campo novo de
+  agendamento. `None` quando não há config, nem `alert_min_viability_pct`,
+  nem decaimento disponível (nem config nem cepa) pra calcular.
 
 ### `YeastStarterLog` (starter) — criação via `YeastBankEvent` desde a skill 21
 

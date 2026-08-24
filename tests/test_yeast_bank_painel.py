@@ -65,6 +65,17 @@ def test_painel_tem_atalhos_pras_telas_crudgen(app, client):
     assert "/brewstation/yeast-bank-configs/" in html
 
 
+def test_css_dark_theme_nao_escurece_link_estilizado_como_botao():
+    # Achado real (2026-08-24): `body.dark a` tinha mais especificidade
+    # que `.btn-primary`, deixando <a class="btn btn-primary"> com
+    # texto na cor de link (#60a5fa) em vez de branco — baixo
+    # contraste. Afeta pelo menos 3 telas (odata_entities.html,
+    # mash_recipes/detail.html, painel.html). Proteção contra regressão.
+    with open("static/css/style_dark.css", encoding="utf-8") as f:
+        css = f.read()
+    assert "a:not(.btn)" in css, "Regra de cor de link do tema escuro precisa excluir .btn"
+
+
 def test_painel_js_files_sao_servidos(app, client):
     _login_admin(app, client)
     for path in [
@@ -148,3 +159,36 @@ def test_evento_traz_bank_item_com_strain_aninhado(app, client):
     r2 = client.get(f"/api/brewstation/yeast-bank-events/{r.get_json()['item']['id']}")
     event = r2.get_json()["item"]
     assert event["bank_item"]["strain"]["name"] == "US-05"
+
+
+def test_botao_novo_evento_usa_classe_padrao_do_crudgen(app, client):
+    # Achado real (feedback de uso): o botão usava btn-sm (fora do
+    # padrão) além do bug de CSS — alinhado ao mesmo "btn btn-primary"
+    # que o CrudGen usa em manage.html.j2.
+    _login_admin(app, client)
+    html = client.get("/brewstation/yeast-bank/painel").get_data(as_text=True)
+    assert 'class="btn btn-primary"' in html
+    assert 'class="btn btn-sm btn-primary"' not in html
+
+
+def test_atalho_nova_contagem_cria_registro_vinculado_ao_item(app, client):
+    _login_admin(app, client)
+    _, item_id = _make_scenario(app, client)
+
+    # Simula exatamente o form que painel-cepas.js injeta ao
+    # selecionar um item — reaproveita o post_create_redirect da
+    # skill 21, sem lógica nova no backend.
+    r = client.post(
+        "/brewstation/yeast-bank-events/",
+        data={"bank_item_id": str(item_id), "event_type": "Contagem de Células"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 302
+    assert "/yeast-cell-count-histories/" in r.headers["Location"]
+
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_cell_count_history import (
+            YeastCellCountHistory,
+        )
+        count = YeastCellCountHistory.query.first()
+        assert count.bank_item_id == item_id

@@ -34,8 +34,18 @@ body.dark small, body[data-theme="dark"] small {
 }
 
 /* Generic readability fixes */
-body.dark a, body[data-theme="dark"] a { color: var(--dark-link); }
-body.dark a:hover, body[data-theme="dark"] a:hover { color: #93c5fd; }
+/* Achado real (2026-08-24): `<a class="btn btn-primary">` (link
+   estilizado como botão, usado em pelo menos 3 telas —
+   odata_entities.html, mash_recipes/detail.html, painel.html do
+   Yeast Bank) herdava a cor de LINK do tema escuro (#60a5fa, azul
+   claro) em vez da cor do BOTÃO (branco), porque `body.dark a` tem
+   mais especificidade que `.btn-primary` sozinho. Resultado: texto
+   azul claro sobre fundo azul do botão, contraste ruim. `:not(.btn)`
+   exclui âncoras-estilizadas-como-botão da regra de link, deixando
+   as regras `.btn-primary`/`.btn-secondary`/etc (mais abaixo neste
+   arquivo) decidirem a cor normalmente, como já fazem para <button>. */
+body.dark a:not(.btn), body[data-theme="dark"] a:not(.btn) { color: var(--dark-link); }
+body.dark a:hover:not(.btn), body[data-theme="dark"] a:hover:not(.btn) { color: #93c5fd; }
 
 body.dark .card, body[data-theme="dark"] .card,
 body.dark .box, body[data-theme="dark"] .box,

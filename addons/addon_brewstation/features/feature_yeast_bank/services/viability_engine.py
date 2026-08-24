@@ -15,7 +15,7 @@ anterior desta migração tinha feito por engano.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 
 def compute_alert_flags(item, today: date | None = None) -> dict:
@@ -28,13 +28,28 @@ def compute_alert_flags(item, today: date | None = None) -> dict:
     Calculado sob demanda (não persistido) — sempre reflete o estado
     atual do item/config no momento em que é chamado, nunca fica
     desatualizado entre recálculos.
+
+    `next_starter_days`/`next_starter_date` (Painel, 2026-08-24):
+    estimativa de quando a viabilidade estimada vai cruzar
+    `alert_min_viability_pct`, usando o mesmo decaimento diário que
+    `recalculate_all()` usa (config do storage_type, com fallback pra
+    cepa) — decisão do Christopher: "com base na configuração de
+    alerta". Não é um agendamento real, é só a extrapolação linear de
+    quando a viabilidade cruzaria o limite se nada for feito — pensada
+    como sugestão de quando vale a pena propagar (fazer um starter)
+    pra manter a cepa saudável.
     """
     from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_config import (
         YeastBankConfig,
     )
 
     today = today or datetime.now(timezone.utc).date()
-    flags = {"expiry_alert": False, "low_viability_alert": False}
+    flags = {
+        "expiry_alert": False,
+        "low_viability_alert": False,
+        "next_starter_days": None,
+        "next_starter_date": None,
+    }
 
     config = YeastBankConfig.query.filter_by(
         storage_type=item.storage_type, is_deleted=False,
@@ -49,6 +64,16 @@ def compute_alert_flags(item, today: date | None = None) -> dict:
     if config.alert_min_viability_pct is not None and item.estimated_viability_pct is not None:
         flags["low_viability_alert"] = item.estimated_viability_pct <= config.alert_min_viability_pct
 
+        strain = item.strain
+        daily_loss_pct = config.daily_viability_loss_pct
+        if daily_loss_pct is None and strain:
+            daily_loss_pct = strain.daily_viability_loss_pct
+
+        if daily_loss_pct and daily_loss_pct > 0:
+            dias = (item.estimated_viability_pct - config.alert_min_viability_pct) / daily_loss_pct
+            dias = int(dias)  # trunca — "faltam N dias" não arredonda pra cima
+            flags["next_starter_days"] = max(dias, 0)  # já vencido o limite -> 0 ("agora")
+            flags["next_starter_date"] = (today + timedelta(days=max(dias, 0))).isoformat()
     return flags
 
 

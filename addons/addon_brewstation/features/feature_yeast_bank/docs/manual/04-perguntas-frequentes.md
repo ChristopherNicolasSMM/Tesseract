@@ -67,3 +67,12 @@ padrão é Descartado.
 R: Não — é só um sinal na tela do próprio item, calculado na hora que
 você olha (não fica desatualizado, mas também não avisa proativamente
 por e-mail ou push).
+
+**P: Como o Painel calcula "quantos dias pro próximo starter"?**
+R: É uma estimativa, não um agendamento — pega a viabilidade atual do
+item, o quanto ela cai por dia (da Configuração do Banco, ou da cepa
+se não tiver config), e calcula quantos dias faltam até cruzar a
+viabilidade mínima cadastrada na Configuração do Banco. Se já cruzou,
+mostra "Agora". Se não tiver Configuração do Banco cadastrada pro
+tipo de armazenamento, ou nenhum decaimento configurado (nem na
+config, nem na cepa), o campo fica vazio — não tem base pra estimar.

@@ -4189,3 +4189,50 @@ Com isso, a skill 21 está executada por completo — schema/fluxo (Fase
 (esta fase). Os 3 itens da sequência original do Christopher estão
 todos fechados.
 
+## Fase 23 — Painel: ajustes de feedback de uso real (cores, atalho, mini dashboard)
+
+Christopher testou o Painel de verdade (Fase 22) e trouxe 3 pontos de
+ajuste — a primeira rodada real de feedback pós-entrega da tela.
+
+- [x] **Bug de CSS real, sistêmico, achado durante a investigação**:
+      `body.dark a { color: var(--dark-link) }` (`static/css/style_dark.css`)
+      tinha mais especificidade que `.btn-primary`, deixando qualquer
+      `<a class="btn btn-primary">` com texto na cor de link
+      (`#60a5fa`, azul claro) em vez de branco — baixo contraste.
+      Achado **não era exclusivo do Painel**: afetava também
+      `templates/core/admin/odata_entities.html` e
+      `feature_mash_control/templates/mash_recipes/detail.html`.
+      Corrigido na raiz (`a:not(.btn)` nas duas regras, normal e
+      `:hover`) — resolve nas 3 telas de uma vez, não só na nova.
+      Teste de proteção contra regressão adicionado.
+- [x] **Botão "Novo Evento"** alinhado ao padrão exato do CrudGen
+      (`class="btn btn-primary"`, sem `btn-sm` — o `btn-sm` não era o
+      problema real, mas destoava do padrão mesmo assim).
+- [x] **Atalho "Nova Contagem pra este Item"** — ao selecionar um item
+      na aba Cepas, um botão cria a Contagem de Células vinculada e
+      redireciona direto pra edição, sem trocar de aba. Reaproveita o
+      `post_create_redirect` da skill 21 via `<form>` HTML comum — zero
+      lógica nova no backend, só o form injetado pelo JS.
+- [x] **Mini dashboard da aba Cepas**: resumo agregado ao selecionar
+      uma cepa (total de itens, ativos, descartados/contaminados,
+      viabilidade média — tudo client-side, sem requisição nova) e
+      detalhe ao clicar num item (última contagem, contagem anterior,
+      estimativa atual, próximo starter).
+- [x] **`next_starter_days`/`next_starter_date`** — campo computado
+      novo em `viability_engine.compute_alert_flags()` (mesma função
+      dos alertas da Fase 21, reaproveitada). Decisão do Christopher:
+      "com base na configuração de alerta" — extrapolação linear de
+      quando a viabilidade cruzaria `alert_min_viability_pct`, usando
+      o decaimento já resolvido (config do storage_type, fallback pra
+      cepa). Não é agendamento real, é sugestão de quando vale
+      propagar. Testado nos 3 cenários (cálculo normal, já vencido →
+      0/"Agora", sem decaimento disponível → `None`).
+- [x] **Testes**: 4 novos em `test_viability_engine.py`
+      (próximo starter calculado, zero quando já vencido, `None` sem
+      decaimento) + 4 novos em `test_yeast_bank_painel.py` (CSS
+      protegido, classe do botão, atalho de contagem cria e
+      redireciona). Suíte completa: 149 passando, 0 falhas.
+
+Nenhuma migration necessária — mudança de CSS, JS e campos
+computados, sem alteração de schema.
+
