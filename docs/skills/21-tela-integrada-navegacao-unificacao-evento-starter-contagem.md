@@ -12,6 +12,15 @@
 > controller reais) está implementada e testada (BACKLOG, Fase 20). A
 > tela integrada em si (2 abas + botões, seção 0/3) é a próxima fase,
 > de frontend — ainda não iniciada.
+>
+> **Reanálise 2026-08-24 (BACKLOG Fase 21)**: evento "Descarte" passou
+> a aplicar a transição de status de verdade no `YeastBankItem`
+> vinculado (não previsto no desenho original desta skill — decisão
+> tomada na reanálise do item 3 da sequência); `YeastBankItem.status`
+> corrigido (enum não batia com o que o motor de viabilidade
+> esperava); alerta visual (`expiry_alert`/`low_viability_alert`)
+> calculado sob demanda a partir do `YeastBankConfig`, sem criar
+> evento. Ver BACKLOG.md, Fase 21, pro detalhe completo.
 
 ---
 

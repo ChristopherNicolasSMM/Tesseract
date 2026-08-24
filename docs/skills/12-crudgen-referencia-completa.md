@@ -148,13 +148,17 @@ decisão em aberto da análise de field metadata registrada no backlog
 anotação é o mínimo pra parar de mostrar rótulo em inglês nas telas
 que já existem, sem esperar a análise maior.
 
-**`@readonly_fields([campo, ...])`** — adicionado na skill 21. Soma
-campos ao conjunto padrão que já é somente-leitura no formulário
-(`id`/`created_at`/`updated_at`/`is_deleted`/`deleted_at`). Uso real:
-`YeastBankEvent.starter_id`/`cell_count_id` são preenchidos só pelo
-hook `post_create_redirect` (abaixo), nunca escolhidos na tela — sem
-essa anotação, apareceriam como campo numérico editável comum (são
-FK reais).
+**`@readonly_fields([campo, ...])`** — adicionado na skill 21, corrigido
+na reanálise de eventos (2026-08-24). Soma campos ao conjunto padrão
+que já é somente-leitura tanto no formulário (`controller.py.j2` —
+campo nem aparece editável) quanto na camada de serviço
+(`service.py.j2::_apply_fields` — mesmo que alguém mande o campo via
+API/JSON direto, é ignorado). **Achado real**: a primeira versão só
+protegia o formulário; a proteção do service veio depois, ao notar
+que a API contornava a proteção da tela sem querer. Uso real:
+`YeastBankEvent.starter_id`/`cell_count_id`/`status_before` são
+preenchidos só pelo hook `post_create_redirect`, nunca escolhidos na
+tela nem aceitos via payload direto.
 ```python
 @readonly_fields(["starter_id", "cell_count_id"])
 ```

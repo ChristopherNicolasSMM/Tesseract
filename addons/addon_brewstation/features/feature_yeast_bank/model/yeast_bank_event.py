@@ -8,6 +8,12 @@ Todo evento nasce aqui — quando o tipo exige campos especializados
 especializada e redireciona pra lá. `starter_id`/`cell_count_id` são
 preenchidos só por esse fluxo — nunca escolhidos manualmente
 (`@readonly_fields`).
+
+Reanálise (2026-08-24): evento tipo "Descarte" agora aplica a
+transição de verdade no `YeastBankItem` vinculado — `status_before`
+captura o status atual do item automaticamente (também
+`@readonly_fields`), `status_after` é escolhido pela pessoa
+(Descartado/Contaminado) e é aplicado ao item pelo mesmo hook.
 """
 from datetime import datetime, timezone
 
@@ -20,13 +26,14 @@ from annotations import label, plural, required, enum_field, field_labels, reado
 @required("event_type", message="Tipo do evento é obrigatório")
 @required("bank_item_id", message="Item do banco é obrigatório")
 @enum_field("event_type", options=["Starter", "Contagem de Células", "Descarte", "Outro"])
-@readonly_fields(["starter_id", "cell_count_id"])
+@enum_field("status_after", options=[("active", "Ativo"), ("discarded", "Descartado"), ("contaminated", "Contaminado")])
+@readonly_fields(["starter_id", "cell_count_id", "status_before"])
 @field_labels({
     "bank_item_id": "Item do Banco",
     "event_type": "Tipo do Evento",
     "starter_id": "Starter Gerado",
     "cell_count_id": "Contagem Gerada",
-    "status_before": "Status Anterior",
+    "status_before": "Status Anterior (automático)",
     "status_after": "Status Posterior",
     "notes": "Observações",
 })

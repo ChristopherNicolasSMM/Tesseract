@@ -435,6 +435,174 @@ def test_bank_config_recusa_storage_type_duplicado_ativo(app, client):
     assert r.status_code != 201  # índice único parcial recusa duplicata ativa
 
 
+# ── Reanálise de eventos (2026-08-24): status real, readonly na API, alertas ──
+
+def _make_item_via_api(client, storage_type="Agar Inclinado", **extra):
+    r = client.post("/api/brewstation/yeast-strains/", json={"name": "US-05"})
+    strain_id = r.get_json()["item"]["id"]
+    r = client.post("/api/brewstation/yeast-storage-devices/", json={"name": "Freezer X"})
+    device_id = r.get_json()["item"]["id"]
+    r = client.post(
+        "/api/brewstation/yeast-containers/",
+        json={"name": "Caixa 1", "device_id": device_id},
+    )
+    container_id = r.get_json()["item"]["id"]
+    payload = {
+        "strain_id": strain_id, "storage_type": storage_type,
+        "container_id": container_id, "status": "active",
+    }
+    payload.update(extra)
+    r = client.post("/api/brewstation/yeast-bank-items/", json=payload)
+    assert r.status_code == 201, r.get_json()
+    return r.get_json()["item"]["id"]
+
+
+def test_status_do_item_aceita_discarded_e_contaminated(app, client):
+    # Achado real: o dropdown não tinha esses valores, mesmo sendo
+    # exatamente o que viability_engine._SKIP_STATUSES espera.
+    _login_admin(app, client)
+    item_id = _make_item_via_api(client)
+
+    r = client.put(f"/api/brewstation/yeast-bank-items/{item_id}", json={"status": "discarded"})
+    assert r.status_code == 200
+    assert r.get_json()["item"]["status"] == "discarded"
+
+
+def test_evento_descarte_muda_status_real_do_item(app, client):
+    _login_admin(app, client)
+    item_id = _make_item_via_api(client)
+
+    r = client.post(
+        "/api/brewstation/yeast-bank-events/",
+        json={"bank_item_id": item_id, "event_type": "Descarte", "status_after": "contaminated"},
+    )
+    assert r.status_code == 201
+    event = r.get_json()["item"]
+    assert event["status_before"] == "active"
+    assert event["status_after"] == "contaminated"
+
+    r = client.get(f"/api/brewstation/yeast-bank-items/{item_id}")
+    assert r.get_json()["item"]["status"] == "contaminated"
+
+
+def test_evento_descarte_sem_status_after_usa_discarded_como_padrao(app, client):
+    _login_admin(app, client)
+    item_id = _make_item_via_api(client)
+
+    r = client.post(
+        "/api/brewstation/yeast-bank-events/",
+        json={"bank_item_id": item_id, "event_type": "Descarte"},
+    )
+    assert r.status_code == 201
+    assert r.get_json()["item"]["status_after"] == "discarded"
+
+    r = client.get(f"/api/brewstation/yeast-bank-items/{item_id}")
+    assert r.get_json()["item"]["status"] == "discarded"
+
+
+def test_status_before_nao_pode_ser_injetado_via_api(app, client):
+    # @readonly_fields agora protege tanto o formulário quanto o
+    # service.py.j2 — achado real: a primeira versão só protegia a
+    # tela, a API aceitava o campo direto.
+    _login_admin(app, client)
+    item_id = _make_item_via_api(client)
+
+    r = client.post(
+        "/api/brewstation/yeast-bank-events/",
+        json={"bank_item_id": item_id, "event_type": "Outro", "status_before": "HACKED"},
+    )
+    assert r.status_code == 201
+    assert r.get_json()["item"]["status_before"] is None  # ignorado, "Outro" não preenche
+
+
+def test_starter_id_nao_pode_ser_injetado_via_api(app, client):
+    _login_admin(app, client)
+    item_id = _make_item_via_api(client)
+
+    r = client.post(
+        "/api/brewstation/yeast-bank-events/",
+        json={"bank_item_id": item_id, "event_type": "Outro", "starter_id": 999},
+    )
+    assert r.status_code == 201
+    assert r.get_json()["item"]["starter_id"] is None  # ignorado — "Outro" não cria starter
+
+
+def test_alerta_de_validade_dispara_quando_dentro_do_limite(app, client):
+    _login_admin(app, client)
+
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_config import (
+            YeastBankConfig,
+        )
+        config = YeastBankConfig(storage_type="Agar Inclinado", alert_days_before_expiry=10)
+        db.session.add(config)
+        db.session.commit()
+
+    expiry = (datetime.date.today() + datetime.timedelta(days=5)).isoformat()
+    item_id = _make_item_via_api(client, expiry_date=expiry)
+
+    r = client.get(f"/api/brewstation/yeast-bank-items/{item_id}")
+    data = r.get_json()["item"]
+    assert data["expiry_alert"] is True
+    assert data["low_viability_alert"] is False
+
+
+def test_alerta_de_viabilidade_dispara_quando_abaixo_do_minimo(app, client):
+    _login_admin(app, client)
+
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_config import (
+            YeastBankConfig,
+        )
+        config = YeastBankConfig(storage_type="Agar Inclinado", alert_min_viability_pct=50.0)
+        db.session.add(config)
+        db.session.commit()
+
+    item_id = _make_item_via_api(client, estimated_viability_pct=30.0)
+
+    r = client.get(f"/api/brewstation/yeast-bank-items/{item_id}")
+    data = r.get_json()["item"]
+    assert data["low_viability_alert"] is True
+    assert data["expiry_alert"] is False
+
+
+def test_sem_config_nenhum_alerta_dispara(app, client):
+    _login_admin(app, client)
+    item_id = _make_item_via_api(
+        client,
+        expiry_date=(datetime.date.today() + datetime.timedelta(days=1)).isoformat(),
+        estimated_viability_pct=1.0,
+    )
+
+    r = client.get(f"/api/brewstation/yeast-bank-items/{item_id}")
+    data = r.get_json()["item"]
+    assert data["expiry_alert"] is False
+    assert data["low_viability_alert"] is False
+
+
+def test_alerta_nao_cria_evento_nenhum(app, client):
+    # Decisão do Christopher: só sinaliza pra tela, não cria
+    # YeastBankEvent automaticamente.
+    _login_admin(app, client)
+
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_config import (
+            YeastBankConfig,
+        )
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_event import (
+            YeastBankEvent,
+        )
+        config = YeastBankConfig(storage_type="Agar Inclinado", alert_min_viability_pct=90.0)
+        db.session.add(config)
+        db.session.commit()
+
+    _make_item_via_api(client, estimated_viability_pct=1.0)
+
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_event import (
+            YeastBankEvent,
+        )
+        assert YeastBankEvent.query.count() == 0
 def test_fluxo_completo_via_http(app, client):
     _login_admin(app, client)
 

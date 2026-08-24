@@ -18,7 +18,7 @@ from annotations import label, plural, required, permission, weak_ref, choices, 
 @required("storage_type", message="Tipo de armazenamento é obrigatório")
 @enum_field("storage_type", options=["Agar Inclinado", "Óleo", "Agar Inc. + Óleo" , "Solu. NaCl 0.9%", "Gligerina", "Seca","Lama"])
 
-@enum_field("status", options=["pending", "active", "completed", "skipped"])
+@enum_field("status", options=[("active", "Ativo"), ("discarded", "Descartado"), ("contaminated", "Contaminado")])
 @permission(
     "recalculate_viability",
     description="Recalcular viabilidade estimada de todos os itens do banco",
@@ -130,8 +130,17 @@ class YeastBankItem(db.Model):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "identification": self.identification,
-        }
-          
+        } | self._alert_flags()
 
+    def _alert_flags(self) -> dict:
+        # Reanálise de eventos (2026-08-24): sinalizador calculado sob
+        # demanda, não persistido — nunca fica desatualizado. Ver
+        # viability_engine.compute_alert_flags() pro cálculo em si.
+        # Import tardio pra evitar import circular (viability_engine
+        # já importa YeastBankItem).
+        from addons.addon_brewstation.features.feature_yeast_bank.services.viability_engine import (
+            compute_alert_flags,
+        )
+        return compute_alert_flags(self)
     def __repr__(self) -> str:
         return f"<YeastBankItem id={self.id} strain_id={self.strain_id}>"

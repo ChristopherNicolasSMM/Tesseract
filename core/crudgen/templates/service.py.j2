@@ -14,10 +14,16 @@ from typing import Any
 
 from core.db import db
 from {{ model_import_path }} import {{ class_name }}
+from annotations import get_readonly_fields
 
 logger = logging.getLogger(__name__)
 
-_READONLY = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"}
+# Achado real (reanálise de eventos, 2026-08-24): @readonly_fields só
+# protegia o formulário gerado (controller.py.j2) — a camada de
+# serviço aceitava e aplicava o campo normalmente se alguém mandasse
+# via API/JSON direto, contornando a proteção da tela. Mesma fonte
+# (get_readonly_fields do model) protege os dois lugares agora.
+_READONLY = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"} | get_readonly_fields({{ class_name }})
 
 try:
     from {{ hooks_import_path }} import {{ class_name_lower }}_service_hooks as _hooks

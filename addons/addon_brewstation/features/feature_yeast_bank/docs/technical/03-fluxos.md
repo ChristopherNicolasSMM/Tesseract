@@ -81,14 +81,58 @@ sequenceDiagram
         H->>Count: cria vinculado ao mesmo bank_item_id
         H->>C: event.cell_count_id = count.id, commit
         H-->>C: redirect() pra edição da Contagem
-    else Descarte / Outro
-        H-->>C: None — sem registro especializado, redirect padrão
+    else event_type == "Descarte"
+        H->>H: event.status_before = bank_item.status (captura o status atual)
+        H->>H: bank_item.status = event.status_after (ou "discarded" se vazio)
+        H->>C: commit — item e evento atualizados juntos
+        H-->>C: None — sem tela especializada, fica no manage() padrão
+    else Outro
+        H-->>C: None — sem efeito nenhum além do próprio registro
     end
 ```
 
+`status_before` é `@readonly_fields` — mesmo que alguém tente mandar
+esse campo direto via POST/JSON, `service.py.j2::_apply_fields` ignora
+(reanálise de 2026-08-24: a primeira versão só protegia o formulário,
+não a API — corrigido pra proteger os dois a partir da mesma fonte,
+`get_readonly_fields()`).
+
 O mesmo hook roda na rota web **e** na API JSON — na API só o efeito
-colateral (criar o registro vinculado) importa, o valor de retorno
-(um redirect do Flask) é descartado.
+colateral (criar o registro vinculado, ou aplicar a mudança de
+status) importa, o valor de retorno (um redirect do Flask) é
+descartado.
+
+## Alerta de validade/viabilidade baixa (reanálise 2026-08-24)
+
+Decisão do Christopher: só sinaliza pra tela, **não cria** `YeastBankEvent`
+nem dispara nenhuma notificação.
+
+```mermaid
+sequenceDiagram
+    participant U as Usuário/API
+    participant Item as YeastBankItem.to_dict()
+    participant Eng as viability_engine.compute_alert_flags()
+    participant Cfg as YeastBankConfig
+
+    U->>Item: GET (lista ou detalhe)
+    Item->>Eng: chamado a cada to_dict() — sob demanda, nunca persistido
+    Eng->>Cfg: busca config ativa pro storage_type do item
+    alt sem config
+        Eng-->>Item: {expiry_alert: false, low_viability_alert: false}
+    else com config
+        Eng->>Eng: dias até expiry_date <= alert_days_before_expiry?
+        Eng->>Eng: estimated_viability_pct <= alert_min_viability_pct?
+        Eng-->>Item: flags calculados na hora
+    end
+    Item-->>U: JSON com expiry_alert/low_viability_alert
+```
+
+Cada condição é independente — um item pode disparar só uma, as duas,
+ou nenhuma. Calculado sob demanda em vez de persistido: sempre reflete
+o estado atual, nunca fica desatualizado entre execuções do
+"Recalcular Viabilidade" — o trade-off é 1 query extra
+(`YeastBankConfig`) por item exibido, mesmo padrão de custo que
+`weak_ref_display` já tem na listagem (skill 11).
 
 ## Tentativa de criar Starter/Contagem direto na tela própria (bloqueada)
 

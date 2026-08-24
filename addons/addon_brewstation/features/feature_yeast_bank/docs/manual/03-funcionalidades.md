@@ -34,18 +34,25 @@ que alimentam o cálculo automático:
 - **Decaimento diário** — se cadastrado, passa a valer no lugar do
   decaimento da cepa pra todo item daquele tipo de armazenamento.
 - **Alertas** — dias antes de vencer e/ou viabilidade mínima que
-  merecem atenção.
+  merecem atenção. Quando um item cruza qualquer um dos dois limites,
+  a tela dele mostra um aviso — sem e-mail, sem notificação, é só um
+  sinal visual.
 
 Só existe uma configuração ativa por tipo de armazenamento.
 
 ## Itens do Banco
 
 O que você guardou fisicamente de uma cepa — data de congelamento,
-em qual Container está guardado, status (ativo/descartado/
-contaminado). O dispositivo onde o item está é sempre o dispositivo do
+em qual Container está guardado, status (Ativo/Descartado/
+Contaminado). O dispositivo onde o item está é sempre o dispositivo do
 Container escolhido — você não escolhe o dispositivo direto no item.
 Um item descartado ou contaminado é ignorado no cálculo de
 viabilidade.
+
+Quando um item se aproxima do vencimento ou da viabilidade mínima
+cadastrada na Configuração do Banco, a tela mostra um aviso — não
+manda notificação nenhuma, é só um sinal visual pra você perceber ao
+olhar a lista.
 
 ## Eventos do Banco
 
@@ -57,8 +64,11 @@ evento novo nasce aqui. Ao criar um evento, você escolhe o tipo:
   detalhes (data, volume, objetivo).
 - **Contagem de Células** — mesma ideia, mas cria e abre um registro
   de Contagem.
-- **Descarte** / **Outro** — fica só no próprio evento, com
-  observações e status anterior/posterior.
+- **Descarte** — muda o status do Item de verdade (pra Descartado ou
+  Contaminado, você escolhe qual). O status anterior é registrado
+  sozinho no evento, como histórico.
+- **Outro** — fica só no próprio evento, com observações, sem mudar
+  nada no item.
 
 Starters e Contagens **não têm mais botão de criação direto nas suas
 próprias telas** — nascem sempre a partir de um Evento do Banco. Você

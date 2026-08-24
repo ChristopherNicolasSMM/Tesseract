@@ -18,6 +18,40 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 
 
+def compute_alert_flags(item, today: date | None = None) -> dict:
+    """
+    Reanálise de eventos (2026-08-24, decisão do Christopher): os
+    limites de `YeastBankConfig.alert_days_before_expiry`/
+    `alert_min_viability_pct` só viram um sinalizador pra tela mostrar
+    — não criam `YeastBankEvent` nem qualquer outra ação automática.
+
+    Calculado sob demanda (não persistido) — sempre reflete o estado
+    atual do item/config no momento em que é chamado, nunca fica
+    desatualizado entre recálculos.
+    """
+    from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_config import (
+        YeastBankConfig,
+    )
+
+    today = today or datetime.now(timezone.utc).date()
+    flags = {"expiry_alert": False, "low_viability_alert": False}
+
+    config = YeastBankConfig.query.filter_by(
+        storage_type=item.storage_type, is_deleted=False,
+    ).first()
+    if not config:
+        return flags
+
+    if config.alert_days_before_expiry is not None and item.expiry_date:
+        days_left = (item.expiry_date - today).days
+        flags["expiry_alert"] = days_left <= config.alert_days_before_expiry
+
+    if config.alert_min_viability_pct is not None and item.estimated_viability_pct is not None:
+        flags["low_viability_alert"] = item.estimated_viability_pct <= config.alert_min_viability_pct
+
+    return flags
+
+
 def compute_estimated_viability(
     *,
     reference_viability: float | None,
@@ -123,7 +157,7 @@ def best_viability_reference_for_item(item) -> dict | None:
     return None
 
 
-_SKIP_STATUSES = {"discarded", "descartado", "retired", "contaminated"}
+_SKIP_STATUSES = {"discarded", "contaminated"}  # valores canônicos — enum corrigido (achado real, reanálise de eventos)
 
 
 def recalculate_all(*, today: date | None = None) -> dict:

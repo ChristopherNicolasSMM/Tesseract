@@ -4085,3 +4085,58 @@ consumir.
       não iniciada. Risco de browser já documentado (mesma lição da
       remoção do Designer v2).
 
+## Fase 21 — Reanálise: YeastBankEvent automático + alerta visual (item 3 da sequência do Christopher)
+
+Cobre os dois achados registrados desde o início da sessão:
+`YeastBankEvent` não era gerado automaticamente por outros services, e
+`YeastStorageReading` fora da faixa não disparava alerta (essa segunda
+parte mudou de forma — a entidade foi removida na skill 21/Fase 20;
+os limites de alerta agora vivem só no `YeastBankConfig`).
+
+- [x] **Bug real achado durante a investigação**: `YeastBankItem.status`
+      tinha `@enum_field(["pending", "active", "completed", "skipped"])`
+      — nenhum desses valores batia com
+      `viability_engine._SKIP_STATUSES` (que sempre esperou
+      `"discarded"`/`"contaminated"`, entre outros sinônimos). A tela
+      nem deixava marcar um item como descartado. Corrigido pra
+      `[("active","Ativo"), ("discarded","Descartado"), ("contaminated","Contaminado")]`
+      — bate exatamente com o motor. `_SKIP_STATUSES` simplificado
+      pros 2 valores canônicos, removidos os sinônimos redundantes.
+- [x] **Evento "Descarte" aplica transição real** — decisão do
+      Christopher: `status_before` captura o status atual do item
+      automaticamente (`@readonly_fields`), `status_after` é escolhido
+      na tela (Descartado/Contaminado, padrão "discarded" se vazio) e
+      é aplicado de verdade em `YeastBankItem.status` pelo hook
+      `post_create_redirect` — testado ao vivo via HTTP real.
+- [x] **Achado real durante a implementação**: `@readonly_fields` só
+      protegia o formulário (`controller.py.j2`) — a camada de
+      serviço (`service.py.j2::_apply_fields`) não sabia da anotação e
+      aceitava o campo normalmente se mandado via API/JSON direto.
+      Testado (tentativa de injetar `status_before`/`starter_id` via
+      API, recusado). Corrigido: `service.py.j2` agora mescla
+      `get_readonly_fields()` na mesma proteção — fonte única pros
+      dois lugares.
+- [x] **Alerta visual (decisão do Christopher: só sinaliza, não cria
+      evento)** — `viability_engine.compute_alert_flags()` novo,
+      consulta `YeastBankConfig` do `storage_type` do item e retorna
+      `expiry_alert`/`low_viability_alert`. Calculado **sob demanda**
+      em `YeastBankItem.to_dict()`, não persistido — nunca fica
+      desatualizado entre recálculos. Testado ao vivo com os dois
+      limites cruzados ao mesmo tempo.
+- [x] **Testes**: 8 novos em `test_viability_engine.py` (status aceita
+      discarded/contaminated, descarte muda status real, descarte sem
+      status_after usa padrão, readonly protegido via API — 2 testes,
+      alerta de validade, alerta de viabilidade, sem config nenhum
+      alerta dispara, alerta não cria evento). Suíte completa:
+      104 passando (yeast_bank) + 63 (regressão ampla do CrudGen),
+      0 falhas.
+- [x] `docs/manual/03-funcionalidades.md`/`04-perguntas-frequentes.md`
+      e `docs/technical/03-fluxos.md`/`04-modelo-de-dados.md`
+      atualizados.
+
+Com isso, os 3 itens da sequência definida pelo Christopher
+(retroaplicar labels/documentar/remover não usado; tela integrada —
+schema pronto, frontend pendente; reanálise de eventos/alertas) estão
+todos endereçados, exceto a tela integrada em si (fase própria de
+frontend, ver item acima).
+

@@ -54,3 +54,16 @@ quiser.
 armazenamento?**
 R: Não — só uma configuração ativa por tipo. Se tentar criar uma
 segunda pro mesmo tipo, o sistema recusa.
+
+**P: Ao criar um Evento tipo "Descarte", o status do Item realmente
+muda?**
+R: Sim — diferente dos outros tipos de evento, "Descarte" aplica a
+mudança de verdade no Item (pra Descartado ou Contaminado, você
+escolhe). O status anterior fica registrado sozinho no evento, como
+histórico. Se você não escolher entre Descartado/Contaminado, o
+padrão é Descartado.
+
+**P: O aviso de vencimento/viabilidade baixa manda alguma notificação?**
+R: Não — é só um sinal na tela do próprio item, calculado na hora que
+você olha (não fica desatualizado, mas também não avisa proativamente
+por e-mail ou push).

@@ -138,6 +138,22 @@ original (mantida abaixo) — sem achado novo de campo morto nesta
 revisão; todos os campos de `YeastBankItem` (inclusive os de
 viabilidade) são lidos por `viability_engine.py` ou pela tela.
 
+**Reanálise de eventos (2026-08-24)**: `status` corrigido —
+`@enum_field` mostrava `["pending", "active", "completed", "skipped"]`,
+nenhum dos quais batia com `viability_engine._SKIP_STATUSES`
+(`{"discarded", "contaminated"}`). Achado real: a tela nem deixava
+marcar um item como descartado/contaminado. Corrigido pra
+`[("active","Ativo"), ("discarded","Descartado"), ("contaminated","Contaminado")]`
+— agora bate exatamente com o que o motor de viabilidade espera.
+`_SKIP_STATUSES` simplificado (removidos os sinônimos redundantes
+`"descartado"`/`"retired"`, sem uso real).
+
+`to_dict()` ganhou dois campos **computados, não persistidos**:
+`expiry_alert`/`low_viability_alert` (`viability_engine.compute_alert_flags()`)
+— consultam `YeastBankConfig` do `storage_type` do item a cada
+chamada, nunca ficam desatualizados, mas custam 1 query extra por
+item exibido (mesmo trade-off que `weak_ref_display` já tem hoje).
+
 ### `YeastStarterLog` (starter) — criação via `YeastBankEvent` desde a skill 21
 
 > Tela própria bloqueia criação direta (`block_create`, controller
@@ -185,9 +201,10 @@ viabilidade) são lidos por `viability_engine.py` ou pela tela.
 |---|---|---|
 | `bank_item_id` | `@weak_ref`, obrigatório | Estrutural |
 | `event_type` | `yeast_bank_events_hooks.py::post_create_redirect()` | Catálogo fechado (`@enum_field`): Starter / Contagem de Células / Descarte / Outro — decide o que acontece ao criar |
-| `starter_id` | Preenchido pelo `post_create_redirect` quando `event_type="Starter"` | Somente leitura na tela (`@readonly_fields`) |
-| `cell_count_id` | Preenchido pelo `post_create_redirect` quando `event_type="Contagem de Células"` | Somente leitura na tela (`@readonly_fields`) |
-| `status_before` / `status_after` | — | Texto livre — continua sem gatilho automático a partir de mudança real noutro service (fica pra próxima fase, registrado no BACKLOG) |
+| `starter_id` | Preenchido pelo `post_create_redirect` quando `event_type="Starter"` | Somente leitura na tela **e na API** (`@readonly_fields`) |
+| `cell_count_id` | Preenchido pelo `post_create_redirect` quando `event_type="Contagem de Células"` | Somente leitura na tela **e na API** (`@readonly_fields`) |
+| `status_before` | `post_create_redirect` — capturado automaticamente do `bank_item.status` **antes** da mudança, só quando `event_type="Descarte"` | Somente leitura na tela **e na API** (`@readonly_fields`) — reanálise 2026-08-24, achado real: a proteção original só cobria o formulário |
+| `status_after` | `post_create_redirect` — aplicado de verdade em `bank_item.status` quando `event_type="Descarte"` (padrão `"discarded"` se a pessoa não escolher) | Catálogo fechado (`@enum_field`): mesmas opções de `YeastBankItem.status` (Ativo/Descartado/Contaminado) |
 | `notes` | — | Nota livre |
 
 ### `YeastBankConfig` (configuração por tipo de armazenamento)
