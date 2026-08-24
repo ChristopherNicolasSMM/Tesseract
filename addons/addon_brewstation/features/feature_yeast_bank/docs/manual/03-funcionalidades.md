@@ -10,8 +10,8 @@ Eventos numa tela só, com atalhos pras demais telas.
   tipo de armazenamento, viabilidade estimada e status. Linhas com
   aviso de validade/viabilidade baixa aparecem destacadas.
   - Logo abaixo, um **resumo da cepa**: total de itens, quantos
-    ativos, quantos descartados/contaminados, e a viabilidade média
-    entre eles.
+    ativos, quantos descartados, quantos contaminados (separados),
+    quantos em alerta, e a viabilidade média entre eles.
   - Clicando num item específico da lista, aparece um **detalhe do
     item**: última contagem registrada, a contagem anterior a ela
     (pra comparar a tendência), a viabilidade estimada atual, e uma
@@ -21,8 +21,11 @@ Eventos numa tela só, com atalhos pras demais telas.
     e te leva direto pra edição — sem precisar trocar de aba.
 - **Aba Eventos do Banco**: clique num evento pra ver a cepa, status
   atual em cards, e as contagens de célula daquele item. O botão
-  "Novo Evento" leva pra tela de Eventos do Banco (onde a criação de
-  verdade acontece — Painel é só navegação e consulta).
+  "Novo Evento do Banco" leva pra tela de Eventos do Banco (onde a
+  criação de verdade acontece — Painel é só navegação e consulta).
+  Quando o evento selecionado é do tipo Starter, aparece também o
+  botão "Abrir Starter", levando direto pra edição completa dele
+  (data, volume, objetivo, resultado).
 - **Atalhos** (botões no topo): Dispositivos de Armazenamento e
   Configuração do Banco — abrem as telas próprias delas.
 

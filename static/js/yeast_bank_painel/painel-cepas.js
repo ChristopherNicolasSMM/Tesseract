@@ -68,12 +68,15 @@
     return tr;
   }
 
-  function cardMini(rotulo, valor, cor) {
+  function cardMini(rotulo, valor, cor, icone) {
     return (
       '<div class="col-6 col-lg-3">' +
         '<div class="card ' + (cor || '') + '">' +
           '<div class="card-body py-2">' +
-            '<div class="text-muted small">' + TesseractData.esc(rotulo) + '</div>' +
+            '<div class="text-muted small">' +
+              (icone ? '<i class="bi ' + icone + '"></i> ' : '') +
+              TesseractData.esc(rotulo) +
+            '</div>' +
             '<div class="fs-5">' + valor + '</div>' +
           '</div>' +
         '</div>' +
@@ -87,6 +90,7 @@
     const ativos = itens.filter(function (i) { return i.status === 'active'; }).length;
     const descartados = itens.filter(function (i) { return i.status === 'discarded'; }).length;
     const contaminados = itens.filter(function (i) { return i.status === 'contaminated'; }).length;
+    const emAlerta = itens.filter(function (i) { return i.expiry_alert || i.low_viability_alert; }).length;
 
     const comViabilidade = itens.filter(function (i) {
       return i.estimated_viability_pct !== null && i.estimated_viability_pct !== undefined;
@@ -95,12 +99,22 @@
       ? (comViabilidade.reduce(function (soma, i) { return soma + i.estimated_viability_pct; }, 0) / comViabilidade.length)
       : null;
 
-    let html = '<h6 class="text-muted">Resumo da Cepa</h6><div class="row g-2">';
-    html += cardMini('Total de Itens', total);
-    html += cardMini('Ativos', ativos, 'border-success');
-    html += cardMini('Descartados/Contaminados', descartados + contaminados, (descartados + contaminados) ? 'border-danger' : '');
-    html += cardMini('Viabilidade Média', media !== null ? media.toFixed(1) + '%' : '—');
-    html += '</div>';
+    // Layout revisado (feedback de uso real, 2026-08-24): card
+    // agrupador com título e ícones, Descartados/Contaminados
+    // separados (granularidade melhor que o "somado" da 1ª versão), e
+    // uma 5ª estatística nova (quantos itens em alerta).
+    let html =
+      '<div class="card">' +
+        '<div class="card-body">' +
+          '<h6 class="card-title text-muted mb-3"><i class="bi bi-clipboard-data"></i> Resumo da Cepa</h6>' +
+          '<div class="row g-2">';
+    html += cardMini('Total de Itens', total, '', 'bi-box-seam');
+    html += cardMini('Ativos', ativos, 'border-success', 'bi-check-circle');
+    html += cardMini('Descartados', descartados, descartados ? 'border-secondary' : '', 'bi-trash');
+    html += cardMini('Contaminados', contaminados, contaminados ? 'border-danger' : '', 'bi-exclamation-octagon');
+    html += cardMini('Em Alerta', emAlerta, emAlerta ? 'border-warning' : '', 'bi-bell');
+    html += cardMini('Viabilidade Média', media !== null ? media.toFixed(1) + '%' : '—', '', 'bi-graph-up');
+    html += '</div></div></div>';
     painel.innerHTML = html;
   }
 
@@ -115,18 +129,25 @@
     const ultima = contagensDoItem[0];
     const anterior = contagensDoItem[1];
 
-    let html = '<h6 class="text-muted">Item selecionado</h6><div class="row g-2">';
+    let html =
+      '<div class="card">' +
+        '<div class="card-body">' +
+          '<h6 class="card-title text-muted mb-3"><i class="bi bi-droplet"></i> Item selecionado</h6>' +
+          '<div class="row g-2">';
     html += cardMini(
       'Última Leitura',
       ultima ? (ultima.sample_date || '—') + (ultima.viability_percent !== null && ultima.viability_percent !== undefined ? ' (' + ultima.viability_percent + '%)' : '') : 'Nenhuma',
+      '', 'bi-clock-history',
     );
     html += cardMini(
       'Contagem Anterior',
       anterior ? (anterior.sample_date || '—') + (anterior.viability_percent !== null && anterior.viability_percent !== undefined ? ' (' + anterior.viability_percent + '%)' : '') : '—',
+      '', 'bi-arrow-counterclockwise',
     );
     html += cardMini(
       'Estimativa Atual',
       item.estimated_viability_pct !== null && item.estimated_viability_pct !== undefined ? item.estimated_viability_pct + '%' : '—',
+      '', 'bi-graph-up',
     );
     html += cardMini(
       'Próximo Starter',
@@ -134,6 +155,7 @@
         ? (item.next_starter_days === 0 ? 'Agora' : 'em ' + item.next_starter_days + ' dia(s)')
         : '—',
       item.next_starter_days === 0 ? 'border-warning' : '',
+      'bi-flask',
     );
     html += '</div>';
 
@@ -147,7 +169,9 @@
         '<button type="submit" class="btn btn-sm btn-outline-primary">' +
           '<i class="bi bi-clipboard-plus"></i> Nova Contagem pra este Item' +
         '</button>' +
-      '</form>';
+      '</form>' +
+        '</div>' +  // fecha card-body
+      '</div>';     // fecha card
 
     painel.innerHTML = html;
   }

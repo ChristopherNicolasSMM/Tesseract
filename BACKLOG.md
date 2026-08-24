@@ -4236,3 +4236,29 @@ ajuste — a primeira rodada real de feedback pós-entrega da tela.
 Nenhuma migration necessária — mudança de CSS, JS e campos
 computados, sem alteração de schema.
 
+## Fase 24 — Painel: segunda rodada de feedback (layout do dashboard, legenda, botão Abrir Starter)
+
+- [x] **"Resumo da Cepa" redesenhado**: agrupado num card com título
+      e ícone (`bi-clipboard-data`), Descartados e Contaminados
+      separados (antes somados numa estatística só), estatística nova
+      "Em Alerta" (quantos itens com `expiry_alert`/`low_viability_alert`
+      ativo). Painel "Item selecionado" também agrupado em card, com
+      ícones por estatística, pra ficar visualmente consistente.
+- [x] **Legenda do botão "Novo Evento" → "Novo Evento do Banco"** —
+      mais descritiva, consistente com o título da aba. Interpretação
+      do Christopher pediu ajuste sem especificar o texto exato;
+      registrado explicitamente pra ele confirmar/corrigir se não era
+      essa a direção.
+- [x] **Botão "Abrir Starter"** — achado de uso real: faltava atalho
+      pro Starter em si quando o evento selecionado é desse tipo, só
+      "Abrir Item do Banco" existia. Aparece condicionalmente
+      (`evento.starter_id` presente) ao lado do botão existente,
+      levando pra edição completa do Starter (data, volume, objetivo,
+      resultado).
+- [x] **Testes**: 3 novos (legenda do botão presente, checagem
+      estática do botão condicional no JS — sem navegador neste
+      ambiente, mesma limitação já documentada na Fase 22). Suíte
+      completa: 99 passando, 0 falhas.
+
+Nenhuma migration necessária.
+

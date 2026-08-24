@@ -171,6 +171,27 @@ def test_botao_novo_evento_usa_classe_padrao_do_crudgen(app, client):
     assert 'class="btn btn-sm btn-primary"' not in html
 
 
+def test_botao_novo_evento_tem_legenda_descritiva(app, client):
+    # Feedback de uso real (2026-08-24): legenda ajustada pra ficar
+    # mais descritiva, consistente com o título da aba "Eventos do
+    # Banco".
+    _login_admin(app, client)
+    html = client.get("/brewstation/yeast-bank/painel").get_data(as_text=True)
+    assert "Novo Evento do Banco" in html
+
+
+def test_js_eventos_tem_botao_abrir_starter_condicional():
+    # Feedback de uso real (2026-08-24): faltava atalho pro Starter em
+    # si quando o evento selecionado é desse tipo. Checagem estática
+    # (sem navegador neste ambiente) — confirma que a condição
+    # (evento.starter_id) e a rota certa estão no JS.
+    with open("static/js/yeast_bank_painel/painel-eventos.js", encoding="utf-8") as f:
+        js = f.read()
+    assert "evento.starter_id" in js
+    assert "/brewstation/yeast-starter-logs/" in js
+    assert "Abrir Starter" in js
+
+
 def test_atalho_nova_contagem_cria_registro_vinculado_ao_item(app, client):
     _login_admin(app, client)
     _, item_id = _make_scenario(app, client)

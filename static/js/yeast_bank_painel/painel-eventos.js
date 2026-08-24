@@ -117,6 +117,15 @@
     html += '<a href="/brewstation/yeast-bank-items/' + item.id + '" class="btn btn-sm btn-outline-secondary">' +
       '<i class="bi bi-box-arrow-up-right"></i> Abrir Item do Banco</a>';
 
+    // Achado de uso real (2026-08-24): faltava atalho pro Starter em
+    // si quando o evento selecionado é desse tipo — só "Abrir Item do
+    // Banco" existia, sem levar pra edição completa (data, volume,
+    // objetivo, resultado) do registro que o evento criou.
+    if (evento.starter_id) {
+      html += ' <a href="/brewstation/yeast-starter-logs/' + evento.starter_id + '" class="btn btn-sm btn-outline-info">' +
+        '<i class="bi bi-flask"></i> Abrir Starter</a>';
+    }
+
     painel.innerHTML = html;
   }
 
