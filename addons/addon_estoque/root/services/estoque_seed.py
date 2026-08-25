@@ -29,8 +29,8 @@ def ensure_default_estoque_lookups() -> None:
         db.session.add(Origem(nome=SEED_NOME_A_DEFINIR))
         criado_algo = True
 
-    if not TipoProduto.query.filter_by(nome=SEED_NOME_INSUMO).first():
-        db.session.add(TipoProduto(nome=SEED_NOME_INSUMO))
+    if not TipoProduto.query.filter_by(descricao=SEED_NOME_INSUMO).first():
+        db.session.add(TipoProduto(descricao=SEED_NOME_INSUMO))
         criado_algo = True
 
     if criado_algo:
@@ -54,9 +54,9 @@ def get_or_create_origem_a_definir() -> Origem:
 
 def get_or_create_tipo_produto_insumo() -> TipoProduto:
     """Ver get_or_create_origem_a_definir - mesmo raciocínio."""
-    obj = TipoProduto.query.filter_by(nome=SEED_NOME_INSUMO).first()
+    obj = TipoProduto.query.filter_by(descricao=SEED_NOME_INSUMO).first()
     if not obj:
-        obj = TipoProduto(nome=SEED_NOME_INSUMO)
+        obj = TipoProduto(descricao=SEED_NOME_INSUMO)
         db.session.add(obj)
         db.session.flush()
     return obj

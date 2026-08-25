@@ -14,19 +14,20 @@ from datetime import datetime, timezone
 from core.db import db
 from annotations import label, plural, required, max_length
 
-SEED_NOME_INSUMO = "Insumo"
 
+SEED_NOME_INSUMO = "Insumo"
 
 @label("Tipo de Produto")
 @plural("tipo_produtos")
-@required("nome", message="Nome do tipo de produto é obrigatório")
-@max_length("nome", 100)
+@required("descricao", message="Descricao do tipo de produto é obrigatório")
+@max_length("descricao", 100)
 class TipoProduto(db.Model):
     __tablename__ = "tipo_produto"
 
     id = db.Column(db.Integer, primary_key=True)
 
-    nome = db.Column(db.String(100), unique=True, nullable=False)
+    descricao = db.Column(db.String(100), unique=True, nullable=False)
+    codigo = db.Column(db.String(20), unique=True, nullable=False)
 
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
@@ -42,7 +43,8 @@ class TipoProduto(db.Model):
     def to_dict(self) -> dict:
         return {
             "id": self.id,
-            "nome": self.nome,
+            "descricao": self.descricao,
+            "codigo": self.codigo,
             "is_deleted": self.is_deleted,
             "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -50,4 +52,4 @@ class TipoProduto(db.Model):
         }
 
     def __repr__(self) -> str:
-        return f"<TipoProduto {self.nome}>"
+        return f"<TipoProduto {self.descricao}>"

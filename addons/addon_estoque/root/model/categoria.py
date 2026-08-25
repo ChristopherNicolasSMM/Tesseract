@@ -15,14 +15,15 @@ from annotations import label, plural, required, max_length
 
 @label("Categoria")
 @plural("categorias")
-@required("nome", message="Nome da categoria é obrigatório")
-@max_length("nome", 100)
+@required("descricao", message="Descricao da categoria é obrigatório")
+@max_length("descricao", 100)
 class Categoria(db.Model):
     __tablename__ = "categoria"
 
     id = db.Column(db.Integer, primary_key=True)
 
-    nome = db.Column(db.String(100), unique=True, nullable=False)
+    descricao = db.Column(db.String(100), unique=True, nullable=False)
+    codigo = db.Column(db.String(20), unique=True, nullable=False)
 
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
@@ -38,7 +39,8 @@ class Categoria(db.Model):
     def to_dict(self) -> dict:
         return {
             "id": self.id,
-            "nome": self.nome,
+            "descricao" : self.descricao,
+            "codigo"    : self.codigo,
             "is_deleted": self.is_deleted,
             "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -46,4 +48,4 @@ class Categoria(db.Model):
         }
 
     def __repr__(self) -> str:
-        return f"<Categoria {self.nome}>"
+        return f"<Categoria {self.descricao}>"
