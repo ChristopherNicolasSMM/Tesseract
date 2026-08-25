@@ -42,7 +42,6 @@ def test_todas_as_tabelas_de_yeast_bank_existem_com_prefixo_correto(app):
         "tesseract_brewstation_yeastbank_strain",
         "tesseract_brewstation_yeastbank_storage_device",
         "tesseract_brewstation_yeastbank_bank_item",
-        "tesseract_brewstation_yeastbank_starter_log",
         "tesseract_brewstation_yeastbank_cell_count_history",
         "tesseract_brewstation_yeastbank_bank_event",
         "tesseract_brewstation_yeastbank_bank_config",
@@ -53,14 +52,14 @@ def test_todas_as_tabelas_de_yeast_bank_existem_com_prefixo_correto(app):
         assert esperado.issubset(existentes)
 
 
-def test_permissoes_camada_1_existem_para_todas_as_7_entidades_novas(app):
+def test_permissoes_camada_1_existem_para_todas_as_6_entidades_novas(app):
     from model.core.permission import Permission
 
     with app.app_context():
         nomes = {p.name for p in Permission.query.all()}
         plurals = [
             "yeast_storage_devices", "yeast_bank_items",
-            "yeast_starter_logs", "yeast_cell_count_histories", "yeast_bank_events",
+            "yeast_cell_count_histories", "yeast_bank_events",
             "yeast_bank_configs", "yeast_containers",
         ]
         for plural in plurals:
@@ -69,7 +68,7 @@ def test_permissoes_camada_1_existem_para_todas_as_7_entidades_novas(app):
 
 
 def test_cadeia_de_fk_strain_device_container_item_starter_via_http(app, client):
-    # Cadeia pós skill 19: strain + device -> container -> item -> starter_log
+    # Cadeia pós skill 19: strain + device -> container -> item -> evento
     # (bank_item não referencia mais storage_device_id diretamente, ver
     # docs/skills/19-proposta-reestruturacao-yeast-bank-container.md).
     _login_admin(app, client)
@@ -102,23 +101,17 @@ def test_cadeia_de_fk_strain_device_container_item_starter_via_http(app, client)
     # FK resolvida E serializada — confirma relationship() funcionando, não só a coluna
     assert item_data["strain"]["name"] == "US-05"
 
+    # skill 22: Starter foi fundido em YeastBankEvent — não existe mais
+    # tabela/tela separada, os campos (target_volume_l, objective etc.)
+    # ficam direto no evento quando event_type="Starter".
     r = client.post(
         "/api/brewstation/yeast-bank-events/",
-        json={"bank_item_id": item_id, "event_type": "Starter"},
+        json={"bank_item_id": item_id, "event_type": "Starter", "objective": "propagacao"},
     )
     assert r.status_code == 201
     event_data = r.get_json()["item"]
     assert event_data["bank_item_id"] == item_id
-    # skill 21: criar evento tipo Starter cria o YeastStarterLog
-    # automaticamente e vincula via starter_id — não existe mais
-    # criação direta de Starter (bloqueada por block_create).
-    assert event_data["starter_id"] is not None
-
-    r = client.post(
-        "/api/brewstation/yeast-starter-logs/",
-        json={"bank_item_id": item_id, "objective": "propagacao"},
-    )
-    assert r.status_code != 201  # criação direta bloqueada (skill 21)
+    assert event_data["objective"] == "propagacao"
 
 
 def test_bank_config_eh_um_crud_normal_sem_fk(app, client):

@@ -4,10 +4,18 @@ addons/addon_brewstation/features/feature_yeast_bank/controller/yeast_bank_event
 Criado UMA ÚNICA VEZ pelo CrudGen — nunca sobrescrito.
 
 `post_create_redirect` (skill 21, estendido na reanálise de
-2026-08-24): quando o evento é do tipo "Starter" ou "Contagem de
-Células", cria automaticamente o registro especializado (vinculado ao
-mesmo `bank_item_id` do evento), atualiza o evento com a FK do
-registro criado e redireciona a pessoa direto pra tela de edição dele.
+2026-08-24, revisado na skill 22): quando o evento é do tipo
+"Contagem de Células", cria automaticamente o registro especializado
+(vinculado ao mesmo `bank_item_id` do evento, e agora também ao
+próprio evento via `bank_event_id` — skill 22), atualiza o evento com
+a FK do registro criado e redireciona a pessoa direto pra tela de
+edição dele.
+
+"Starter" (skill 22): deixou de criar registro separado — os campos
+específicos (`brew_date`, `target_volume_l`, etc.) já fazem parte do
+próprio evento (`YeastStarterLog` foi fundida em `YeastBankEvent`).
+Sem redirecionamento nesse caso, mesmo comportamento de
+"Descarte"/"Outro".
 
 Quando o tipo é "Descarte", aplica a transição de verdade no
 `YeastBankItem` vinculado — captura o status atual do item em
@@ -23,26 +31,12 @@ _DEFAULT_DISCARD_STATUS = "discarded"
 
 
 def post_create_redirect(event):
-    if event.event_type == "Starter":
-        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_starter_log import (
-            YeastStarterLog,
-        )
-
-        starter = YeastStarterLog(bank_item_id=event.bank_item_id)
-        db.session.add(starter)
-        db.session.flush()  # garante starter.id sem fechar a transação ainda
-
-        event.starter_id = starter.id
-        db.session.commit()
-
-        return redirect(url_for("yeast_starter_logs.detail", id=starter.id))
-
     if event.event_type == "Contagem de Células":
         from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_cell_count_history import (
             YeastCellCountHistory,
         )
 
-        count = YeastCellCountHistory(bank_item_id=event.bank_item_id)
+        count = YeastCellCountHistory(bank_item_id=event.bank_item_id, bank_event_id=event.id)
         db.session.add(count)
         db.session.flush()
 

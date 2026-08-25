@@ -111,14 +111,14 @@ def best_viability_reference_for_item(item) -> dict | None:
     Prioridade:
     1. Histórico real (`YeastCellCountHistory.viability_percent`) mais recente.
     2. Histórico estimado (`YeastCellCountHistory.estimated_viability_percent`) mais recente.
-    3. Starter (`YeastStarterLog.result_viability_percent`) mais recente.
+    3. Starter (`YeastBankEvent.result_viability_percent`, `event_type="Starter"` — skill 22, campo fundido do antigo `YeastStarterLog`) mais recente.
     4. Valor inicial de referência da cepa (`YeastStrain.initial_reference_viability_pct`).
 
     Todas as consultas excluem registros com `contamination_detected=True`
     — uma leitura contaminada não é uma referência confiável de viabilidade.
     """
     from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_cell_count_history import YeastCellCountHistory
-    from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_starter_log import YeastStarterLog
+    from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_event import YeastBankEvent
 
     hist_real = (
         YeastCellCountHistory.query
@@ -155,13 +155,14 @@ def best_viability_reference_for_item(item) -> dict | None:
         }
 
     starter = (
-        YeastStarterLog.query
+        YeastBankEvent.query
         .filter(
-            YeastStarterLog.bank_item_id == item.id,
-            YeastStarterLog.result_viability_percent.isnot(None),
-            YeastStarterLog.contamination_detected.is_(False),
+            YeastBankEvent.bank_item_id == item.id,
+            YeastBankEvent.event_type == "Starter",
+            YeastBankEvent.result_viability_percent.isnot(None),
+            YeastBankEvent.contamination_detected.is_(False),
         )
-        .order_by(YeastStarterLog.start_date.desc(), YeastStarterLog.created_at.desc())
+        .order_by(YeastBankEvent.start_date.desc(), YeastBankEvent.created_at.desc())
         .first()
     )
     if starter:

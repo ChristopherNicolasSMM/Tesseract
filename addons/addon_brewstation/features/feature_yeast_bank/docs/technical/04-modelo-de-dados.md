@@ -10,17 +10,24 @@
 > via `bank_item.strain`) e `starter_id` removido de
 > `cell_count_history` (contagem é sempre do item, sem distinguir se
 > veio de um starter).
+>
+> **Skill 22 (2026-08-24)**: `YeastStarterLog` (`starter_log`)
+> **removida** — decisão do Christopher (opção B: fusão total, entre
+> as duas apresentadas) de fundir os campos do Starter direto em
+> `YeastBankEvent` (só preenchidos quando `event_type="Starter"`).
+> `YeastCellCountHistory` ganhou `bank_event_id` (rastreia qual evento
+> originou a contagem) e campos brutos de entrada da câmara de
+> Neubauer, calculados automaticamente via hook.
 
 ```mermaid
 erDiagram
     tesseract_brewstation_yeastbank_strain ||--o{ tesseract_brewstation_yeastbank_bank_item : "tem"
     tesseract_brewstation_yeastbank_storage_device ||--o{ tesseract_brewstation_yeastbank_container : "contém"
     tesseract_brewstation_yeastbank_container ||--o{ tesseract_brewstation_yeastbank_bank_item : "armazena"
-    tesseract_brewstation_yeastbank_bank_item ||--o{ tesseract_brewstation_yeastbank_starter_log : "origina"
     tesseract_brewstation_yeastbank_bank_item ||--o{ tesseract_brewstation_yeastbank_cell_count_history : "origina"
     tesseract_brewstation_yeastbank_bank_item ||--o{ tesseract_brewstation_yeastbank_bank_event : "origina"
-    tesseract_brewstation_yeastbank_bank_event |o--o| tesseract_brewstation_yeastbank_starter_log : "cria automaticamente (event_type=Starter)"
     tesseract_brewstation_yeastbank_bank_event |o--o| tesseract_brewstation_yeastbank_cell_count_history : "cria automaticamente (event_type=Contagem)"
+    tesseract_brewstation_yeastbank_bank_event |o--o{ tesseract_brewstation_yeastbank_cell_count_history : "origem (bank_event_id)"
 
     tesseract_brewstation_yeastbank_strain {
         int id PK
@@ -53,24 +60,30 @@ erDiagram
         float estimated_viability_pct
         bool is_deleted
     }
-    tesseract_brewstation_yeastbank_starter_log {
-        int id PK
-        int bank_item_id FK "obrigatório — criação direta bloqueada, só via bank_event"
-        string status
-        bool contamination_detected
-    }
     tesseract_brewstation_yeastbank_cell_count_history {
         int id PK
         int bank_item_id FK "obrigatório"
-        float cells_per_ml
+        int bank_event_id FK "opcional — qual evento originou (skill 22)"
+        int cells_counted_live "bruto de Neubauer (skill 22)"
+        int cells_counted_dead "bruto de Neubauer (skill 22)"
+        int squares_counted "bruto de Neubauer, default 5 (skill 22)"
+        float dilution_factor "bruto de Neubauer, default 1 (skill 22)"
+        float cells_per_ml "calculado automaticamente se bruto presente"
         float viability_percent
     }
     tesseract_brewstation_yeastbank_bank_event {
         int id PK
         int bank_item_id FK "obrigatório"
         string event_type "Starter / Contagem de Células / Descarte / Outro"
-        int starter_id FK "preenchido só pelo fluxo automático"
         int cell_count_id FK "preenchido só pelo fluxo automático"
+        date brew_date "só Starter (skill 22 — fundido de starter_log)"
+        date start_date "só Starter"
+        float target_volume_l "só Starter"
+        string objective "só Starter"
+        string starter_status "só Starter — nome != status_before/after"
+        float result_viability_percent "só Starter"
+        float estimated_cells_per_ml "só Starter (skill 22, novo)"
+        bool contamination_detected "só Starter"
     }
     tesseract_brewstation_yeastbank_bank_config {
         int id PK
@@ -165,58 +178,62 @@ ficam desatualizados, mas custam 1 query extra por item exibido
   agendamento. `None` quando não há config, nem `alert_min_viability_pct`,
   nem decaimento disponível (nem config nem cepa) pra calcular.
 
-### `YeastStarterLog` (starter) — criação via `YeastBankEvent` desde a skill 21
+### `YeastCellCountHistory` (histórico de contagem) — Neubauer + rastreio de evento (skill 22)
 
-> Tela própria bloqueia criação direta (`block_create`, controller
-> hook) — só nasce a partir de um `YeastBankEvent` tipo "Starter".
-> Edição/consulta de registros já existentes continua normal.
-
-| Campo | Consumido por | Observação |
-|---|---|---|
-| `bank_item_id` | FK real + `@weak_ref` | Estrutural |
-| `brew_date` / `start_date` | `viability_engine` (`start_date`, como data de referência) | `start_date` usado; `brew_date` informativo |
-| `target_volume_l` | — | Informativo |
-| `objective` | — | Informativo |
-| `notes` | — | Nota livre |
-| `status` | — | Livre (`planned`/outros) — sem máquina de estado, sem gatilho |
-| `result_viability_percent` | `viability_engine.best_viability_reference_for_item()` | Usado de verdade — 3ª prioridade de referência |
-| `contamination_detected` | `viability_engine` | Usado de verdade — exclui o registro como referência válida |
-
-### `YeastCellCountHistory` (histórico de contagem) — redesenhado na skill 21
-
-> `strain_id` e `starter_id` removidos (decisão do Christopher:
-> contagem é sempre do item, sem distinguir se veio de um starter;
-> cepa sempre resolvida via `bank_item.strain`). `bank_item_id` agora
-> obrigatório.
+> `strain_id` e `starter_id` removidos na skill 21 (contagem é sempre
+> do item; cepa via `bank_item.strain`). `bank_item_id` obrigatório.
+> Skill 22: `bank_event_id` novo (rastreia qual evento originou a
+> contagem, preenchido só pelo fluxo automático — `@readonly_fields`)
+> e campos brutos de entrada da câmara de Neubauer, com cálculo
+> automático via hook (`yeast_cell_count_history_service_hooks.py`).
 
 | Campo | Consumido por | Observação |
 |---|---|---|
 | `bank_item_id` | FK real + `@weak_ref`, obrigatório | Estrutural |
+| `bank_event_id` | Preenchido pelo `post_create_redirect` do evento | Somente leitura na tela **e na API** (`@readonly_fields`) |
 | `sample_date` | `viability_engine` | Usado — ordena qual histórico é "mais recente" |
 | `lot_code` | — | Informativo |
-| `cells_per_ml` / `viable_cells_per_ml` | — | Dado bruto de contagem — informativo, não entra na fórmula de viabilidade (só os dois campos de `_percent` abaixo entram) |
-| `viability_percent` | `viability_engine.best_viability_reference_for_item()` | Usado de verdade — 1ª prioridade de referência (histórico real) |
+| `cells_counted_live` / `cells_counted_dead` | `_calcular_neubauer()` (hook) | Entrada bruta — soma das células vivas/mortas contadas nos quadrados da câmara |
+| `squares_counted` | `_calcular_neubauer()` | Default 5 (prática padrão: 4 cantos + centro dos 25 quadrados médios) |
+| `dilution_factor` | `_calcular_neubauer()` | Default 1 — fator de diluição da amostra antes de contar |
+| `cells_per_ml` / `viability_percent` / `viable_cells_per_ml` | `viability_engine.best_viability_reference_for_item()` (os 2 primeiros) | Calculados automaticamente a partir dos brutos **só se ainda vazios** (nunca sobrescreve valor informado manualmente) — fórmula: `(vivas+mortas) × (25/quadrados) × diluição × 10.000`; `viabilidade% = vivas×100/(vivas+mortas)` |
 | `estimated_viability_percent` | `viability_engine` | Usado de verdade — 2ª prioridade (histórico estimado) |
 | `contamination_detected` | `viability_engine` | Usado de verdade — exclui o registro como referência |
 | `notes` | — | Nota livre |
 
-### `YeastBankEvent` (evento) — redesenhado na skill 21
+### `YeastBankEvent` (evento) — Starter fundido (skill 22)
 
 > Ponto de entrada único da linha do tempo. `strain_id` removido
-> (resolvido via `bank_item.strain`); `starter_id`/`cell_count_id`
-> preenchidos só pelo fluxo automático (`post_create_redirect`,
-> controller hook), nunca escolhidos manualmente
-> (`@readonly_fields`).
+> (resolvido via `bank_item.strain`); `cell_count_id` preenchido só
+> pelo fluxo automático (`post_create_redirect`), nunca escolhido
+> manualmente (`@readonly_fields`).
+>
+> **Skill 22**: `YeastStarterLog` foi fundida aqui — decisão do
+> Christopher (opção B, fusão total). Os campos abaixo marcados "só
+> Starter" só fazem sentido quando `event_type="Starter"`, preenchidos
+> no próprio formulário do evento, **sem redirecionar** pra tela
+> nenhuma (diferente de "Contagem de Células", que continua criando
+> `YeastCellCountHistory` e redirecionando — a assimetria é
+> deliberada: Contagem tem estrutura própria o bastante (campos de
+> Neubauer) pra justificar tabela separada, Starter não tinha).
+> `starter_status` e não `status`: evitar colisão semântica com
+> `status_before`/`status_after` (que já existem aqui pra outra
+> coisa — transição do Item quando o evento é Descarte).
 
 | Campo | Consumido por | Observação |
 |---|---|---|
 | `bank_item_id` | `@weak_ref`, obrigatório | Estrutural |
 | `event_type` | `yeast_bank_events_hooks.py::post_create_redirect()` | Catálogo fechado (`@enum_field`): Starter / Contagem de Células / Descarte / Outro — decide o que acontece ao criar |
-| `starter_id` | Preenchido pelo `post_create_redirect` quando `event_type="Starter"` | Somente leitura na tela **e na API** (`@readonly_fields`) |
 | `cell_count_id` | Preenchido pelo `post_create_redirect` quando `event_type="Contagem de Células"` | Somente leitura na tela **e na API** (`@readonly_fields`) |
-| `status_before` | `post_create_redirect` — capturado automaticamente do `bank_item.status` **antes** da mudança, só quando `event_type="Descarte"` | Somente leitura na tela **e na API** (`@readonly_fields`) — reanálise 2026-08-24, achado real: a proteção original só cobria o formulário |
+| `status_before` | `post_create_redirect` — capturado automaticamente do `bank_item.status` **antes** da mudança, só quando `event_type="Descarte"` | Somente leitura na tela **e na API** (`@readonly_fields`) |
 | `status_after` | `post_create_redirect` — aplicado de verdade em `bank_item.status` quando `event_type="Descarte"` (padrão `"discarded"` se a pessoa não escolher) | Catálogo fechado (`@enum_field`): mesmas opções de `YeastBankItem.status` (Ativo/Descartado/Contaminado) |
 | `notes` | — | Nota livre |
+| `brew_date` / `start_date` | `viability_engine` (`start_date`, como data de referência) — só Starter | `start_date` usado; `brew_date` informativo |
+| `target_volume_l` / `objective` | — (só Starter) | Informativo |
+| `starter_status` | — (só Starter) | Livre (`planned`/outros) — sem máquina de estado, sem gatilho |
+| `result_viability_percent` | `viability_engine.best_viability_reference_for_item()` — só Starter | Usado de verdade — 3ª prioridade de referência |
+| `estimated_cells_per_ml` | — (só Starter) | Novo na skill 22 — estimativa rápida, sem os campos brutos completos de Neubauer (isso fica pra Contagem de Células) |
+| `contamination_detected` | `viability_engine` — só Starter | Usado de verdade — exclui o registro como referência válida |
 
 ### `YeastBankConfig` (configuração por tipo de armazenamento)
 
@@ -233,8 +250,8 @@ ficam desatualizados, mas custam 1 query extra por item exibido
 | `storage_type` | `viability_engine.recalculate_all()`, `yeast_bank_item_service_hooks.py` | Único por linha ativa (índice único parcial, `WHERE is_deleted = 0` — uma linha na lixeira não bloqueia recriar o tipo) |
 | `daily_viability_loss_pct` | `viability_engine.recalculate_all()` | Quando preenchido, **SUBSTITUI** (não combina com) o `daily_viability_loss_pct` da `YeastStrain` do item — decisão explícita do Christopher. `correction_factor`/`floor_pct` continuam vindo sempre da cepa |
 | `expiry_days` | `yeast_bank_item_service_hooks.py::_auto_fill_expiry_date()` | Preenche `YeastBankItem.expiry_date` automaticamente (`prepared_date + expiry_days`) **só quando `expiry_date` ainda está vazio** — nunca sobrescreve valor informado manualmente |
-| `alert_days_before_expiry` | — | Limite cadastrado, mas a lógica de disparo/notificação ainda não existe — fase própria (mesmo tema do achado "`YeastBankEvent` não é gerado automaticamente", registrado no BACKLOG) |
-| `alert_min_viability_pct` | — | Mesmo caso acima — limite existe, disparo ainda não |
+| `alert_days_before_expiry` | `viability_engine.compute_alert_flags()`, `to_dict()` do item | Usado — vira `expiry_alert` no item, sinalizado visualmente no Painel (Fase 21). Sem notificação proativa (e-mail/push) — só sinal na tela |
+| `alert_min_viability_pct` | `viability_engine.compute_alert_flags()`, `to_dict()` do item | Idem — vira `low_viability_alert`, e também alimenta `next_starter_days`/`next_starter_date` (estimativa de quando propagar, achado de uso real do Painel) |
 
 ## Colunas não óbvias (registro histórico, mantido)
 

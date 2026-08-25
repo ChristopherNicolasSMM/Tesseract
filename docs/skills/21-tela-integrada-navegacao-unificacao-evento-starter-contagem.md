@@ -1,10 +1,21 @@
 # 21 — Proposta: Tela integrada de navegação + unificação Evento/Starter/Contagem
 
-> **Status: [EXECUTADO] por completo (2026-08-24).** Fecha o item 2 da
-> sequência definida pelo Christopher (BACKLOG, após as Fases 14–19).
-> Convenção de status igual às skills 05/19 — **[DECIDIDO]** fechado e
-> pronto pra executar quando autorizado, **[EXECUTADO]** já no código,
-> **[ABERTO]** ainda sem decisão.
+> **Status: [EXECUTADO] por completo (2026-08-24), seção 1 parcialmente
+> SUPERADA pela skill 22 (2026-08-24, mesmo dia — Christopher testou
+> de verdade e reconsiderou).** `YeastStarterLog` — descrita nesta
+> skill como tabela especializada criada automaticamente — foi
+> **removida por completo** na skill 22: os campos migraram direto
+> pra `YeastBankEvent`, sem tabela própria. Seções 1.3/1.4 e o
+> diagrama da seção 3 abaixo descrevem o desenho **anterior**,
+> mantidos como registro histórico do raciocínio (mesma convenção da
+> skill 04/05) — pra entender o Starter como é hoje, ver skill 22.
+> Seção 2 (`YeastStorageReading` removida) e o restante seguem válidos
+> sem mudança.
+>
+> Fecha o item 2 da sequência definida pelo Christopher (BACKLOG, após
+> as Fases 14–19). Convenção de status igual às skills 05/19 —
+> **[DECIDIDO]** fechado e pronto pra executar quando autorizado,
+> **[EXECUTADO]** já no código, **[ABERTO]** ainda sem decisão.
 >
 > A unificação de schema/fluxo (seções 1 e 2 — `YeastBankEvent` como
 > ponto de entrada único, remoção de `YeastStorageReading`, hooks de

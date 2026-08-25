@@ -23,9 +23,10 @@ Eventos numa tela só, com atalhos pras demais telas.
   atual em cards, e as contagens de célula daquele item. O botão
   "Novo Evento do Banco" leva pra tela de Eventos do Banco (onde a
   criação de verdade acontece — Painel é só navegação e consulta).
-  Quando o evento selecionado é do tipo Starter, aparece também o
-  botão "Abrir Starter", levando direto pra edição completa dele
-  (data, volume, objetivo, resultado).
+  Quando o evento selecionado é do tipo Starter, os campos dele
+  (data de início, volume alvo, objetivo, status, viabilidade
+  resultante, estimativa de células) aparecem direto no card — não
+  tem tela separada pra abrir, é tudo no próprio evento.
 - **Atalhos** (botões no topo): Dispositivos de Armazenamento e
   Configuração do Banco — abrem as telas próprias delas.
 
@@ -88,30 +89,35 @@ olhar a lista.
 Ponto de entrada pra registrar o que acontece com um item — todo
 evento novo nasce aqui. Ao criar um evento, você escolhe o tipo:
 
-- **Starter** — cria automaticamente um novo registro de Starter
-  vinculado e já te leva direto pra tela dele, pra você preencher os
-  detalhes (data, volume, objetivo).
-- **Contagem de Células** — mesma ideia, mas cria e abre um registro
-  de Contagem.
+- **Starter** — os campos da propagação (data de início, volume alvo,
+  objetivo, status, viabilidade resultante, estimativa de células)
+  ficam direto no próprio evento — não existe mais uma tela separada
+  de "Starter", é tudo aqui.
+- **Contagem de Células** — cria automaticamente um registro de
+  Contagem vinculado e já te leva direto pra tela dele, pra você
+  preencher a contagem (veja "Contagens de Célula" abaixo).
 - **Descarte** — muda o status do Item de verdade (pra Descartado ou
   Contaminado, você escolhe qual). O status anterior é registrado
   sozinho no evento, como histórico.
 - **Outro** — fica só no próprio evento, com observações, sem mudar
   nada no item.
 
-Starters e Contagens **não têm mais botão de criação direto nas suas
-próprias telas** — nascem sempre a partir de um Evento do Banco. Você
-ainda pode editar/consultar um Starter ou Contagem já existente
-normalmente, só a criação passa por aqui.
-
-## Starters
-
-Cada starter (propagação) feito com uma cepa — nasce a partir de um
-Evento do Banco tipo "Starter" (veja acima). Serve tanto de histórico
-quanto de referência pro cálculo de viabilidade quando não há uma
-contagem de célula real disponível.
+Contagens de Célula **não têm mais botão de criação direto na própria
+tela** — nascem sempre a partir de um Evento do Banco tipo "Contagem
+de Células". Você ainda pode editar/consultar uma contagem já
+existente normalmente, só a criação passa por aqui.
 
 ## Contagens de Célula
+
+Registro de uma contagem real — nasce a partir de um Evento do Banco
+tipo "Contagem de Células". É a fonte mais confiável pro cálculo de
+viabilidade, quando disponível.
+
+Se você usa câmara de Neubauer, dá pra digitar direto o que contou
+(células vivas, células mortas, quantos quadrados usou, fator de
+diluição) e o sistema calcula sozinho células/mL e % de viabilidade —
+sem precisar fazer a conta na mão. Se preferir, ainda dá pra digitar
+o resultado final direto, sem passar pelos campos brutos.
 
 Registro de uma contagem real (ao microscópio, por exemplo) — nasce a
 partir de um Evento do Banco tipo "Contagem de Células". É a fonte

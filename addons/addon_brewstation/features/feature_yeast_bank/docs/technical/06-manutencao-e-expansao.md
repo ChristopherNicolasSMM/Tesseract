@@ -8,14 +8,15 @@
 
 ## Migrar o restante do `yeast_bank` (Fase 5b)
 
-Ordem sugerida, da tabela mais independente para a mais dependente:
+Ordem sugerida, da tabela mais independente para a mais dependente
+(registro histórico da migração original — Fase 5/5b; algumas
+entidades citadas abaixo já mudaram de forma desde então, ver
+`04-modelo-de-dados.md` pro estado atual):
 
 1. `YeastStorageDevice` (sem FK para nada novo)
-2. `YeastStorageReading` (FK para `YeastStorageDevice`)
-3. `YeastBankItem` (FK para `YeastStrain` e `YeastStorageDevice`)
-4. `YeastStarterLog` (FK para `YeastBankItem`)
-5. `YeastCellCountHistory`, `YeastBankEvent` (FK opcionais para várias)
-6. `YeastBankConfig` (sem FK, é configuração)
+2. `YeastBankItem` (FK para `YeastStrain` e `YeastContainer`)
+3. `YeastCellCountHistory`, `YeastBankEvent` (FK opcionais/obrigatórias para várias — `YeastStarterLog` foi fundida em `YeastBankEvent` na skill 22)
+4. `YeastBankConfig` (sem FK, é configuração)
 
 Cada uma segue o mesmo processo: anotar, `generate`, preencher docs.
 

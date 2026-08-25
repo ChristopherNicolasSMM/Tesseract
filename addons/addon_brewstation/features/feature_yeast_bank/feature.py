@@ -70,15 +70,6 @@ class FeatureYeastBank(FeatureBase):
                 "permission_required": "yeast_storage_devices.list",
             },
             {
-                "code": "TX_YEAST_STARTER_LOGS",
-                "label": "Starters",
-                "parent_code": "TX_GROUP_YEAST_BANK",
-                "description": "Propagação/starters realizados a partir de um item do banco.",
-                "icon": "bi-flask",
-                "route": "/brewstation/yeast-starter-logs",
-                "permission_required": "yeast_starter_logs.list",
-            },
-            {
                 "code": "TX_YEAST_CELL_COUNT_HISTORIES",
                 "label": "Contagens de Células",
                 "parent_code": "TX_GROUP_YEAST_BANK",

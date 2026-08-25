@@ -14,10 +14,16 @@ from typing import Any
 
 from core.db import db
 from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_cell_count_history import YeastCellCountHistory
+from annotations import get_readonly_fields
 
 logger = logging.getLogger(__name__)
 
-_READONLY = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"}
+# Achado real (reanálise de eventos, 2026-08-24): @readonly_fields só
+# protegia o formulário gerado (controller.py.j2) — a camada de
+# serviço aceitava e aplicava o campo normalmente se alguém mandasse
+# via API/JSON direto, contornando a proteção da tela. Mesma fonte
+# (get_readonly_fields do model) protege os dois lugares agora.
+_READONLY = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"} | get_readonly_fields(YeastCellCountHistory)
 
 try:
     from addons.addon_brewstation.features.feature_yeast_bank.services import yeast_cell_count_history_service_hooks as _hooks

@@ -4291,3 +4291,68 @@ Christopher testou de novo e achou 2 problemas reais.
       nas Fases 22/24). Suíte completa: 101 passando, 0 falhas.
 
 Nenhuma migration necessária.
+
+## Fase 26 — Fusão Starter/BankEvent + campos de Neubauer (skill 22 — implementada)
+
+Christopher, usando o Painel de verdade, trouxe uma reconsideração de
+schema além do que a skill 21 já tinha fechado: "a contagem não
+depende de starter + o starter deverá ter estimativa de contagem" —
+confirma a decisão de remover `starter_id` de `CellCountHistory`
+(skill 21), mas expõe que a estrutura de 3 tabelas (Event/Starter/
+CellCount) ficou mais pesada do que o uso real pedia.
+
+- [x] **Pesquisa de domínio**: câmara de Neubauer — área central 1mm²
+      × 0,1mm de altura (0,1mm³), 25 quadrados médios, prática padrão
+      conta 5 (4 cantos + centro) e extrapola. Fórmula confirmada:
+      células/mL = (vivas+mortas) × (25/quadrados) × diluição ×
+      10.000; viabilidade% = vivas×100/(vivas+mortas).
+- [x] **`YeastStarterLog` removida, fundida em `YeastBankEvent`**
+      (decisão do Christopher: opção B — fusão total, entre as duas
+      apresentadas). Campos novos em `bank_event`: `brew_date`,
+      `start_date`, `target_volume_l`, `objective`, `starter_status`
+      (nome != `status_before`/`status_after`, que já significavam
+      outra coisa), `result_viability_percent`,
+      `estimated_cells_per_ml` (novo — estimativa rápida, sem os
+      campos brutos completos de Neubauer), `contamination_detected`.
+      Criar evento tipo "Starter" não redireciona mais pra tela
+      nenhuma (mesmo comportamento de Descarte/Outro) — os campos já
+      estão no próprio evento.
+- [x] **`YeastCellCountHistory` ganha `bank_event_id`** (rastreia qual
+      evento originou a contagem) **e campos brutos de Neubauer**
+      (`cells_counted_live`/`_dead`, `squares_counted` default 5,
+      `dilution_factor` default 1) — hook calcula
+      `cells_per_ml`/`viability_percent`/`viable_cells_per_ml`
+      automaticamente quando os brutos vêm preenchidos e o resultado
+      ainda está vazio (nunca sobrescreve valor manual).
+- [x] **Achado real durante a implementação**: com `bank_event_id`
+      novo, existem 2 caminhos de FK entre `bank_event`↔
+      `cell_count_history` (o antigo `cell_count_id` e o novo
+      `bank_event_id`) — SQLAlchemy não conseguia decidir sozinho o
+      relationship (`AmbiguousForeignKeysError`). Corrigido com
+      `foreign_keys` explícito.
+- [x] **3 migrations Alembic**, testadas com dados reais: passo 1/3
+      adiciona os campos novos em `bank_event` **e migra dado
+      existente** (todo `bank_event` com `starter_id` preenchido tem
+      os campos do `starter_log` correspondente copiados antes de
+      remover a coluna) — testado com um Starter real criado no
+      estado antigo, confirmado migrado certinho (`target_volume_l`,
+      `objective`, `starter_status`, `result_viability_percent`
+      todos preservados). Passo 2/3 adiciona `bank_event_id` +
+      campos de Neubauer em `cell_count_history`. Passo 3/3 remove
+      `starter_log`. `flask db migrate` final confirmou "No changes
+      in schema detected" (com um aviso benigno de FK circular entre
+      as duas tabelas — não afeta `create_all()`/migrations reais,
+      só a heurística de ordenação do autogenerate).
+- [x] **Testes**: 8 testes antigos que dependiam de `YeastStarterLog`
+      corrigidos (tabela de permissões, cadeia de FK, checkbox,
+      prioridade de referência, criação de evento). 5 testes novos
+      (Starter não redireciona, cálculo de Neubauer, não sobrescreve
+      resultado manual, sem bruto não calcula nada, contagem se
+      vincula ao evento de origem). Suíte completa: 150 passando,
+      0 falhas.
+- [x] Manual (`docs/manual/`), `docs/technical/03-fluxos.md`,
+      `04-modelo-de-dados.md`, `02-diagrama-c4.md` e
+      `06-manutencao-e-expansao.md` atualizados — os 2 últimos tinham
+      referências desatualizadas de sessões anteriores (`Container`/
+      `BankEvent`/`BankConfig` nem apareciam no C4; achado durante
+      esta atualização, corrigido junto.

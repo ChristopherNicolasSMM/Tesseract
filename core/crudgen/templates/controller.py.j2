@@ -399,9 +399,9 @@ def _normalize_checkbox_fields(submitted: dict) -> dict:
 def create():
     submitted = _normalize_checkbox_fields(request.form.to_dict())
     # Hook opcional (skill 21) — permite uma entidade bloquear
-    # criação direta por essa tela (ex.: YeastStarterLog só pode ser
-    # criado a partir de um Evento de Banco tipo "Starter", achado
-    # real: a via direta continuava aberta mesmo depois da decisão).
+    # criação direta por essa tela (ex.: um registro que só deve
+    # nascer a partir de um Evento de Banco, achado real: a via
+    # direta continuava aberta mesmo depois da decisão).
     # Hook ausente/retornando None = comportamento padrão, sem bloqueio.
     _block_message = _hook("block_create")(submitted)
     if _block_message is not None:

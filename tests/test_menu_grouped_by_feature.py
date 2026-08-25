@@ -42,14 +42,15 @@ def _login_admin(app, client):
 
 # ── Grupos por Feature/Addon ─────────────────────────────────────────────────
 
-def test_grupo_banco_de_levedura_tem_10_transacoes(app):
-    # 9 anteriores + TX_YEAST_BANK_PAINEL (skill 21 — tela integrada
-    # de navegação, Cepas e Eventos do Banco).
+def test_grupo_banco_de_levedura_tem_9_transacoes(app):
+    # 9 anteriores + TX_YEAST_BANK_PAINEL (skill 21) - TX_YEAST_STARTER_LOGS
+    # (skill 22 — YeastStarterLog fundida em YeastBankEvent, sem tela
+    # própria).
     with app.app_context():
         folder = Transaction.query.filter_by(code="TX_GROUP_YEAST_BANK").first()
         assert folder is not None
         count = Transaction.query.filter_by(parent_id=folder.id).count()
-        assert count == 10
+        assert count == 9
 
 
 def test_grupo_controle_de_mostura_tem_7_filhos_diretos(app):
@@ -180,7 +181,7 @@ def test_nao_existe_mais_grupo_device_manager_antigo(app):
 
 ORFAS_RESOLVIDAS = [
     "TX_YEAST_BANK_ITEMS", "TX_YEAST_STORAGE_DEVICES",
-    "TX_YEAST_STARTER_LOGS", "TX_YEAST_CELL_COUNT_HISTORIES", "TX_YEAST_BANK_EVENTS",
+    "TX_YEAST_CELL_COUNT_HISTORIES", "TX_YEAST_BANK_EVENTS",
     "TX_YEAST_BANK_CONFIGS",
     "TX_BREW_PLANTS", "TX_BREW_PLANT_VESSELS", "TX_BREW_PLANT_MAPPINGS",
     "TX_BREW_SESSION_STEPS", "TX_BREW_SESSION_LOGS", "TX_BREW_SESSION_ALARMS",

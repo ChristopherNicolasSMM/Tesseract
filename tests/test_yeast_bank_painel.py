@@ -180,16 +180,16 @@ def test_botao_novo_evento_tem_legenda_descritiva(app, client):
     assert "Novo Evento do Banco" in html
 
 
-def test_js_eventos_tem_botao_abrir_starter_condicional():
-    # Feedback de uso real (2026-08-24): faltava atalho pro Starter em
-    # si quando o evento selecionado é desse tipo. Checagem estática
-    # (sem navegador neste ambiente) — confirma que a condição
-    # (evento.starter_id) e a rota certa estão no JS.
+def test_js_eventos_mostra_campos_do_starter_inline():
+    # Skill 22: YeastStarterLog foi fundida em YeastBankEvent - não
+    # existe mais tela separada pra "abrir", os campos aparecem
+    # direto no card do evento quando event_type é Starter.
     with open("static/js/yeast_bank_painel/painel-eventos.js", encoding="utf-8") as f:
         js = f.read()
-    assert "evento.starter_id" in js
-    assert "/brewstation/yeast-starter-logs/" in js
-    assert "Abrir Starter" in js
+    assert "evento.event_type === 'Starter'" in js
+    assert "evento.starter_status" in js
+    assert "evento.estimated_cells_per_ml" in js
+    assert "yeast-starter-logs" not in js  # rota removida, não deve sobrar referência
 
 
 def test_atalho_nova_contagem_cria_registro_vinculado_ao_item(app, client):

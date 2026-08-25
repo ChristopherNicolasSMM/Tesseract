@@ -177,9 +177,12 @@ adicionados nesta sessão, ambos opcionais:
 - **`block_create(data) -> str | None`** — chamado no início de
   `create()` (web **e** API). Retornar uma string bloqueia a criação
   (mostra a string como erro); retornar `None` (ou não definir a
-  função) deixa criar normalmente. Uso real: `YeastStarterLog` só
-  pode ser criado a partir de um `YeastBankEvent` tipo "Starter"
-  (skill 21) — a tela própria do Starter bloqueia `create()` direto.
+  função) deixa criar normalmente. Uso real histórico: até a skill 22,
+  `YeastStarterLog` só podia ser criado a partir de um
+  `YeastBankEvent` tipo "Starter" — a entidade foi removida/fundida no
+  próprio `YeastBankEvent` na skill 22, então esse uso específico não
+  existe mais, mas o mecanismo continua disponível pra qualquer
+  entidade futura com a mesma necessidade.
 - **`post_create_redirect(item) -> Response | None`** — chamado depois
   que `create()` salva com sucesso, **tanto na rota web quanto na
   API** (achado real: a primeira versão só chamava na web, e a API
@@ -189,9 +192,11 @@ adicionados nesta sessão, ambos opcionais:
   o destino padrão (`{{ plural }}.manage`); na API o valor de retorno
   é descartado de propósito (JSON não redireciona) — só os efeitos
   colaterais do hook importam ali. Uso real: criar um `YeastBankEvent`
-  tipo "Starter"/"Contagem de Células" cria automaticamente o
-  registro especializado (`YeastStarterLog`/`YeastCellCountHistory`)
-  e, na web, redireciona pra edição dele.
+  tipo "Contagem de Células" cria automaticamente o
+  `YeastCellCountHistory` vinculado e, na web, redireciona pra edição
+  dele (evento tipo "Starter" não cria mais registro separado desde a
+  skill 22 — os campos do Starter passaram a fazer parte do próprio
+  evento).
 
 ### 2.3 Referência fraca e busca cross-módulo
 

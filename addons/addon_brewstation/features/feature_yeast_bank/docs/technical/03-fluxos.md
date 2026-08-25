@@ -55,30 +55,28 @@ sequenceDiagram
 
 Nunca sobrescreve um `expiry_date` já informado manualmente.
 
-## `YeastBankEvent` como ponto de entrada único (skill 21)
+## `YeastBankEvent` como ponto de entrada único (skill 21, revisado na skill 22)
 
-`YeastBankEvent` é o único lugar onde Starter e Contagem de Células
-podem ser criados — as telas próprias delas bloqueiam a criação
-direta (`block_create`, controller hook) e só permitem editar/
-consultar registros já existentes.
+`YeastBankEvent` é o único lugar onde Contagem de Células pode ser
+criada — a tela própria dela bloqueia a criação direta
+(`block_create`, controller hook) e só permite editar/consultar
+registros já existentes. Starter (skill 22) não tem mais tela
+própria pra bloquear — foi fundido direto no evento.
 
 ```mermaid
 sequenceDiagram
     participant U as Usuário
     participant C as Controller (create de bank_event)
     participant H as yeast_bank_events_hooks.post_create_redirect
-    participant Starter as YeastStarterLog
     participant Count as YeastCellCountHistory
 
     U->>C: POST /yeast-bank-events (event_type, bank_item_id)
-    C->>C: cria o YeastBankEvent normalmente
+    C->>C: cria o YeastBankEvent normalmente (campos de Starter, se houver, já vêm no próprio POST)
     C->>H: chama depois do commit bem-sucedido
     alt event_type == "Starter"
-        H->>Starter: cria vinculado ao mesmo bank_item_id
-        H->>C: event.starter_id = starter.id, commit
-        H-->>C: redirect() pra edição do Starter
+        H-->>C: None — campos já estão no evento, sem tabela especializada, fica no manage() padrão
     else event_type == "Contagem de Células"
-        H->>Count: cria vinculado ao mesmo bank_item_id
+        H->>Count: cria vinculado ao mesmo bank_item_id e ao próprio evento (bank_event_id)
         H->>C: event.cell_count_id = count.id, commit
         H-->>C: redirect() pra edição da Contagem
     else event_type == "Descarte"
@@ -101,6 +99,36 @@ O mesmo hook roda na rota web **e** na API JSON — na API só o efeito
 colateral (criar o registro vinculado, ou aplicar a mudança de
 status) importa, o valor de retorno (um redirect do Flask) é
 descartado.
+
+## Cálculo automático de Neubauer (skill 22)
+
+`YeastCellCountHistory` calcula `cells_per_ml`/`viability_percent`/
+`viable_cells_per_ml` a partir dos campos brutos (`cells_counted_live`/
+`_dead`, `squares_counted`, `dilution_factor`), quando presentes e os
+campos de resultado ainda estão vazios.
+
+```mermaid
+sequenceDiagram
+    participant U as Usuário
+    participant C as Controller (create/update de cell_count_history)
+    participant H as yeast_cell_count_history_service_hooks.pai_apply_fields
+
+    U->>C: POST/PUT com cells_counted_live/_dead, squares_counted, dilution_factor
+    C->>H: chama depois de aplicar os campos recebidos
+    H->>H: total = vivas + mortas (se 0, não calcula nada — evita divisão por zero)
+    H->>H: cells_per_ml = total × (25/quadrados) × diluição × 10.000
+    H->>H: viability_percent = vivas × 100 / total
+    H->>H: viable_cells_per_ml = cells_per_ml × viability_percent / 100
+    alt campo de resultado já preenchido manualmente
+        H-->>C: não sobrescreve — respeita o valor informado
+    else campo de resultado vazio
+        H-->>C: preenche com o valor calculado (arredondado a 2 casas)
+    end
+```
+
+Fórmula é a prática padrão de contagem em câmara de Neubauer (contar
+5 dos 25 quadrados centrais e extrapolar) — pesquisada e documentada
+na skill 22.
 
 ## Alerta de validade/viabilidade baixa (reanálise 2026-08-24)
 
@@ -134,19 +162,14 @@ o estado atual, nunca fica desatualizado entre execuções do
 (`YeastBankConfig`) por item exibido, mesmo padrão de custo que
 `weak_ref_display` já tem na listagem (skill 11).
 
-## Tentativa de criar Starter/Contagem direto na tela própria (bloqueada)
+## Nota sobre criação direta (skill 22)
 
-```mermaid
-sequenceDiagram
-    participant U as Usuário
-    participant C as Controller (create de starter_log)
-    participant H as yeast_starter_logs_hooks.block_create
-
-    U->>C: POST /yeast-starter-logs (tentativa direta)
-    C->>H: chama antes de qualquer outra coisa
-    H-->>C: mensagem de erro (string)
-    C-->>U: flash da mensagem + redirect pra lista — nada é criado
-```
+Starter (skill 21) chegou a ter criação direta bloqueada
+(`block_create`, quando ainda era `YeastStarterLog`) — essa trava
+deixou de existir junto com a tabela, na fusão da skill 22. Contagem
+de Células **nunca teve** bloqueio de criação direta — pode ser
+criada tanto via Evento do Banco (fluxo automático) quanto direto na
+própria tela, os dois caminhos sempre funcionaram em paralelo.
 
 ## Painel integrado — carregamento e drill-down (skill 21, seção 0/3)
 

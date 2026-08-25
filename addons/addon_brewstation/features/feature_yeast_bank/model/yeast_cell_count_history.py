@@ -6,20 +6,35 @@ bank_item_id passa a ser obrigatório (era opcional), strain_id e
 starter_id removidos (decisão do Christopher, 2026-08-24: cepa é
 sempre resolvida via bank_item.strain; contagem é sempre do item,
 sem distinguir se veio de um starter específico).
+
+Skill 22 (2026-08-24): `bank_event_id` novo — rastreia qual Evento
+originou esta contagem (preenchido automaticamente pelo
+post_create_redirect, nunca escolhido manualmente). Campos brutos de
+entrada da câmara de Neubauer (`cells_counted_live`/`_dead`,
+`squares_counted`, `dilution_factor`) — um hook calcula
+`cells_per_ml`/`viability_percent`/`viable_cells_per_ml`
+automaticamente a partir deles quando presentes, ver
+`yeast_cell_count_history_service_hooks.py`.
 """
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, field_labels, weak_ref
+from annotations import label, plural, required, field_labels, weak_ref, readonly_fields
 
 
 @label("Histórico de Contagem")
 @plural("yeast_cell_count_histories")
 @required("bank_item_id", message="Item do banco é obrigatório")
+@readonly_fields(["bank_event_id"])
 @field_labels({
     "bank_item_id": "Item do Banco",
+    "bank_event_id": "Evento de Origem",
     "sample_date": "Data da Amostra",
     "lot_code": "Código do Lote",
+    "cells_counted_live": "Células Vivas Contadas",
+    "cells_counted_dead": "Células Mortas Contadas",
+    "squares_counted": "Quadrados Contados",
+    "dilution_factor": "Fator de Diluição",
     "cells_per_ml": "Células/mL",
     "viability_percent": "Viabilidade Real (%)",
     "viable_cells_per_ml": "Células Viáveis/mL",
@@ -38,8 +53,20 @@ class YeastCellCountHistory(db.Model):
     bank_item_id = db.Column(db.Integer, db.ForeignKey("bank_item.id"), nullable=False)
     bank_item = db.relationship("YeastBankItem", backref=db.backref("count_history", lazy=True))
 
+    # Preenchido só pelo fluxo automático de criação (skill 22) —
+    # nunca escolhido manualmente (@readonly_fields acima).
+    bank_event_id = db.Column(db.Integer, db.ForeignKey("bank_event.id"), nullable=True)
+
     sample_date = db.Column(db.Date, nullable=True)
     lot_code = db.Column(db.String(120), nullable=True)
+
+    # ── Entrada bruta da câmara de Neubauer (skill 22) — opcional;
+    # quando preenchidos, um hook calcula os 3 campos de resultado
+    # abaixo automaticamente (só se eles ainda estiverem vazios).
+    cells_counted_live = db.Column(db.Integer, nullable=True)
+    cells_counted_dead = db.Column(db.Integer, nullable=True)
+    squares_counted = db.Column(db.Integer, nullable=True, default=5)
+    dilution_factor = db.Column(db.Float, nullable=True, default=1.0)
 
     cells_per_ml = db.Column(db.Float, nullable=True)
     viability_percent = db.Column(db.Float, nullable=True)
@@ -64,8 +91,13 @@ class YeastCellCountHistory(db.Model):
         return {
             "id": self.id,
             "bank_item_id": self.bank_item_id,
+            "bank_event_id": self.bank_event_id,
             "sample_date": self.sample_date.isoformat() if self.sample_date else None,
             "lot_code": self.lot_code,
+            "cells_counted_live": self.cells_counted_live,
+            "cells_counted_dead": self.cells_counted_dead,
+            "squares_counted": self.squares_counted,
+            "dilution_factor": self.dilution_factor,
             "cells_per_ml": self.cells_per_ml,
             "viability_percent": self.viability_percent,
             "viable_cells_per_ml": self.viable_cells_per_ml,

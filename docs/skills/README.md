@@ -110,8 +110,17 @@ Ordem de leitura recomendada:
     `strain_id`/`starter_id` redundantes removidos de
     `bank_event`/`cell_count_history`; hooks de controller
     (`block_create`/`post_create_redirect`) ficaram reais pela
-    primeira vez. Schema/fluxo **executados** (BACKLOG Fase 20); a
-    tela integrada em si (2 abas + botões) ainda não foi implementada.
+    primeira vez. **Executada por completo** (BACKLOG Fases 20 e 22
+    — schema/fluxo e a tela integrada em si).
+23. **22-fusao-starter-bankevent-neubauer.md** — `YeastStarterLog`
+    removida, fundida direto em `YeastBankEvent` (decisão do
+    Christopher: opção B, fusão total, entre as duas apresentadas);
+    `YeastCellCountHistory` ganha `bank_event_id` (rastreio de
+    origem) e campos brutos de entrada da câmara de Neubauer, com
+    cálculo automático (`cells_per_ml`/`viability_percent`/
+    `viable_cells_per_ml`). **Executada** (BACKLOG Fase 26) —
+    3 migrations com migração real de dado existente (starter_log →
+    bank_event antes de dropar a tabela).
 
 ## Status
 

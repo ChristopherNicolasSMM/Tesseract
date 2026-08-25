@@ -163,14 +163,14 @@ def test_referencia_ignora_historico_contaminado(app):
 
 def test_referencia_prefere_starter_sobre_valor_inicial(app):
     with app.app_context():
-        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_starter_log import YeastStarterLog
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_event import YeastBankEvent
 
         strain, item = _make_strain_and_item(app)
-        starter = YeastStarterLog(
-            bank_item_id=item.id, result_viability_percent=60.0,
+        starter_event = YeastBankEvent(
+            bank_item_id=item.id, event_type="Starter", result_viability_percent=60.0,
             start_date=datetime.date.today(), contamination_detected=False,
         )
-        db.session.add(starter)
+        db.session.add(starter_event)
         db.session.commit()
 
         ref = best_viability_reference_for_item(item)
@@ -387,7 +387,6 @@ def test_evento_tipo_contagem_cria_cell_count_automaticamente(app, client):
     assert r.status_code == 201
     event_data = r.get_json()["item"]
     assert event_data["cell_count_id"] is not None
-    assert event_data["starter_id"] is None  # não confunde os dois tipos
 
     with app.app_context():
         from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_cell_count_history import (
@@ -395,6 +394,9 @@ def test_evento_tipo_contagem_cria_cell_count_automaticamente(app, client):
         )
         count = YeastCellCountHistory.query.get(event_data["cell_count_id"])
         assert count.bank_item_id == item_id
+        # skill 22: contagem criada automaticamente também se vincula
+        # ao evento que a originou (bank_event_id novo).
+        assert count.bank_event_id == event_data["id"]
 
 
 def test_evento_tipo_descarte_nao_cria_registro_especializado(app, client):
@@ -421,8 +423,107 @@ def test_evento_tipo_descarte_nao_cria_registro_especializado(app, client):
     )
     assert r.status_code == 201
     event_data = r.get_json()["item"]
-    assert event_data["starter_id"] is None
     assert event_data["cell_count_id"] is None
+
+
+# ── Skill 22: Starter fundido em BankEvent + cálculo de Neubauer ───────────
+
+def test_evento_starter_nao_redireciona_fica_no_proprio_evento(app, client):
+    _login_admin(app, client)
+    item_id = _make_item_via_api(client)
+
+    r = client.post(
+        "/brewstation/yeast-bank-events/",
+        data={
+            "bank_item_id": str(item_id), "event_type": "Starter",
+            "target_volume_l": "2.5", "objective": "propagacao",
+        },
+        follow_redirects=False,
+    )
+    # skill 22: Starter não cria mais registro especializado — não
+    # redireciona pra tela nenhuma, mesmo comportamento de
+    # Descarte/Outro (volta pro manage() padrão).
+    assert r.status_code == 302
+    assert "yeast-starter-logs" not in r.headers["Location"]
+
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_event import (
+            YeastBankEvent,
+        )
+        event = YeastBankEvent.query.filter_by(bank_item_id=item_id).first()
+        assert event.event_type == "Starter"
+        assert event.target_volume_l == 2.5
+        assert event.objective == "propagacao"
+
+
+def test_neubauer_calcula_cells_per_ml_a_partir_dos_brutos(app, client):
+    _login_admin(app, client)
+    item_id = _make_item_via_api(client)
+
+    r = client.post(
+        "/api/brewstation/yeast-cell-count-histories/",
+        json={
+            "bank_item_id": item_id,
+            "cells_counted_live": 190, "cells_counted_dead": 20,
+            "squares_counted": 5, "dilution_factor": 2,
+        },
+    )
+    assert r.status_code == 201
+    count = r.get_json()["item"]
+    # (190+20) * (25/5) * 2 * 10_000
+    assert count["cells_per_ml"] == 21_000_000.0
+    assert count["viability_percent"] == 90.48
+    # viable_cells_per_ml usa a viabilidade NÃO arredondada internamente
+    # (mais preciso, evita erro de arredondamento duplo) — 21_000_000 *
+    # (190/210) = 19_000_000.0 exato, não 21_000_000 * 0.9048.
+    assert count["viable_cells_per_ml"] == 19_000_000.0
+
+
+def test_neubauer_nao_sobrescreve_resultado_ja_informado_manualmente(app, client):
+    _login_admin(app, client)
+    item_id = _make_item_via_api(client)
+
+    r = client.post(
+        "/api/brewstation/yeast-cell-count-histories/",
+        json={
+            "bank_item_id": item_id,
+            "cells_counted_live": 190, "cells_counted_dead": 20,
+            "cells_per_ml": 999.0,  # já informado manualmente — hook não deve mexer
+        },
+    )
+    assert r.status_code == 201
+    assert r.get_json()["item"]["cells_per_ml"] == 999.0
+
+
+def test_neubauer_sem_dados_brutos_nao_calcula_nada(app, client):
+    _login_admin(app, client)
+    item_id = _make_item_via_api(client)
+
+    r = client.post(
+        "/api/brewstation/yeast-cell-count-histories/",
+        json={"bank_item_id": item_id, "lot_code": "LOTE-1"},
+    )
+    assert r.status_code == 201
+    item = r.get_json()["item"]
+    assert item["cells_per_ml"] is None
+    assert item["viability_percent"] is None
+
+
+def test_contagem_criada_via_evento_se_vincula_ao_evento_de_origem(app, client):
+    _login_admin(app, client)
+    item_id = _make_item_via_api(client)
+
+    r = client.post(
+        "/api/brewstation/yeast-bank-events/",
+        json={"bank_item_id": item_id, "event_type": "Contagem de Células"},
+    )
+    event_id = r.get_json()["item"]["id"]
+    cell_count_id = r.get_json()["item"]["cell_count_id"]
+
+    r2 = client.get(f"/api/brewstation/yeast-cell-count-histories/{cell_count_id}")
+    assert r2.get_json()["item"]["bank_event_id"] == event_id
+
+
 
 
 def test_bank_config_recusa_storage_type_duplicado_ativo(app, client):
@@ -515,16 +616,19 @@ def test_status_before_nao_pode_ser_injetado_via_api(app, client):
     assert r.get_json()["item"]["status_before"] is None  # ignorado, "Outro" não preenche
 
 
-def test_starter_id_nao_pode_ser_injetado_via_api(app, client):
+def test_cell_count_id_nao_pode_ser_injetado_via_api(app, client):
+    # cell_count_id continua @readonly_fields (skill 22) — mesmo
+    # raciocínio do antigo teste de starter_id, que perdeu sentido
+    # quando o campo saiu do modelo (Starter fundido em BankEvent).
     _login_admin(app, client)
     item_id = _make_item_via_api(client)
 
     r = client.post(
         "/api/brewstation/yeast-bank-events/",
-        json={"bank_item_id": item_id, "event_type": "Outro", "starter_id": 999},
+        json={"bank_item_id": item_id, "event_type": "Outro", "cell_count_id": 999},
     )
     assert r.status_code == 201
-    assert r.get_json()["item"]["starter_id"] is None  # ignorado — "Outro" não cria starter
+    assert r.get_json()["item"]["cell_count_id"] is None  # ignorado — "Outro" não cria contagem
 
 
 def test_alerta_de_validade_dispara_quando_dentro_do_limite(app, client):

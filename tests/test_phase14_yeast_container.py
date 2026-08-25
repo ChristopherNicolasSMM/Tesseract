@@ -236,30 +236,28 @@ def test_checkbox_desmarcado_no_post_zera_campo_boolean(app, client):
     # Risco documentado na skill 20: HTML nunca manda o campo no POST
     # quando um checkbox está desmarcado — sem normalização, o valor
     # antigo persistiria mesmo a pessoa "desmarcando" na tela.
-    # YeastStarterLog.contamination_detected é Boolean editável real.
-    # Criação via API/web está bloqueada desde a skill 21 (Starter só
-    # nasce via Evento do Banco) — cria direto no banco pra testar só
-    # o update(), que não tem esse bloqueio.
+    # YeastBankEvent.contamination_detected é Boolean editável real
+    # (skill 22: campo fundido do antigo YeastStarterLog).
     item_id = _setup_item(app, client)
     with app.app_context():
-        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_starter_log import YeastStarterLog
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_event import YeastBankEvent
         from core.db import db
-        starter = YeastStarterLog(bank_item_id=item_id, contamination_detected=True)
-        db.session.add(starter)
+        event = YeastBankEvent(bank_item_id=item_id, event_type="Outro", contamination_detected=True)
+        db.session.add(event)
         db.session.commit()
-        starter_id = starter.id
-        assert starter.contamination_detected is True
+        event_id = event.id
+        assert event.contamination_detected is True
 
     # POST via HTML sem "contamination_detected" no corpo — simula
     # checkbox desmarcado (o browser não manda a chave nesse caso).
     client.post(
-        f"/brewstation/yeast-starter-logs/{starter_id}",
-        data={"bank_item_id": str(item_id)},
+        f"/brewstation/yeast-bank-events/{event_id}",
+        data={"bank_item_id": str(item_id), "event_type": "Outro"},
     )
     with app.app_context():
-        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_starter_log import YeastStarterLog
-        starter = YeastStarterLog.query.get(starter_id)
-        assert starter.contamination_detected is False
+        from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_event import YeastBankEvent
+        event = YeastBankEvent.query.get(event_id)
+        assert event.contamination_detected is False
 
 
 def test_update_via_html_com_erro_reabre_formulario_com_dados_digitados(app, client):

@@ -113,6 +113,20 @@
       html += '<p><strong>Observações:</strong> ' + TesseractData.esc(evento.notes) + '</p>';
     }
 
+    // Skill 22: Starter foi fundido em BankEvent — os campos ficam
+    // direto no próprio evento agora, sem tela/tabela separada pra
+    // abrir. Mostrado inline só quando event_type é Starter.
+    if (evento.event_type === 'Starter') {
+      html += '<div class="row g-2 mb-3">';
+      html += cardStatus('Data de Início', evento.start_date || '—');
+      html += cardStatus('Volume Alvo', evento.target_volume_l !== null && evento.target_volume_l !== undefined ? evento.target_volume_l + ' L' : '—');
+      html += cardStatus('Objetivo', TesseractData.esc(evento.objective || '—'));
+      html += cardStatus('Status do Starter', TesseractData.esc(evento.starter_status || '—'));
+      html += cardStatus('Viabilidade Resultante', evento.result_viability_percent !== null && evento.result_viability_percent !== undefined ? evento.result_viability_percent + '%' : '—');
+      html += cardStatus('Estimativa de Células/mL', evento.estimated_cells_per_ml !== null && evento.estimated_cells_per_ml !== undefined ? evento.estimated_cells_per_ml.toLocaleString('pt-BR') : '—');
+      html += '</div>';
+    }
+
     const contagens = todasAsContagens.filter(function (c) { return c.bank_item_id === item.id; });
     html += '<h6 class="text-muted mt-3">Contagens deste item</h6>';
     if (contagens.length === 0) {
@@ -130,15 +144,6 @@
 
     html += '<a href="/brewstation/yeast-bank-items/' + item.id + '" class="btn btn-sm btn-outline-secondary">' +
       '<i class="bi bi-box-arrow-up-right"></i> Abrir Item do Banco</a>';
-
-    // Achado de uso real (2026-08-24): faltava atalho pro Starter em
-    // si quando o evento selecionado é desse tipo — só "Abrir Item do
-    // Banco" existia, sem levar pra edição completa (data, volume,
-    // objetivo, resultado) do registro que o evento criou.
-    if (evento.starter_id) {
-      html += ' <a href="/brewstation/yeast-starter-logs/' + evento.starter_id + '" class="btn btn-sm btn-outline-info">' +
-        '<i class="bi bi-flask"></i> Abrir Starter</a>';
-    }
 
     painel.innerHTML = html;
   }

@@ -37,11 +37,11 @@ R: Edite o Item do Banco e troque o Container selecionado — o
 histórico do item (starters, contagens) continua vinculado normalmente,
 só a localização física muda.
 
-**P: Por que não tem mais botão de "Novo Starter" na tela de Starters?**
-R: Criação de Starter passou a ser só pelo "Eventos do Banco" — crie
-um evento tipo "Starter", escolhendo o Item de origem, e o sistema já
-cria o registro e te leva pra edição dele. Editar um Starter que já
-existe continua funcionando normal na tela dele.
+**P: Por que não existe mais uma tela própria de "Starters"?**
+R: O Starter deixou de ser um registro separado — agora é só um tipo
+de Evento do Banco. Crie um evento tipo "Starter" e preencha os
+campos (data, volume, objetivo) direto ali; editar um starter já
+registrado também é editar o evento dele.
 
 **P: O que acontece se eu não cadastrar uma Configuração do Banco pro
 tipo de armazenamento?**
@@ -76,3 +76,13 @@ viabilidade mínima cadastrada na Configuração do Banco. Se já cruzou,
 mostra "Agora". Se não tiver Configuração do Banco cadastrada pro
 tipo de armazenamento, ou nenhum decaimento configurado (nem na
 config, nem na cepa), o campo fica vazio — não tem base pra estimar.
+
+**P: Como o sistema calcula células/mL a partir da contagem na câmara
+de Neubauer?**
+R: células/mL = (vivas + mortas) × (25 / quadrados contados) × fator
+de diluição × 10.000; viabilidade% = vivas × 100 / (vivas + mortas).
+É a fórmula padrão de contagem em câmara de Neubauer (prática
+cervejeira usual: contar 5 dos 25 quadrados centrais). Só calcula
+automaticamente se você preencher os campos brutos (vivas, mortas,
+quadrados, diluição) — se preferir, pode digitar o resultado final
+direto, sem passar pelos campos brutos.
