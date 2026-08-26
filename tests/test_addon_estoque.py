@@ -108,15 +108,79 @@ def _login_admin(app, client):
     "/estoque/fornecedores",
     "/estoque/transportadoras",
     "/estoque/enderecos",
-    "/estoque/fornecedor-enderecos",
-    "/estoque/transportadora-enderecos",
     "/estoque/pedido-compras",
-    "/estoque/item-pedido-compras",
 ])
 def test_telas_de_listagem_nao_estouram_erro(app, client, rota):
     _login_admin(app, client)
     resp = client.get(rota, follow_redirects=True)
     assert resp.status_code == 200
+
+
+# ── Fase 5 (skill 23) — grid de Endereços embutido em Fornecedor/Transportadora ──
+
+def test_detalhe_fornecedor_renderiza_com_grid_de_enderecos(app, client):
+    """
+    Regressão-alvo desta fase: detail.html de Fornecedor ganhou a
+    seção "Endereços" (grid desenhado à mão) - o teste parametrizado
+    de listagem acima não cobre `/estoque/fornecedores/<id>`, só a
+    lista. Erro de sintaxe Jinja no bloco novo (ex.: tag não fechada)
+    só aparece renderizando o detalhe de verdade.
+    """
+    _login_admin(app, client)
+    with app.app_context():
+        fornecedor = _criar_fornecedor(razao_social="Fornecedor Detalhe LTDA")
+        fornecedor_id = fornecedor.id
+
+    resp = client.get(f"/estoque/fornecedores/{fornecedor_id}", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Endere\xc3\xa7os" in resp.data  # "Endereços" em UTF-8
+    assert b"estoque-endereco-embutido.js" in resp.data
+
+
+def test_detalhe_transportadora_renderiza_com_grid_de_enderecos(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        transportadora = Transportadora(nome="Transportadora Detalhe LTDA", tipo_frete="proprio")
+        db.session.add(transportadora)
+        db.session.commit()
+        transportadora_id = transportadora.id
+
+    resp = client.get(f"/estoque/transportadoras/{transportadora_id}", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Endere\xc3\xa7os" in resp.data
+    assert b"estoque-endereco-embutido.js" in resp.data
+
+
+def test_api_fornecedor_enderecos_filtra_por_fornecedor_id(app, client):
+    """Achado desta fase: list() sem filtro trazia a tabela inteira -
+    a tela nova depende do filtro server-side pra não misturar
+    endereços de fornecedores diferentes no mesmo grid."""
+    _login_admin(app, client)
+    with app.app_context():
+        f1 = _criar_fornecedor(razao_social="Fornecedor A LTDA")
+        f2 = _criar_fornecedor(razao_social="Fornecedor B LTDA")
+        e1 = _criar_endereco(descricao="End A")
+        e2 = _criar_endereco(descricao="End B")
+        db.session.add_all([
+            FornecedorEndereco(fornecedor_id=f1.id, endereco_id=e1.id, tipo_endereco="cobranca"),
+            FornecedorEndereco(fornecedor_id=f2.id, endereco_id=e2.id, tipo_endereco="entrega"),
+        ])
+        db.session.commit()
+        f1_id = f1.id
+
+    resp = client.get(f"/api/estoque/fornecedor-enderecos/?fornecedor_id={f1_id}")
+    assert resp.status_code == 200
+    itens = resp.get_json()["items"]
+    assert len(itens) == 1
+    assert itens[0]["fornecedor_id"] == f1_id
+
+
+def test_rotas_removidas_de_fornecedor_endereco_nao_existem_mais(app, client):
+    """As telas antigas foram removidas de vez (decisão da sessão) -
+    a rota web não deve existir mais (404), só a API REST."""
+    _login_admin(app, client)
+    resp = client.get("/estoque/fornecedor-enderecos", follow_redirects=True)
+    assert resp.status_code == 404
 
 
 def _criar_material(nome="Malte Pilsen", categoria="materia_prima", **kwargs):
@@ -676,3 +740,62 @@ def test_receber_pedido_compra_com_multiplos_itens(app):
 
         assert estoque_service.consultar_saldo(malte.id)["quantidade_atual"] == 25.0
         assert estoque_service.consultar_saldo(lupulo.id)["quantidade_atual"] == 3.0
+
+
+# ── Fase 5 (skill 23) — detalhe de Pedido de Compra com abas ──
+
+def test_detalhe_pedido_compra_renderiza_com_abas(app, client):
+    """Regressão-alvo: detail.html de PedidoCompra foi reescrito do
+    zero (abas Cabeçalho/Parceiros/Itens) — só renderizando de verdade
+    (não só a lista) pega erro de sintaxe Jinja."""
+    _login_admin(app, client)
+    with app.app_context():
+        pedido = _criar_pedido_compra()
+        pedido_id = pedido.id
+
+    resp = client.get(f"/estoque/pedido-compras/{pedido_id}", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Cabe\xc3\xa7alho" in resp.data
+    assert b"Parceiros de Neg\xc3\xb3cio" in resp.data
+    assert b"pedido_compra_detalhe-itens.js" in resp.data
+
+
+def test_detalhe_pedido_compra_confirmado_mostra_botao_receber(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        pedido = _criar_pedido_compra(status="confirmado")
+        pedido_id = pedido.id
+
+    resp = client.get(f"/estoque/pedido-compras/{pedido_id}", follow_redirects=True)
+    assert b"Receber Pedido" in resp.data
+
+
+def test_detalhe_pedido_compra_rascunho_nao_mostra_botao_receber(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        pedido = _criar_pedido_compra(status="rascunho")
+        pedido_id = pedido.id
+
+    resp = client.get(f"/estoque/pedido-compras/{pedido_id}", follow_redirects=True)
+    assert b"Receber Pedido" not in resp.data
+
+
+def test_api_material_unidades_filtra_por_material_id(app):
+    with app.app_context():
+        m1 = _criar_material(nome="Malte Filtro Unidade")
+        m2 = _criar_material(nome="Lupulo Filtro Unidade")
+        u1 = MaterialUnidade(material_id=m1.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        u2 = MaterialUnidade(material_id=m2.id, unidade="g", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add_all([u1, u2])
+        db.session.commit()
+
+        from addons.addon_estoque.root.services.material_unidade_service import MaterialUnidadeService
+        resultado = MaterialUnidadeService().list(material_id=m1.id)
+        assert len(resultado) == 1
+        assert resultado[0].material_id == m1.id
+
+
+def test_rotas_removidas_de_item_pedido_compra_nao_existem_mais(app, client):
+    _login_admin(app, client)
+    resp = client.get("/estoque/item-pedido-compras", follow_redirects=True)
+    assert resp.status_code == 404

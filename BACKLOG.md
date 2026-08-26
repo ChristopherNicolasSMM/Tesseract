@@ -1136,10 +1136,33 @@ Addon novo (`addon_compras` descartado).
 - [x] Sistema de Compras: `PedidoCompra`/`ItemPedidoCompra` (recebimento
       só total nesta fase), `Movimentacao`/`Saldo` ganham rastro de
       fornecedor/unidade original — **[EXECUTADO]**, Fase 4.
+- [x] Telas desenhadas (grid fora do CrudGen, inspirado em SAP MM):
+      `FornecedorEndereco`/`TransportadoraEndereco`/`ItemPedidoCompra`
+      perderam a tela CRUD própria (API continua); Fornecedor/
+      Transportadora ganharam grid de Endereços embutido; Pedido de
+      Compra virou tela com abas (Cabeçalho/Parceiros de Negócio/
+      Itens) — **[EXECUTADO]**, Fase 5.
 - [ ] Mais campos em `Fabricante` (hoje só `nome`) — continua em
       aberto, fora do escopo da skill 23 (não pedido nesta sessão).
 
-### Fase 4 entregue — achados registrados durante a execução
+### Fase 5 entregue — achados registrados durante a execução
+
+- **[RESOLVIDO]** `static/js/weak_ref_combo.js` (compartilhado por
+  **todo o sistema**, não só addon_estoque): variável `hidden`
+  referenciada sem estar declarada no escopo de `initCombo()` —
+  `ReferenceError` a cada tecla digitada em qualquer combo de
+  referência fraca, interrompendo a busca depois do primeiro
+  caractere. Bug antigo, só descoberto agora por causa do uso mais
+  intenso do combo nas telas novas. Corrigido.
+- **[RESOLVIDO]** `MutationObserver` com `attributeFilter` não detecta
+  `elemento.value = x` via JS (só via atributo HTML) — usado para
+  disparar o carregamento de unidades ao escolher Material no modal de
+  Item; nunca disparava. Trocado por listener delegado no clique do
+  `<li>` de resultado do combo (roda depois do `weak_ref_combo.js` já
+  ter atualizado o campo).
+- **[DECISÃO REGISTRADA]** Cotação (RFQ) e a distinção
+  cotação→pedido/compra direta ficam para uma sessão de planejamento
+  futura — não fazem parte do escopo da skill 23.
 
 - **[RESOLVIDO]** Mesma classe de bug de FK sem prefixo (5 ocorrências
   desta vez, em `create_table()` de `PedidoCompra`/`ItemPedidoCompra`)

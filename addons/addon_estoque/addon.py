@@ -70,13 +70,16 @@ class AddonEstoque(AddonBase):
         from addons.addon_estoque.root.api.routes.transportadoras_routes import transportadoras_api_bp
         from addons.addon_estoque.root.controller.enderecos import enderecos_bp
         from addons.addon_estoque.root.api.routes.enderecos_routes import enderecos_api_bp
-        from addons.addon_estoque.root.controller.fornecedor_enderecos import fornecedor_enderecos_bp
+        # Fase 5 (skill 23): FornecedorEndereco/TransportadoraEndereco/
+        # ItemPedidoCompra não têm mais tela própria — o controller de
+        # UI (list/manage/detail) e os templates foram removidos. A API
+        # REST continua existindo e registrada normalmente (consumida
+        # pelas telas desenhadas de Fornecedor/Transportadora/Pedido de
+        # Compra, ver static/js/estoque/).
         from addons.addon_estoque.root.api.routes.fornecedor_enderecos_routes import fornecedor_enderecos_api_bp
-        from addons.addon_estoque.root.controller.transportadora_enderecos import transportadora_enderecos_bp
         from addons.addon_estoque.root.api.routes.transportadora_enderecos_routes import transportadora_enderecos_api_bp
         from addons.addon_estoque.root.controller.pedido_compras import pedido_compras_bp
         from addons.addon_estoque.root.api.routes.pedido_compras_routes import pedido_compras_api_bp
-        from addons.addon_estoque.root.controller.item_pedido_compras import item_pedido_compras_bp
         from addons.addon_estoque.root.api.routes.item_pedido_compras_routes import item_pedido_compras_api_bp
 
         # Fase 4 (skill 23): ação "receber" não é CRUD genérico, então
@@ -109,10 +112,10 @@ class AddonEstoque(AddonBase):
             fornecedores_bp, fornecedores_api_bp,
             transportadoras_bp, transportadoras_api_bp,
             enderecos_bp, enderecos_api_bp,
-            fornecedor_enderecos_bp, fornecedor_enderecos_api_bp,
-            transportadora_enderecos_bp, transportadora_enderecos_api_bp,
+            fornecedor_enderecos_api_bp,
+            transportadora_enderecos_api_bp,
             pedido_compras_bp, pedido_compras_api_bp,
-            item_pedido_compras_bp, item_pedido_compras_api_bp,
+            item_pedido_compras_api_bp,
         ]:
             app.register_blueprint(bp)
 
@@ -233,40 +236,19 @@ class AddonEstoque(AddonBase):
                 "route": "/estoque/enderecos",
                 "permission_required": "enderecos.list",
             },
-            {
-                "code": "TX_FORNECEDOR_ENDERECOS",
-                "label": "Endereços de Fornecedor",
-                "parent_code": "TX_GROUP_ESTOQUE",
-                "description": "Vínculo Fornecedor x Endereço, com tipo (cobrança/entrega/etc.) e principal.",
-                "icon": "bi-geo",
-                "route": "/estoque/fornecedor-enderecos",
-                "permission_required": "fornecedor_enderecos.list",
-            },
-            {
-                "code": "TX_TRANSPORTADORA_ENDERECOS",
-                "label": "Endereços de Transportadora",
-                "parent_code": "TX_GROUP_ESTOQUE",
-                "description": "Vínculo Transportadora x Endereço, com tipo (cobrança/entrega/etc.) e principal.",
-                "icon": "bi-geo",
-                "route": "/estoque/transportadora-enderecos",
-                "permission_required": "transportadora_enderecos.list",
-            },
+            # TX_FORNECEDOR_ENDERECOS / TX_TRANSPORTADORA_ENDERECOS
+            # removidas (skill 23, Fase 5) — vínculo agora aparece
+            # embutido no detalhe de Fornecedor/Transportadora, sem
+            # tela/transação própria. API continua ativa.
             {
                 "code": "TX_PEDIDO_COMPRAS",
                 "label": "Pedidos de Compra",
                 "parent_code": "TX_GROUP_ESTOQUE",
-                "description": "Sistema de compras: pedido -> recebimento -> movimentação de entrada automática (skill 23, Fase 4).",
+                "description": "Sistema de compras: pedido -> recebimento -> movimentação de entrada automática (skill 23, Fase 4/5).",
                 "icon": "bi-cart-check",
                 "route": "/estoque/pedido-compras",
                 "permission_required": "pedido_compras.list",
             },
-            {
-                "code": "TX_ITEM_PEDIDO_COMPRAS",
-                "label": "Itens de Pedido de Compra",
-                "parent_code": "TX_GROUP_ESTOQUE",
-                "description": "Linhas de pedido de compra — também serve como histórico de preços/últimas compras por Material.",
-                "icon": "bi-list-check",
-                "route": "/estoque/item-pedido-compras",
-                "permission_required": "item_pedido_compras.list",
-            },
+            # TX_ITEM_PEDIDO_COMPRAS removida (skill 23, Fase 5) — itens
+            # aparecem na aba "Itens" do detalhe de Pedido de Compra.
         ]

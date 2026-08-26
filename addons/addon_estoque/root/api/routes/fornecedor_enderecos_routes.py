@@ -42,7 +42,10 @@ def _err(message, code=400):
 @login_required
 @permission_required("fornecedor_enderecos.list")
 def list_items():
-    items = _service.list()
+    # fornecedor_id (skill 23, Fase 5): filtro server-side usado pela
+    # tela de detalhe de Fornecedor (grid de endereços embutido).
+    fornecedor_id = request.args.get("fornecedor_id", type=int)
+    items = _service.list(fornecedor_id=fornecedor_id)
     return _ok({"items": [i.to_dict() if hasattr(i, "to_dict") else {"id": i.id} for i in items]})
 
 

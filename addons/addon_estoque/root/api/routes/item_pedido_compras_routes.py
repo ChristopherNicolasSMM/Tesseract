@@ -42,7 +42,10 @@ def _err(message, code=400):
 @login_required
 @permission_required("item_pedido_compras.list")
 def list_items():
-    items = _service.list()
+    # pedido_compra_id (skill 23, Fase 5): filtro server-side usado
+    # pela aba "Itens" do detalhe de Pedido de Compra.
+    pedido_compra_id = request.args.get("pedido_compra_id", type=int)
+    items = _service.list(pedido_compra_id=pedido_compra_id)
     return _ok({"items": [i.to_dict() if hasattr(i, "to_dict") else {"id": i.id} for i in items]})
 
 

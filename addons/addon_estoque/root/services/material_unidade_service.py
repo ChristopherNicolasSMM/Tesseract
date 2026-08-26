@@ -60,10 +60,15 @@ class ServiceResult:
 class MaterialUnidadeService:
     """Camada de negócio para Unidade de Material."""
 
-    def list(self, *, include_deleted: bool = False):
+    def list(self, *, include_deleted: bool = False, material_id: int | None = None):
+        """`material_id` (skill 23, Fase 5) — a aba "Itens" do detalhe
+        de Pedido de Compra precisa, ao escolher um Material, listar só
+        as unidades de compra/consumo daquele Material."""
         query = MaterialUnidade.query
         if not include_deleted:
             query = query.filter(MaterialUnidade.is_deleted.is_(False))
+        if material_id is not None:
+            query = query.filter(MaterialUnidade.material_id == material_id)
         return query.order_by(MaterialUnidade.id.asc()).all()
 
     def get_by_id(self, id: int) -> "MaterialUnidade | None":

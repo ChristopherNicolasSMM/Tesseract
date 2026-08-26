@@ -92,9 +92,89 @@
   </div>
 </section>
 
+{#- ═══ Endereços (skill 23, Fase 5) — mesmo padrão de fornecedores/detail.html ═══ -#}
+<script type="application/json" id="estoque-endereco-config">
+  {{ {"apiBase": "/api/estoque/transportadora-enderecos", "ownerIdField": "transportadora_id", "ownerId": item.id} | tojson }}
+</script>
+
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="card-title mb-0">Endereços</h5>
+        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalEndereco" data-acao="novo-endereco">
+          <i class="bi bi-plus-lg"></i> Adicionar Endereço
+        </button>
+      </div>
+
+      <table class="table table-hover align-middle" data-datatable>
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Endereço</th>
+            <th>Principal</th>
+            <th class="text-end">Ações</th>
+          </tr>
+        </thead>
+        <tbody data-alvo="tabela-enderecos">
+          <tr><td colspan="4" class="text-muted">Carregando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<div class="modal fade" id="modalEndereco" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Endereço</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" data-campo="vinculo-id">
+        <div class="mb-3">
+          <label class="form-label">Endereço <span class="text-danger">*</span></label>
+          <div class="weakref-combo" data-weakref-source="enderecos">
+            <input type="hidden" class="weakref-combo-value" data-campo="endereco_id" value="">
+            <input type="text" class="form-control weakref-combo-search" autocomplete="off" placeholder="Buscar endereço…">
+            <ul class="list-group weakref-combo-results"></ul>
+          </div>
+          <div class="form-text">Não achou? <a href="{{ url_for('enderecos.manage') }}" target="_blank">Cadastre um endereço novo</a> e volte aqui.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Tipo <span class="text-danger">*</span></label>
+          <select class="form-select" data-campo="tipo_endereco">
+            <option value="cobranca">Cobrança</option>
+            <option value="entrega">Entrega</option>
+            <option value="correspondencia">Correspondência</option>
+            <option value="faturamento">Faturamento</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+        <div class="mb-3 form-check">
+          <input type="checkbox" class="form-check-input" data-campo="principal">
+          <label class="form-check-label">Principal</label>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Observações</label>
+          <textarea class="form-control" rows="2" data-campo="observacoes"></textarea>
+        </div>
+        <div class="alert alert-danger d-none" data-alvo="erro-endereco"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" data-acao="salvar-endereco">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="{{ url_for('static', filename='js/rule_engine.js') }}"></script>
 <script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>
 <script src="{{ url_for('static', filename='js/decimal_input_normalizer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/freestyle/freestyle-tesseract-data.js') }}"></script>
+<script src="{{ url_for('static', filename='js/estoque/estoque-endereco-embutido.js') }}"></script>
 <script>
   document.getElementById('editForm').addEventListener('submit', function (e) {
     if (!RuleEngine.validateForm(this)) {

@@ -60,10 +60,14 @@ class ServiceResult:
 class TransportadoraEnderecoService:
     """Camada de negócio para Endereço da Transportadora."""
 
-    def list(self, *, include_deleted: bool = False):
+    def list(self, *, include_deleted: bool = False, transportadora_id: int | None = None):
+        """`transportadora_id` (skill 23, Fase 5) — mesmo raciocínio de
+        FornecedorEnderecoService.list()."""
         query = TransportadoraEndereco.query
         if not include_deleted:
             query = query.filter(TransportadoraEndereco.is_deleted.is_(False))
+        if transportadora_id is not None:
+            query = query.filter(TransportadoraEndereco.transportadora_id == transportadora_id)
         return query.order_by(TransportadoraEndereco.id.asc()).all()
 
     def get_by_id(self, id: int) -> "TransportadoraEndereco | None":

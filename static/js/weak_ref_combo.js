@@ -90,6 +90,7 @@
   function initCombo(container) {
     const debouncedSearch = debounce(function () { search(container); }, 250);
     const input = container.querySelector(".weakref-combo-search");
+    const hidden = container.querySelector(".weakref-combo-value");
 
     //input.addEventListener("input", debouncedSearch);
     input.addEventListener("input", function () {

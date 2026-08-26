@@ -42,7 +42,10 @@ def _err(message, code=400):
 @login_required
 @permission_required("transportadora_enderecos.list")
 def list_items():
-    items = _service.list()
+    # transportadora_id (skill 23, Fase 5): filtro server-side usado
+    # pela tela de detalhe de Transportadora (grid de endereços embutido).
+    transportadora_id = request.args.get("transportadora_id", type=int)
+    items = _service.list(transportadora_id=transportadora_id)
     return _ok({"items": [i.to_dict() if hasattr(i, "to_dict") else {"id": i.id} for i in items]})
 
 

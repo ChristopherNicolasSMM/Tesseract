@@ -282,6 +282,52 @@ movimentações manuais (ajuste, ou entrada sem passar por
 | 2 — Fracionamento | — (independente da Fase 1, mas patch único conforme pedido) | [EXECUTADO] |
 | 3 — Cadastros + Endereço | — | [EXECUTADO] |
 | 4 — Compras | Fases 2 e 3 (usa `MaterialUnidade` e `Fornecedor`) | [EXECUTADO] |
+| 5 — Telas desenhadas (SAP MM) | Fases 3 e 4 | [EXECUTADO] |
+
+## 8. Fase 5 — Telas desenhadas (grid fora do CrudGen, inspirado em SAP MM)
+
+**[EXECUTADO]** Decisão de sessão: `FornecedorEndereco`,
+`TransportadoraEndereco` e `ItemPedidoCompra` não têm mais tela CRUD
+própria (controller de UI, templates e transação de menu removidos de
+vez) — a API REST continua, é o que as telas novas consomem.
+
+- **Detalhe de Fornecedor/Transportadora**: grid "Endereços" desenhado
+  à mão (`Simple DataTables`, já carregado pelo layout — skill 18,
+  seção 5), populado via `GET /api/estoque/fornecedor-enderecos/
+  ?fornecedor_id=<id>` (filtro novo, API antes trazia a tabela
+  inteira). Adicionar/editar em modal, reaproveitando o combo de
+  referência fraca do CrudGen (`weak_ref_combo.js`) pra escolher um
+  `Endereco` existente.
+- **Detalhe de Pedido de Compra**: reescrito com abas
+  (`nav-tabs-bordered`, persistência de aba ativa via
+  `data-abas-persistir`, mesmo padrão de `/freestyle/abas`):
+  - **Cabeçalho** — campos do model, exceto os dois de parceiro.
+  - **Parceiros de Negócio** (termo SAP MM) — `Fornecedor` e
+    `Transportadora`, únicos campos de referência fraca do model.
+  - **Itens** — grid de `ItemPedidoCompra`, com busca/seleção de
+    `Material` (combo de referência fraca) e select de
+    `MaterialUnidade` dependente do Material escolhido (filtro novo,
+    `GET /api/estoque/material-unidades/?material_id=<id>`).
+- Botão "Receber Pedido" (chama a ação já existente da Fase 4)
+  aparece só quando `status == "confirmado"`.
+
+Nenhuma mudança de schema nesta fase — só camada de apresentação sobre
+o que as Fases 3/4 já entregaram.
+
+### Bugs reais encontrados durante a execução
+
+- `static/js/weak_ref_combo.js` (usado em **todo o sistema**, não só
+  aqui): variável `hidden` referenciada sem estar declarada no escopo
+  de `initCombo()` — `ReferenceError` a cada tecla digitada em
+  qualquer combo de referência fraca, interrompendo a busca depois do
+  primeiro caractere. Corrigido.
+- `MutationObserver` com `attributeFilter` não detecta
+  `elemento.value = x` (propriedade, não atributo do DOM) — usado
+  inicialmente pra saber quando o combo de Material do modal de Item
+  mudava, e não disparava nunca. Trocado por listener delegado no
+  clique do `<li>` de resultado (roda depois do próprio
+  `weak_ref_combo.js` já ter atualizado o campo, por bolhamento de
+  evento).
 
 **Decisão de entrega**: Fases 1 e 2 saem juntas no **mesmo patch**
 (autorização já dada para essa combinação). Fases 3 e 4 ficam para

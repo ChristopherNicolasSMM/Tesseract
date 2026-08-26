@@ -60,10 +60,15 @@ class ServiceResult:
 class ItemPedidoCompraService:
     """Camada de negócio para Item do Pedido de Compra."""
 
-    def list(self, *, include_deleted: bool = False):
+    def list(self, *, include_deleted: bool = False, pedido_compra_id: int | None = None):
+        """`pedido_compra_id` (skill 23, Fase 5) — a aba "Itens" do
+        detalhe de Pedido de Compra precisa listar só os itens daquele
+        pedido, não a tabela inteira."""
         query = ItemPedidoCompra.query
         if not include_deleted:
             query = query.filter(ItemPedidoCompra.is_deleted.is_(False))
+        if pedido_compra_id is not None:
+            query = query.filter(ItemPedidoCompra.pedido_compra_id == pedido_compra_id)
         return query.order_by(ItemPedidoCompra.id.asc()).all()
 
     def get_by_id(self, id: int) -> "ItemPedidoCompra | None":

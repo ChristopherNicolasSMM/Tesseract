@@ -1,74 +1,158 @@
 {% extends "core/base.html" %}
 {% block content %}
 <div class="pagetitle">
-  <h1>Pedido de Compra #{{ item.id }}</h1>
-  <a href="{{ url_for('pedido_compras.manage') }}">&larr; Voltar para a lista</a>
+  <h1>
+    Pedido de Compra {{ item.numero or ('#' ~ item.id) }}
+    {% set status_cores = {'rascunho': 'secondary', 'enviado': 'info', 'confirmado': 'primary', 'recebido': 'success', 'cancelado': 'danger'} %}
+    <span class="badge bg-{{ status_cores.get(item.status, 'secondary') }}">{{ enum_field_options.get('status', []) | selectattr('value', 'equalto', item.status) | map(attribute='label') | first or item.status }}</span>
+  </h1>
+  <nav>
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('pedido_compras.manage') }}">Pedidos de Compra</a></li>
+      <li class="breadcrumb-item active">{{ item.numero or ('#' ~ item.id) }}</li>
+    </ol>
+  </nav>
 </div>
+
+{#- ═══ Ação "receber" (skill 23, Fase 4) — só faz sentido com status
+    confirmado; gera Movimentacao de entrada por item automaticamente. -#}
+{% if item.status == 'confirmado' %}
+<div class="alert alert-primary d-flex justify-content-between align-items-center">
+  <span><i class="bi bi-info-circle"></i> Pedido confirmado — pronto para receber.</span>
+  <form method="post" action="{{ url_for('pedido_compras.receber', id=item.id) }}"
+        onsubmit="return confirm('Confirmar recebimento? Isso gera as movimentações de entrada e não pode ser desfeito por aqui.');">
+    <button type="submit" class="btn btn-success"><i class="bi bi-box-seam"></i> Receber Pedido</button>
+  </form>
+</div>
+{% endif %}
 
 <section class="section">
   <div class="card">
-    <div class="card-body">
+    <div class="card-body pt-3">
       {% if form_error %}
       <div class="alert alert-danger" role="alert">{{ form_error }}</div>
       {% endif %}
-      <form method="post" action="{{ url_for('pedido_compras.update', id=item.id) }}" class="row g-3" id="editForm">
-        {% set data = submitted_data if submitted_data else item.to_dict() %}
-        {% for field in fields %}
-        {% set fv = field_html_validations.get(field, {}) %}
-        <div class="col-md-4">
-          <label class="form-label">{{ field_labels.get(field, field.replace('_', ' ').title()) }}{% if fv.get('required') %} <span class="text-danger">*</span>{% endif %}</label>
-          {% if field in enum_field_options %}
-          <select name="{{ field }}" class="form-select"
-                  {% if fv.get('required') %}required{% endif %}
-                  {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
-            {% if not fv.get('required') %}<option value="" {{ 'selected' if not data.get(field) else '' }}>—</option>{% endif %}
-            {% for opt in enum_field_options[field] %}
-            <option value="{{ opt.value }}" {{ 'selected' if data.get(field) == opt.value else '' }}>{{ opt.label }}</option>
+
+      {#- ═══ Abas (skill 23, Fase 5) — inspirado em SAP MM: Cabeçalho /
+          Parceiros de Negócio / Itens. Persistência de aba ativa via
+          data-abas-persistir (mesmo padrão de /freestyle/abas). -#}
+      <ul class="nav nav-tabs nav-tabs-bordered" id="abas-pedido-compra" data-abas-persistir>
+        <li class="nav-item">
+          <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#aba-cabecalho">Cabeçalho</button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#aba-parceiros">Parceiros de Negócio</button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#aba-itens">Itens</button>
+        </li>
+      </ul>
+
+      {% set data = submitted_data if submitted_data else item.to_dict() %}
+      {% set campos_parceiros = ['fornecedor_id', 'transportadora_id'] %}
+
+      <form method="post" action="{{ url_for('pedido_compras.update', id=item.id) }}" id="editForm">
+        <div class="tab-content pt-3">
+
+          {#- ═══ Aba 1: Cabeçalho — todos os campos, exceto os dois de
+              parceiro (isolados na aba 2). Mesmo motor de campo do
+              CrudGen (weak_ref/enum/checkbox/textarea/number), só
+              filtrado por lista. -#}
+          <div class="tab-pane fade show active row g-3" id="aba-cabecalho">
+            {% for field in fields if field not in campos_parceiros %}
+            {% set fv = field_html_validations.get(field, {}) %}
+            <div class="col-md-4">
+              <label class="form-label">{{ field_labels.get(field, field.replace('_', ' ').title()) }}{% if fv.get('required') %} <span class="text-danger">*</span>{% endif %}</label>
+              {% if field in enum_field_options %}
+              <select name="{{ field }}" class="form-select"
+                      {% if fv.get('required') %}required{% endif %}
+                      {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+                {% if not fv.get('required') %}<option value="" {{ 'selected' if not data.get(field) else '' }}>—</option>{% endif %}
+                {% for opt in enum_field_options[field] %}
+                <option value="{{ opt.value }}" {{ 'selected' if data.get(field) == opt.value else '' }}>{{ opt.label }}</option>
+                {% endfor %}
+              </select>
+              {% elif fv.get('html_type') == 'checkbox' %}
+              <div class="form-check">
+                <input type="checkbox" name="{{ field }}" class="form-check-input" value="true"
+                       {% if data.get(field) %}checked{% endif %}
+                       {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+              </div>
+              {% elif fv.get('html_type') == 'textarea' %}
+              <textarea name="{{ field }}" class="form-control" rows="3"
+                        {% if fv.get('required') %}required{% endif %}
+                        {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
+                        {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>{{ data.get(field) or '' }}</textarea>
+              {% else %}
+              <input type="{{ fv.get('html_type', 'text') }}" name="{{ field }}"
+                     class="form-control{% if fv.get('html_type') == 'number' %} crudgen-decimal-input{% endif %}"
+                     value="{{ data.get(field) if data.get(field) is not none else '' }}"
+                     {% if fv.get('required') %}required{% endif %}
+                     {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
+                     {% if fv.get('minlength') %}minlength="{{ fv['minlength'] }}"{% endif %}
+                     {% if fv.get('min_value') is not none %}min="{{ fv['min_value'] }}"{% endif %}
+                     {% if fv.get('step') %}step="{{ fv['step'] }}"{% endif %}
+                     {% if fv.get('html_type') == 'number' %}inputmode="decimal"{% endif %}
+                     {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+              {% endif %}
+            </div>
             {% endfor %}
-          </select>
-          {% elif field in weak_ref_fields and weak_ref_options.get(field) %}
-          <div class="weakref-combo" data-weakref-source="{{ weak_ref_options[field] }}"
-               {% if weak_ref_value_fields.get(field) %}data-weakref-value-field="{{ weak_ref_value_fields[field] }}"{% endif %}>
-            <input type="hidden" name="{{ field }}" class="weakref-combo-value" value="{{ data.get(field) if data.get(field) is not none else '' }}">
-            <input type="text" class="form-control weakref-combo-search" autocomplete="off"
-                   {% if fv.get('required') %}required{% endif %}
-                   value="{{ weak_ref_display.get(field, data.get(field) or '') }}" placeholder="Buscar...">
-            <ul class="list-group weakref-combo-results"></ul>
+            <div class="col-12">
+              <button class="btn btn-primary" type="submit">Salvar</button>
+            </div>
           </div>
-          {% elif field in weak_ref_fields %}
-          <input type="text" name="{{ field }}" class="form-control" value="{{ data.get(field) if data.get(field) is not none else '' }}"
-                 {% if fv.get('required') %}required{% endif %}
-                 {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
-                 {% if fv.get('minlength') %}minlength="{{ fv['minlength'] }}"{% endif %}
-                 {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
-          {% if weak_ref_display.get(field) %}<small class="text-muted">{{ weak_ref_display[field] }}</small>{% endif %}
-          {% elif fv.get('html_type') == 'checkbox' %}
-          <div class="form-check">
-            <input type="checkbox" name="{{ field }}" class="form-check-input" value="true"
-                   {% if data.get(field) %}checked{% endif %}
-                   {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+
+          {#- ═══ Aba 2: Parceiros de Negócio (termo SAP MM) — Fornecedor
+              e Transportadora, únicos campos de referência fraca do
+              model. Mesmo <form>, só isolados visualmente. -#}
+          <div class="tab-pane fade row g-3" id="aba-parceiros">
+            {% for field in campos_parceiros if field in fields %}
+            {% set fv = field_html_validations.get(field, {}) %}
+            <div class="col-md-6">
+              <label class="form-label">{{ field_labels.get(field, field.replace('_', ' ').title()) }}{% if fv.get('required') %} <span class="text-danger">*</span>{% endif %}</label>
+              {% if field in weak_ref_fields and weak_ref_options.get(field) %}
+              <div class="weakref-combo" data-weakref-source="{{ weak_ref_options[field] }}">
+                <input type="hidden" name="{{ field }}" class="weakref-combo-value" value="{{ data.get(field) if data.get(field) is not none else '' }}">
+                <input type="text" class="form-control weakref-combo-search" autocomplete="off"
+                       {% if fv.get('required') %}required{% endif %}
+                       value="{{ weak_ref_display.get(field, data.get(field) or '') }}" placeholder="Buscar...">
+                <ul class="list-group weakref-combo-results"></ul>
+              </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+            <div class="col-12">
+              <button class="btn btn-primary" type="submit">Salvar</button>
+            </div>
           </div>
-          {% elif fv.get('html_type') == 'textarea' %}
-          <textarea name="{{ field }}" class="form-control" rows="3"
-                    {% if fv.get('required') %}required{% endif %}
-                    {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
-                    {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>{{ data.get(field) or '' }}</textarea>
-          {% else %}
-          <input type="{{ fv.get('html_type', 'text') }}" name="{{ field }}"
-                 class="form-control{% if fv.get('html_type') == 'number' %} crudgen-decimal-input{% endif %}"
-                 value="{{ data.get(field) if data.get(field) is not none else '' }}"
-                 {% if fv.get('required') %}required{% endif %}
-                 {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
-                 {% if fv.get('minlength') %}minlength="{{ fv['minlength'] }}"{% endif %}
-                 {% if fv.get('min_value') is not none %}min="{{ fv['min_value'] }}"{% endif %}
-                 {% if fv.get('step') %}step="{{ fv['step'] }}"{% endif %}
-                 {% if fv.get('html_type') == 'number' %}inputmode="decimal"{% endif %}
-                 {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
-          {% endif %}
-        </div>
-        {% endfor %}
-        <div class="col-12">
-          <button class="btn btn-primary" type="submit">Salvar</button>
+
+          {#- ═══ Aba 3: Itens — grid desenhado à mão (fora do CrudGen),
+              fora do escopo de submit deste form (ações via API REST
+              + JS, botões type="button"). -#}
+          <div class="tab-pane fade" id="aba-itens">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <span class="text-muted small">Também serve como histórico de preço deste pedido — cada linha grava o preço pago na data do pedido.</span>
+              <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalItem" data-acao="novo-item">
+                <i class="bi bi-plus-lg"></i> Adicionar Item
+              </button>
+            </div>
+            <table class="table table-hover align-middle" data-datatable>
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th>Quantidade</th>
+                  <th>Unidade</th>
+                  <th>Preço Unit.</th>
+                  <th>Subtotal</th>
+                  <th class="text-end">Ações</th>
+                </tr>
+              </thead>
+              <tbody data-alvo="tabela-itens">
+                <tr><td colspan="6" class="text-muted">Carregando…</td></tr>
+              </tbody>
+            </table>
+          </div>
+
         </div>
       </form>
 
@@ -92,9 +176,61 @@
   </div>
 </section>
 
+{#- Modal de item — decisão da sessão: modal, não edição inline. -#}
+<script type="application/json" id="estoque-item-pedido-config">
+  {{ {"pedidoCompraId": item.id, "apiBaseItens": "/api/estoque/item-pedido-compras", "apiBaseUnidades": "/api/estoque/material-unidades"} | tojson }}
+</script>
+
+<div class="modal fade" id="modalItem" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Item do Pedido</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" data-campo="item-id">
+        <div class="mb-3">
+          <label class="form-label">Material <span class="text-danger">*</span></label>
+          <div class="weakref-combo" data-weakref-source="materials">
+            <input type="hidden" class="weakref-combo-value" data-campo="material_id" value="">
+            <input type="text" class="form-control weakref-combo-search" autocomplete="off" placeholder="Buscar material…">
+            <ul class="list-group weakref-combo-results"></ul>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Unidade de Compra <span class="text-danger">*</span></label>
+          <select class="form-select" data-campo="material_unidade_id" disabled>
+            <option value="">— escolha o Material primeiro —</option>
+          </select>
+        </div>
+        <div class="row">
+          <div class="col-6 mb-3">
+            <label class="form-label">Quantidade <span class="text-danger">*</span></label>
+            <input type="number" step="0.001" min="0" class="form-control" data-campo="quantidade">
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label">Preço Unitário <span class="text-danger">*</span></label>
+            <input type="number" step="0.01" min="0" class="form-control" data-campo="preco_unitario">
+          </div>
+        </div>
+        <p class="small text-muted mb-0">Subtotal previsto: <strong data-alvo="subtotal-preview">—</strong> (fator de conversão e subtotal reais são calculados ao salvar)</p>
+        <div class="alert alert-danger d-none mt-3" data-alvo="erro-item"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" data-acao="salvar-item">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="{{ url_for('static', filename='js/rule_engine.js') }}"></script>
 <script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>
 <script src="{{ url_for('static', filename='js/decimal_input_normalizer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/freestyle/freestyle-tesseract-data.js') }}"></script>
+<script src="{{ url_for('static', filename='js/freestyle/model_abas-tabs.js') }}"></script>
+<script src="{{ url_for('static', filename='js/estoque/pedido_compra_detalhe-itens.js') }}"></script>
 <script>
   document.getElementById('editForm').addEventListener('submit', function (e) {
     if (!RuleEngine.validateForm(this)) {

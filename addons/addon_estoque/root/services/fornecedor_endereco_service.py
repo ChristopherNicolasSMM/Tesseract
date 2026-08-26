@@ -60,10 +60,18 @@ class ServiceResult:
 class FornecedorEnderecoService:
     """Camada de negócio para Endereço do Fornecedor."""
 
-    def list(self, *, include_deleted: bool = False):
+    def list(self, *, include_deleted: bool = False, fornecedor_id: int | None = None):
+        """
+        `fornecedor_id` (skill 23, Fase 5) — customização sobre o
+        gerado pelo CrudGen: a tela nova (grid de endereços embutido no
+        detalhe de Fornecedor) precisa listar só os endereços daquele
+        fornecedor, não a tabela inteira.
+        """
         query = FornecedorEndereco.query
         if not include_deleted:
             query = query.filter(FornecedorEndereco.is_deleted.is_(False))
+        if fornecedor_id is not None:
+            query = query.filter(FornecedorEndereco.fornecedor_id == fornecedor_id)
         return query.order_by(FornecedorEndereco.id.asc()).all()
 
     def get_by_id(self, id: int) -> "FornecedorEndereco | None":
