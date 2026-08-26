@@ -1,13 +1,19 @@
 """
 addons/addon_estoque/root/model/tipo_produto.py
 
-Lookup simples (classificação de Material) - decisão desta sessão
-(ampliação de Material, item 1 do escopo). Obrigatório em Material.
-O autocreate do BrewFather (feature_brew_father) resolve sempre para
-o registro seed `SEED_NOME_INSUMO` (ver
+Lookup simples (classificação de Material) - decisão de sessão
+anterior (ampliação de Material, item 1 do escopo). Obrigatório em
+Material. O autocreate do BrewFather (feature_brew_father) resolve
+sempre para o registro seed `SEED_NOME_INSUMO` (ver
 addons/addon_estoque/root/services/estoque_seed.py) - diferente de
 Origem, aqui não é um "desconhecido" temporário: tudo que vem do
 sync de receita É insumo, de fato, não um placeholder.
+
+AMPLIACAO (skill 23, Fase 1): este lookup passa a ser o eixo de
+NATUREZA do Material - ganha 4 seeds novos além de "Insumo" (Embalagem/
+Produto Acabado/Peça/Uso e Consumo), todos idempotentes via
+ensure_default_estoque_lookups(). `Categoria` (classificação fina)
+referencia este model via `tipo_produto_id` - ver categoria.py.
 """
 from datetime import datetime, timezone
 
@@ -16,6 +22,10 @@ from annotations import label, plural, required, max_length
 
 
 SEED_NOME_INSUMO = "Insumo"
+SEED_NOME_EMBALAGEM = "Embalagem"
+SEED_NOME_PRODUTO_ACABADO = "Produto Acabado"
+SEED_NOME_PECA = "Peça"
+SEED_NOME_USO_E_CONSUMO = "Uso e Consumo"
 
 @label("Tipo de Produto")
 @plural("tipo_produtos")

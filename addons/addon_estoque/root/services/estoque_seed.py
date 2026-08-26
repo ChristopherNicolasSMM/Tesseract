@@ -2,11 +2,20 @@
 addons/addon_estoque/root/services/estoque_seed.py
 
 Seed idempotente dos registros de lookup usados como resolução
-automática pelo autocreate de feature_brew_father (decisão desta
-sessão, ver BACKLOG.md): Origem "A definir" e TipoProduto "Insumo".
+automática pelo autocreate de feature_brew_father (decisão de sessão
+anterior, ver BACKLOG.md): Origem "A definir" e TipoProduto "Insumo".
 Chamado no boot (core/app_factory.py, mesmo padrão de
 core/seed_config.ensure_default_system_config) - nunca sobrescreve um
 registro já existente, só cria o que falta.
+
+CORREÇÃO DE BUG REAL (skill 23, achado ao rodar a suíte de testes
+antes de iniciar a Fase 1): o insert de TipoProduto "Insumo" não
+preenchia `codigo` (coluna NOT NULL, unique) - `IntegrityError` em
+QUALQUER boot que passasse por este seed (inclusive toda a suíte
+`tests/test_addon_estoque.py`, 19 testes quebrados só por isso, nada
+relacionado à Fase 1 em si). Corrigido aqui, e os 4 seeds novos da
+Fase 1 (Embalagem/Produto Acabado/Peça/Uso e Consumo) já nascem com
+`codigo` preenchido para não repetir o mesmo erro.
 
 Por que aqui e não em core/: são dados de negócio específicos de
 addon_estoque (skill 00 - core nunca contém regra de domínio), mesmo
@@ -34,9 +43,26 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from core.db import db
 from addons.addon_estoque.root.model.origem import Origem, SEED_NOME_A_DEFINIR
-from addons.addon_estoque.root.model.tipo_produto import TipoProduto, SEED_NOME_INSUMO
+from addons.addon_estoque.root.model.tipo_produto import (
+    TipoProduto,
+    SEED_NOME_INSUMO,
+    SEED_NOME_EMBALAGEM,
+    SEED_NOME_PRODUTO_ACABADO,
+    SEED_NOME_PECA,
+    SEED_NOME_USO_E_CONSUMO,
+)
 
 logger = logging.getLogger(__name__)
+
+# codigo é NOT NULL/unique em TipoProduto - mapa fixo pra manter os
+# seeds idempotentes e nunca repetir o bug de insert sem codigo.
+_TIPOS_PRODUTO_SEED = {
+    SEED_NOME_INSUMO: "INSUMO",
+    SEED_NOME_EMBALAGEM: "EMBALAGEM",
+    SEED_NOME_PRODUTO_ACABADO: "PRODUTO_ACABADO",
+    SEED_NOME_PECA: "PECA",
+    SEED_NOME_USO_E_CONSUMO: "USO_E_CONSUMO",
+}
 
 
 def ensure_default_estoque_lookups() -> None:
@@ -47,9 +73,10 @@ def ensure_default_estoque_lookups() -> None:
             db.session.add(Origem(nome=SEED_NOME_A_DEFINIR))
             criado_algo = True
 
-        if not TipoProduto.query.filter_by(descricao=SEED_NOME_INSUMO).first():
-            db.session.add(TipoProduto(descricao=SEED_NOME_INSUMO))
-            criado_algo = True
+        for descricao, codigo in _TIPOS_PRODUTO_SEED.items():
+            if not TipoProduto.query.filter_by(descricao=descricao).first():
+                db.session.add(TipoProduto(descricao=descricao, codigo=codigo))
+                criado_algo = True
 
         if criado_algo:
             db.session.commit()
@@ -80,7 +107,7 @@ def get_or_create_tipo_produto_insumo() -> TipoProduto:
     """Ver get_or_create_origem_a_definir - mesmo raciocínio."""
     obj = TipoProduto.query.filter_by(descricao=SEED_NOME_INSUMO).first()
     if not obj:
-        obj = TipoProduto(descricao=SEED_NOME_INSUMO)
+        obj = TipoProduto(descricao=SEED_NOME_INSUMO, codigo=_TIPOS_PRODUTO_SEED[SEED_NOME_INSUMO])
         db.session.add(obj)
         db.session.flush()
     return obj

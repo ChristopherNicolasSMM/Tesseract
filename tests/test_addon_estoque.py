@@ -17,7 +17,15 @@ from addons.addon_estoque.root.model.composicao import Composicao
 from addons.addon_estoque.root.model.saldo import Saldo
 from addons.addon_estoque.root.model.categoria import Categoria
 from addons.addon_estoque.root.model.origem import Origem, SEED_NOME_A_DEFINIR
-from addons.addon_estoque.root.model.tipo_produto import TipoProduto, SEED_NOME_INSUMO
+from addons.addon_estoque.root.model.tipo_produto import (
+    TipoProduto,
+    SEED_NOME_INSUMO,
+    SEED_NOME_EMBALAGEM,
+    SEED_NOME_PRODUTO_ACABADO,
+    SEED_NOME_PECA,
+    SEED_NOME_USO_E_CONSUMO,
+)
+from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
 from addons.addon_estoque.root.services import estoque_service
 from addons.addon_estoque.root.services import material_lookup
 
@@ -26,15 +34,29 @@ def _ids_lookup_padrao(categoria_nome: str = "materia_prima") -> dict:
     """
     Resolve origem_id/tipo_produto_id (seeds já criados no boot via
     ensure_default_estoque_lookups, ver core/app_factory.py) e
-    categoria_id (get_or_create por nome) — os 3 campos obrigatórios
-    novos de Material (ampliação desta sessão, ver BACKLOG.md) que os
-    testes desta suíte não testam diretamente.
+    categoria_id (get_or_create por descricao) — os 3 campos
+    obrigatórios de Material que os testes desta suíte não testam
+    diretamente.
+
+    CORREÇÃO (skill 23, achado ao rodar a suíte antes da Fase 1):
+    Categoria/TipoProduto usam `descricao`/`codigo` desde a sessão que
+    substituiu o campo `nome` livre por FK — este helper ainda
+    filtrava/criava por `nome` (atributo que não existe mais em
+    nenhum dos dois models), quebrando toda criação de Material nos
+    testes. `codigo` é gerado a partir do próprio nome da categoria
+    (maiúsculo, sem espaço) só para satisfazer a coluna NOT NULL/
+    unique — não é o gerador "de verdade" (isso é decisão de UI/
+    service, fora do escopo desta correção).
     """
     origem = Origem.query.filter_by(nome=SEED_NOME_A_DEFINIR).first()
-    tipo_produto = TipoProduto.query.filter_by(nome=SEED_NOME_INSUMO).first()
-    categoria = Categoria.query.filter_by(nome=categoria_nome).first()
+    tipo_produto = TipoProduto.query.filter_by(descricao=SEED_NOME_INSUMO).first()
+    categoria = Categoria.query.filter_by(descricao=categoria_nome).first()
     if not categoria:
-        categoria = Categoria(nome=categoria_nome)
+        categoria = Categoria(
+            descricao=categoria_nome,
+            codigo=categoria_nome.upper().replace(" ", "_"),
+            tipo_produto_id=tipo_produto.id,
+        )
         db.session.add(categoria)
         db.session.flush()
     return {
@@ -77,6 +99,7 @@ def _login_admin(app, client):
     "/estoque/composicaos",
     "/estoque/movimentacaos",
     "/estoque/saldos",
+    "/estoque/material-unidades",
 ])
 def test_telas_de_listagem_nao_estouram_erro(app, client, rota):
     _login_admin(app, client)
@@ -253,3 +276,88 @@ def test_material_deletado_nao_e_encontrado_por_lookup(app):
 
         assert material_lookup.get_material(material.id) is None
         assert material_lookup.material_exists(material.id) is False
+
+
+# ── Fase 1 (skill 23) — taxonomia TipoProduto x Categoria ──
+
+def test_seeds_de_tipo_produto_cobrem_toda_a_taxonomia(app):
+    with app.app_context():
+        descricoes = {t.descricao for t in TipoProduto.query.all()}
+        assert descricoes == {
+            SEED_NOME_INSUMO,
+            SEED_NOME_EMBALAGEM,
+            SEED_NOME_PRODUTO_ACABADO,
+            SEED_NOME_PECA,
+            SEED_NOME_USO_E_CONSUMO,
+        }
+        # idempotente - nenhum duplicado nem codigo vazio
+        for tipo in TipoProduto.query.all():
+            assert tipo.codigo
+
+
+def test_categoria_aceita_tipo_produto_id_opcional(app):
+    with app.app_context():
+        tipo_embalagem = TipoProduto.query.filter_by(descricao=SEED_NOME_EMBALAGEM).first()
+
+        com_tipo = Categoria(descricao="Garrafa", codigo="GARRAFA", tipo_produto_id=tipo_embalagem.id)
+        sem_tipo = Categoria(descricao="Diversos", codigo="DIVERSOS")
+        db.session.add_all([com_tipo, sem_tipo])
+        db.session.commit()
+
+        assert com_tipo.tipo_produto_id == tipo_embalagem.id
+        assert com_tipo.tipo_produto.descricao == SEED_NOME_EMBALAGEM
+        assert sem_tipo.tipo_produto_id is None
+
+
+# ── Fase 2 (skill 23) — fracionamento (MaterialUnidade) ──
+
+def _criar_unidade(material, unidade, fator, is_base=False, **kwargs):
+    obj = MaterialUnidade(
+        material_id=material.id, unidade=unidade, fator_para_base=fator,
+        is_unidade_base=is_base, **kwargs,
+    )
+    db.session.add(obj)
+    db.session.commit()
+    return obj
+
+
+def test_material_unidade_permite_unidade_base_e_alternativa(app):
+    with app.app_context():
+        material = _criar_material(nome="Malte Pilsen Fracionado")
+
+        base = _criar_unidade(material, "kg", 1.0, is_base=True)
+        saco = _criar_unidade(material, "saco25kg", 25.0, is_base=False)
+
+        assert base.is_unidade_base is True
+        assert saco.fator_para_base == 25.0
+        assert len(material.unidades) == 2
+
+
+def test_material_unidade_rejeita_duas_unidades_base_para_o_mesmo_material(app):
+    with app.app_context():
+        material = _criar_material(nome="Lupulo Fracionado")
+        _criar_unidade(material, "kg", 1.0, is_base=True)
+
+        db.session.add(MaterialUnidade(
+            material_id=material.id, unidade="g", fator_para_base=0.001, is_unidade_base=True,
+        ))
+        with pytest.raises(IntegrityError):
+            db.session.commit()
+        db.session.rollback()
+
+
+def test_material_unidade_mesmo_material_pode_ter_duas_unidades_nao_base(app):
+    with app.app_context():
+        material = _criar_material(nome="Levedura Fracionada")
+        _criar_unidade(material, "g", 1.0, is_base=True)
+        _criar_unidade(material, "pacote11g", 11.0, is_base=False)
+        _criar_unidade(material, "pacote100g", 100.0, is_base=False)
+
+        assert len(material.unidades) == 3
+
+
+def test_material_unidade_tipo_uso_default_ambos(app):
+    with app.app_context():
+        material = _criar_material(nome="Agua Fracionada")
+        unidade = _criar_unidade(material, "l", 1.0, is_base=True)
+        assert unidade.tipo_uso == "ambos"

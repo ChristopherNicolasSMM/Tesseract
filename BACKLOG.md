@@ -1116,20 +1116,79 @@ transações "representante", nunca uma por entidade.
       criado (não existia) — aponta pro doc de sistema acima e
       registra os itens de expansão futura abaixo.
 
-## `addon_estoque` — expansão cadastral futura (planejado, não iniciado)
+## `addon_estoque` — expansão cadastral (desenho fechado, skill 23)
 
-Registrado nesta sessão a pedido do Christopher — **documentação
-apenas, nenhum model/schema decidido ainda**. Retomar seguindo o
-mesmo processo desta sessão (decisão estruturada antes de qualquer
-código — ver `addons/addon_estoque/docs/technical/06-manutencao-e-expansao.md`).
+Retomado e decidido em sessão de arquitetura própria — ver
+`docs/skills/23-proposta-expansao-addon-estoque.md` para o desenho
+completo. Decisão raiz: tudo dentro do próprio `addon_estoque`, sem
+Addon novo (`addon_compras` descartado).
 
-- [ ] Mais campos em `Fabricante` (hoje só `nome`) — quais campos,
-      não decidido.
-- [ ] Cadastro de Fornecedores — em aberto se é entidade dentro de
-      `addon_estoque` ou Addon novo (`addon_compras`).
-- [ ] Sistema de Compras — escopo não definido (pedido, cotação,
-      recebimento, vínculo com `Movimentacao`). Provável candidato a
-      Addon novo, não decidido.
+- [x] Taxonomia: `TipoProduto` = natureza (Insumo/Embalagem/Produto
+      Acabado/Peça/Uso e Consumo), `Categoria` = classificação fina
+      dentro do tipo (`tipo_produto_id` novo, nullable) — **[DECIDIDO]**,
+      Fase 1, não executada ainda.
+- [x] Fracionamento: `MaterialUnidade` (unidade de compra × unidade de
+      consumo, fator de conversão, unidade-base por Material) —
+      **[DECIDIDO]**, Fase 2, não executada ainda.
+- [x] Cadastro de Fornecedores/Transportadoras + `Endereco` reutilizável
+      (tabela de vínculo por entidade dona, sem padrão polimórfico) —
+      **[DECIDIDO]**, Fase 3, não executada ainda.
+- [x] Sistema de Compras: `PedidoCompra`/`ItemPedidoCompra` (recebimento
+      só total nesta fase), `Movimentacao`/`Saldo` ganham rastro de
+      fornecedor/unidade original — **[DECIDIDO]**, Fase 4, não
+      executada ainda.
+- [ ] Mais campos em `Fabricante` (hoje só `nome`) — continua em
+      aberto, fora do escopo da skill 23 (não pedido nesta sessão).
+
+### Fase 1+2 entregues — achados registrados durante a execução
+
+- **[RESOLVIDO]** Bug real bloqueando toda a suíte `test_addon_estoque.py`
+  (19 erros): seed de boot (`estoque_seed.py`) inseria `TipoProduto`
+  sem `codigo` (coluna NOT NULL/unique) — `IntegrityError` em
+  qualquer boot. Corrigido junto com os 4 seeds novos da taxonomia.
+- **[RESOLVIDO]** Bug real no helper de teste `_ids_lookup_padrao`
+  (`tests/test_addon_estoque.py`): ainda filtrava/criava
+  `Categoria`/`TipoProduto` por `nome` (atributo removido desde a
+  sessão que trocou para `descricao`/`codigo`, migration
+  `7faf3d2c92ca`). Corrigido.
+- **[ABERTO, fora do escopo desta entrega]** O mesmo bug de `nome` vs
+  `descricao`/`codigo` existe em **outros 5 arquivos de teste** —
+  `tests/test_feature_ingredientes.py`, `tests/test_feature_envase.py`,
+  `tests/test_feature_brew_father.py`,
+  `tests/test_mash_control_ingredient_resolution.py`,
+  `tests/test_weak_ref_display_field.py` — totalizando 22 testes
+  falhando (confirmado via `git stash` que é pré-existente, não
+  causado pela skill 23). Recomendado como próxima prioridade —
+  mesmo padrão de correção já aplicado em `test_addon_estoque.py`.
+- **[RESOLVIDO]** Migration autogerada (`f44a00fd711f`) tinha um bug
+  real: o Alembic, rodando sob `flask db migrate`, capturou a FK de
+  `MaterialUnidade.material_id` pelo nome curto do model
+  (`material.id`, sem o prefixo tri-nível da skill 02) em vez de
+  `tesseract_estoque_material.id` — confirmado aplicando a migration
+  original num banco limpo (`CREATE TABLE ... REFERENCES material`,
+  tabela inexistente). Corrigido à mão na migration. **Cuidado geral
+  para o projeto**: toda migration autogerada envolvendo FK para
+  tabela de Addon/Feature deve ter o nome da tabela alvo conferido
+  manualmente antes de aceitar o arquivo gerado por
+  `flask db migrate --autogenerate`.
+- **[NÃO EXPLICADO, revertido]** Durante a validação da migration
+  (múltiplos ciclos de `flask db stamp/upgrade/downgrade` e
+  `git stash`/`stash pop` para construir um banco baseline limpo),
+  3 controllers/services/templates de **outros Addons** — `maltes`
+  (`feature_ingredientes`), `item_envases` (`feature_envase`),
+  `recipe_ingredients` (`feature_mash_control`) — apareceram
+  modificados no working tree, com conteúdo típico de regeneração do
+  CrudGen (wiring de hooks, introspecção de tipo SQLAlchemy) que eu
+  não pedi e não consegui rastrear a origem no código (procurado em
+  `module_manager.py`, `generator.py`,
+  `discover_and_register_addons()` — nenhum lugar óbvio dispara
+  regeneração em cascata para entidades com weak_ref pro Addon
+  alterado). Revertido por segurança (`git checkout --`) para manter
+  o patch desta sessão focado só na skill 23. **Vale investigar em
+  sessão futura** se há algum gatilho real de regeneração automática
+  ligado a `create_app()`/`flask db ...` que ninguém documentou ainda
+  — se for real, é um achado sério (grava código gerado por engano
+  durante comandos que deveriam ser só leitura de schema).
 
 ## Skill 10 — revisão (menu hierárquico): EXECUTADA (2026-07-07)
 

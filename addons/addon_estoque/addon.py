@@ -21,11 +21,13 @@ class AddonEstoque(AddonBase):
         from addons.addon_estoque.root.model.origem import Origem
         from addons.addon_estoque.root.model.tipo_produto import TipoProduto
         from addons.addon_estoque.root.model.categoria import Categoria
+        from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
 
         # Lookups (Fabricante/Origem/TipoProduto/Categoria) primeiro só
         # por legibilidade - create_all resolve ordem de FK via
         # metadata do SQLAlchemy, não pela ordem desta lista.
-        return [Fabricante, Origem, TipoProduto, Categoria, Material, Composicao, Movimentacao, Saldo]
+        # MaterialUnidade depende de Material (FK) - skill 23, Fase 2.
+        return [Fabricante, Origem, TipoProduto, Categoria, Material, Composicao, Movimentacao, Saldo, MaterialUnidade]
 
     def register_routes(self, app) -> None:
         from addons.addon_estoque.root.controller.materials import materials_bp
@@ -44,6 +46,8 @@ class AddonEstoque(AddonBase):
         from addons.addon_estoque.root.api.routes.tipo_produtos_routes import tipo_produtos_api_bp
         from addons.addon_estoque.root.controller.categorias import categorias_bp
         from addons.addon_estoque.root.api.routes.categorias_routes import categorias_api_bp
+        from addons.addon_estoque.root.controller.material_unidades import material_unidades_bp
+        from addons.addon_estoque.root.api.routes.material_unidades_routes import material_unidades_api_bp
 
         for bp in [
             materials_bp, materials_api_bp,
@@ -54,6 +58,7 @@ class AddonEstoque(AddonBase):
             origems_bp, origems_api_bp,
             tipo_produtos_bp, tipo_produtos_api_bp,
             categorias_bp, categorias_api_bp,
+            material_unidades_bp, material_unidades_api_bp,
         ]:
             app.register_blueprint(bp)
 
@@ -137,5 +142,14 @@ class AddonEstoque(AddonBase):
                 "icon": "bi-bookmark",
                 "route": "/estoque/categorias",
                 "permission_required": "categorias.list",
+            },
+            {
+                "code": "TX_MATERIAL_UNIDADES",
+                "label": "Unidades de Material",
+                "parent_code": "TX_GROUP_ESTOQUE",
+                "description": "Unidades de compra/consumo por material, com fator de conversão para a unidade-base (skill 23, Fase 2).",
+                "icon": "bi-rulers",
+                "route": "/estoque/material-unidades",
+                "permission_required": "material_unidades.list",
             },
         ]

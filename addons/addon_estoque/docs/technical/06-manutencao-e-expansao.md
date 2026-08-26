@@ -10,28 +10,16 @@ genérico (campos derivados de `__table__.columns` em runtime), então
 adicionar campo não exige regenerar nada — só editar o model e (se a
 tabela já tiver dado real) rodar a migration.
 
-## Planejado, não iniciado — expansão cadastral futura
+## Expansão cadastral — desenho fechado, ver skill 23
 
-Registrado nesta sessão (decisão do Christopher: documentar agora,
-implementar só quando necessário — ver `BACKLOG.md`):
+O item que estava registrado aqui como "planejado, não iniciado"
+(mais campos em `Fabricante`, Fornecedores, Sistema de Compras) foi
+decidido em sessão de arquitetura própria — ver
+`docs/skills/23-proposta-expansao-addon-estoque.md` para o desenho
+completo (taxonomia `TipoProduto`×`Categoria`, fracionamento via
+`MaterialUnidade`, `Fornecedor`/`Transportadora`/`Endereco`, sistema
+de compras via `PedidoCompra`/`ItemPedidoCompra`). Decisão raiz:
+**tudo dentro do próprio `addon_estoque`**, sem Addon novo.
 
-- **Mais campos em `Fabricante`** — hoje é só `nome` (lookup mínimo).
-  Quais campos exatamente (CNPJ, contato, site, etc.) ainda não foi
-  decidido — não presumir nenhum antes da conversa de arquitetura
-  correspondente.
-- **Cadastro de Fornecedores** — ainda não modelado. Em aberto: é uma
-  entidade nova dentro de `addon_estoque` (mesmo Addon, já que
-  fornecedor é conceito de estoque/compras) ou um Addon próprio
-  (`addon_compras`, se o sistema de compras abaixo justificar
-  isolamento)? Essa decisão deve vir **antes** de qualquer model —
-  afeta prefixo de tabela (skill 02) e onde a FK pode existir.
-- **Sistema de Compras** — nenhum escopo definido ainda (pedido de
-  compra, cotação, recebimento, vínculo com `Movimentacao` tipo
-  `entrada`?). Provável candidato a **Addon novo** (`addon_compras`),
-  dado o tamanho do domínio — mas isso também é uma decisão em aberto,
-  não assumida aqui.
-
-**Regra ao retomar este item**: seguir o mesmo processo já usado para
-a ampliação de `Material` desta sessão — decisão primeiro (perguntas
-estruturadas, sem gerar código), schema revisado, só then
-implementação. Não pular direto pra model.
+Execução em 4 fases (skill 23, seção 7) — este documento é atualizado
+a cada fase entregue, não de uma vez só.
