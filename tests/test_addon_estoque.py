@@ -109,6 +109,7 @@ def _login_admin(app, client):
     "/estoque/transportadoras",
     "/estoque/enderecos",
     "/estoque/pedido-compras",
+    "/estoque/processo-cotacaos",
 ])
 def test_telas_de_listagem_nao_estouram_erro(app, client, rota):
     _login_admin(app, client)
@@ -799,3 +800,142 @@ def test_rotas_removidas_de_item_pedido_compra_nao_existem_mais(app, client):
     _login_admin(app, client)
     resp = client.get("/estoque/item-pedido-compras", follow_redirects=True)
     assert resp.status_code == 404
+
+
+# ── Fase 6.1 (skill 24) — ProcessoCotacao, Cotacao, ItemCotacao ──
+
+from addons.addon_estoque.root.model.processo_cotacao import ProcessoCotacao
+from addons.addon_estoque.root.model.cotacao import Cotacao
+from addons.addon_estoque.root.model.item_cotacao import ItemCotacao
+from addons.addon_estoque.root.services.processo_cotacao_service import ProcessoCotacaoService
+from addons.addon_estoque.root.services.cotacao_service import CotacaoService
+from addons.addon_estoque.root.services.item_cotacao_service import ItemCotacaoService
+
+
+def _criar_processo_cotacao(**kwargs):
+    """Passa pelo service (não instancia o model direto) — número
+    automático só é gerado no hook, que só roda via service.create()."""
+    data = {"descricao": "Cotação de teste", "data_abertura": "2026-08-01"}
+    data.update(kwargs)
+    resultado = ProcessoCotacaoService().create(data)
+    assert resultado.success, resultado.error
+    return resultado.data
+
+
+def _criar_cotacao(processo, fornecedor=None, **kwargs):
+    if fornecedor is None:
+        fornecedor = _criar_fornecedor()
+    data = {"processo_cotacao_id": processo.id, "fornecedor_id": fornecedor.id}
+    data.update(kwargs)
+    resultado = CotacaoService().create(data)
+    assert resultado.success, resultado.error
+    return resultado.data
+
+
+def _criar_item_cotacao(cotacao, material, unidade, **kwargs):
+    data = {
+        "cotacao_id": cotacao.id, "material_id": material.id, "material_unidade_id": unidade.id,
+        "quantidade": 10.0, "preco_unitario": 5.0,
+    }
+    data.update(kwargs)
+    resultado = ItemCotacaoService().create(data)
+    assert resultado.success, resultado.error
+    return resultado.data
+
+
+def test_processo_cotacao_gera_numero_automatico(app):
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        assert processo.numero is not None
+        assert processo.numero.startswith("COT-")
+        assert processo.status == "aberto"
+
+
+def test_cotacao_gera_numero_com_sufixo_do_processo(app):
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        f1 = _criar_fornecedor(razao_social="Fornecedor Cotacao A LTDA")
+        f2 = _criar_fornecedor(razao_social="Fornecedor Cotacao B LTDA")
+
+        cot1 = _criar_cotacao(processo, fornecedor=f1)
+        cot2 = _criar_cotacao(processo, fornecedor=f2)
+
+        assert cot1.numero == f"{processo.numero}-A"
+        assert cot2.numero == f"{processo.numero}-B"
+
+
+def test_cotacao_rejeita_mesmo_fornecedor_duas_vezes_no_processo(app):
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        fornecedor = _criar_fornecedor(razao_social="Fornecedor Duplicado LTDA")
+        _criar_cotacao(processo, fornecedor=fornecedor)
+
+        db.session.add(Cotacao(processo_cotacao_id=processo.id, fornecedor_id=fornecedor.id))
+        with pytest.raises(IntegrityError):
+            db.session.commit()
+        db.session.rollback()
+
+
+def test_item_cotacao_calcula_fator_e_subtotal(app):
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        cotacao = _criar_cotacao(processo)
+        material = _criar_material(nome="Malte Cotacao")
+        unidade = MaterialUnidade(material_id=material.id, unidade="saco25kg", fator_para_base=25.0, is_unidade_base=False)
+        db.session.add(unidade)
+        db.session.commit()
+
+        item = _criar_item_cotacao(cotacao, material, unidade, quantidade=2.0, preco_unitario=150.0)
+
+        assert item.fator_conversao_aplicado == 25.0
+        assert item.quantidade_convertida_base == 50.0
+        assert item.subtotal == 300.0
+        assert item.selecionado_como_vencedor is False
+
+
+def test_item_cotacao_permite_comparar_dois_fornecedores_mesmo_material(app):
+    """Cenário central da Fase 6.1: dois fornecedores cotam o mesmo
+    Material dentro do mesmo processo, cada um com seu preço — a
+    comparação de verdade (Fase 6.2) ainda não existe, mas o dado
+    já precisa suportar isso sem colidir."""
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        material = _criar_material(nome="Lupulo Comparado")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+
+        f1 = _criar_fornecedor(razao_social="Lupulos A LTDA")
+        f2 = _criar_fornecedor(razao_social="Lupulos B LTDA")
+        cot1 = _criar_cotacao(processo, fornecedor=f1)
+        cot2 = _criar_cotacao(processo, fornecedor=f2)
+
+        item1 = _criar_item_cotacao(cot1, material, unidade, quantidade=5.0, preco_unitario=40.0)
+        item2 = _criar_item_cotacao(cot2, material, unidade, quantidade=5.0, preco_unitario=35.0)
+
+        assert item1.subtotal == 200.0
+        assert item2.subtotal == 175.0  # fornecedor B mais barato
+
+
+def test_rotas_de_cotacao_e_item_cotacao_nao_tem_tela_propria(app, client):
+    """Decisão da skill 24 (mesma da Fase 5): Cotacao/ItemCotacao não
+    têm tela própria desde o início — só a API."""
+    _login_admin(app, client)
+    resp = client.get("/estoque/cotacaos", follow_redirects=True)
+    assert resp.status_code == 404
+    resp = client.get("/estoque/item-cotacaos", follow_redirects=True)
+    assert resp.status_code == 404
+
+
+def test_api_cotacao_funciona_mesmo_sem_tela(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        fornecedor = _criar_fornecedor(razao_social="Fornecedor API LTDA")
+        processo_id, fornecedor_id = processo.id, fornecedor.id
+
+    resp = client.post("/api/estoque/cotacaos/", json={
+        "processo_cotacao_id": processo_id, "fornecedor_id": fornecedor_id,
+    })
+    assert resp.status_code == 201
+    assert resp.get_json()["item"]["numero"].startswith("COT-")

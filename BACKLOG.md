@@ -1162,7 +1162,17 @@ Addon novo (`addon_compras` descartado).
   ter atualizado o campo).
 - **[DECISÃO REGISTRADA]** Cotação (RFQ) e a distinção
   cotação→pedido/compra direta ficam para uma sessão de planejamento
-  futura — não fazem parte do escopo da skill 23.
+  futura — não fazem parte do escopo da skill 23. **Retomado**: ver
+  `docs/skills/24-proposta-sistema-cotacao-rfq.md`.
+  - [x] Fase 6.1 (`ProcessoCotacao`/`Cotacao`/`ItemCotacao`, numeração
+        automática, cálculo de fator/subtotal) — **[EXECUTADO]**.
+        Bug real: 5ª ocorrência do mesmo padrão sistemático de FK sem
+        prefixo tri-nível na migration autogerada — corrigido à mão
+        (migration `6ddc874d16e7`), mesmo achado das 4 vezes
+        anteriores, agora definitivamente confirmado como padrão do
+        Alembic autogenerate neste projeto.
+  - [ ] Fase 6.2 (tela de Comparação) — não iniciada.
+  - [ ] Fase 6.3 (ação "Gerar Pedido") — não iniciada.
 
 - **[RESOLVIDO]** Mesma classe de bug de FK sem prefixo (5 ocorrências
   desta vez, em `create_table()` de `PedidoCompra`/`ItemPedidoCompra`)

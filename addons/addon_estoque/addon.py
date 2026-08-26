@@ -29,6 +29,9 @@ class AddonEstoque(AddonBase):
         from addons.addon_estoque.root.model.transportadora_endereco import TransportadoraEndereco
         from addons.addon_estoque.root.model.pedido_compra import PedidoCompra
         from addons.addon_estoque.root.model.item_pedido_compra import ItemPedidoCompra
+        from addons.addon_estoque.root.model.processo_cotacao import ProcessoCotacao
+        from addons.addon_estoque.root.model.cotacao import Cotacao
+        from addons.addon_estoque.root.model.item_cotacao import ItemCotacao
 
         # Lookups (Fabricante/Origem/TipoProduto/Categoria) primeiro só
         # por legibilidade - create_all resolve ordem de FK via
@@ -39,10 +42,12 @@ class AddonEstoque(AddonBase):
         # Fase 4 (skill 23): PedidoCompra/ItemPedidoCompra por último
         # (dependem de Fornecedor/Transportadora/MaterialUnidade); Movimentacao
         # ja tem FK opcional para ItemPedidoCompra (rastro de compra).
+        # Fase 6.1 (skill 24): ProcessoCotacao -> Cotacao -> ItemCotacao,
+        # mesma cadeia de dependencia de PedidoCompra/ItemPedidoCompra.
         return [
             Fabricante, Origem, TipoProduto, Categoria, Material, Composicao, Movimentacao, Saldo,
             MaterialUnidade, Fornecedor, Transportadora, Endereco, FornecedorEndereco, TransportadoraEndereco,
-            PedidoCompra, ItemPedidoCompra,
+            PedidoCompra, ItemPedidoCompra, ProcessoCotacao, Cotacao, ItemCotacao,
         ]
 
     def register_routes(self, app) -> None:
@@ -81,6 +86,12 @@ class AddonEstoque(AddonBase):
         from addons.addon_estoque.root.controller.pedido_compras import pedido_compras_bp
         from addons.addon_estoque.root.api.routes.pedido_compras_routes import pedido_compras_api_bp
         from addons.addon_estoque.root.api.routes.item_pedido_compras_routes import item_pedido_compras_api_bp
+        from addons.addon_estoque.root.controller.processo_cotacaos import processo_cotacaos_bp
+        from addons.addon_estoque.root.api.routes.processo_cotacaos_routes import processo_cotacaos_api_bp
+        # Fase 6.1 (skill 24): Cotacao/ItemCotacao já nascem sem tela
+        # própria (mesma decisão da Fase 5) — só API.
+        from addons.addon_estoque.root.api.routes.cotacaos_routes import cotacaos_api_bp
+        from addons.addon_estoque.root.api.routes.item_cotacaos_routes import item_cotacaos_api_bp
 
         # Fase 4 (skill 23): ação "receber" não é CRUD genérico, então
         # não é gerada pelo CrudGen — anexada aqui ao blueprint já
@@ -116,6 +127,9 @@ class AddonEstoque(AddonBase):
             transportadora_enderecos_api_bp,
             pedido_compras_bp, pedido_compras_api_bp,
             item_pedido_compras_api_bp,
+            processo_cotacaos_bp, processo_cotacaos_api_bp,
+            cotacaos_api_bp,
+            item_cotacaos_api_bp,
         ]:
             app.register_blueprint(bp)
 
@@ -251,4 +265,16 @@ class AddonEstoque(AddonBase):
             },
             # TX_ITEM_PEDIDO_COMPRAS removida (skill 23, Fase 5) — itens
             # aparecem na aba "Itens" do detalhe de Pedido de Compra.
+            {
+                "code": "TX_PROCESSO_COTACAOS",
+                "label": "Cotações",
+                "parent_code": "TX_GROUP_ESTOQUE",
+                "description": "Processo de cotação (RFQ): convida fornecedores, compara preço por Material, gera Pedido de Compra do vencedor (skill 24, Fase 6.1).",
+                "icon": "bi-clipboard-data",
+                "route": "/estoque/processo-cotacaos",
+                "permission_required": "processo_cotacaos.list",
+            },
+            # TX_COTACAOS / TX_ITEM_COTACAOS não existem (skill 24) —
+            # Cotacao/ItemCotacao não têm tela própria desde o início,
+            # mesma decisão da Fase 5 para os vínculos de Endereço.
         ]
