@@ -38,6 +38,13 @@ class Saldo(db.Model):
     estoque_minimo = db.Column(db.Float, nullable=True)
     estoque_maximo = db.Column(db.Float, nullable=True)
 
+    # Fase 4 (skill 23) - cache de última compra, alimentado por
+    # estoque_service.receber_pedido_compra()
+    ultimo_preco_compra = db.Column(db.Float, nullable=True)
+    ultimo_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedor.id", ondelete="RESTRICT"), nullable=True)
+    ultimo_fornecedor = db.relationship("Fornecedor")
+    data_ultima_compra = db.Column(db.Date, nullable=True)
+
     ultima_atualizacao = db.Column(
         db.DateTime,
         default=lambda: datetime.now(timezone.utc),
@@ -70,6 +77,9 @@ class Saldo(db.Model):
             "valor_total_estoque": self.valor_total_estoque,
             "estoque_minimo": self.estoque_minimo,
             "estoque_maximo": self.estoque_maximo,
+            "ultimo_preco_compra": self.ultimo_preco_compra,
+            "ultimo_fornecedor_id": self.ultimo_fornecedor_id,
+            "data_ultima_compra": self.data_ultima_compra.isoformat() if self.data_ultima_compra else None,
             "status": self.status,
             "ultima_atualizacao": self.ultima_atualizacao.isoformat() if self.ultima_atualizacao else None,
             "is_deleted": self.is_deleted,

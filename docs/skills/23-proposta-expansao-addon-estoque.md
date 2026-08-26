@@ -1,18 +1,20 @@
 # 23 — Proposta: Expansão Cadastral do Addon Estoque (Taxonomia, Fracionamento, Fornecedor/Transportadora/Endereço, Compras)
 
-> **Status: [DECIDIDO] — aguardando execução.** Formaliza e fecha o
-> item aberto em `BACKLOG.md`, seção "`addon_estoque` — expansão
-> cadastral futura (planejado, não iniciado)", registrado em sessão
-> anterior com 3 pontos em aberto (mais campos em Fabricante,
-> Fornecedores, Sistema de Compras). Decisão estrutural raiz (seção 1)
-> resolve todos os três a favor de manter tudo dentro do próprio
-> `addon_estoque`, não um Addon novo.
+> **Status: [EXECUTADO] — todas as 4 fases entregues (2026-08-26).**
+> Formalizou e fechou o item que estava aberto em `BACKLOG.md`, seção
+> "`addon_estoque` — expansão cadastral futura (planejado, não
+> iniciado)", registrado em sessão anterior com 3 pontos em aberto
+> (mais campos em Fabricante, Fornecedores, Sistema de Compras).
+> Decisão estrutural raiz (seção 1) resolveu os três a favor de manter
+> tudo dentro do próprio `addon_estoque`, não um Addon novo. Mantido
+> como registro do desenho — qualquer ampliação futura (novo campo,
+> novo fluxo de compra, recebimento parcial) deve citar este documento
+> antes de decidir algo divergente.
 >
 > Convenção de status igual à skill 05: **[DECIDIDO]** fechado, pronto
 > pra executar quando autorizado. **[EXECUTADO]** já no código.
-> **[ABERTO]** ainda sem decisão. Nenhum item deste documento está
-> **[EXECUTADO]** ainda — é 100% proposta até a Fase 1 ser autorizada
-> (ver seção 7).
+> **[ABERTO]** ainda sem decisão. Todas as fases (seção 7) estão
+> **[EXECUTADO]**.
 
 ---
 
@@ -279,7 +281,7 @@ movimentações manuais (ajuste, ou entrada sem passar por
 | 1 — Taxonomia | — | [EXECUTADO] |
 | 2 — Fracionamento | — (independente da Fase 1, mas patch único conforme pedido) | [EXECUTADO] |
 | 3 — Cadastros + Endereço | — | [EXECUTADO] |
-| 4 — Compras | Fases 2 e 3 (usa `MaterialUnidade` e `Fornecedor`) | [DECIDIDO], não iniciada |
+| 4 — Compras | Fases 2 e 3 (usa `MaterialUnidade` e `Fornecedor`) | [EXECUTADO] |
 
 **Decisão de entrega**: Fases 1 e 2 saem juntas no **mesmo patch**
 (autorização já dada para essa combinação). Fases 3 e 4 ficam para

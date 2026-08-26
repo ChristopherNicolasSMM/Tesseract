@@ -27,6 +27,8 @@ class AddonEstoque(AddonBase):
         from addons.addon_estoque.root.model.endereco import Endereco
         from addons.addon_estoque.root.model.fornecedor_endereco import FornecedorEndereco
         from addons.addon_estoque.root.model.transportadora_endereco import TransportadoraEndereco
+        from addons.addon_estoque.root.model.pedido_compra import PedidoCompra
+        from addons.addon_estoque.root.model.item_pedido_compra import ItemPedidoCompra
 
         # Lookups (Fabricante/Origem/TipoProduto/Categoria) primeiro só
         # por legibilidade - create_all resolve ordem de FK via
@@ -34,9 +36,13 @@ class AddonEstoque(AddonBase):
         # MaterialUnidade depende de Material (FK) - skill 23, Fase 2.
         # Fase 3 (skill 23): Fornecedor/Transportadora primeiro (dono),
         # Endereco (dado puro), depois os vínculos (dependem dos 3).
+        # Fase 4 (skill 23): PedidoCompra/ItemPedidoCompra por último
+        # (dependem de Fornecedor/Transportadora/MaterialUnidade); Movimentacao
+        # ja tem FK opcional para ItemPedidoCompra (rastro de compra).
         return [
             Fabricante, Origem, TipoProduto, Categoria, Material, Composicao, Movimentacao, Saldo,
             MaterialUnidade, Fornecedor, Transportadora, Endereco, FornecedorEndereco, TransportadoraEndereco,
+            PedidoCompra, ItemPedidoCompra,
         ]
 
     def register_routes(self, app) -> None:
@@ -68,6 +74,27 @@ class AddonEstoque(AddonBase):
         from addons.addon_estoque.root.api.routes.fornecedor_enderecos_routes import fornecedor_enderecos_api_bp
         from addons.addon_estoque.root.controller.transportadora_enderecos import transportadora_enderecos_bp
         from addons.addon_estoque.root.api.routes.transportadora_enderecos_routes import transportadora_enderecos_api_bp
+        from addons.addon_estoque.root.controller.pedido_compras import pedido_compras_bp
+        from addons.addon_estoque.root.api.routes.pedido_compras_routes import pedido_compras_api_bp
+        from addons.addon_estoque.root.controller.item_pedido_compras import item_pedido_compras_bp
+        from addons.addon_estoque.root.api.routes.item_pedido_compras_routes import item_pedido_compras_api_bp
+
+        # Fase 4 (skill 23): ação "receber" não é CRUD genérico, então
+        # não é gerada pelo CrudGen — anexada aqui ao blueprint já
+        # pronto (ver nota em controller/pedido_compras_hooks.py sobre
+        # por que isso não pode ficar dentro do próprio hooks.py).
+        # GUARDA (achado real, ver BACKLOG): pedido_compras_bp é objeto
+        # de módulo, reaproveitado entre múltiplos create_app() no
+        # mesmo processo (ex.: suíte de testes) — add_url_rule só pode
+        # rodar uma vez; sem a guarda, o 2º create_app() do processo
+        # levanta AssertionError do Flask ("blueprint already
+        # registered").
+        if not getattr(pedido_compras_bp, "_receber_route_registered", False):
+            from addons.addon_estoque.root.controller.pedido_compras_hooks import receber_view
+            pedido_compras_bp.add_url_rule(
+                "/<int:id>/receber", endpoint="receber", view_func=receber_view, methods=["POST"],
+            )
+            pedido_compras_bp._receber_route_registered = True
 
         for bp in [
             materials_bp, materials_api_bp,
@@ -84,6 +111,8 @@ class AddonEstoque(AddonBase):
             enderecos_bp, enderecos_api_bp,
             fornecedor_enderecos_bp, fornecedor_enderecos_api_bp,
             transportadora_enderecos_bp, transportadora_enderecos_api_bp,
+            pedido_compras_bp, pedido_compras_api_bp,
+            item_pedido_compras_bp, item_pedido_compras_api_bp,
         ]:
             app.register_blueprint(bp)
 
@@ -221,5 +250,23 @@ class AddonEstoque(AddonBase):
                 "icon": "bi-geo",
                 "route": "/estoque/transportadora-enderecos",
                 "permission_required": "transportadora_enderecos.list",
+            },
+            {
+                "code": "TX_PEDIDO_COMPRAS",
+                "label": "Pedidos de Compra",
+                "parent_code": "TX_GROUP_ESTOQUE",
+                "description": "Sistema de compras: pedido -> recebimento -> movimentação de entrada automática (skill 23, Fase 4).",
+                "icon": "bi-cart-check",
+                "route": "/estoque/pedido-compras",
+                "permission_required": "pedido_compras.list",
+            },
+            {
+                "code": "TX_ITEM_PEDIDO_COMPRAS",
+                "label": "Itens de Pedido de Compra",
+                "parent_code": "TX_GROUP_ESTOQUE",
+                "description": "Linhas de pedido de compra — também serve como histórico de preços/últimas compras por Material.",
+                "icon": "bi-list-check",
+                "route": "/estoque/item-pedido-compras",
+                "permission_required": "item_pedido_compras.list",
             },
         ]

@@ -51,6 +51,11 @@ def registrar_movimentacao(
     data_validade=None,
     usuario_id: int | None = None,
     observacoes: str | None = None,
+    fornecedor_id: int | None = None,
+    pedido_compra_item_id: int | None = None,
+    unidade_original: str | None = None,
+    quantidade_original: float | None = None,
+    fator_conversao_aplicado: float | None = None,
 ) -> dict:
     """
     Registra uma Movimentacao (ledger, imutável) e atualiza o Saldo
@@ -58,6 +63,14 @@ def registrar_movimentacao(
     corretiva) ou negativo (saída corretiva) — quantidade aceita
     qualquer sinal só para tipo_movimentacao="ajuste"; "entrada"/
     "saida" exigem quantidade >= 0 (o sinal é dado pelo tipo).
+
+    `fornecedor_id`/`pedido_compra_item_id`/`unidade_original`/
+    `quantidade_original`/`fator_conversao_aplicado` (skill 23, Fase 4)
+    são todos opcionais — só preenchidos quando a movimentação vem de
+    receber_pedido_compra(); movimentação manual continua funcionando
+    sem nenhum deles. Quando `fornecedor_id` é passado numa entrada,
+    Saldo.ultimo_preco_compra/ultimo_fornecedor_id/data_ultima_compra
+    são atualizados (cache de última compra).
 
     Retorna dict primitivo (nunca o objeto ORM) — mesma regra de
     fronteira usada em device_manager (skill 05, seção 6).
@@ -87,6 +100,11 @@ def registrar_movimentacao(
         data_movimentacao=datetime.now(timezone.utc),
         usuario_id=usuario_id,
         observacoes=observacoes,
+        fornecedor_id=fornecedor_id,
+        pedido_compra_item_id=pedido_compra_item_id,
+        unidade_original=unidade_original,
+        quantidade_original=quantidade_original,
+        fator_conversao_aplicado=fator_conversao_aplicado,
     )
     db.session.add(movimentacao)
 
@@ -105,6 +123,11 @@ def registrar_movimentacao(
     if saldo.custo_medio is not None:
         saldo.valor_total_estoque = saldo.quantidade_atual * saldo.custo_medio
     saldo.ultima_atualizacao = datetime.now(timezone.utc)
+
+    if tipo_movimentacao == "entrada" and fornecedor_id is not None:
+        saldo.ultimo_preco_compra = custo_unitario
+        saldo.ultimo_fornecedor_id = fornecedor_id
+        saldo.data_ultima_compra = datetime.now(timezone.utc).date()
 
     db.session.commit()
 
@@ -130,3 +153,76 @@ def _aplicar_entrada(saldo: Saldo, quantidade: float, custo_unitario: float | No
 def consultar_saldo(material_id: int) -> dict | None:
     saldo = Saldo.query.filter_by(material_id=material_id).first()
     return saldo.to_dict() if saldo else None
+
+
+class PedidoCompraNaoEncontradoError(Exception):
+    pass
+
+
+class PedidoCompraStatusInvalidoError(Exception):
+    pass
+
+
+def receber_pedido_compra(pedido_compra_id: int, *, usuario_id: int | None = None) -> dict:
+    """
+    Recebimento (skill 23, Fase 4) — SEMPRE total nesta fase (decisão
+    explícita, seção 6 da skill 23; recebimento parcial fica para
+    quando o volume real de uso justificar). Transiciona
+    PedidoCompra.status para "recebido" e gera uma Movimentacao de
+    entrada por ItemPedidoCompra via registrar_movimentacao() (nunca
+    INSERT direto), preservando a regra de que toda movimentação passa
+    por lá.
+
+    custo_unitario da Movimentacao é sempre por UNIDADE-BASE do
+    Material (preco_unitario do item, que é por unidade de compra,
+    dividido pelo fator_conversao_aplicado) — mantém
+    Saldo.custo_medio consistente com o resto do sistema, que já
+    calcula tudo em unidade-base.
+
+    Só é permitido a partir de status="confirmado" — replica a máquina
+    de estado documentada na skill 23 (rascunho -> enviado ->
+    confirmado -> recebido).
+    """
+    from addons.addon_estoque.root.model.pedido_compra import PedidoCompra
+
+    pedido = PedidoCompra.query.filter_by(id=pedido_compra_id, is_deleted=False).first()
+    if pedido is None:
+        raise PedidoCompraNaoEncontradoError(f"PedidoCompra id={pedido_compra_id} não encontrado ou removido")
+
+    if pedido.status != "confirmado":
+        raise PedidoCompraStatusInvalidoError(
+            f"Só é possível receber um pedido com status='confirmado' (atual: {pedido.status!r})"
+        )
+
+    itens = [i for i in pedido.itens if not i.is_deleted]
+    if not itens:
+        raise ValueError(f"PedidoCompra id={pedido_compra_id} não tem itens para receber")
+
+    movimentacoes = []
+    for item in itens:
+        fator = item.fator_conversao_aplicado or 1.0
+        custo_unitario_base = item.preco_unitario / fator if fator else item.preco_unitario
+
+        resultado = registrar_movimentacao(
+            item.material_id,
+            "entrada",
+            item.quantidade_convertida_base or (item.quantidade * fator),
+            custo_unitario=custo_unitario_base,
+            usuario_id=usuario_id,
+            observacoes=f"Recebimento do pedido de compra {pedido.numero}",
+            fornecedor_id=pedido.fornecedor_id,
+            pedido_compra_item_id=item.id,
+            unidade_original=item.material_unidade.unidade if item.material_unidade else None,
+            quantidade_original=item.quantidade,
+            fator_conversao_aplicado=fator,
+        )
+        movimentacoes.append(resultado["movimentacao"])
+
+    pedido.status = "recebido"
+    pedido.updated_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+    return {
+        "pedido_compra": pedido.to_dict(),
+        "movimentacoes": movimentacoes,
+    }

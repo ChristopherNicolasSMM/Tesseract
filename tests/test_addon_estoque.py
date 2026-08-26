@@ -110,6 +110,8 @@ def _login_admin(app, client):
     "/estoque/enderecos",
     "/estoque/fornecedor-enderecos",
     "/estoque/transportadora-enderecos",
+    "/estoque/pedido-compras",
+    "/estoque/item-pedido-compras",
 ])
 def test_telas_de_listagem_nao_estouram_erro(app, client, rota):
     _login_admin(app, client)
@@ -509,3 +511,168 @@ def test_transportadora_endereco_rejeita_dois_principais(app):
         with pytest.raises(IntegrityError):
             db.session.commit()
         db.session.rollback()
+
+
+# ── Fase 4 (skill 23) — PedidoCompra, ItemPedidoCompra, recebimento ──
+
+import datetime as _dt
+
+from addons.addon_estoque.root.services.pedido_compra_service import PedidoCompraService
+from addons.addon_estoque.root.services.item_pedido_compra_service import ItemPedidoCompraService
+
+
+def _criar_fornecedor(**kwargs):
+    defaults = {"razao_social": "Fornecedor Teste LTDA"}
+    defaults.update(kwargs)
+    obj = Fornecedor(**defaults)
+    db.session.add(obj)
+    db.session.commit()
+    return obj
+
+
+def _criar_pedido_compra(fornecedor=None, **kwargs):
+    """Passa pelo PedidoCompraService (não instancia o model direto) —
+    o número automático só é gerado no hook `pbo_apply_fields`, que só
+    roda através do service.create()."""
+    if fornecedor is None:
+        fornecedor = _criar_fornecedor()
+    data = {"fornecedor_id": fornecedor.id, "data_pedido": "2026-08-01"}
+    data.update(kwargs)
+    resultado = PedidoCompraService().create(data)
+    assert resultado.success, resultado.error
+    return resultado.data
+
+
+def _criar_item_pedido_compra(pedido, material, unidade, **kwargs):
+    """Idem — quantidade_convertida_base/subtotal só são calculados no
+    hook `pai_apply_fields`, que só roda através do service.create()."""
+    data = {
+        "pedido_compra_id": pedido.id,
+        "material_id": material.id,
+        "material_unidade_id": unidade.id,
+        "quantidade": 10.0,
+        "preco_unitario": 5.0,
+    }
+    data.update(kwargs)
+    resultado = ItemPedidoCompraService().create(data)
+    assert resultado.success, resultado.error
+    return resultado.data
+
+
+def test_pedido_compra_gera_numero_automatico(app):
+    with app.app_context():
+        pedido = _criar_pedido_compra()
+        assert pedido.numero is not None
+        assert pedido.numero.startswith("PC-")
+        assert pedido.status == "rascunho"
+
+
+def test_pedido_compra_respeita_numero_informado(app):
+    with app.app_context():
+        pedido = _criar_pedido_compra(numero="PC-CUSTOM-001")
+        assert pedido.numero == "PC-CUSTOM-001"
+
+
+def test_item_pedido_compra_calcula_fator_e_conversao(app):
+    with app.app_context():
+        material = _criar_material(nome="Malte Pilsen Compra")
+        unidade = MaterialUnidade(material_id=material.id, unidade="saco25kg", fator_para_base=25.0, is_unidade_base=False)
+        db.session.add(unidade)
+        db.session.commit()
+
+        pedido = _criar_pedido_compra()
+        item = _criar_item_pedido_compra(pedido, material, unidade, quantidade=4.0, preco_unitario=150.0)
+
+        assert item.fator_conversao_aplicado == 25.0
+        assert item.quantidade_convertida_base == 100.0  # 4 sacos * 25kg
+        assert item.subtotal == 600.0  # 4 * 150
+
+
+def test_item_pedido_compra_fator_snapshot_nao_muda_com_cadastro(app):
+    with app.app_context():
+        material = _criar_material(nome="Lupulo Compra")
+        unidade = MaterialUnidade(material_id=material.id, unidade="pacote1kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+
+        pedido = _criar_pedido_compra()
+        item = _criar_item_pedido_compra(pedido, material, unidade, quantidade=2.0, preco_unitario=80.0)
+        assert item.fator_conversao_aplicado == 1.0
+
+        # Cadastro muda depois — item já salvo não deve mudar retroativamente
+        unidade.fator_para_base = 2.0
+        db.session.commit()
+
+        db.session.refresh(item)
+        assert item.fator_conversao_aplicado == 1.0
+
+
+def test_receber_pedido_compra_gera_movimentacao_e_atualiza_saldo(app):
+    with app.app_context():
+        material = _criar_material(nome="Malte Recebimento")
+        unidade = MaterialUnidade(material_id=material.id, unidade="saco25kg", fator_para_base=25.0, is_unidade_base=False)
+        db.session.add(unidade)
+        db.session.commit()
+
+        fornecedor = _criar_fornecedor(razao_social="Malte & Cia LTDA")
+        pedido = _criar_pedido_compra(fornecedor=fornecedor, status="confirmado")
+        _criar_item_pedido_compra(pedido, material, unidade, quantidade=2.0, preco_unitario=50.0)
+
+        resultado = estoque_service.receber_pedido_compra(pedido.id)
+
+        assert resultado["pedido_compra"]["status"] == "recebido"
+        assert len(resultado["movimentacoes"]) == 1
+
+        mov = resultado["movimentacoes"][0]
+        assert mov["tipo_movimentacao"] == "entrada"
+        assert mov["quantidade"] == 50.0  # 2 sacos * 25kg
+        assert mov["fornecedor_id"] == fornecedor.id
+        assert mov["unidade_original"] == "saco25kg"
+        assert mov["quantidade_original"] == 2.0
+        assert mov["custo_unitario"] == 2.0  # 50.0 (preco/saco) / 25 (fator) = 2.0/kg
+
+        saldo = estoque_service.consultar_saldo(material.id)
+        assert saldo["quantidade_atual"] == 50.0
+        assert saldo["ultimo_preco_compra"] == 2.0
+        assert saldo["ultimo_fornecedor_id"] == fornecedor.id
+        assert saldo["data_ultima_compra"] is not None
+
+
+def test_receber_pedido_compra_rejeita_status_diferente_de_confirmado(app):
+    with app.app_context():
+        pedido = _criar_pedido_compra(status="rascunho")
+        with pytest.raises(estoque_service.PedidoCompraStatusInvalidoError):
+            estoque_service.receber_pedido_compra(pedido.id)
+
+
+def test_receber_pedido_compra_rejeita_pedido_sem_itens(app):
+    with app.app_context():
+        pedido = _criar_pedido_compra(status="confirmado")
+        with pytest.raises(ValueError):
+            estoque_service.receber_pedido_compra(pedido.id)
+
+
+def test_receber_pedido_compra_inexistente_levanta_erro(app):
+    with app.app_context():
+        with pytest.raises(estoque_service.PedidoCompraNaoEncontradoError):
+            estoque_service.receber_pedido_compra(999999)
+
+
+def test_receber_pedido_compra_com_multiplos_itens(app):
+    with app.app_context():
+        malte = _criar_material(nome="Malte Multi")
+        lupulo = _criar_material(nome="Lupulo Multi")
+        un_malte = MaterialUnidade(material_id=malte.id, unidade="saco25kg", fator_para_base=25.0, is_unidade_base=False)
+        un_lupulo = MaterialUnidade(material_id=lupulo.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add_all([un_malte, un_lupulo])
+        db.session.commit()
+
+        pedido = _criar_pedido_compra(status="confirmado")
+        _criar_item_pedido_compra(pedido, malte, un_malte, quantidade=1.0, preco_unitario=100.0)
+        _criar_item_pedido_compra(pedido, lupulo, un_lupulo, quantidade=3.0, preco_unitario=40.0)
+
+        resultado = estoque_service.receber_pedido_compra(pedido.id)
+        assert len(resultado["movimentacoes"]) == 2
+
+        assert estoque_service.consultar_saldo(malte.id)["quantidade_atual"] == 25.0
+        assert estoque_service.consultar_saldo(lupulo.id)["quantidade_atual"] == 3.0

@@ -1116,7 +1116,7 @@ transações "representante", nunca uma por entidade.
       criado (não existia) — aponta pro doc de sistema acima e
       registra os itens de expansão futura abaixo.
 
-## `addon_estoque` — expansão cadastral (desenho fechado, skill 23)
+## `addon_estoque` — expansão cadastral (executado, skill 23)
 
 Retomado e decidido em sessão de arquitetura própria — ver
 `docs/skills/23-proposta-expansao-addon-estoque.md` para o desenho
@@ -1129,16 +1129,50 @@ Addon novo (`addon_compras` descartado).
       Fase 1, não executada ainda.
 - [x] Fracionamento: `MaterialUnidade` (unidade de compra × unidade de
       consumo, fator de conversão, unidade-base por Material) —
-      **[DECIDIDO]**, Fase 2, não executada ainda.
+      **[EXECUTADO]**, Fase 2.
 - [x] Cadastro de Fornecedores/Transportadoras + `Endereco` reutilizável
       (tabela de vínculo por entidade dona, sem padrão polimórfico) —
       **[EXECUTADO]**, Fase 3.
 - [x] Sistema de Compras: `PedidoCompra`/`ItemPedidoCompra` (recebimento
       só total nesta fase), `Movimentacao`/`Saldo` ganham rastro de
-      fornecedor/unidade original — **[DECIDIDO]**, Fase 4, não
-      executada ainda.
+      fornecedor/unidade original — **[EXECUTADO]**, Fase 4.
 - [ ] Mais campos em `Fabricante` (hoje só `nome`) — continua em
       aberto, fora do escopo da skill 23 (não pedido nesta sessão).
+
+### Fase 4 entregue — achados registrados durante a execução
+
+- **[RESOLVIDO]** Mesma classe de bug de FK sem prefixo (5 ocorrências
+  desta vez, em `create_table()` de `PedidoCompra`/`ItemPedidoCompra`)
+  encontrada e corrigida na migration `0451604f9aad` — 4ª vez que esse
+  padrão aparece (`f44a00fd711f`, `39c5bada7f65`, hotfix de
+  `7faf3d2c92ca`, agora esta). Confirma definitivamente: é sistemático
+  do Alembic autogenerate rodando sob `flask db migrate` neste
+  projeto, não coincidência — toda migration nova exige essa
+  conferência manual antes de aceitar.
+- **[RESOLVIDO]** Achado novo nesta fase: 3 `create_foreign_key(None,
+  ...)` dentro de `batch_alter_table()` (ALTER em tabela existente,
+  não `create_table()`) também vieram sem nome de constraint — mesmo
+  "Constraint must have a name" do hotfix de `7faf3d2c92ca`, mas desta
+  vez em ALTER, não em coluna nova de tabela nova. Nomeadas e
+  refletidas no `downgrade()`.
+- **[RESOLVIDO]** Bug real de import circular: `pedido_compras_hooks.py`
+  é importado por `pedido_compras.py` ANTES do blueprint
+  `pedido_compras_bp` existir — tentar importar o blueprint de volta
+  dentro do hooks causaria `ImportError` engolido em silêncio pelo
+  `try/except` do controller gerado (rota nunca registrada, sem
+  aviso). A ação customizada "receber" (não é CRUD genérico, CrudGen
+  não gera) ficou como função solta em `pedido_compras_hooks.py`, e o
+  `add_url_rule()` foi feito em `addon.py`, onde blueprint e hook já
+  coexistem prontos.
+- **[RESOLVIDO]** Bug real de `Blueprint.add_url_rule()` chamado
+  dentro de `register_routes()`: como `pedido_compras_bp` é objeto de
+  módulo (reaproveitado entre múltiplos `create_app()` no mesmo
+  processo — típico em suíte de testes), a 2ª chamada de
+  `create_app()` levantava `AssertionError` do Flask ("blueprint
+  already registered"). Corrigido com guarda
+  (`_receber_route_registered`) — vale como padrão a repetir sempre
+  que uma rota customizada for anexada a um blueprint gerado pelo
+  CrudGen fora do fluxo normal de `register_routes()`.
 
 ### Fase 3 entregue — achado registrado durante a execução
 

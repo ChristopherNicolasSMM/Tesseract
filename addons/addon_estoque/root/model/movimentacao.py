@@ -14,6 +14,14 @@ continua sendo so para esconder um lancamento claramente errado da
 listagem - nunca para "consertar" um valor errado (isso e sempre um
 novo lancamento de ajuste). Se isso for um problema na pratica,
 avaliar esconder as acoes trash/restore via hook do controller.
+
+AMPLIACAO (skill 23, Fase 4): rastro de compra - todas as colunas
+novas sao nullable, movimentacoes manuais (ajuste, ou entrada sem
+passar por PedidoCompra) continuam validas sem preencher nada disso.
+`quantidade` continua SEMPRE na unidade-base do Material (regra de
+ouro da Fase 2) - unidade_original/quantidade_original/
+fator_conversao_aplicado sao so para auditoria, nunca lidos pelo
+calculo de saldo.
 """
 from datetime import datetime, timezone
 
@@ -47,6 +55,15 @@ class Movimentacao(db.Model):
 
     observacoes = db.Column(db.Text, nullable=True)
 
+    # Fase 4 (skill 23) - rastro de compra, tudo opcional
+    fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedor.id", ondelete="RESTRICT"), nullable=True, index=True)
+    fornecedor = db.relationship("Fornecedor")
+    pedido_compra_item_id = db.Column(db.Integer, db.ForeignKey("item_pedido_compra.id", ondelete="RESTRICT"), nullable=True, index=True)
+    pedido_compra_item = db.relationship("ItemPedidoCompra")
+    unidade_original = db.Column(db.String(20), nullable=True)
+    quantidade_original = db.Column(db.Float, nullable=True)
+    fator_conversao_aplicado = db.Column(db.Float, nullable=True)
+
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
 
@@ -65,6 +82,11 @@ class Movimentacao(db.Model):
             "data_movimentacao": self.data_movimentacao.isoformat() if self.data_movimentacao else None,
             "usuario_id": self.usuario_id,
             "observacoes": self.observacoes,
+            "fornecedor_id": self.fornecedor_id,
+            "pedido_compra_item_id": self.pedido_compra_item_id,
+            "unidade_original": self.unidade_original,
+            "quantidade_original": self.quantidade_original,
+            "fator_conversao_aplicado": self.fator_conversao_aplicado,
             "is_deleted": self.is_deleted,
             "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
