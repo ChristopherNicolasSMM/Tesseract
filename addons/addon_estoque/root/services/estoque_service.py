@@ -249,6 +249,8 @@ def selecionar_item_cotacao_vencedor(item_cotacao_id: int) -> dict:
     item = ItemCotacao.query.filter_by(id=item_cotacao_id, is_deleted=False).first()
     if item is None:
         raise ItemCotacaoNaoEncontradoError(f"ItemCotacao id={item_cotacao_id} não encontrado ou removido")
+    if item.pedido_compra_item_id is not None:
+        raise ValueError("Este item já foi convertido em Pedido de Compra — não pode mudar o vencedor.")
 
     processo_cotacao_id = item.cotacao.processo_cotacao_id
 
@@ -280,8 +282,102 @@ def desmarcar_item_cotacao_vencedor(item_cotacao_id: int) -> dict:
     item = ItemCotacao.query.filter_by(id=item_cotacao_id, is_deleted=False).first()
     if item is None:
         raise ItemCotacaoNaoEncontradoError(f"ItemCotacao id={item_cotacao_id} não encontrado ou removido")
+    if item.pedido_compra_item_id is not None:
+        raise ValueError("Este item já foi convertido em Pedido de Compra — não pode mudar o vencedor.")
 
     item.selecionado_como_vencedor = False
     db.session.commit()
 
     return {"item_cotacao": item.to_dict()}
+
+
+class ProcessoCotacaoNaoEncontradoError(Exception):
+    pass
+
+
+def gerar_pedidos_de_cotacao(processo_cotacao_id: int) -> dict:
+    """
+    "Gerar Pedido" (skill 24, Fase 6.3) — ação manual e separada
+    (decisão de sessão, skill 24 seção 1): pega todos os ItemCotacao
+    marcados como vencedores no processo E ainda não convertidos
+    (pedido_compra_item_id IS NULL — evita duplicar se a ação for
+    chamada mais de uma vez), agrupa por fornecedor (via Cotacao) e
+    cria UM PedidoCompra por fornecedor vencedor, com os itens
+    correspondentes.
+
+    Passa pelos services (PedidoCompraService/ItemPedidoCompraService),
+    não INSERT direto — reaproveita os hooks já existentes (numero
+    automático do pedido, fator/quantidade_convertida_base/subtotal do
+    item), mesmo raciocínio de nunca duplicar lógica de cálculo.
+
+    PedidoCompra nasce em status="rascunho" — revisável antes de
+    confirmar (fluxo normal da Fase 4 continua valendo a partir daí).
+    Não gera Movimentacao nenhuma aqui — só quando o Pedido gerado for
+    de fato recebido (receber_pedido_compra(), fluxo separado).
+    """
+    from addons.addon_estoque.root.model.processo_cotacao import ProcessoCotacao
+    from addons.addon_estoque.root.model.cotacao import Cotacao
+    from addons.addon_estoque.root.model.item_cotacao import ItemCotacao
+    from addons.addon_estoque.root.services.pedido_compra_service import PedidoCompraService
+    from addons.addon_estoque.root.services.item_pedido_compra_service import ItemPedidoCompraService
+
+    processo = ProcessoCotacao.query.filter_by(id=processo_cotacao_id, is_deleted=False).first()
+    if processo is None:
+        raise ProcessoCotacaoNaoEncontradoError(f"ProcessoCotacao id={processo_cotacao_id} não encontrado ou removido")
+
+    itens_vencedores = (
+        ItemCotacao.query
+        .join(Cotacao, ItemCotacao.cotacao_id == Cotacao.id)
+        .filter(
+            Cotacao.processo_cotacao_id == processo_cotacao_id,
+            ItemCotacao.selecionado_como_vencedor.is_(True),
+            ItemCotacao.pedido_compra_item_id.is_(None),
+            ItemCotacao.is_deleted.is_(False),
+        )
+        .all()
+    )
+    if not itens_vencedores:
+        raise ValueError(
+            "Nenhum item vencedor pendente de geração — marque vencedores na aba Comparação "
+            "ou este processo já teve todos os vencedores convertidos em pedido."
+        )
+
+    itens_por_fornecedor: dict[int, list[ItemCotacao]] = {}
+    for item in itens_vencedores:
+        fornecedor_id = item.cotacao.fornecedor_id
+        itens_por_fornecedor.setdefault(fornecedor_id, []).append(item)
+
+    pedido_service = PedidoCompraService()
+    item_service = ItemPedidoCompraService()
+    pedidos_gerados = []
+
+    for fornecedor_id, itens in itens_por_fornecedor.items():
+        resultado_pedido = pedido_service.create({
+            "fornecedor_id": fornecedor_id,
+            "data_pedido": datetime.now(timezone.utc).date().isoformat(),
+            "observacoes": f"Gerado a partir do processo de cotação {processo.numero}",
+        })
+        if not resultado_pedido.success:
+            raise RuntimeError(f"Falha ao criar PedidoCompra para fornecedor_id={fornecedor_id}: {resultado_pedido.error}")
+        pedido = resultado_pedido.data
+
+        for item_cotacao in itens:
+            resultado_item = item_service.create({
+                "pedido_compra_id": pedido.id,
+                "material_id": item_cotacao.material_id,
+                "material_unidade_id": item_cotacao.material_unidade_id,
+                "quantidade": item_cotacao.quantidade,
+                "preco_unitario": item_cotacao.preco_unitario,
+            })
+            if not resultado_item.success:
+                raise RuntimeError(f"Falha ao criar ItemPedidoCompra a partir de ItemCotacao id={item_cotacao.id}: {resultado_item.error}")
+
+            item_cotacao.pedido_compra_item_id = resultado_item.data.id
+
+        pedidos_gerados.append(pedido.to_dict())
+
+    processo.status = "finalizado"
+    processo.updated_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+    return {"processo_cotacao": processo.to_dict(), "pedidos_gerados": pedidos_gerados}

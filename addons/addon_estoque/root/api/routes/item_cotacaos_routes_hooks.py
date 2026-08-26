@@ -34,6 +34,8 @@ def selecionar_vencedor_view(id: int):
         return _ok(resultado)
     except estoque_service.ItemCotacaoNaoEncontradoError as e:
         return _erro(str(e), 404)
+    except ValueError as e:
+        return _erro(str(e), 422)
 
 
 @login_required
@@ -44,3 +46,5 @@ def desmarcar_vencedor_view(id: int):
         return _ok(resultado)
     except estoque_service.ItemCotacaoNaoEncontradoError as e:
         return _erro(str(e), 404)
+    except ValueError as e:
+        return _erro(str(e), 422)

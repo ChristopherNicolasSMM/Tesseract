@@ -26,7 +26,7 @@ from annotations import label, plural, required, readonly_fields, field_labels
 @required("material_unidade_id", message="Unidade de compra é obrigatória")
 @required("quantidade", message="Quantidade é obrigatória")
 @required("preco_unitario", message="Preço unitário é obrigatório")
-@readonly_fields(["fator_conversao_aplicado", "quantidade_convertida_base", "subtotal"])
+@readonly_fields(["fator_conversao_aplicado", "quantidade_convertida_base", "subtotal", "pedido_compra_item_id"])
 @field_labels({
     "cotacao_id": "Cotação",
     "material_id": "Material",
@@ -37,6 +37,7 @@ from annotations import label, plural, required, readonly_fields, field_labels
     "preco_unitario": "Preço Unitário",
     "subtotal": "Subtotal",
     "selecionado_como_vencedor": "Selecionado como Vencedor",
+    "pedido_compra_item_id": "Item do Pedido Gerado",
 })
 class ItemCotacao(db.Model):
     __tablename__ = "item_cotacao"
@@ -61,6 +62,14 @@ class ItemCotacao(db.Model):
 
     selecionado_como_vencedor = db.Column(db.Boolean, default=False, nullable=False)
 
+    # Fase 6.3 (skill 24) - rastreia se este item vencedor já gerou
+    # ItemPedidoCompra, evitando duplicar pedido se "Gerar Pedido" for
+    # chamado mais de uma vez no mesmo ProcessoCotacao. Também dá
+    # rastreabilidade completa (cotação -> pedido), mesmo espírito de
+    # Movimentacao.pedido_compra_item_id (skill 23, Fase 4).
+    pedido_compra_item_id = db.Column(db.Integer, db.ForeignKey("item_pedido_compra.id", ondelete="SET NULL"), nullable=True)
+    pedido_compra_item = db.relationship("ItemPedidoCompra")
+
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
 
@@ -84,6 +93,7 @@ class ItemCotacao(db.Model):
             "preco_unitario": self.preco_unitario,
             "subtotal": self.subtotal,
             "selecionado_como_vencedor": self.selecionado_como_vencedor,
+            "pedido_compra_item_id": self.pedido_compra_item_id,
             "is_deleted": self.is_deleted,
             "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,

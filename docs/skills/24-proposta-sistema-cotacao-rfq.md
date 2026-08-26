@@ -1,11 +1,12 @@
 # 24 — Proposta: Sistema de Cotação (RFQ) — Addon Estoque
 
-> **Status: [DECIDIDO] — aguardando execução.** Continuação direta da
-> skill 23 (Fases 1–5, todas entregues) — o item "Vamos planejar
-> depois um sistema de cotação" ficou registrado no BACKLOG como
-> decisão futura; esta skill formaliza esse planejamento. Convenção de
-> status igual às skills 05/23: **[DECIDIDO]** fechado, pronto pra
-> executar. **[EXECUTADO]** já no código. **[ABERTO]** sem decisão.
+> **Status: [EXECUTADO] — todas as fases (6.1, 6.2, 6.3) entregues.**
+> Continuação direta da skill 23 (Fases 1–5, todas entregues) — o item
+> "Vamos planejar depois um sistema de cotação" ficou registrado no
+> BACKLOG como decisão futura; esta skill formalizou esse planejamento
+> e o executou por completo. Convenção de status igual às skills
+> 05/23: **[DECIDIDO]** fechado, pronto pra executar. **[EXECUTADO]**
+> já no código. **[ABERTO]** sem decisão.
 
 ---
 
@@ -183,7 +184,31 @@ existem naquele processo.
 |---|---|---|
 | 6.1 | `ProcessoCotacao`/`Cotacao`/`ItemCotacao` — models, migration, CrudGen básico, numeração automática, cálculo de subtotal/fator (hooks) — **[EXECUTADO]** | Fase 4 (usa `Fornecedor`/`MaterialUnidade`) |
 | 6.2 | Tela de Comparação (desenhada, grid Material × Cotacao) + ação "selecionar vencedor" (valida único vencedor por Material) — **[EXECUTADO]** | 6.1 |
-| 6.3 | Ação "Gerar Pedido" (agrupa vencedores por fornecedor → cria `PedidoCompra`/`ItemPedidoCompra`) | 6.2, Fase 4 |
+| 6.3 | Ação "Gerar Pedido" (agrupa vencedores por fornecedor → cria `PedidoCompra`/`ItemPedidoCompra`) — **[EXECUTADO]** | 6.2, Fase 4 |
+
+## 9. Fase 6.3 — Ação "Gerar Pedido" (execução real)
+
+**[EXECUTADO]** `estoque_service.gerar_pedidos_de_cotacao(processo_cotacao_id)`:
+busca todos os `ItemCotacao` vencedores do processo ainda não
+convertidos (`pedido_compra_item_id IS NULL`), agrupa por fornecedor
+(via `Cotacao.fornecedor_id`) e cria **um `PedidoCompra` por
+fornecedor vencedor** (nasce em `status="rascunho"`, revisável antes
+de confirmar — fluxo da Fase 4 continua valendo a partir daí). Passa
+pelos services (`PedidoCompraService`/`ItemPedidoCompraService`), não
+INSERT direto — reaproveita os hooks já existentes (número automático,
+cálculo de fator/subtotal).
+
+**Coluna nova** (schema, migration `fd143ed5695c`): `ItemCotacao.
+pedido_compra_item_id` (FK nullable → `item_pedido_compra.id`) —
+rastreia se o item vencedor já virou linha de pedido, evitando
+duplicar se "Gerar Pedido" for chamado mais de uma vez. Item já
+convertido não pode mais ter o vencedor alterado (trava no service,
+`ValueError`).
+
+`ProcessoCotacao.status` vira `"finalizado"` automaticamente ao
+gerar — não bloqueia gerar mais depois se sobrar item vencedor sem
+pedido (ex.: novo Material vencido depois de já ter gerado uma
+primeira leva).
 
 Cada fase entra em patch separado, mesmo fluxo já validado (proposta →
 autorização → migration com FK conferida à mão → testes → `git am

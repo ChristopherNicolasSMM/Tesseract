@@ -127,6 +127,15 @@ class AddonEstoque(AddonBase):
             )
             item_cotacaos_api_bp._vencedor_routes_registered = True
 
+        # Fase 6.3 (skill 24): ação "gerar-pedido" — mesmo padrão de
+        # guarda das ações acima.
+        if not getattr(processo_cotacaos_bp, "_gerar_pedido_route_registered", False):
+            from addons.addon_estoque.root.controller.processo_cotacaos_hooks import gerar_pedido_view
+            processo_cotacaos_bp.add_url_rule(
+                "/<int:id>/gerar-pedido", endpoint="gerar_pedido", view_func=gerar_pedido_view, methods=["POST"],
+            )
+            processo_cotacaos_bp._gerar_pedido_route_registered = True
+
         for bp in [
             materials_bp, materials_api_bp,
             composicaos_bp, composicaos_api_bp,

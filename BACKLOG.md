@@ -1185,7 +1185,16 @@ Addon novo (`addon_compras` descartado).
         desmarca qualquer outro vencedor do mesmo Material na mesma
         transação antes de marcar o novo. 12 testes novos
         (72/72) — **[EXECUTADO]**.
-  - [ ] Fase 6.3 (ação "Gerar Pedido") — não iniciada.
+  - [x] Fase 6.3 (ação "Gerar Pedido"):
+        `estoque_service.gerar_pedidos_de_cotacao()` — agrupa
+        `ItemCotacao` vencedores pendentes por fornecedor, cria um
+        `PedidoCompra` por fornecedor (via services, reaproveitando
+        hooks já existentes). Coluna nova `ItemCotacao.
+        pedido_compra_item_id` (migration `fd143ed5695c`) rastreia
+        conversão e evita duplicar pedido se a ação for chamada duas
+        vezes; item já convertido trava alteração de vencedor. 6
+        testes novos (79/79) — **[EXECUTADO]**. **Fecha a skill 24 —
+        sistema de Cotação completo.**
 
 - **[RESOLVIDO]** Mesma classe de bug de FK sem prefixo (5 ocorrências
   desta vez, em `create_table()` de `PedidoCompra`/`ItemPedidoCompra`)

@@ -265,6 +265,18 @@
     let datatableInstancia = null;
 
     function linhaHtml(item) {
+      if (item.pedido_compra_item_id) {
+        return (
+          "<tr data-id=\"" + item.id + "\" class=\"table-secondary\">" +
+          "<td>" + TesseractData.esc(item.material_nome || ("#" + item.material_id)) + "</td>" +
+          "<td>" + TesseractData.esc(item.fornecedor_nome || "") + "</td>" +
+          "<td>" + fmt(item.quantidade) + "</td>" +
+          "<td>" + fmt(item.preco_unitario) + "</td>" +
+          "<td>" + fmt(item.subtotal) + "</td>" +
+          "<td>" + (item.prazo_entrega_dias ?? "—") + "</td>" +
+          "<td><span class=\"badge bg-secondary\"><i class=\"bi bi-box-seam\"></i> Já gerado</span></td></tr>"
+        );
+      }
       const vencedorBtn = item.selecionado_como_vencedor
         ? "<button type=\"button\" class=\"btn btn-sm btn-success\" data-acao=\"desmarcar-vencedor\" data-id=\"" + item.id + "\"><i class=\"bi bi-check-circle-fill\"></i> Vencedor</button>"
         : "<button type=\"button\" class=\"btn btn-sm btn-outline-secondary\" data-acao=\"selecionar-vencedor\" data-id=\"" + item.id + "\">Selecionar</button>";

@@ -1106,3 +1106,141 @@ def test_detalhe_processo_cotacao_renderiza_com_abas(app, client):
     assert b"Cotac\xc3\xb5es" in resp.data or b"Cota\xc3\xa7\xc3\xb5es" in resp.data
     assert b"Compara\xc3\xa7\xc3\xa3o" in resp.data
     assert b"processo_cotacao_detalhe.js" in resp.data
+
+
+# ── Fase 6.3 (skill 24) — ação "Gerar Pedido" ──
+
+def test_gerar_pedidos_de_cotacao_agrupa_por_fornecedor(app):
+    """Cenário central: dois fornecedores diferentes venceram itens
+    diferentes no mesmo processo - devem virar 2 PedidoCompra
+    separados, um por fornecedor."""
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        malte = _criar_material(nome="Malte Gerar Pedido")
+        lupulo = _criar_material(nome="Lupulo Gerar Pedido")
+        un_malte = MaterialUnidade(material_id=malte.id, unidade="saco25kg", fator_para_base=25.0, is_unidade_base=False)
+        un_lupulo = MaterialUnidade(material_id=lupulo.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add_all([un_malte, un_lupulo])
+        db.session.commit()
+
+        f1 = _criar_fornecedor(razao_social="Fornecedor Gerar A LTDA")
+        f2 = _criar_fornecedor(razao_social="Fornecedor Gerar B LTDA")
+        cot1 = _criar_cotacao(processo, fornecedor=f1)
+        cot2 = _criar_cotacao(processo, fornecedor=f2)
+
+        item_malte = _criar_item_cotacao(cot1, malte, un_malte, quantidade=2.0, preco_unitario=150.0)
+        item_lupulo = _criar_item_cotacao(cot2, lupulo, un_lupulo, quantidade=3.0, preco_unitario=40.0)
+
+        estoque_service.selecionar_item_cotacao_vencedor(item_malte.id)
+        estoque_service.selecionar_item_cotacao_vencedor(item_lupulo.id)
+
+        resultado = estoque_service.gerar_pedidos_de_cotacao(processo.id)
+
+        assert len(resultado["pedidos_gerados"]) == 2
+        assert resultado["processo_cotacao"]["status"] == "finalizado"
+
+        fornecedores_dos_pedidos = {p["fornecedor_id"] for p in resultado["pedidos_gerados"]}
+        assert fornecedores_dos_pedidos == {f1.id, f2.id}
+
+        for pedido_dict in resultado["pedidos_gerados"]:
+            assert pedido_dict["status"] == "rascunho"
+            assert pedido_dict["numero"].startswith("PC-")
+
+
+def test_gerar_pedidos_de_cotacao_agrupa_mesmo_fornecedor_num_so_pedido(app):
+    """Dois Materiais vencidos pelo MESMO fornecedor devem virar UM só
+    PedidoCompra com 2 itens, não dois pedidos separados."""
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        malte = _criar_material(nome="Malte Mesmo Fornecedor")
+        lupulo = _criar_material(nome="Lupulo Mesmo Fornecedor")
+        un_malte = MaterialUnidade(material_id=malte.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        un_lupulo = MaterialUnidade(material_id=lupulo.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add_all([un_malte, un_lupulo])
+        db.session.commit()
+
+        fornecedor = _criar_fornecedor(razao_social="Fornecedor Unico LTDA")
+        cotacao = _criar_cotacao(processo, fornecedor=fornecedor)
+        item_malte = _criar_item_cotacao(cotacao, malte, un_malte, quantidade=5.0, preco_unitario=10.0)
+        item_lupulo = _criar_item_cotacao(cotacao, lupulo, un_lupulo, quantidade=2.0, preco_unitario=30.0)
+
+        estoque_service.selecionar_item_cotacao_vencedor(item_malte.id)
+        estoque_service.selecionar_item_cotacao_vencedor(item_lupulo.id)
+
+        resultado = estoque_service.gerar_pedidos_de_cotacao(processo.id)
+
+        assert len(resultado["pedidos_gerados"]) == 1
+        pedido = PedidoCompraService().get_by_id(resultado["pedidos_gerados"][0]["id"])
+        assert len(pedido.itens) == 2
+
+
+def test_gerar_pedidos_de_cotacao_nao_duplica_se_chamado_duas_vezes(app):
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        material = _criar_material(nome="Malte Nao Duplicar")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+
+        cotacao = _criar_cotacao(processo)
+        item = _criar_item_cotacao(cotacao, material, unidade)
+        estoque_service.selecionar_item_cotacao_vencedor(item.id)
+
+        resultado1 = estoque_service.gerar_pedidos_de_cotacao(processo.id)
+        assert len(resultado1["pedidos_gerados"]) == 1
+
+        # Chamar de novo sem novo vencedor pendente deve levantar erro
+        # (nada a gerar), não duplicar o pedido.
+        with pytest.raises(ValueError):
+            estoque_service.gerar_pedidos_de_cotacao(processo.id)
+
+        db.session.refresh(item)
+        assert item.pedido_compra_item_id is not None
+
+
+def test_gerar_pedidos_de_cotacao_sem_vencedores_levanta_erro(app):
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        with pytest.raises(ValueError):
+            estoque_service.gerar_pedidos_de_cotacao(processo.id)
+
+
+def test_gerar_pedidos_de_cotacao_processo_inexistente_levanta_erro(app):
+    with app.app_context():
+        with pytest.raises(estoque_service.ProcessoCotacaoNaoEncontradoError):
+            estoque_service.gerar_pedidos_de_cotacao(999999)
+
+
+def test_item_ja_convertido_em_pedido_nao_pode_mudar_vencedor(app):
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        material = _criar_material(nome="Malte Trava Vencedor")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+
+        cotacao = _criar_cotacao(processo)
+        item = _criar_item_cotacao(cotacao, material, unidade)
+        estoque_service.selecionar_item_cotacao_vencedor(item.id)
+        estoque_service.gerar_pedidos_de_cotacao(processo.id)
+
+        with pytest.raises(ValueError):
+            estoque_service.desmarcar_item_cotacao_vencedor(item.id)
+
+
+def test_api_gerar_pedido_end_to_end(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        material = _criar_material(nome="Malte API Gerar Pedido")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+        cotacao = _criar_cotacao(processo)
+        item = _criar_item_cotacao(cotacao, material, unidade)
+        estoque_service.selecionar_item_cotacao_vencedor(item.id)
+        processo_id = processo.id
+
+    resp = client.post(f"/estoque/processo-cotacaos/{processo_id}/gerar-pedido", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"pedido" in resp.data.lower()
