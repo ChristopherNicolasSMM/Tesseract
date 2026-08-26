@@ -276,9 +276,9 @@ movimentações manuais (ajuste, ou entrada sem passar por
 
 | Fase | Depende de | Status |
 |---|---|---|
-| 1 — Taxonomia | — | [DECIDIDO], próxima a ser executada |
-| 2 — Fracionamento | — (independente da Fase 1, mas patch único conforme pedido) | [DECIDIDO] |
-| 3 — Cadastros + Endereço | — | [DECIDIDO], não iniciada |
+| 1 — Taxonomia | — | [EXECUTADO] |
+| 2 — Fracionamento | — (independente da Fase 1, mas patch único conforme pedido) | [EXECUTADO] |
+| 3 — Cadastros + Endereço | — | [EXECUTADO] |
 | 4 — Compras | Fases 2 e 3 (usa `MaterialUnidade` e `Fornecedor`) | [DECIDIDO], não iniciada |
 
 **Decisão de entrega**: Fases 1 e 2 saem juntas no **mesmo patch**

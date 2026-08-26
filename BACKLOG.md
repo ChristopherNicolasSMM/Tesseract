@@ -1132,13 +1132,25 @@ Addon novo (`addon_compras` descartado).
       **[DECIDIDO]**, Fase 2, não executada ainda.
 - [x] Cadastro de Fornecedores/Transportadoras + `Endereco` reutilizável
       (tabela de vínculo por entidade dona, sem padrão polimórfico) —
-      **[DECIDIDO]**, Fase 3, não executada ainda.
+      **[EXECUTADO]**, Fase 3.
 - [x] Sistema de Compras: `PedidoCompra`/`ItemPedidoCompra` (recebimento
       só total nesta fase), `Movimentacao`/`Saldo` ganham rastro de
       fornecedor/unidade original — **[DECIDIDO]**, Fase 4, não
       executada ainda.
 - [ ] Mais campos em `Fabricante` (hoje só `nome`) — continua em
       aberto, fora do escopo da skill 23 (não pedido nesta sessão).
+
+### Fase 3 entregue — achado registrado durante a execução
+
+- **[RESOLVIDO]** Migration autogerada (`39c5bada7f65`) teve o mesmo
+  bug de FK sem prefixo já visto em `f44a00fd711f`: 4 constraints
+  (`fornecedor_endereco`/`transportadora_endereco` apontando pra
+  `endereco`/`fornecedor`/`transportadora`) vieram com o nome curto do
+  model em vez do nome de tabela prefixado (skill 02). Corrigido à
+  mão, mesmo padrão da correção anterior. Confirma que esse é um bug
+  sistemático do Alembic rodando sob `flask db migrate` neste projeto —
+  toda migration nova precisa ter as FKs conferidas manualmente antes
+  de aceitar.
 
 ### Fase 1+2 entregues — achados registrados durante a execução
 

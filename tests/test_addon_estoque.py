@@ -26,6 +26,11 @@ from addons.addon_estoque.root.model.tipo_produto import (
     SEED_NOME_USO_E_CONSUMO,
 )
 from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
+from addons.addon_estoque.root.model.fornecedor import Fornecedor
+from addons.addon_estoque.root.model.transportadora import Transportadora
+from addons.addon_estoque.root.model.endereco import Endereco
+from addons.addon_estoque.root.model.fornecedor_endereco import FornecedorEndereco
+from addons.addon_estoque.root.model.transportadora_endereco import TransportadoraEndereco
 from addons.addon_estoque.root.services import estoque_service
 from addons.addon_estoque.root.services import material_lookup
 
@@ -100,6 +105,11 @@ def _login_admin(app, client):
     "/estoque/movimentacaos",
     "/estoque/saldos",
     "/estoque/material-unidades",
+    "/estoque/fornecedores",
+    "/estoque/transportadoras",
+    "/estoque/enderecos",
+    "/estoque/fornecedor-enderecos",
+    "/estoque/transportadora-enderecos",
 ])
 def test_telas_de_listagem_nao_estouram_erro(app, client, rota):
     _login_admin(app, client)
@@ -361,3 +371,141 @@ def test_material_unidade_tipo_uso_default_ambos(app):
         material = _criar_material(nome="Agua Fracionada")
         unidade = _criar_unidade(material, "l", 1.0, is_base=True)
         assert unidade.tipo_uso == "ambos"
+
+
+# ── Fase 3 (skill 23) — Fornecedor, Transportadora, Endereco ──
+
+def _criar_endereco(**kwargs):
+    defaults = {
+        "logradouro": "Rua das Maltarias",
+        "cidade": "Ribeirão Preto",
+        "estado": "SP",
+    }
+    defaults.update(kwargs)
+    obj = Endereco(**defaults)
+    db.session.add(obj)
+    db.session.commit()
+    return obj
+
+
+def test_criar_fornecedor_com_campos_basicos(app):
+    with app.app_context():
+        fornecedor = Fornecedor(razao_social="Malte & Cia LTDA", nome_fantasia="Malte & Cia")
+        db.session.add(fornecedor)
+        db.session.commit()
+
+        assert fornecedor.id is not None
+        assert fornecedor.ativo is True
+        assert fornecedor.is_deleted is False
+
+
+def test_criar_transportadora_com_tipo_frete(app):
+    with app.app_context():
+        transportadora = Transportadora(nome="Transportes Rápido LTDA", tipo_frete="terceirizado")
+        db.session.add(transportadora)
+        db.session.commit()
+
+        assert transportadora.id is not None
+        assert transportadora.tipo_frete == "terceirizado"
+
+
+def test_endereco_e_dado_puro_sem_dono(app):
+    with app.app_context():
+        endereco = _criar_endereco(descricao="Depósito 2")
+        assert endereco.id is not None
+        assert endereco.pais == "Brasil"
+
+
+def test_fornecedor_endereco_vincula_com_tipo_e_principal(app):
+    with app.app_context():
+        fornecedor = Fornecedor(razao_social="Lúpulos do Sul LTDA")
+        db.session.add(fornecedor)
+        endereco = _criar_endereco(logradouro="Av. dos Lúpulos, 100")
+        db.session.commit()
+
+        vinculo = FornecedorEndereco(
+            fornecedor_id=fornecedor.id, endereco_id=endereco.id,
+            tipo_endereco="cobranca", principal=True,
+        )
+        db.session.add(vinculo)
+        db.session.commit()
+
+        assert vinculo.tipo_endereco == "cobranca"
+        assert vinculo.principal is True
+        assert fornecedor.enderecos[0].endereco.cidade == "Ribeirão Preto"
+
+
+def test_fornecedor_pode_ter_multiplos_enderecos_nao_principais(app):
+    with app.app_context():
+        fornecedor = Fornecedor(razao_social="Envases Brasil LTDA")
+        db.session.add(fornecedor)
+        e1 = _criar_endereco(descricao="Matriz")
+        e2 = _criar_endereco(descricao="Filial")
+        db.session.commit()
+
+        db.session.add_all([
+            FornecedorEndereco(fornecedor_id=fornecedor.id, endereco_id=e1.id, tipo_endereco="faturamento"),
+            FornecedorEndereco(fornecedor_id=fornecedor.id, endereco_id=e2.id, tipo_endereco="entrega"),
+        ])
+        db.session.commit()
+
+        assert len(fornecedor.enderecos) == 2
+
+
+def test_fornecedor_endereco_rejeita_dois_principais(app):
+    with app.app_context():
+        fornecedor = Fornecedor(razao_social="Grãos & Grãos LTDA")
+        db.session.add(fornecedor)
+        e1 = _criar_endereco(descricao="Endereço A")
+        e2 = _criar_endereco(descricao="Endereço B")
+        db.session.commit()
+
+        db.session.add(FornecedorEndereco(
+            fornecedor_id=fornecedor.id, endereco_id=e1.id, tipo_endereco="cobranca", principal=True,
+        ))
+        db.session.commit()
+
+        db.session.add(FornecedorEndereco(
+            fornecedor_id=fornecedor.id, endereco_id=e2.id, tipo_endereco="entrega", principal=True,
+        ))
+        with pytest.raises(IntegrityError):
+            db.session.commit()
+        db.session.rollback()
+
+
+def test_transportadora_endereco_vincula_com_tipo(app):
+    with app.app_context():
+        transportadora = Transportadora(nome="Frete Rápido LTDA", tipo_frete="proprio")
+        db.session.add(transportadora)
+        endereco = _criar_endereco(descricao="Galpão")
+        db.session.commit()
+
+        vinculo = TransportadoraEndereco(
+            transportadora_id=transportadora.id, endereco_id=endereco.id, tipo_endereco="correspondencia",
+        )
+        db.session.add(vinculo)
+        db.session.commit()
+
+        assert vinculo.tipo_endereco == "correspondencia"
+        assert transportadora.enderecos[0].endereco.descricao == "Galpão"
+
+
+def test_transportadora_endereco_rejeita_dois_principais(app):
+    with app.app_context():
+        transportadora = Transportadora(nome="Log Sul LTDA", tipo_frete="terceirizado")
+        db.session.add(transportadora)
+        e1 = _criar_endereco(descricao="End A")
+        e2 = _criar_endereco(descricao="End B")
+        db.session.commit()
+
+        db.session.add(TransportadoraEndereco(
+            transportadora_id=transportadora.id, endereco_id=e1.id, tipo_endereco="entrega", principal=True,
+        ))
+        db.session.commit()
+
+        db.session.add(TransportadoraEndereco(
+            transportadora_id=transportadora.id, endereco_id=e2.id, tipo_endereco="outro", principal=True,
+        ))
+        with pytest.raises(IntegrityError):
+            db.session.commit()
+        db.session.rollback()

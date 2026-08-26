@@ -22,12 +22,22 @@ class AddonEstoque(AddonBase):
         from addons.addon_estoque.root.model.tipo_produto import TipoProduto
         from addons.addon_estoque.root.model.categoria import Categoria
         from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
+        from addons.addon_estoque.root.model.fornecedor import Fornecedor
+        from addons.addon_estoque.root.model.transportadora import Transportadora
+        from addons.addon_estoque.root.model.endereco import Endereco
+        from addons.addon_estoque.root.model.fornecedor_endereco import FornecedorEndereco
+        from addons.addon_estoque.root.model.transportadora_endereco import TransportadoraEndereco
 
         # Lookups (Fabricante/Origem/TipoProduto/Categoria) primeiro só
         # por legibilidade - create_all resolve ordem de FK via
         # metadata do SQLAlchemy, não pela ordem desta lista.
         # MaterialUnidade depende de Material (FK) - skill 23, Fase 2.
-        return [Fabricante, Origem, TipoProduto, Categoria, Material, Composicao, Movimentacao, Saldo, MaterialUnidade]
+        # Fase 3 (skill 23): Fornecedor/Transportadora primeiro (dono),
+        # Endereco (dado puro), depois os vínculos (dependem dos 3).
+        return [
+            Fabricante, Origem, TipoProduto, Categoria, Material, Composicao, Movimentacao, Saldo,
+            MaterialUnidade, Fornecedor, Transportadora, Endereco, FornecedorEndereco, TransportadoraEndereco,
+        ]
 
     def register_routes(self, app) -> None:
         from addons.addon_estoque.root.controller.materials import materials_bp
@@ -48,6 +58,16 @@ class AddonEstoque(AddonBase):
         from addons.addon_estoque.root.api.routes.categorias_routes import categorias_api_bp
         from addons.addon_estoque.root.controller.material_unidades import material_unidades_bp
         from addons.addon_estoque.root.api.routes.material_unidades_routes import material_unidades_api_bp
+        from addons.addon_estoque.root.controller.fornecedores import fornecedores_bp
+        from addons.addon_estoque.root.api.routes.fornecedores_routes import fornecedores_api_bp
+        from addons.addon_estoque.root.controller.transportadoras import transportadoras_bp
+        from addons.addon_estoque.root.api.routes.transportadoras_routes import transportadoras_api_bp
+        from addons.addon_estoque.root.controller.enderecos import enderecos_bp
+        from addons.addon_estoque.root.api.routes.enderecos_routes import enderecos_api_bp
+        from addons.addon_estoque.root.controller.fornecedor_enderecos import fornecedor_enderecos_bp
+        from addons.addon_estoque.root.api.routes.fornecedor_enderecos_routes import fornecedor_enderecos_api_bp
+        from addons.addon_estoque.root.controller.transportadora_enderecos import transportadora_enderecos_bp
+        from addons.addon_estoque.root.api.routes.transportadora_enderecos_routes import transportadora_enderecos_api_bp
 
         for bp in [
             materials_bp, materials_api_bp,
@@ -59,6 +79,11 @@ class AddonEstoque(AddonBase):
             tipo_produtos_bp, tipo_produtos_api_bp,
             categorias_bp, categorias_api_bp,
             material_unidades_bp, material_unidades_api_bp,
+            fornecedores_bp, fornecedores_api_bp,
+            transportadoras_bp, transportadoras_api_bp,
+            enderecos_bp, enderecos_api_bp,
+            fornecedor_enderecos_bp, fornecedor_enderecos_api_bp,
+            transportadora_enderecos_bp, transportadora_enderecos_api_bp,
         ]:
             app.register_blueprint(bp)
 
@@ -151,5 +176,50 @@ class AddonEstoque(AddonBase):
                 "icon": "bi-rulers",
                 "route": "/estoque/material-unidades",
                 "permission_required": "material_unidades.list",
+            },
+            {
+                "code": "TX_FORNECEDORES",
+                "label": "Fornecedores",
+                "parent_code": "TX_GROUP_ESTOQUE",
+                "description": "Cadastro de fornecedores (skill 23, Fase 3).",
+                "icon": "bi-truck",
+                "route": "/estoque/fornecedores",
+                "permission_required": "fornecedores.list",
+            },
+            {
+                "code": "TX_TRANSPORTADORAS",
+                "label": "Transportadoras",
+                "parent_code": "TX_GROUP_ESTOQUE",
+                "description": "Cadastro de transportadoras (skill 23, Fase 3).",
+                "icon": "bi-truck-flatbed",
+                "route": "/estoque/transportadoras",
+                "permission_required": "transportadoras.list",
+            },
+            {
+                "code": "TX_ENDERECOS",
+                "label": "Endereços",
+                "parent_code": "TX_GROUP_ESTOQUE",
+                "description": "Endereços reutilizáveis, vinculados a Fornecedor/Transportadora (skill 23, Fase 3).",
+                "icon": "bi-geo-alt",
+                "route": "/estoque/enderecos",
+                "permission_required": "enderecos.list",
+            },
+            {
+                "code": "TX_FORNECEDOR_ENDERECOS",
+                "label": "Endereços de Fornecedor",
+                "parent_code": "TX_GROUP_ESTOQUE",
+                "description": "Vínculo Fornecedor x Endereço, com tipo (cobrança/entrega/etc.) e principal.",
+                "icon": "bi-geo",
+                "route": "/estoque/fornecedor-enderecos",
+                "permission_required": "fornecedor_enderecos.list",
+            },
+            {
+                "code": "TX_TRANSPORTADORA_ENDERECOS",
+                "label": "Endereços de Transportadora",
+                "parent_code": "TX_GROUP_ESTOQUE",
+                "description": "Vínculo Transportadora x Endereço, com tipo (cobrança/entrega/etc.) e principal.",
+                "icon": "bi-geo",
+                "route": "/estoque/transportadora-enderecos",
+                "permission_required": "transportadora_enderecos.list",
             },
         ]
