@@ -42,7 +42,10 @@ def _err(message, code=400):
 @login_required
 @permission_required("cotacaos.list")
 def list_items():
-    items = _service.list()
+    # processo_cotacao_id (skill 24, Fase 6.2): filtro server-side
+    # usado pelas abas "Cotações"/"Comparação" do detalhe de ProcessoCotacao.
+    processo_cotacao_id = request.args.get("processo_cotacao_id", type=int)
+    items = _service.list(processo_cotacao_id=processo_cotacao_id)
     return _ok({"items": [i.to_dict() if hasattr(i, "to_dict") else {"id": i.id} for i in items]})
 
 

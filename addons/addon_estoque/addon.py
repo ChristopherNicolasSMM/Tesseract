@@ -110,6 +110,23 @@ class AddonEstoque(AddonBase):
             )
             pedido_compras_bp._receber_route_registered = True
 
+        # Fase 6.2 (skill 24): ações "selecionar-vencedor"/
+        # "desmarcar-vencedor" — mesmo padrão de guarda da ação
+        # "receber" acima.
+        if not getattr(item_cotacaos_api_bp, "_vencedor_routes_registered", False):
+            from addons.addon_estoque.root.api.routes.item_cotacaos_routes_hooks import (
+                selecionar_vencedor_view, desmarcar_vencedor_view,
+            )
+            item_cotacaos_api_bp.add_url_rule(
+                "/<int:id>/selecionar-vencedor", endpoint="selecionar_vencedor",
+                view_func=selecionar_vencedor_view, methods=["POST"],
+            )
+            item_cotacaos_api_bp.add_url_rule(
+                "/<int:id>/desmarcar-vencedor", endpoint="desmarcar_vencedor",
+                view_func=desmarcar_vencedor_view, methods=["POST"],
+            )
+            item_cotacaos_api_bp._vencedor_routes_registered = True
+
         for bp in [
             materials_bp, materials_api_bp,
             composicaos_bp, composicaos_api_bp,

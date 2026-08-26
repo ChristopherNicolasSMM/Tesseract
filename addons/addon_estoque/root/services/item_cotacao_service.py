@@ -14,6 +14,7 @@ from typing import Any
 
 from core.db import db
 from addons.addon_estoque.root.model.item_cotacao import ItemCotacao
+from addons.addon_estoque.root.model.cotacao import Cotacao
 from annotations import get_readonly_fields
 
 logger = logging.getLogger(__name__)
@@ -60,10 +61,21 @@ class ServiceResult:
 class ItemCotacaoService:
     """Camada de negócio para Item da Cotação."""
 
-    def list(self, *, include_deleted: bool = False):
+    def list(self, *, include_deleted: bool = False, cotacao_id: int | None = None, processo_cotacao_id: int | None = None):
+        """`cotacao_id` (skill 24, Fase 6.2) — gerenciar itens de uma
+        Cotacao específica. `processo_cotacao_id` — a aba "Comparação"
+        precisa de TODOS os itens de TODAS as Cotacoes do processo de
+        uma vez (join com Cotacao, já que ItemCotacao não tem essa FK
+        direta - Comparação atravessa fornecedores)."""
         query = ItemCotacao.query
         if not include_deleted:
             query = query.filter(ItemCotacao.is_deleted.is_(False))
+        if cotacao_id is not None:
+            query = query.filter(ItemCotacao.cotacao_id == cotacao_id)
+        if processo_cotacao_id is not None:
+            query = query.join(Cotacao, ItemCotacao.cotacao_id == Cotacao.id).filter(
+                Cotacao.processo_cotacao_id == processo_cotacao_id
+            )
         return query.order_by(ItemCotacao.id.asc()).all()
 
     def get_by_id(self, id: int) -> "ItemCotacao | None":

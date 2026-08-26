@@ -939,3 +939,170 @@ def test_api_cotacao_funciona_mesmo_sem_tela(app, client):
     })
     assert resp.status_code == 201
     assert resp.get_json()["item"]["numero"].startswith("COT-")
+
+
+# ── Fase 6.2 (skill 24) — seleção de vencedor na Comparação ──
+
+def test_selecionar_item_cotacao_vencedor_marca_e_desmarca_concorrentes(app):
+    """Cenário central da Fase 6.2: dois fornecedores cotam o mesmo
+    Material no mesmo processo - selecionar um como vencedor desmarca
+    automaticamente qualquer outro vencedor do mesmo Material."""
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        material = _criar_material(nome="Malte Vencedor")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+
+        f1 = _criar_fornecedor(razao_social="Fornecedor Vencedor A LTDA")
+        f2 = _criar_fornecedor(razao_social="Fornecedor Vencedor B LTDA")
+        cot1 = _criar_cotacao(processo, fornecedor=f1)
+        cot2 = _criar_cotacao(processo, fornecedor=f2)
+        item1 = _criar_item_cotacao(cot1, material, unidade, preco_unitario=40.0)
+        item2 = _criar_item_cotacao(cot2, material, unidade, preco_unitario=35.0)
+
+        # Marca item1 vencedor primeiro (preço pior, só pra testar a troca)
+        resultado1 = estoque_service.selecionar_item_cotacao_vencedor(item1.id)
+        assert resultado1["item_cotacao"]["selecionado_como_vencedor"] is True
+        db.session.refresh(item1)
+        assert item1.selecionado_como_vencedor is True
+
+        # Agora marca item2 (mais barato) - item1 deve ser desmarcado automaticamente
+        resultado2 = estoque_service.selecionar_item_cotacao_vencedor(item2.id)
+        assert resultado2["item_cotacao"]["selecionado_como_vencedor"] is True
+        assert item1.id in resultado2["desmarcados"]
+
+        db.session.refresh(item1)
+        db.session.refresh(item2)
+        assert item1.selecionado_como_vencedor is False
+        assert item2.selecionado_como_vencedor is True
+
+
+def test_selecionar_vencedor_nao_afeta_material_diferente(app):
+    """Vencedor de um Material não deve mexer no vencedor de outro
+    Material, mesmo dentro do mesmo processo/fornecedor."""
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        malte = _criar_material(nome="Malte Independente")
+        lupulo = _criar_material(nome="Lupulo Independente")
+        un_malte = MaterialUnidade(material_id=malte.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        un_lupulo = MaterialUnidade(material_id=lupulo.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add_all([un_malte, un_lupulo])
+        db.session.commit()
+
+        fornecedor = _criar_fornecedor(razao_social="Fornecedor Multi Material LTDA")
+        cotacao = _criar_cotacao(processo, fornecedor=fornecedor)
+        item_malte = _criar_item_cotacao(cotacao, malte, un_malte, preco_unitario=10.0)
+        item_lupulo = _criar_item_cotacao(cotacao, lupulo, un_lupulo, preco_unitario=20.0)
+
+        estoque_service.selecionar_item_cotacao_vencedor(item_malte.id)
+        estoque_service.selecionar_item_cotacao_vencedor(item_lupulo.id)
+
+        db.session.refresh(item_malte)
+        db.session.refresh(item_lupulo)
+        assert item_malte.selecionado_como_vencedor is True
+        assert item_lupulo.selecionado_como_vencedor is True
+
+
+def test_desmarcar_item_cotacao_vencedor(app):
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        material = _criar_material(nome="Malte Desmarcar")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+
+        cotacao = _criar_cotacao(processo)
+        item = _criar_item_cotacao(cotacao, material, unidade)
+
+        estoque_service.selecionar_item_cotacao_vencedor(item.id)
+        db.session.refresh(item)
+        assert item.selecionado_como_vencedor is True
+
+        estoque_service.desmarcar_item_cotacao_vencedor(item.id)
+        db.session.refresh(item)
+        assert item.selecionado_como_vencedor is False
+
+
+def test_selecionar_vencedor_item_inexistente_levanta_erro(app):
+    with app.app_context():
+        with pytest.raises(estoque_service.ItemCotacaoNaoEncontradoError):
+            estoque_service.selecionar_item_cotacao_vencedor(999999)
+
+
+def test_api_selecionar_vencedor_funciona_end_to_end(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        material = _criar_material(nome="Malte API Vencedor")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+        cotacao = _criar_cotacao(processo)
+        item = _criar_item_cotacao(cotacao, material, unidade)
+        item_id = item.id
+
+    resp = client.post(f"/api/estoque/item-cotacaos/{item_id}/selecionar-vencedor")
+    assert resp.status_code == 200
+    assert resp.get_json()["item_cotacao"]["selecionado_como_vencedor"] is True
+
+    resp = client.post(f"/api/estoque/item-cotacaos/{item_id}/desmarcar-vencedor")
+    assert resp.status_code == 200
+    assert resp.get_json()["item_cotacao"]["selecionado_como_vencedor"] is False
+
+
+def test_api_cotacoes_filtra_por_processo_cotacao_id(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        p1 = _criar_processo_cotacao(descricao="Processo A")
+        p2 = _criar_processo_cotacao(descricao="Processo B")
+        _criar_cotacao(p1)
+        _criar_cotacao(p2)
+        p1_id = p1.id
+
+    resp = client.get(f"/api/estoque/cotacaos/?processo_cotacao_id={p1_id}")
+    assert resp.status_code == 200
+    itens = resp.get_json()["items"]
+    assert len(itens) == 1
+    assert itens[0]["processo_cotacao_id"] == p1_id
+
+
+def test_api_item_cotacoes_filtra_por_processo_cotacao_id(app, client):
+    """Achado central da Fase 6.2: a Comparação precisa ver TODOS os
+    itens de TODAS as Cotacoes do processo numa chamada só (join)."""
+    _login_admin(app, client)
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        material = _criar_material(nome="Malte Join Comparacao")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+
+        f1 = _criar_fornecedor(razao_social="Fornecedor Join A LTDA")
+        f2 = _criar_fornecedor(razao_social="Fornecedor Join B LTDA")
+        cot1 = _criar_cotacao(processo, fornecedor=f1)
+        cot2 = _criar_cotacao(processo, fornecedor=f2)
+        _criar_item_cotacao(cot1, material, unidade, preco_unitario=10.0)
+        _criar_item_cotacao(cot2, material, unidade, preco_unitario=12.0)
+        processo_id = processo.id
+
+    resp = client.get(f"/api/estoque/item-cotacaos/?processo_cotacao_id={processo_id}")
+    assert resp.status_code == 200
+    itens = resp.get_json()["items"]
+    assert len(itens) == 2
+
+
+def test_detalhe_processo_cotacao_renderiza_com_abas(app, client):
+    """Regressão-alvo: detail.html de ProcessoCotacao foi reescrito
+    com abas (Cabeçalho/Cotações/Comparação) - só renderizando de
+    verdade pega erro de sintaxe Jinja."""
+    _login_admin(app, client)
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        processo_id = processo.id
+
+    resp = client.get(f"/estoque/processo-cotacaos/{processo_id}", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Cotac\xc3\xb5es" in resp.data or b"Cota\xc3\xa7\xc3\xb5es" in resp.data
+    assert b"Compara\xc3\xa7\xc3\xa3o" in resp.data
+    assert b"processo_cotacao_detalhe.js" in resp.data

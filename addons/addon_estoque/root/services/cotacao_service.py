@@ -60,10 +60,15 @@ class ServiceResult:
 class CotacaoService:
     """Camada de negócio para Cotação."""
 
-    def list(self, *, include_deleted: bool = False):
+    def list(self, *, include_deleted: bool = False, processo_cotacao_id: int | None = None):
+        """`processo_cotacao_id` (skill 24, Fase 6.2) — as abas
+        "Cotações" e "Comparação" do detalhe de ProcessoCotacao
+        precisam listar só as Cotacoes daquele processo."""
         query = Cotacao.query
         if not include_deleted:
             query = query.filter(Cotacao.is_deleted.is_(False))
+        if processo_cotacao_id is not None:
+            query = query.filter(Cotacao.processo_cotacao_id == processo_cotacao_id)
         return query.order_by(Cotacao.id.asc()).all()
 
     def get_by_id(self, id: int) -> "Cotacao | None":

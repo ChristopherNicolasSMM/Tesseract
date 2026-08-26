@@ -182,7 +182,7 @@ existem naquele processo.
 | Fase | Entrega | Depende de |
 |---|---|---|
 | 6.1 | `ProcessoCotacao`/`Cotacao`/`ItemCotacao` — models, migration, CrudGen básico, numeração automática, cálculo de subtotal/fator (hooks) — **[EXECUTADO]** | Fase 4 (usa `Fornecedor`/`MaterialUnidade`) |
-| 6.2 | Tela de Comparação (desenhada, grid Material × Cotacao) + ação "selecionar vencedor" (valida único vencedor por Material) | 6.1 |
+| 6.2 | Tela de Comparação (desenhada, grid Material × Cotacao) + ação "selecionar vencedor" (valida único vencedor por Material) — **[EXECUTADO]** | 6.1 |
 | 6.3 | Ação "Gerar Pedido" (agrupa vencedores por fornecedor → cria `PedidoCompra`/`ItemPedidoCompra`) | 6.2, Fase 4 |
 
 Cada fase entra em patch separado, mesmo fluxo já validado (proposta →

@@ -226,3 +226,62 @@ def receber_pedido_compra(pedido_compra_id: int, *, usuario_id: int | None = Non
         "pedido_compra": pedido.to_dict(),
         "movimentacoes": movimentacoes,
     }
+
+
+class ItemCotacaoNaoEncontradoError(Exception):
+    pass
+
+
+def selecionar_item_cotacao_vencedor(item_cotacao_id: int) -> dict:
+    """
+    Marca um ItemCotacao como vencedor (skill 24, Fase 6.2). Regra de
+    negócio central da tela de Comparação: no máximo um vencedor por
+    Material dentro do mesmo ProcessoCotacao — atravessa Cotacao
+    (fornecedores diferentes), então não dá pra ser índice único de
+    banco (skill 24, seção 2, nota sobre isso). Validado aqui: qualquer
+    outro ItemCotacao do mesmo Material, em qualquer Cotacao do mesmo
+    processo, é desmarcado antes de marcar o novo vencedor — a troca é
+    atômica (mesma transação).
+    """
+    from addons.addon_estoque.root.model.item_cotacao import ItemCotacao
+    from addons.addon_estoque.root.model.cotacao import Cotacao
+
+    item = ItemCotacao.query.filter_by(id=item_cotacao_id, is_deleted=False).first()
+    if item is None:
+        raise ItemCotacaoNaoEncontradoError(f"ItemCotacao id={item_cotacao_id} não encontrado ou removido")
+
+    processo_cotacao_id = item.cotacao.processo_cotacao_id
+
+    outros_do_mesmo_material = (
+        ItemCotacao.query
+        .join(Cotacao, ItemCotacao.cotacao_id == Cotacao.id)
+        .filter(
+            Cotacao.processo_cotacao_id == processo_cotacao_id,
+            ItemCotacao.material_id == item.material_id,
+            ItemCotacao.id != item.id,
+            ItemCotacao.selecionado_como_vencedor.is_(True),
+        )
+        .all()
+    )
+    for outro in outros_do_mesmo_material:
+        outro.selecionado_como_vencedor = False
+
+    item.selecionado_como_vencedor = True
+    db.session.commit()
+
+    return {"item_cotacao": item.to_dict(), "desmarcados": [o.id for o in outros_do_mesmo_material]}
+
+
+def desmarcar_item_cotacao_vencedor(item_cotacao_id: int) -> dict:
+    """Reverte selecionar_item_cotacao_vencedor() — corrige uma
+    seleção sem precisar escolher outro vencedor na hora."""
+    from addons.addon_estoque.root.model.item_cotacao import ItemCotacao
+
+    item = ItemCotacao.query.filter_by(id=item_cotacao_id, is_deleted=False).first()
+    if item is None:
+        raise ItemCotacaoNaoEncontradoError(f"ItemCotacao id={item_cotacao_id} não encontrado ou removido")
+
+    item.selecionado_como_vencedor = False
+    db.session.commit()
+
+    return {"item_cotacao": item.to_dict()}

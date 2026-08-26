@@ -1171,7 +1171,20 @@ Addon novo (`addon_compras` descartado).
         (migration `6ddc874d16e7`), mesmo achado das 4 vezes
         anteriores, agora definitivamente confirmado como padrão do
         Alembic autogenerate neste projeto.
-  - [ ] Fase 6.2 (tela de Comparação) — não iniciada.
+  - [x] Fase 6.2 (tela de Comparação): reescrito `processo_cotacaos/
+        detail.html` com abas (Cabeçalho/Cotações/Comparação, mesmo
+        padrão da Fase 5 — `nav-tabs-bordered` +
+        `data-abas-persistir`). Aba Cotações: convidar fornecedor +
+        sub-modal de Itens por Cotacao. Aba Comparação: grid único com
+        todos os `ItemCotacao` do processo (join
+        `ItemCotacao`↔`Cotacao`), agrupado por Material, botão
+        selecionar/desmarcar vencedor. Regra "um vencedor por Material
+        no processo" implementada em
+        `estoque_service.selecionar_item_cotacao_vencedor()` — não dá
+        pra ser constraint de banco (atravessa `Cotacao`), então
+        desmarca qualquer outro vencedor do mesmo Material na mesma
+        transação antes de marcar o novo. 12 testes novos
+        (72/72) — **[EXECUTADO]**.
   - [ ] Fase 6.3 (ação "Gerar Pedido") — não iniciada.
 
 - **[RESOLVIDO]** Mesma classe de bug de FK sem prefixo (5 ocorrências
