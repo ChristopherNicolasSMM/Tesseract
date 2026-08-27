@@ -22,6 +22,19 @@ from core.permissions import permission_required
 from addons.addon_estoque.root.services import estoque_service
 
 
+def post_create_redirect(pedido):
+    """
+    CUSTOMIZAÇÃO (achado real, sessão pós-Fase 6.3): o formulário de
+    criação (manage.html) só tem os campos de cabeçalho — não há
+    "área de itens" ali de propósito (ItemPedidoCompra exige um
+    pedido_compra_id já existente, skill 23 Fase 5). Sem este hook, a
+    pessoa criava o pedido e caía de volta na LISTA, sem indicação de
+    onde adicionar os itens. Redireciona direto pro detalhe (aba
+    Itens já pronta) em vez do manage() padrão.
+    """
+    return redirect(url_for("pedido_compras.detail", id=pedido.id))
+
+
 @login_required
 @permission_required("pedido_compras.update")
 def receber_view(id: int):

@@ -1244,3 +1244,113 @@ def test_api_gerar_pedido_end_to_end(app, client):
     resp = client.post(f"/estoque/processo-cotacaos/{processo_id}/gerar-pedido", follow_redirects=True)
     assert resp.status_code == 200
     assert b"pedido" in resp.data.lower()
+
+
+# ── Correção pós-Fase 6.3 — @display_field/@weak_ref/post_create_redirect ──
+
+def test_api_options_fornecedores_funciona(app, client):
+    """Achado real: Fornecedor nunca teve @display_field -
+    /api/options/fornecedores devolvia 400 antes da correção."""
+    _login_admin(app, client)
+    with app.app_context():
+        _criar_fornecedor(razao_social="Fornecedor Options LTDA")
+
+    resp = client.get("/api/options/fornecedores?search=Options")
+    assert resp.status_code == 200
+    dado = resp.get_json()
+    assert len(dado["results"]) == 1
+    assert "Options" in dado["results"][0]["text"]
+
+
+def test_api_options_transportadoras_funciona(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        db.session.add(Transportadora(nome="Transportadora Options LTDA", tipo_frete="proprio"))
+        db.session.commit()
+
+    resp = client.get("/api/options/transportadoras?search=Options")
+    assert resp.status_code == 200
+    assert len(resp.get_json()["results"]) == 1
+
+
+def test_api_options_enderecos_funciona(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        _criar_endereco(logradouro="Rua Options, 100")
+
+    resp = client.get("/api/options/enderecos?search=Options")
+    assert resp.status_code == 200
+    assert len(resp.get_json()["results"]) == 1
+
+
+def test_api_options_material_unidades_funciona(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        material = _criar_material(nome="Material Options Unidade")
+        db.session.add(MaterialUnidade(material_id=material.id, unidade="saco-options", fator_para_base=1.0, is_unidade_base=True))
+        db.session.commit()
+
+    resp = client.get("/api/options/material_unidades?search=options")
+    assert resp.status_code == 200
+    assert len(resp.get_json()["results"]) == 1
+
+
+def test_form_criacao_pedido_compra_mostra_combo_de_fornecedor(app, client):
+    """Regressão-alvo do achado do Christopher: a tela de criação
+    (manage.html) deve renderizar o combo de busca, não um <input
+    type="number"> pedindo o id cru."""
+    _login_admin(app, client)
+    resp = client.get("/estoque/pedido-compras", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b'data-weakref-source="fornecedores"' in resp.data
+    assert b'data-weakref-source="transportadoras"' in resp.data
+
+
+def test_form_criacao_cotacao_via_processo_mostra_combo_de_fornecedor(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        processo_id = processo.id
+    resp = client.get(f"/estoque/processo-cotacaos/{processo_id}", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b'data-weakref-source="fornecedores"' in resp.data
+
+
+def test_criar_pedido_compra_redireciona_para_detalhe(app, client):
+    """post_create_redirect novo - antes caia na lista sem indicar
+    onde adicionar itens."""
+    _login_admin(app, client)
+    with app.app_context():
+        fornecedor = _criar_fornecedor(razao_social="Fornecedor Redirect LTDA")
+        fornecedor_id = fornecedor.id
+
+    resp = client.post("/estoque/pedido-compras/", data={
+        "fornecedor_id": str(fornecedor_id), "data_pedido": "2026-08-01",
+    })
+    assert resp.status_code == 302
+    assert "/estoque/pedido-compras/" in resp.headers["Location"]
+    assert resp.headers["Location"].rstrip("/").endswith(tuple(str(n) for n in range(10)))  # termina em .../<id>
+
+
+def test_criar_processo_cotacao_redireciona_para_detalhe(app, client):
+    _login_admin(app, client)
+    resp = client.post("/estoque/processo-cotacaos/", data={
+        "descricao": "Processo Redirect", "data_abertura": "2026-08-01",
+    })
+    assert resp.status_code == 302
+    assert "/estoque/processo-cotacaos/" in resp.headers["Location"]
+
+
+def test_detalhe_pedido_compra_aba_parceiros_mostra_combo(app, client):
+    """Segundo ponto do achado: sem @weak_ref, a aba Parceiros de
+    Negócio (Fase 5) não renderizava NADA pros campos fornecedor_id/
+    transportadora_id (condição sempre falsa)."""
+    _login_admin(app, client)
+    with app.app_context():
+        pedido = _criar_pedido_compra()
+        pedido_id = pedido.id
+
+    resp = client.get(f"/estoque/pedido-compras/{pedido_id}", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b'data-weakref-source="fornecedores"' in resp.data
+    assert b'data-weakref-source="transportadoras"' in resp.data

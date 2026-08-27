@@ -16,6 +16,17 @@ from core.permissions import permission_required
 from addons.addon_estoque.root.services import estoque_service
 
 
+def post_create_redirect(processo):
+    """
+    CUSTOMIZAÇÃO (achado real, sessão pós-Fase 6.3): mesmo raciocínio
+    de pedido_compras_hooks.py — sem isso, criar um ProcessoCotacao
+    caía na lista, sem indicação de onde convidar fornecedores/
+    comparar. Redireciona pro detalhe (abas Cotações/Comparação já
+    prontas).
+    """
+    return redirect(url_for("processo_cotacaos.detail", id=processo.id))
+
+
 @login_required
 @permission_required("processo_cotacaos.update")
 def gerar_pedido_view(id: int):

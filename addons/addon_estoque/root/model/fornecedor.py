@@ -9,9 +9,10 @@ implementada) por serem do mesmo Addon.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length
+from annotations import label, plural, required, max_length, display_field
 
 
+@display_field("razao_social")
 @label("Fornecedor")
 @plural("fornecedores")
 @required("razao_social", message="Razão social é obrigatória")

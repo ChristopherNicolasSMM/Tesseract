@@ -10,7 +10,7 @@ MaterialUnidade.is_unidade_base.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, enum_field, field_labels
+from annotations import label, plural, required, enum_field, field_labels, weak_ref
 
 
 @label("Endereço do Fornecedor")
@@ -18,6 +18,12 @@ from annotations import label, plural, required, enum_field, field_labels
 @required("fornecedor_id", message="Fornecedor é obrigatório")
 @required("endereco_id", message="Endereço é obrigatório")
 @required("tipo_endereco", message="Tipo de endereço é obrigatório")
+@weak_ref("fornecedor_id",
+          resolver="addons.addon_estoque.root.services.fornecedor_lookup.get_fornecedor",
+          options="fornecedores")
+@weak_ref("endereco_id",
+          resolver="addons.addon_estoque.root.services.endereco_lookup.get_endereco",
+          options="enderecos")
 @enum_field("tipo_endereco", options=[
     ("cobranca", "Cobrança"), ("entrega", "Entrega"),
     ("correspondencia", "Correspondência"), ("faturamento", "Faturamento"),

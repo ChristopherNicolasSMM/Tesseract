@@ -8,9 +8,10 @@ addon_estoque.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length, enum_field
+from annotations import label, plural, required, max_length, enum_field, display_field
 
 
+@display_field("nome")
 @label("Transportadora")
 @plural("transportadoras")
 @required("nome", message="Nome é obrigatório")

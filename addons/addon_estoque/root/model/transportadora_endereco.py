@@ -9,7 +9,7 @@ padrão polimórfico.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, enum_field, field_labels
+from annotations import label, plural, required, enum_field, field_labels, weak_ref
 
 
 @label("Endereço da Transportadora")
@@ -17,6 +17,12 @@ from annotations import label, plural, required, enum_field, field_labels
 @required("transportadora_id", message="Transportadora é obrigatória")
 @required("endereco_id", message="Endereço é obrigatório")
 @required("tipo_endereco", message="Tipo de endereço é obrigatório")
+@weak_ref("transportadora_id",
+          resolver="addons.addon_estoque.root.services.transportadora_lookup.get_transportadora",
+          options="transportadoras")
+@weak_ref("endereco_id",
+          resolver="addons.addon_estoque.root.services.endereco_lookup.get_endereco",
+          options="enderecos")
 @enum_field("tipo_endereco", options=[
     ("cobranca", "Cobrança"), ("entrega", "Entrega"),
     ("correspondencia", "Correspondência"), ("faturamento", "Faturamento"),

@@ -13,9 +13,10 @@ model/core/associations.py e Composicao antes de decidir - ver skill
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length
+from annotations import label, plural, required, max_length, display_field
 
 
+@display_field("logradouro")
 @label("Endereço")
 @plural("enderecos")
 @required("logradouro", message="Logradouro é obrigatório")

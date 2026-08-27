@@ -21,9 +21,10 @@ padrão já usado em `YeastBankConfig`
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, enum_field, field_labels
+from annotations import label, plural, required, enum_field, field_labels, display_field
 
 
+@display_field("unidade")
 @label("Unidade de Material")
 @plural("material_unidades")
 @required("material_id", message="Material é obrigatório")

@@ -17,7 +17,7 @@ calculados no hook (item_pedido_compras_service_hooks.py), assim como
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, readonly_fields, field_labels
+from annotations import label, plural, required, readonly_fields, field_labels, weak_ref
 
 
 @label("Item do Pedido de Compra")
@@ -27,6 +27,12 @@ from annotations import label, plural, required, readonly_fields, field_labels
 @required("material_unidade_id", message="Unidade de compra é obrigatória")
 @required("quantidade", message="Quantidade é obrigatória")
 @required("preco_unitario", message="Preço unitário é obrigatório")
+@weak_ref("material_id",
+          resolver="addons.addon_estoque.root.services.material_lookup.get_material",
+          options="materials")
+@weak_ref("material_unidade_id",
+          resolver="addons.addon_estoque.root.services.material_unidade_lookup.get_material_unidade",
+          options="material_unidades")
 @readonly_fields(["fator_conversao_aplicado", "quantidade_convertida_base", "subtotal"])
 @field_labels({
     "pedido_compra_id": "Pedido de Compra",

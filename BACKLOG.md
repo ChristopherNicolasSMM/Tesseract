@@ -1196,6 +1196,52 @@ Addon novo (`addon_compras` descartado).
         testes novos (79/79) — **[EXECUTADO]**. **Fecha a skill 24 —
         sistema de Cotação completo.**
 
+### Correção pós-Fase 6.3 — bug real de fundação (reportado pelo Christopher)
+
+Achado ao usar as telas de verdade: a tela de **criação** de Pedido de
+Compra não trazia Fornecedores/Transportadoras cadastrados, e a aba
+"Parceiros de Negócio" do detalhe (Fase 5) não mostrava nada. Mesmo
+problema em Cotação.
+
+**Causa raiz dupla, sistemática desde a Fase 3:**
+1. `Fornecedor`/`Transportadora`/`Endereco`/`MaterialUnidade` nunca
+   tiveram `@display_field` — o endpoint genérico de combo
+   (`/api/options/<entidade>`) **rejeita com HTTP 400 qualquer model
+   sem essa anotação** (whitelist implícita,
+   `api/routes/core/options_routes.py`). Isso quebrava até os modais
+   que eu mesmo já tinha construído nas Fases 5/6 com
+   `data-weakref-source` fixo no HTML.
+2. `PedidoCompra`/`Cotacao`/`ItemPedidoCompra`/`ItemCotacao` nunca
+   tiveram `@weak_ref` nos campos de FK (`fornecedor_id`,
+   `transportadora_id`, `material_id`, `material_unidade_id`) — sem
+   isso, o formulário de criação (CrudGen padrão) caía no fallback de
+   `<input type="number">` pedindo o id cru, e minhas telas
+   desenhadas (aba "Parceiros de Negócio") não renderizavam nada (a
+   condição `weak_ref_options.get(field)` sempre falsa).
+
+**Corrigido:**
+- `@display_field` em `Fornecedor` (razao_social), `Transportadora`
+  (nome), `Endereco` (logradouro), `MaterialUnidade` (unidade).
+- 4 lookups novos (`fornecedor_lookup.py`, `transportadora_lookup.py`,
+  `endereco_lookup.py`, `material_unidade_lookup.py`), mesmo padrão de
+  `material_lookup.py` já existente.
+- `@weak_ref` em `PedidoCompra` (fornecedor/transportadora), `Cotacao`
+  (fornecedor), `ItemPedidoCompra`/`ItemCotacao` (material/unidade),
+  `FornecedorEndereco`/`TransportadoraEndereco` (endereco).
+- **Achado adicional, mesma sessão**: a tela de criação nunca teve
+  "área de itens" — por design (`ItemPedidoCompra` exige
+  `pedido_compra_id` já existente), mas sem indicação nenhuma de pra
+  onde ir depois de criar. Adicionado `post_create_redirect` em
+  `pedido_compras_hooks.py`/`processo_cotacaos_hooks.py` — criar o
+  cabeçalho agora leva direto pro detalhe (aba Itens/Cotações já
+  pronta), em vez de cair na lista.
+
+Nenhuma mudança de schema — só annotations/lookups/hooks. 9 testes
+novos (88/88 passando), incluindo verificação de que
+`/api/options/<entidade>` deixou de devolver 400 para as 4 entidades,
+e que as telas de criação/detalhe renderizam o combo de verdade
+(`data-weakref-source` presente no HTML, não mais ausente).
+
 - **[RESOLVIDO]** Mesma classe de bug de FK sem prefixo (5 ocorrências
   desta vez, em `create_table()` de `PedidoCompra`/`ItemPedidoCompra`)
   encontrada e corrigida na migration `0451604f9aad` — 4ª vez que esse

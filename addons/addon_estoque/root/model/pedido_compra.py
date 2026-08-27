@@ -17,13 +17,19 @@ informado — editável depois, mesmo padrão que Material.sku documenta
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, enum_field, field_labels
+from annotations import label, plural, required, enum_field, field_labels, weak_ref
 
 
 @label("Pedido de Compra")
 @plural("pedido_compras")
 @required("fornecedor_id", message="Fornecedor é obrigatório")
 @required("data_pedido", message="Data do pedido é obrigatória")
+@weak_ref("fornecedor_id",
+          resolver="addons.addon_estoque.root.services.fornecedor_lookup.get_fornecedor",
+          options="fornecedores")
+@weak_ref("transportadora_id",
+          resolver="addons.addon_estoque.root.services.transportadora_lookup.get_transportadora",
+          options="transportadoras")
 @enum_field("status", options=[
     ("rascunho", "Rascunho"), ("enviado", "Enviado"),
     ("confirmado", "Confirmado"), ("recebido", "Recebido"),
