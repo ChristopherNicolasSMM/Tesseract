@@ -1,43 +1,46 @@
 """
 addons/addon_estoque/root/model/item_cotacao.py
 
-Fase 6.1 (skill 24) — linha de uma Cotacao (Material pedido a um
-fornecedor específico dentro do processo). Mesmo padrão de
-ItemPedidoCompra (skill 23, Fase 4): fator_conversao_aplicado/
-quantidade_convertida_base/subtotal calculados no hook, nunca aceitos
-do payload (readonly).
+REESTRUTURADO (achado do Christopher, sessão pós-Fase 6.3): antes,
+ItemCotacao carregava material_id/material_unidade_id/quantidade
+próprios — redundante entre Cotacoes do mesmo processo (o mesmo
+Material digitado de novo pra cada fornecedor) e frágil pra
+comparação (agrupava por nome de Material, sem garantia de ser o
+mesmo item). Agora ItemCotacao é só a RESPOSTA de preço de um
+fornecedor pra um ItemProcessoCotacao já definido uma vez no processo
+(ver model/item_processo_cotacao.py) — nunca redigita o Material.
+
+`quantidade_ofertada` é opcional: nulo significa "o fornecedor
+confirma a quantidade pedida" (ItemProcessoCotacao.quantidade_desejada);
+preenchido significa "só consigo entregar X, diferente do pedido".
+fator_conversao_aplicado/quantidade_convertida_base/subtotal usam
+sempre a MESMA unidade do ItemProcessoCotacao (skill 24, decisão desta
+correção: não permite fornecedor cotar em unidade diferente da
+pedida — simplifica a comparação; se isso virar necessidade real,
+revisar).
 
 `selecionado_como_vencedor`: setado pela tela de Comparação (Fase
-6.2, ainda não implementada), nunca editado direto pelo formulário
-genérico do CrudGen — regra de "um vencedor por Material no processo"
-atravessa Cotacao (fornecedores diferentes), não é validável por
-constraint de banco, fica pra o service da Fase 6.2 aplicar.
+6.2), nunca editado direto pelo formulário genérico do CrudGen — regra
+de "um vencedor por item do processo" atravessa Cotacao (fornecedores
+diferentes), não é validável por constraint de banco, fica pro service
+aplicar (estoque_service.selecionar_item_cotacao_vencedor).
 """
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, readonly_fields, field_labels, weak_ref
+from annotations import label, plural, required, readonly_fields, field_labels
 
 
 @label("Item da Cotação")
 @plural("item_cotacaos")
 @required("cotacao_id", message="Cotação é obrigatória")
-@required("material_id", message="Material é obrigatório")
-@required("material_unidade_id", message="Unidade de compra é obrigatória")
-@required("quantidade", message="Quantidade é obrigatória")
+@required("item_processo_cotacao_id", message="Item do processo é obrigatório")
 @required("preco_unitario", message="Preço unitário é obrigatório")
-@weak_ref("material_id",
-          resolver="addons.addon_estoque.root.services.material_lookup.get_material",
-          options="materials")
-@weak_ref("material_unidade_id",
-          resolver="addons.addon_estoque.root.services.material_unidade_lookup.get_material_unidade",
-          options="material_unidades")
 @readonly_fields(["fator_conversao_aplicado", "quantidade_convertida_base", "subtotal", "pedido_compra_item_id"])
 @field_labels({
     "cotacao_id": "Cotação",
-    "material_id": "Material",
-    "material_unidade_id": "Unidade de Compra",
-    "quantidade": "Quantidade",
+    "item_processo_cotacao_id": "Item Pedido",
+    "quantidade_ofertada": "Quantidade Ofertada (se diferente da pedida)",
     "fator_conversao_aplicado": "Fator de Conversão Aplicado",
     "quantidade_convertida_base": "Quantidade (Unidade-Base)",
     "preco_unitario": "Preço Unitário",
@@ -53,13 +56,10 @@ class ItemCotacao(db.Model):
     cotacao_id = db.Column(db.Integer, db.ForeignKey("cotacao.id", ondelete="CASCADE"), nullable=False, index=True)
     cotacao = db.relationship("Cotacao", backref=db.backref("itens", lazy=True))
 
-    material_id = db.Column(db.Integer, db.ForeignKey("material.id", ondelete="RESTRICT"), nullable=False, index=True)
-    material = db.relationship("Material")
+    item_processo_cotacao_id = db.Column(db.Integer, db.ForeignKey("item_processo_cotacao.id", ondelete="CASCADE"), nullable=False, index=True)
+    item_processo_cotacao = db.relationship("ItemProcessoCotacao", backref=db.backref("respostas", lazy=True))
 
-    material_unidade_id = db.Column(db.Integer, db.ForeignKey("material_unidade.id", ondelete="RESTRICT"), nullable=False, index=True)
-    material_unidade = db.relationship("MaterialUnidade")
-
-    quantidade = db.Column(db.Float, nullable=False)
+    quantidade_ofertada = db.Column(db.Float, nullable=True)
     fator_conversao_aplicado = db.Column(db.Float, nullable=True)
     quantidade_convertida_base = db.Column(db.Float, nullable=True)
 
@@ -87,13 +87,32 @@ class ItemCotacao(db.Model):
         nullable=False,
     )
 
+    @property
+    def material_id(self):
+        """Atalho de conveniência - lê do ItemProcessoCotacao pai."""
+        return self.item_processo_cotacao.material_id if self.item_processo_cotacao else None
+
+    @property
+    def material_unidade_id(self):
+        return self.item_processo_cotacao.material_unidade_id if self.item_processo_cotacao else None
+
+    @property
+    def quantidade(self):
+        """Quantidade efetiva: a ofertada, ou a desejada se o
+        fornecedor não divergiu."""
+        if self.quantidade_ofertada is not None:
+            return self.quantidade_ofertada
+        return self.item_processo_cotacao.quantidade_desejada if self.item_processo_cotacao else None
+
     def to_dict(self) -> dict:
         return {
             "id": self.id,
             "cotacao_id": self.cotacao_id,
+            "item_processo_cotacao_id": self.item_processo_cotacao_id,
             "material_id": self.material_id,
             "material_unidade_id": self.material_unidade_id,
             "quantidade": self.quantidade,
+            "quantidade_ofertada": self.quantidade_ofertada,
             "fator_conversao_aplicado": self.fator_conversao_aplicado,
             "quantidade_convertida_base": self.quantidade_convertida_base,
             "preco_unitario": self.preco_unitario,
@@ -107,4 +126,4 @@ class ItemCotacao(db.Model):
         }
 
     def __repr__(self) -> str:
-        return f"<ItemCotacao cotacao_id={self.cotacao_id} material_id={self.material_id}>"
+        return f"<ItemCotacao cotacao_id={self.cotacao_id} item_processo_cotacao_id={self.item_processo_cotacao_id}>"

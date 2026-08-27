@@ -236,15 +236,22 @@ def selecionar_item_cotacao_vencedor(item_cotacao_id: int) -> dict:
     """
     Marca um ItemCotacao como vencedor (skill 24, Fase 6.2). Regra de
     negócio central da tela de Comparação: no máximo um vencedor por
-    Material dentro do mesmo ProcessoCotacao — atravessa Cotacao
-    (fornecedores diferentes), então não dá pra ser índice único de
-    banco (skill 24, seção 2, nota sobre isso). Validado aqui: qualquer
-    outro ItemCotacao do mesmo Material, em qualquer Cotacao do mesmo
-    processo, é desmarcado antes de marcar o novo vencedor — a troca é
-    atômica (mesma transação).
+    ItemProcessoCotacao (o "item pedido" — Material+quantidade
+    definidos uma vez no processo, ver model/item_processo_cotacao.py)
+    — atravessa Cotacao (fornecedores diferentes), então não dá pra
+    ser índice único de banco. Validado aqui: qualquer outro
+    ItemCotacao respondendo ao MESMO item_processo_cotacao_id, em
+    qualquer Cotacao do mesmo processo, é desmarcado antes de marcar o
+    novo vencedor — a troca é atômica (mesma transação).
+
+    CORREÇÃO (achado do Christopher, sessão pós-Fase 6.3): antes
+    agrupava por nome de Material (frágil - ItemCotacao tinha
+    material_id próprio, digitado de novo em cada Cotacao). Agora
+    agrupa pela FK real item_processo_cotacao_id, que já garante ser o
+    mesmo item pedido - não precisa mais de JOIN com Cotacao pra
+    filtrar por Material.
     """
     from addons.addon_estoque.root.model.item_cotacao import ItemCotacao
-    from addons.addon_estoque.root.model.cotacao import Cotacao
 
     item = ItemCotacao.query.filter_by(id=item_cotacao_id, is_deleted=False).first()
     if item is None:
@@ -252,26 +259,23 @@ def selecionar_item_cotacao_vencedor(item_cotacao_id: int) -> dict:
     if item.pedido_compra_item_id is not None:
         raise ValueError("Este item já foi convertido em Pedido de Compra — não pode mudar o vencedor.")
 
-    processo_cotacao_id = item.cotacao.processo_cotacao_id
-
-    outros_do_mesmo_material = (
+    outros_do_mesmo_item = (
         ItemCotacao.query
-        .join(Cotacao, ItemCotacao.cotacao_id == Cotacao.id)
         .filter(
-            Cotacao.processo_cotacao_id == processo_cotacao_id,
-            ItemCotacao.material_id == item.material_id,
+            ItemCotacao.item_processo_cotacao_id == item.item_processo_cotacao_id,
             ItemCotacao.id != item.id,
             ItemCotacao.selecionado_como_vencedor.is_(True),
+            ItemCotacao.is_deleted.is_(False),
         )
         .all()
     )
-    for outro in outros_do_mesmo_material:
+    for outro in outros_do_mesmo_item:
         outro.selecionado_como_vencedor = False
 
     item.selecionado_como_vencedor = True
     db.session.commit()
 
-    return {"item_cotacao": item.to_dict(), "desmarcados": [o.id for o in outros_do_mesmo_material]}
+    return {"item_cotacao": item.to_dict(), "desmarcados": [o.id for o in outros_do_mesmo_item]}
 
 
 def desmarcar_item_cotacao_vencedor(item_cotacao_id: int) -> dict:

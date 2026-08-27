@@ -8,24 +8,36 @@ Hooks disponíveis (todos opcionais):
     pbo_apply_fields(obj, data) -> dict | None   # antes de aplicar campos
     pai_apply_fields(obj, data) -> None          # depois de aplicar campos
 
-CUSTOMIZAÇÃO (skill 24, Fase 6.1): mesmo cálculo de
-item_pedido_compra_service_hooks.py (skill 23, Fase 4) —
-fator_conversao_aplicado/quantidade_convertida_base/subtotal sempre
-calculados aqui, nunca aceitos do payload (readonly_fields no model).
+REESTRUTURADO (achado do Christopher, sessão pós-Fase 6.3): antes lia
+`obj.material_unidade_id`/`obj.quantidade` como colunas próprias.
+Agora esses dois vêm do ItemProcessoCotacao pai (via `@property` no
+model — obj.material_unidade_id, obj.quantidade delegam pra lá,
+considerando quantidade_ofertada quando preenchida) — o cálculo em si
+não muda, só a origem do dado.
 """
 
 
 def pai_apply_fields(obj, data):
     from core.db import db
-    from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
+    from addons.addon_estoque.root.model.item_processo_cotacao import ItemProcessoCotacao
 
-    if obj.material_unidade_id is not None:
-        unidade = db.session.get(MaterialUnidade, obj.material_unidade_id)
-        if unidade is not None:
-            obj.fator_conversao_aplicado = unidade.fator_para_base
+    # Busca direto por id (não via obj.item_processo_cotacao, a
+    # relationship) — obj ainda é transiente aqui (roda antes do
+    # db.session.add() no service gerado), lazy-load de relationship
+    # falha silenciosamente (retorna None) em objeto fora da sessão.
+    # Achado real ao testar esta correção.
+    item_pedido = None
+    if obj.item_processo_cotacao_id is not None:
+        item_pedido = db.session.get(ItemProcessoCotacao, obj.item_processo_cotacao_id)
+        if item_pedido is not None and item_pedido.material_unidade is not None:
+            obj.fator_conversao_aplicado = item_pedido.material_unidade.fator_para_base
 
-    if obj.quantidade is not None and obj.fator_conversao_aplicado is not None:
-        obj.quantidade_convertida_base = obj.quantidade * obj.fator_conversao_aplicado
+    quantidade_efetiva = obj.quantidade_ofertada
+    if quantidade_efetiva is None and item_pedido is not None:
+        quantidade_efetiva = item_pedido.quantidade_desejada
 
-    if obj.quantidade is not None and obj.preco_unitario is not None:
-        obj.subtotal = obj.quantidade * obj.preco_unitario
+    if quantidade_efetiva is not None and obj.fator_conversao_aplicado is not None:
+        obj.quantidade_convertida_base = quantidade_efetiva * obj.fator_conversao_aplicado
+
+    if quantidade_efetiva is not None and obj.preco_unitario is not None:
+        obj.subtotal = quantidade_efetiva * obj.preco_unitario

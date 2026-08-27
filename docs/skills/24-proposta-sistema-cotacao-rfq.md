@@ -49,6 +49,49 @@ própria desenhada.
 
 ## 2. Modelagem
 
+> **[CORRIGIDO — achado do Christopher, sessão pós-Fase 6.3]** O
+> desenho original desta seção tinha `ItemCotacao` com
+> `material_id`/`material_unidade_id`/`quantidade` próprios — cada
+> fornecedor redigitava o mesmo Material. Corrigido: o item pedido
+> (Material+quantidade) agora vive em `ItemProcessoCotacao`, definido
+> **uma vez** por processo; `ItemCotacao` só responde
+> `preco_unitario` (e opcionalmente `quantidade_ofertada`, se o
+> fornecedor não confirma a quantidade pedida) pra um
+> `item_processo_cotacao_id` já existente. Ver seção 2.1 abaixo pro
+> desenho atualizado; o texto original da seção 2 (histórico) fica
+> preservado logo em seguida, riscado, pra registro de raciocínio.
+
+## 2.1. Modelagem corrigida
+
+```
+ProcessoCotacao
+├── ItemProcessoCotacao — o item PEDIDO, uma vez por processo
+│   └── material_id, material_unidade_id, quantidade_desejada
+│
+└── Cotacao (por fornecedor, inalterado)
+    └── ItemCotacao — a RESPOSTA de preço pra um ItemProcessoCotacao
+        └── item_processo_cotacao_id FK (não mais material_id solto)
+        └── preco_unitario, quantidade_ofertada (opcional)
+        └── fator_conversao_aplicado/subtotal/selecionado_como_vencedor
+            (inalterados, só a origem do fator/quantidade mudou — vem
+            do ItemProcessoCotacao via unidade definida lá)
+```
+
+`ItemCotacao` ganhou `@property` de conveniência (`material_id`,
+`material_unidade_id`, `quantidade`) que delegam pro
+`ItemProcessoCotacao` pai — para código que só precisa ler esses
+valores (ex.: `gerar_pedidos_de_cotacao()`), a mudança é transparente.
+
+`selecionar_item_cotacao_vencedor()` ficou **mais simples**: agrupa
+por `item_processo_cotacao_id` (FK real) em vez de nome de Material —
+não precisa mais de JOIN com `Cotacao` pra filtrar.
+
+`ItemProcessoCotacao` também não tem tela própria (mesma decisão já
+tomada pra `Cotacao`/`ItemCotacao`) — gerenciado dentro da aba
+"Cotações" do detalhe de `ProcessoCotacao` (seção "Itens Pedidos").
+
+## 2.2. Modelagem original (histórico, substituída pela seção 2.1)
+
 ```
 ProcessoCotacao          (tesseract_estoque_processo_cotacao)
 ├── numero (auto, COT-000001), descricao, status, data_abertura,

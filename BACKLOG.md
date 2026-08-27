@@ -1196,6 +1196,54 @@ Addon novo (`addon_compras` descartado).
         testes novos (79/79) — **[EXECUTADO]**. **Fecha a skill 24 —
         sistema de Cotação completo.**
 
+### Correção pós-Fase 6.3 (2ª rodada) — reestruturação real do modelo de dados
+
+Achado do Christopher ao usar o fluxo de verdade: cada Cotação
+redigitava o Material do zero por fornecedor — deveria ser definido
+uma vez no processo, com cada fornecedor só respondendo preço.
+
+**Corrigido**: novo model `ItemProcessoCotacao` (o item pedido,
+Material+quantidade, uma vez por processo). `ItemCotacao`
+reestruturado — perdeu `material_id`/`material_unidade_id`/
+`quantidade` próprios, ganhou `item_processo_cotacao_id` (FK) e
+`quantidade_ofertada` (opcional, só se o fornecedor diverge da
+quantidade pedida); ganhou `@property` de conveniência delegando pro
+pai. `selecionar_item_cotacao_vencedor()` simplificado (agrupa por FK
+real, não mais nome de Material). Telas: aba "Cotações" ganhou seção
+"Itens Pedidos"; modal de item de Cotação virou "Responder Preços"
+(lista os itens já pedidos, só pede preço).
+
+**Bugs reais encontrados durante a execução:**
+- Hook de cálculo (`item_cotacao_service_hooks.py`) tentava ler
+  `obj.item_processo_cotacao` (relationship) num objeto ainda **fora
+  da sessão** (hook roda antes do `db.session.add()`) — lazy-load
+  falha silenciosamente nesse ponto, `quantidade_convertida_base`
+  ficava `None`. Corrigido buscando o item pai direto por id.
+- CrudGen `--overwrite` derruba customizações manuais em arquivos
+  gerados (não só o model) — regenerar `ItemCotacao` trouxe de volta
+  a tela que eu tinha removido, e apagou o filtro customizado do
+  `list()`/rota API. Reaplicado. **Lição geral**: depois de qualquer
+  `--overwrite`, conferir `git status` nos arquivos correlatos, não só
+  no model.
+- Migration com **dado real a migrar** (não só schema): qualquer
+  `ItemCotacao` já cadastrado precisa virar um `ItemProcessoCotacao`
+  (deduplicado por processo+material+unidade) antes das colunas
+  antigas serem removidas — escrita à mão com `sa.Table` completo (não
+  `sa.table()` leve, que não popula `inserted_primary_key`
+  corretamente). Validado com cenário real (2 fornecedores cotando o
+  mesmo Material) — migrou pra 1 único `ItemProcessoCotacao`,
+  preservando os 2 preços distintos.
+- Mesma classe de bug sistemático de FK sem prefixo + constraint sem
+  nome (7ª e 8ª ocorrência) — corrigidas à mão.
+- Achado extra na validação: criar um índice no MESMO
+  `batch_alter_table` que já fez `add_column` pode duplicar a
+  criação em cenários específicos — separar em blocos
+  `batch_alter_table` distintos resolve.
+
+3 testes ajustados/adicionados aos já existentes, todos os 12 testes
+relacionados a Cotação reescritos pra nova estrutura (90/90 passando
+no total). Migration `0d7080cf1fe8`, validada com dado real.
+
 ### Correção pós-Fase 6.3 — bug real de fundação (reportado pelo Christopher)
 
 Achado ao usar as telas de verdade: a tela de **criação** de Pedido de

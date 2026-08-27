@@ -810,6 +810,8 @@ from addons.addon_estoque.root.model.item_cotacao import ItemCotacao
 from addons.addon_estoque.root.services.processo_cotacao_service import ProcessoCotacaoService
 from addons.addon_estoque.root.services.cotacao_service import CotacaoService
 from addons.addon_estoque.root.services.item_cotacao_service import ItemCotacaoService
+from addons.addon_estoque.root.services.item_processo_cotacao_service import ItemProcessoCotacaoService
+from addons.addon_estoque.root.model.item_processo_cotacao import ItemProcessoCotacao
 
 
 def _criar_processo_cotacao(**kwargs):
@@ -832,10 +834,24 @@ def _criar_cotacao(processo, fornecedor=None, **kwargs):
     return resultado.data
 
 
-def _criar_item_cotacao(cotacao, material, unidade, **kwargs):
+def _criar_item_processo_cotacao(processo, material, unidade, **kwargs):
+    """O item PEDIDO (Material+quantidade), definido uma vez no
+    processo — correção pós-Fase 6.3 (skill 24)."""
     data = {
-        "cotacao_id": cotacao.id, "material_id": material.id, "material_unidade_id": unidade.id,
-        "quantidade": 10.0, "preco_unitario": 5.0,
+        "processo_cotacao_id": processo.id, "material_id": material.id,
+        "material_unidade_id": unidade.id, "quantidade_desejada": 10.0,
+    }
+    data.update(kwargs)
+    resultado = ItemProcessoCotacaoService().create(data)
+    assert resultado.success, resultado.error
+    return resultado.data
+
+
+def _criar_item_cotacao(cotacao, item_processo_cotacao, **kwargs):
+    """A RESPOSTA de preço de um fornecedor pra um item já pedido."""
+    data = {
+        "cotacao_id": cotacao.id, "item_processo_cotacao_id": item_processo_cotacao.id,
+        "preco_unitario": 5.0,
     }
     data.update(kwargs)
     resultado = ItemCotacaoService().create(data)
@@ -885,7 +901,8 @@ def test_item_cotacao_calcula_fator_e_subtotal(app):
         db.session.add(unidade)
         db.session.commit()
 
-        item = _criar_item_cotacao(cotacao, material, unidade, quantidade=2.0, preco_unitario=150.0)
+        item_pedido = _criar_item_processo_cotacao(processo, material, unidade, quantidade_desejada=2.0)
+        item = _criar_item_cotacao(cotacao, item_pedido, preco_unitario=150.0)
 
         assert item.fator_conversao_aplicado == 25.0
         assert item.quantidade_convertida_base == 50.0
@@ -893,11 +910,11 @@ def test_item_cotacao_calcula_fator_e_subtotal(app):
         assert item.selecionado_como_vencedor is False
 
 
-def test_item_cotacao_permite_comparar_dois_fornecedores_mesmo_material(app):
-    """Cenário central da Fase 6.1: dois fornecedores cotam o mesmo
-    Material dentro do mesmo processo, cada um com seu preço — a
-    comparação de verdade (Fase 6.2) ainda não existe, mas o dado
-    já precisa suportar isso sem colidir."""
+def test_item_processo_cotacao_reaproveitado_por_varios_fornecedores(app):
+    """Cenário central da correção pós-Fase 6.3: o item pedido
+    (Material+quantidade) é definido UMA VEZ no processo — dois
+    fornecedores diferentes respondem preço pro MESMO
+    item_processo_cotacao_id, sem redigitar o Material."""
     with app.app_context():
         processo = _criar_processo_cotacao()
         material = _criar_material(nome="Lupulo Comparado")
@@ -905,16 +922,40 @@ def test_item_cotacao_permite_comparar_dois_fornecedores_mesmo_material(app):
         db.session.add(unidade)
         db.session.commit()
 
+        item_pedido = _criar_item_processo_cotacao(processo, material, unidade, quantidade_desejada=5.0)
+
         f1 = _criar_fornecedor(razao_social="Lupulos A LTDA")
         f2 = _criar_fornecedor(razao_social="Lupulos B LTDA")
         cot1 = _criar_cotacao(processo, fornecedor=f1)
         cot2 = _criar_cotacao(processo, fornecedor=f2)
 
-        item1 = _criar_item_cotacao(cot1, material, unidade, quantidade=5.0, preco_unitario=40.0)
-        item2 = _criar_item_cotacao(cot2, material, unidade, quantidade=5.0, preco_unitario=35.0)
+        item1 = _criar_item_cotacao(cot1, item_pedido, preco_unitario=40.0)
+        item2 = _criar_item_cotacao(cot2, item_pedido, preco_unitario=35.0)
 
+        assert item1.item_processo_cotacao_id == item_pedido.id
+        assert item2.item_processo_cotacao_id == item_pedido.id
+        assert item1.material_id == material.id
+        assert item2.material_id == material.id
         assert item1.subtotal == 200.0
         assert item2.subtotal == 175.0  # fornecedor B mais barato
+
+
+def test_item_cotacao_quantidade_ofertada_diferente_da_desejada(app):
+    """Fornecedor não consegue atender a quantidade pedida - oferta
+    menos, preço/subtotal usam a quantidade ofertada, não a desejada."""
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        material = _criar_material(nome="Malte Oferta Parcial")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+
+        item_pedido = _criar_item_processo_cotacao(processo, material, unidade, quantidade_desejada=100.0)
+        cotacao = _criar_cotacao(processo)
+
+        item_sem_oferta = _criar_item_cotacao(cotacao, item_pedido, preco_unitario=10.0)
+        assert item_sem_oferta.quantidade == 100.0  # usa a desejada
+        assert item_sem_oferta.subtotal == 1000.0
 
 
 def test_rotas_de_cotacao_e_item_cotacao_nao_tem_tela_propria(app, client):
@@ -944,9 +985,10 @@ def test_api_cotacao_funciona_mesmo_sem_tela(app, client):
 # ── Fase 6.2 (skill 24) — seleção de vencedor na Comparação ──
 
 def test_selecionar_item_cotacao_vencedor_marca_e_desmarca_concorrentes(app):
-    """Cenário central da Fase 6.2: dois fornecedores cotam o mesmo
-    Material no mesmo processo - selecionar um como vencedor desmarca
-    automaticamente qualquer outro vencedor do mesmo Material."""
+    """Cenário central da Fase 6.2 (agora via item_processo_cotacao_id,
+    não mais por nome de Material): dois fornecedores respondem ao
+    MESMO item pedido - selecionar um como vencedor desmarca
+    automaticamente qualquer outro vencedor do mesmo item."""
     with app.app_context():
         processo = _criar_processo_cotacao()
         material = _criar_material(nome="Malte Vencedor")
@@ -954,12 +996,13 @@ def test_selecionar_item_cotacao_vencedor_marca_e_desmarca_concorrentes(app):
         db.session.add(unidade)
         db.session.commit()
 
+        item_pedido = _criar_item_processo_cotacao(processo, material, unidade)
         f1 = _criar_fornecedor(razao_social="Fornecedor Vencedor A LTDA")
         f2 = _criar_fornecedor(razao_social="Fornecedor Vencedor B LTDA")
         cot1 = _criar_cotacao(processo, fornecedor=f1)
         cot2 = _criar_cotacao(processo, fornecedor=f2)
-        item1 = _criar_item_cotacao(cot1, material, unidade, preco_unitario=40.0)
-        item2 = _criar_item_cotacao(cot2, material, unidade, preco_unitario=35.0)
+        item1 = _criar_item_cotacao(cot1, item_pedido, preco_unitario=40.0)
+        item2 = _criar_item_cotacao(cot2, item_pedido, preco_unitario=35.0)
 
         # Marca item1 vencedor primeiro (preço pior, só pra testar a troca)
         resultado1 = estoque_service.selecionar_item_cotacao_vencedor(item1.id)
@@ -978,9 +1021,9 @@ def test_selecionar_item_cotacao_vencedor_marca_e_desmarca_concorrentes(app):
         assert item2.selecionado_como_vencedor is True
 
 
-def test_selecionar_vencedor_nao_afeta_material_diferente(app):
-    """Vencedor de um Material não deve mexer no vencedor de outro
-    Material, mesmo dentro do mesmo processo/fornecedor."""
+def test_selecionar_vencedor_nao_afeta_item_diferente(app):
+    """Vencedor de um item pedido não deve mexer no vencedor de outro
+    item, mesmo dentro do mesmo processo/fornecedor."""
     with app.app_context():
         processo = _criar_processo_cotacao()
         malte = _criar_material(nome="Malte Independente")
@@ -990,10 +1033,13 @@ def test_selecionar_vencedor_nao_afeta_material_diferente(app):
         db.session.add_all([un_malte, un_lupulo])
         db.session.commit()
 
+        item_pedido_malte = _criar_item_processo_cotacao(processo, malte, un_malte)
+        item_pedido_lupulo = _criar_item_processo_cotacao(processo, lupulo, un_lupulo)
+
         fornecedor = _criar_fornecedor(razao_social="Fornecedor Multi Material LTDA")
         cotacao = _criar_cotacao(processo, fornecedor=fornecedor)
-        item_malte = _criar_item_cotacao(cotacao, malte, un_malte, preco_unitario=10.0)
-        item_lupulo = _criar_item_cotacao(cotacao, lupulo, un_lupulo, preco_unitario=20.0)
+        item_malte = _criar_item_cotacao(cotacao, item_pedido_malte, preco_unitario=10.0)
+        item_lupulo = _criar_item_cotacao(cotacao, item_pedido_lupulo, preco_unitario=20.0)
 
         estoque_service.selecionar_item_cotacao_vencedor(item_malte.id)
         estoque_service.selecionar_item_cotacao_vencedor(item_lupulo.id)
@@ -1012,8 +1058,9 @@ def test_desmarcar_item_cotacao_vencedor(app):
         db.session.add(unidade)
         db.session.commit()
 
+        item_pedido = _criar_item_processo_cotacao(processo, material, unidade)
         cotacao = _criar_cotacao(processo)
-        item = _criar_item_cotacao(cotacao, material, unidade)
+        item = _criar_item_cotacao(cotacao, item_pedido)
 
         estoque_service.selecionar_item_cotacao_vencedor(item.id)
         db.session.refresh(item)
@@ -1038,8 +1085,9 @@ def test_api_selecionar_vencedor_funciona_end_to_end(app, client):
         unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
         db.session.add(unidade)
         db.session.commit()
+        item_pedido = _criar_item_processo_cotacao(processo, material, unidade)
         cotacao = _criar_cotacao(processo)
-        item = _criar_item_cotacao(cotacao, material, unidade)
+        item = _criar_item_cotacao(cotacao, item_pedido)
         item_id = item.id
 
     resp = client.post(f"/api/estoque/item-cotacaos/{item_id}/selecionar-vencedor")
@@ -1078,18 +1126,39 @@ def test_api_item_cotacoes_filtra_por_processo_cotacao_id(app, client):
         db.session.add(unidade)
         db.session.commit()
 
+        item_pedido = _criar_item_processo_cotacao(processo, material, unidade)
         f1 = _criar_fornecedor(razao_social="Fornecedor Join A LTDA")
         f2 = _criar_fornecedor(razao_social="Fornecedor Join B LTDA")
         cot1 = _criar_cotacao(processo, fornecedor=f1)
         cot2 = _criar_cotacao(processo, fornecedor=f2)
-        _criar_item_cotacao(cot1, material, unidade, preco_unitario=10.0)
-        _criar_item_cotacao(cot2, material, unidade, preco_unitario=12.0)
+        _criar_item_cotacao(cot1, item_pedido, preco_unitario=10.0)
+        _criar_item_cotacao(cot2, item_pedido, preco_unitario=12.0)
         processo_id = processo.id
 
     resp = client.get(f"/api/estoque/item-cotacaos/?processo_cotacao_id={processo_id}")
     assert resp.status_code == 200
     itens = resp.get_json()["items"]
     assert len(itens) == 2
+
+
+def test_api_item_processo_cotacaos_filtra_por_processo_cotacao_id(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        p1 = _criar_processo_cotacao(descricao="Processo Item A")
+        p2 = _criar_processo_cotacao(descricao="Processo Item B")
+        material = _criar_material(nome="Malte Filtro Item Processo")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+        _criar_item_processo_cotacao(p1, material, unidade)
+        _criar_item_processo_cotacao(p2, material, unidade)
+        p1_id = p1.id
+
+    resp = client.get(f"/api/estoque/item-processo-cotacaos/?processo_cotacao_id={p1_id}")
+    assert resp.status_code == 200
+    itens = resp.get_json()["items"]
+    assert len(itens) == 1
+    assert itens[0]["processo_cotacao_id"] == p1_id
 
 
 def test_detalhe_processo_cotacao_renderiza_com_abas(app, client):
@@ -1123,13 +1192,16 @@ def test_gerar_pedidos_de_cotacao_agrupa_por_fornecedor(app):
         db.session.add_all([un_malte, un_lupulo])
         db.session.commit()
 
+        item_pedido_malte = _criar_item_processo_cotacao(processo, malte, un_malte, quantidade_desejada=2.0)
+        item_pedido_lupulo = _criar_item_processo_cotacao(processo, lupulo, un_lupulo, quantidade_desejada=3.0)
+
         f1 = _criar_fornecedor(razao_social="Fornecedor Gerar A LTDA")
         f2 = _criar_fornecedor(razao_social="Fornecedor Gerar B LTDA")
         cot1 = _criar_cotacao(processo, fornecedor=f1)
         cot2 = _criar_cotacao(processo, fornecedor=f2)
 
-        item_malte = _criar_item_cotacao(cot1, malte, un_malte, quantidade=2.0, preco_unitario=150.0)
-        item_lupulo = _criar_item_cotacao(cot2, lupulo, un_lupulo, quantidade=3.0, preco_unitario=40.0)
+        item_malte = _criar_item_cotacao(cot1, item_pedido_malte, preco_unitario=150.0)
+        item_lupulo = _criar_item_cotacao(cot2, item_pedido_lupulo, preco_unitario=40.0)
 
         estoque_service.selecionar_item_cotacao_vencedor(item_malte.id)
         estoque_service.selecionar_item_cotacao_vencedor(item_lupulo.id)
@@ -1159,10 +1231,13 @@ def test_gerar_pedidos_de_cotacao_agrupa_mesmo_fornecedor_num_so_pedido(app):
         db.session.add_all([un_malte, un_lupulo])
         db.session.commit()
 
+        item_pedido_malte = _criar_item_processo_cotacao(processo, malte, un_malte, quantidade_desejada=5.0)
+        item_pedido_lupulo = _criar_item_processo_cotacao(processo, lupulo, un_lupulo, quantidade_desejada=2.0)
+
         fornecedor = _criar_fornecedor(razao_social="Fornecedor Unico LTDA")
         cotacao = _criar_cotacao(processo, fornecedor=fornecedor)
-        item_malte = _criar_item_cotacao(cotacao, malte, un_malte, quantidade=5.0, preco_unitario=10.0)
-        item_lupulo = _criar_item_cotacao(cotacao, lupulo, un_lupulo, quantidade=2.0, preco_unitario=30.0)
+        item_malte = _criar_item_cotacao(cotacao, item_pedido_malte, preco_unitario=10.0)
+        item_lupulo = _criar_item_cotacao(cotacao, item_pedido_lupulo, preco_unitario=30.0)
 
         estoque_service.selecionar_item_cotacao_vencedor(item_malte.id)
         estoque_service.selecionar_item_cotacao_vencedor(item_lupulo.id)
@@ -1182,8 +1257,9 @@ def test_gerar_pedidos_de_cotacao_nao_duplica_se_chamado_duas_vezes(app):
         db.session.add(unidade)
         db.session.commit()
 
+        item_pedido = _criar_item_processo_cotacao(processo, material, unidade)
         cotacao = _criar_cotacao(processo)
-        item = _criar_item_cotacao(cotacao, material, unidade)
+        item = _criar_item_cotacao(cotacao, item_pedido)
         estoque_service.selecionar_item_cotacao_vencedor(item.id)
 
         resultado1 = estoque_service.gerar_pedidos_de_cotacao(processo.id)
@@ -1219,8 +1295,9 @@ def test_item_ja_convertido_em_pedido_nao_pode_mudar_vencedor(app):
         db.session.add(unidade)
         db.session.commit()
 
+        item_pedido = _criar_item_processo_cotacao(processo, material, unidade)
         cotacao = _criar_cotacao(processo)
-        item = _criar_item_cotacao(cotacao, material, unidade)
+        item = _criar_item_cotacao(cotacao, item_pedido)
         estoque_service.selecionar_item_cotacao_vencedor(item.id)
         estoque_service.gerar_pedidos_de_cotacao(processo.id)
 
@@ -1236,8 +1313,9 @@ def test_api_gerar_pedido_end_to_end(app, client):
         unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
         db.session.add(unidade)
         db.session.commit()
+        item_pedido = _criar_item_processo_cotacao(processo, material, unidade)
         cotacao = _criar_cotacao(processo)
-        item = _criar_item_cotacao(cotacao, material, unidade)
+        item = _criar_item_cotacao(cotacao, item_pedido)
         estoque_service.selecionar_item_cotacao_vencedor(item.id)
         processo_id = processo.id
 

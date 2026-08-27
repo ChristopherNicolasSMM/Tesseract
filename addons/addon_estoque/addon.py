@@ -32,6 +32,7 @@ class AddonEstoque(AddonBase):
         from addons.addon_estoque.root.model.processo_cotacao import ProcessoCotacao
         from addons.addon_estoque.root.model.cotacao import Cotacao
         from addons.addon_estoque.root.model.item_cotacao import ItemCotacao
+        from addons.addon_estoque.root.model.item_processo_cotacao import ItemProcessoCotacao
 
         # Lookups (Fabricante/Origem/TipoProduto/Categoria) primeiro só
         # por legibilidade - create_all resolve ordem de FK via
@@ -44,10 +45,12 @@ class AddonEstoque(AddonBase):
         # ja tem FK opcional para ItemPedidoCompra (rastro de compra).
         # Fase 6.1 (skill 24): ProcessoCotacao -> Cotacao -> ItemCotacao,
         # mesma cadeia de dependencia de PedidoCompra/ItemPedidoCompra.
+        # ItemProcessoCotacao (correcao pos-Fase 6.3): o item pedido
+        # vive no processo, ItemCotacao so responde preco pra ele.
         return [
             Fabricante, Origem, TipoProduto, Categoria, Material, Composicao, Movimentacao, Saldo,
             MaterialUnidade, Fornecedor, Transportadora, Endereco, FornecedorEndereco, TransportadoraEndereco,
-            PedidoCompra, ItemPedidoCompra, ProcessoCotacao, Cotacao, ItemCotacao,
+            PedidoCompra, ItemPedidoCompra, ProcessoCotacao, ItemProcessoCotacao, Cotacao, ItemCotacao,
         ]
 
     def register_routes(self, app) -> None:
@@ -92,6 +95,7 @@ class AddonEstoque(AddonBase):
         # própria (mesma decisão da Fase 5) — só API.
         from addons.addon_estoque.root.api.routes.cotacaos_routes import cotacaos_api_bp
         from addons.addon_estoque.root.api.routes.item_cotacaos_routes import item_cotacaos_api_bp
+        from addons.addon_estoque.root.api.routes.item_processo_cotacaos_routes import item_processo_cotacaos_api_bp
 
         # Fase 4 (skill 23): ação "receber" não é CRUD genérico, então
         # não é gerada pelo CrudGen — anexada aqui ao blueprint já
@@ -156,6 +160,7 @@ class AddonEstoque(AddonBase):
             processo_cotacaos_bp, processo_cotacaos_api_bp,
             cotacaos_api_bp,
             item_cotacaos_api_bp,
+            item_processo_cotacaos_api_bp,
         ]:
             app.register_blueprint(bp)
 
