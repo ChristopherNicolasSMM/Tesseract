@@ -4684,3 +4684,52 @@ CellCount) ficou mais pesada do que o uso real pedia.
       referências desatualizadas de sessões anteriores (`Container`/
       `BankEvent`/`BankConfig` nem apareciam no C4; achado durante
       esta atualização, corrigido junto.
+
+### Entrada de Mercadoria — lote/validade + ações explícitas de status (achado real, reportado pelo Christopher)
+
+Achado: "Receber Pedido" era um botão cego (sem tela, assumia
+quantidade recebida = quantidade pedida, sem lote/sem validade — mesmo
+já existindo `Movimentacao.lote_fornecedor`/`data_validade` desde a
+Fase 4, nunca preenchidos em lugar nenhum). Christopher também relatou
+não achar o botão — causa raiz: só aparecia com `status='confirmado'`,
+e trocar o status era um `<select>` solto dentro do form de Cabeçalho,
+sem indicação nenhuma de qual era o próximo passo.
+
+**Decisões de sessão**: recebimento continua **sempre total**
+(mantém a decisão original da Fase 4 — parcial fica pra quando o
+volume de uso justificar). Lote/validade **sempre disponíveis**, por
+item, nunca obrigatórios ("pode dar ok sem preencher ou preencher
+diretamente"). Tela em **modal simples**, aberta do detalhe do Pedido.
+
+**Corrigido**:
+- `<select>` de status solto removido da aba Cabeçalho — trocado por
+  botões de ação explícitos por estado (Enviar Pedido / Confirmar
+  Pedido / Registrar Entrada de Mercadoria / Cancelar), estilo
+  documento SAP MM. Reaproveita a rota `pedido_compras.update` já
+  existente pras transições simples (enviado/confirmado/cancelado) —
+  `_apply_fields()` já suporta atualização parcial (só o campo
+  enviado), não precisou de código novo pra isso.
+- `estoque_service.receber_pedido_compra()` ganhou parâmetro opcional
+  `dados_por_item` (dict `{item_id: {lote_fornecedor, data_validade}}`)
+  — repassado pra `registrar_movimentacao()`, que já aceitava esses
+  campos desde a Fase 4 mas nunca era chamado com eles preenchidos.
+- Endpoint novo `POST /estoque/pedido-compras/<id>/entrada-mercadoria`
+  (JSON, não redirect — chamado via fetch do modal), parseia
+  `data_validade` (string ISO → `date`), monta `dados_por_item`, chama
+  o service. Rota antiga `pedido_compras.receber` (redirect-based,
+  sem lote/validade) mantida no backend por compatibilidade, mas não
+  tem mais botão na UI apontando pra ela.
+
+Nenhuma mudança de schema (`lote_fornecedor`/`data_validade` já
+existiam). 8 testes novos (108/108 passando no total).
+
+**Pendência registrada (Christopher pediu explicitamente pra
+documentar, não implementar agora)**: no futuro, permitir corrigir uma
+Entrada de Mercadoria já registrada por meio de algum "documento de
+retificação" — hoje, se o lote/validade foi digitado errado (ou a
+quantidade, quando o recebimento parcial existir), a única forma de
+corrigir é um lançamento manual de `Movimentacao` tipo `ajuste`. Não
+desenhado ainda — decisões em aberto: é um novo tipo de documento
+(`RetificacaoMovimentacao`?) ou só uma ação de "editar" numa
+`Movimentacao` já existente (quebraria a regra de ledger imutável já
+estabelecida — precisa de conversa própria antes de decidir).

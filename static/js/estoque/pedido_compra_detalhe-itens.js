@@ -243,6 +243,75 @@
     });
 
     carregar();
+
+    // ═══ Entrada de Mercadoria (correção — achado do Christopher) ═══
+    initEntradaMercadoria(config, () => cache);
+  }
+
+  /**
+   * Modal simples: lista os itens do pedido já editável (lote/
+   * validade por linha, ambos opcionais — "pode dar ok sem preencher
+   * ou preencher diretamente e já salvar atualizando"). Reaproveita o
+   * `cache` já carregado por carregar() acima (mesma closure) — não
+   * faz fetch próprio, sempre reflete o que a aba Itens já mostra.
+   */
+  function initEntradaMercadoria(config, obterCache) {
+    const modalEl = document.getElementById("modalEntradaMercadoria");
+    if (!modalEl) return; // pedido ainda não confirmado, botão/modal nem existem na página
+    const modal = window.bootstrap ? new window.bootstrap.Modal(modalEl) : null;
+    const tbody = modalEl.querySelector("[data-alvo='tabela-entrada-mercadoria']");
+    const erroEl = modalEl.querySelector("[data-alvo='erro-entrada-mercadoria']");
+
+    function fmt(numero) {
+      if (numero === null || numero === undefined) return "—";
+      return Number(numero).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+    }
+
+    function linhaHtml(item) {
+      return (
+        "<tr data-item-id=\"" + item.id + "\">" +
+        "<td>" + TesseractData.esc(item.material_nome || ("Material #" + item.material_id)) + "</td>" +
+        "<td>" + fmt(item.quantidade) + "</td>" +
+        "<td>" + TesseractData.esc(item.unidade_nome || "") + "</td>" +
+        "<td><input type=\"text\" class=\"form-control form-control-sm\" data-campo-linha=\"lote\" placeholder=\"opcional\"></td>" +
+        "<td><input type=\"date\" class=\"form-control form-control-sm\" data-campo-linha=\"validade\"></td>" +
+        "</tr>"
+      );
+    }
+
+    document.querySelector("[data-acao='abrir-entrada-mercadoria']").addEventListener("click", function () {
+      erroEl.classList.add("d-none");
+      const itens = obterCache();
+      tbody.innerHTML = itens.length
+        ? itens.map(linhaHtml).join("")
+        : '<tr><td colspan="5" class="text-muted">Este pedido não tem itens.</td></tr>';
+      modal && modal.show();
+    });
+
+    modalEl.querySelector("[data-acao='confirmar-entrada-mercadoria']").addEventListener("click", async function () {
+      erroEl.classList.add("d-none");
+
+      const linhas = Array.from(tbody.querySelectorAll("tr[data-item-id]")).map((tr) => ({
+        item_pedido_compra_id: Number(tr.dataset.itemId),
+        lote_fornecedor: tr.querySelector("[data-campo-linha='lote']").value.trim() || null,
+        data_validade: tr.querySelector("[data-campo-linha='validade']").value || null,
+      }));
+
+      try {
+        const resposta = await TesseractData._json(
+          "/estoque/pedido-compras/" + config.pedidoCompraId + "/entrada-mercadoria",
+          { method: "POST", ...TesseractData._corpoJson({ itens: linhas }) }
+        );
+        modal && modal.hide();
+        TesseractData.aviso("Entrada de mercadoria registrada — movimentações geradas.", "success");
+        // Status do pedido mudou (confirmado -> recebido) - os botões
+        // de ação no topo da página dependem disso, então recarrega.
+        window.location.reload();
+      } catch (e) {
+        erroEl.textContent = e.message;
+        erroEl.classList.remove("d-none");
+      }
+    });
   }
 
   document.addEventListener("DOMContentLoaded", init);

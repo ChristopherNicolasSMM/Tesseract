@@ -16,6 +16,7 @@ from addons.addon_estoque.root.model.material import Material
 from addons.addon_estoque.root.model.fabricante import Fabricante
 from addons.addon_estoque.root.model.composicao import Composicao
 from addons.addon_estoque.root.model.saldo import Saldo
+from addons.addon_estoque.root.model.movimentacao import Movimentacao
 from addons.addon_estoque.root.model.categoria import Categoria
 from addons.addon_estoque.root.model.origem import Origem, SEED_NOME_A_DEFINIR
 from addons.addon_estoque.root.model.tipo_produto import (
@@ -762,24 +763,29 @@ def test_detalhe_pedido_compra_renderiza_com_abas(app, client):
     assert b"pedido_compra_detalhe-itens.js" in resp.data
 
 
-def test_detalhe_pedido_compra_confirmado_mostra_botao_receber(app, client):
+def test_detalhe_pedido_compra_confirmado_mostra_botao_entrada_mercadoria(app, client):
+    """Botão 'Receber Pedido' (sem tela) foi substituído por 'Registrar
+    Entrada de Mercadoria' (abre modal com lote/validade por item —
+    achado do Christopher)."""
     _login_admin(app, client)
     with app.app_context():
         pedido = _criar_pedido_compra(status="confirmado")
         pedido_id = pedido.id
 
     resp = client.get(f"/estoque/pedido-compras/{pedido_id}", follow_redirects=True)
-    assert b"Receber Pedido" in resp.data
+    assert b"Registrar Entrada de Mercadoria" in resp.data
+    assert b"modalEntradaMercadoria" in resp.data
 
 
-def test_detalhe_pedido_compra_rascunho_nao_mostra_botao_receber(app, client):
+def test_detalhe_pedido_compra_rascunho_nao_mostra_botao_entrada_mercadoria(app, client):
     _login_admin(app, client)
     with app.app_context():
         pedido = _criar_pedido_compra(status="rascunho")
         pedido_id = pedido.id
 
     resp = client.get(f"/estoque/pedido-compras/{pedido_id}", follow_redirects=True)
-    assert b"Receber Pedido" not in resp.data
+    assert b"Registrar Entrada de Mercadoria" not in resp.data
+    assert b"Enviar Pedido" in resp.data  # botao de acao explicita pro estado rascunho
 
 
 def test_api_material_unidades_filtra_por_material_id(app):
@@ -1606,3 +1612,123 @@ def test_js_endereco_embutido_tem_toast_de_sucesso():
         conteudo = f.read()
     assert 'TesseractData.aviso("Endereço salvo.", "success")' in conteudo
     assert 'TesseractData.aviso("Endereço removido.", "success")' in conteudo
+
+
+# ── Correção: Entrada de Mercadoria (lote/validade, achado do Christopher) ──
+
+def test_receber_pedido_compra_com_lote_e_validade_por_item(app):
+    with app.app_context():
+        material = _criar_material(nome="Malte Entrada Mercadoria")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+
+        pedido = _criar_pedido_compra(status="confirmado")
+        item = _criar_item_pedido_compra(pedido, material, unidade, quantidade=10.0, preco_unitario=8.0)
+
+        resultado = estoque_service.receber_pedido_compra(
+            pedido.id,
+            dados_por_item={
+                item.id: {"lote_fornecedor": "LOTE-2026-08", "data_validade": _dt.date(2027, 8, 1)},
+            },
+        )
+
+        mov = resultado["movimentacoes"][0]
+        assert mov["lote_fornecedor"] == "LOTE-2026-08"
+        assert mov["data_validade"] == "2027-08-01"
+
+
+def test_receber_pedido_compra_sem_dados_por_item_continua_funcionando(app):
+    """Lote/validade sao opcionais - "pode dar ok sem preencher"
+    (decisao de sessao). dados_por_item=None (comportamento anterior a
+    esta correcao) continua valido."""
+    with app.app_context():
+        material = _criar_material(nome="Malte Sem Lote")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+
+        pedido = _criar_pedido_compra(status="confirmado")
+        _criar_item_pedido_compra(pedido, material, unidade)
+
+        resultado = estoque_service.receber_pedido_compra(pedido.id)
+        mov = resultado["movimentacoes"][0]
+        assert mov["lote_fornecedor"] is None
+        assert mov["data_validade"] is None
+
+
+def test_api_entrada_mercadoria_end_to_end_sem_preencher_lote(app, client):
+    """'Pode dar ok sem preencher' - item sem lote/validade no payload
+    ainda registra a entrada normalmente."""
+    _login_admin(app, client)
+    with app.app_context():
+        material = _criar_material(nome="Malte API Entrada Vazia")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+        pedido = _criar_pedido_compra(status="confirmado")
+        item = _criar_item_pedido_compra(pedido, material, unidade)
+        pedido_id, item_id = pedido.id, item.id
+
+    resp = client.post(
+        f"/estoque/pedido-compras/{pedido_id}/entrada-mercadoria",
+        json={"itens": [{"item_pedido_compra_id": item_id, "lote_fornecedor": None, "data_validade": None}]},
+    )
+    assert resp.status_code == 200
+    dado = resp.get_json()
+    assert dado["success"] is True
+    assert dado["pedido_compra"]["status"] == "recebido"
+
+
+def test_api_entrada_mercadoria_end_to_end_com_lote_e_validade(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        material = _criar_material(nome="Malte API Entrada Lote")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+        pedido = _criar_pedido_compra(status="confirmado")
+        item = _criar_item_pedido_compra(pedido, material, unidade)
+        pedido_id, item_id = pedido.id, item.id
+
+    resp = client.post(
+        f"/estoque/pedido-compras/{pedido_id}/entrada-mercadoria",
+        json={"itens": [{"item_pedido_compra_id": item_id, "lote_fornecedor": "L-001", "data_validade": "2027-01-15"}]},
+    )
+    assert resp.status_code == 200
+    assert resp.get_json()["success"] is True
+
+    with app.app_context():
+        mov = Movimentacao.query.filter_by(pedido_compra_item_id=item_id).first()
+        assert mov.lote_fornecedor == "L-001"
+        assert mov.data_validade == _dt.date(2027, 1, 15)
+
+
+def test_api_entrada_mercadoria_data_invalida_retorna_erro(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        material = _criar_material(nome="Malte Data Invalida")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+        pedido = _criar_pedido_compra(status="confirmado")
+        item = _criar_item_pedido_compra(pedido, material, unidade)
+        pedido_id, item_id = pedido.id, item.id
+
+    resp = client.post(
+        f"/estoque/pedido-compras/{pedido_id}/entrada-mercadoria",
+        json={"itens": [{"item_pedido_compra_id": item_id, "data_validade": "não-é-uma-data"}]},
+    )
+    assert resp.status_code == 400
+    assert resp.get_json()["success"] is False
+
+
+def test_api_entrada_mercadoria_pedido_ainda_rascunho_retorna_erro(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        pedido = _criar_pedido_compra(status="rascunho")
+        pedido_id = pedido.id
+
+    resp = client.post(f"/estoque/pedido-compras/{pedido_id}/entrada-mercadoria", json={"itens": []})
+    assert resp.status_code == 422
+    assert resp.get_json()["success"] is False

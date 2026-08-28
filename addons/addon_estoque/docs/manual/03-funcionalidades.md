@@ -85,11 +85,23 @@ sem precisar de uma tela separada.
 Um Pedido de Compra tem um Fornecedor (e opcionalmente uma
 Transportadora), e uma lista de Itens — cada item é um Material, a
 unidade de compra escolhida, a quantidade e o preço. O pedido nasce em
-**rascunho** e passa por: enviado → confirmado → recebido.
+**rascunho** e passa pelas etapas abaixo — cada uma com um botão
+próprio no topo da tela de detalhe (não precisa mexer em nenhum campo
+solto):
 
-Ao marcar como **recebido**, o sistema gera automaticamente uma
-Movimentação de entrada de estoque pra cada item — você não precisa
-lançar isso manualmente depois.
+1. **Rascunho** → botão "Enviar Pedido".
+2. **Enviado** → botão "Confirmar Pedido" (quando o fornecedor aceitar).
+3. **Confirmado** → botão "Registrar Entrada de Mercadoria" — abre uma
+   janela listando todos os itens do pedido. Pra cada item, você pode
+   informar o **lote do fornecedor** e a **data de validade**
+   (opcionais — dá pra confirmar sem preencher nada, ou preencher só
+   nos itens que interessam). Ao confirmar, o sistema gera
+   automaticamente uma Movimentação de entrada de estoque pra cada
+   item, com o lote/validade que você informou — você não precisa
+   lançar isso manualmente depois.
+4. **Recebido** — etapa final, o estoque já foi atualizado.
+
+Em qualquer etapa antes de "Recebido", dá pra **cancelar** o pedido.
 
 ## Cotação de Fornecedores (RFQ)
 

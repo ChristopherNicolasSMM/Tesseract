@@ -163,15 +163,28 @@ class PedidoCompraStatusInvalidoError(Exception):
     pass
 
 
-def receber_pedido_compra(pedido_compra_id: int, *, usuario_id: int | None = None) -> dict:
+def receber_pedido_compra(
+    pedido_compra_id: int,
+    *,
+    usuario_id: int | None = None,
+    dados_por_item: dict[int, dict] | None = None,
+) -> dict:
     """
-    Recebimento (skill 23, Fase 4) — SEMPRE total nesta fase (decisão
-    explícita, seção 6 da skill 23; recebimento parcial fica para
-    quando o volume real de uso justificar). Transiciona
+    Recebimento (skill 23, Fase 4; correção Entrada de Mercadoria —
+    achado do Christopher, sessão pós skill 24) — SEMPRE total nesta
+    fase (decisão explícita, mantida na correção: recebimento parcial
+    fica pra quando o volume real de uso justificar). Transiciona
     PedidoCompra.status para "recebido" e gera uma Movimentacao de
     entrada por ItemPedidoCompra via registrar_movimentacao() (nunca
     INSERT direto), preservando a regra de que toda movimentação passa
     por lá.
+
+    `dados_por_item` (novo): dict opcional `{item_pedido_compra_id:
+    {"lote_fornecedor": str|None, "data_validade": date|None}}` — a
+    tela de Entrada de Mercadoria captura isso por item (sempre
+    disponível pra preencher, nunca obrigatório — decisão de sessão).
+    Item sem entrada no dict, ou dict ausente inteiro, recebe sem
+    lote/validade (mesmo comportamento de antes desta correção).
 
     custo_unitario da Movimentacao é sempre por UNIDADE-BASE do
     Material (preco_unitario do item, que é por unidade de compra,
@@ -198,10 +211,13 @@ def receber_pedido_compra(pedido_compra_id: int, *, usuario_id: int | None = Non
     if not itens:
         raise ValueError(f"PedidoCompra id={pedido_compra_id} não tem itens para receber")
 
+    dados_por_item = dados_por_item or {}
+
     movimentacoes = []
     for item in itens:
         fator = item.fator_conversao_aplicado or 1.0
         custo_unitario_base = item.preco_unitario / fator if fator else item.preco_unitario
+        extra = dados_por_item.get(item.id, {})
 
         resultado = registrar_movimentacao(
             item.material_id,
@@ -215,6 +231,8 @@ def receber_pedido_compra(pedido_compra_id: int, *, usuario_id: int | None = Non
             unidade_original=item.material_unidade.unidade if item.material_unidade else None,
             quantidade_original=item.quantidade,
             fator_conversao_aplicado=fator,
+            lote_fornecedor=extra.get("lote_fornecedor") or None,
+            data_validade=extra.get("data_validade") or None,
         )
         movimentacoes.append(resultado["movimentacao"])
 

@@ -114,6 +114,16 @@ class AddonEstoque(AddonBase):
             )
             pedido_compras_bp._receber_route_registered = True
 
+        # Entrada de Mercadoria (correção — achado do Christopher):
+        # endpoint JSON novo, mesmo padrão de guarda.
+        if not getattr(pedido_compras_bp, "_entrada_mercadoria_route_registered", False):
+            from addons.addon_estoque.root.controller.pedido_compras_hooks import entrada_mercadoria_view
+            pedido_compras_bp.add_url_rule(
+                "/<int:id>/entrada-mercadoria", endpoint="entrada_mercadoria",
+                view_func=entrada_mercadoria_view, methods=["POST"],
+            )
+            pedido_compras_bp._entrada_mercadoria_route_registered = True
+
         # Fase 6.2 (skill 24): ações "selecionar-vencedor"/
         # "desmarcar-vencedor" — mesmo padrão de guarda da ação
         # "receber" acima.

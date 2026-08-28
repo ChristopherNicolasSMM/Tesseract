@@ -14,15 +14,53 @@
   </nav>
 </div>
 
-{#- ═══ Ação "receber" (skill 23, Fase 4) — só faz sentido com status
-    confirmado; gera Movimentacao de entrada por item automaticamente. -#}
-{% if item.status == 'confirmado' %}
+{#- ═══ Ações de status (correção — achado do Christopher: o campo
+    status era um <select> solto dentro do form de Cabeçalho, difícil
+    de descobrir o próximo passo). Botões explícitos por estado, estilo
+    documento SAP MM. -#}
+{% if item.status == 'rascunho' %}
+<div class="alert alert-secondary d-flex justify-content-between align-items-center">
+  <span><i class="bi bi-info-circle"></i> Pedido em rascunho — envie pro fornecedor quando estiver pronto.</span>
+  <div class="d-flex gap-2">
+    <form method="post" action="{{ url_for('pedido_compras.update', id=item.id) }}">
+      <input type="hidden" name="status" value="enviado">
+      <button type="submit" class="btn btn-info"><i class="bi bi-send"></i> Enviar Pedido</button>
+    </form>
+    <form method="post" action="{{ url_for('pedido_compras.update', id=item.id) }}"
+          onsubmit="return confirm('Cancelar este pedido?');">
+      <input type="hidden" name="status" value="cancelado">
+      <button type="submit" class="btn btn-outline-danger">Cancelar</button>
+    </form>
+  </div>
+</div>
+{% elif item.status == 'enviado' %}
+<div class="alert alert-info d-flex justify-content-between align-items-center">
+  <span><i class="bi bi-info-circle"></i> Pedido enviado — confirme quando o fornecedor aceitar.</span>
+  <div class="d-flex gap-2">
+    <form method="post" action="{{ url_for('pedido_compras.update', id=item.id) }}">
+      <input type="hidden" name="status" value="confirmado">
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check2"></i> Confirmar Pedido</button>
+    </form>
+    <form method="post" action="{{ url_for('pedido_compras.update', id=item.id) }}"
+          onsubmit="return confirm('Cancelar este pedido?');">
+      <input type="hidden" name="status" value="cancelado">
+      <button type="submit" class="btn btn-outline-danger">Cancelar</button>
+    </form>
+  </div>
+</div>
+{% elif item.status == 'confirmado' %}
 <div class="alert alert-primary d-flex justify-content-between align-items-center">
-  <span><i class="bi bi-info-circle"></i> Pedido confirmado — pronto para receber.</span>
-  <form method="post" action="{{ url_for('pedido_compras.receber', id=item.id) }}"
-        onsubmit="return confirm('Confirmar recebimento? Isso gera as movimentações de entrada e não pode ser desfeito por aqui.');">
-    <button type="submit" class="btn btn-success"><i class="bi bi-box-seam"></i> Receber Pedido</button>
-  </form>
+  <span><i class="bi bi-info-circle"></i> Pedido confirmado — pronto para registrar a chegada da mercadoria.</span>
+  <div class="d-flex gap-2">
+    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalEntradaMercadoria" data-acao="abrir-entrada-mercadoria">
+      <i class="bi bi-box-seam"></i> Registrar Entrada de Mercadoria
+    </button>
+    <form method="post" action="{{ url_for('pedido_compras.update', id=item.id) }}"
+          onsubmit="return confirm('Cancelar este pedido?');">
+      <input type="hidden" name="status" value="cancelado">
+      <button type="submit" class="btn btn-outline-danger">Cancelar</button>
+    </form>
+  </div>
 </div>
 {% endif %}
 
@@ -50,16 +88,19 @@
 
       {% set data = submitted_data if submitted_data else item.to_dict() %}
       {% set campos_parceiros = ['fornecedor_id', 'transportadora_id'] %}
+      {% set campos_ocultos_cabecalho = ['status'] %}
 
       <form method="post" action="{{ url_for('pedido_compras.update', id=item.id) }}" id="editForm">
         <div class="tab-content pt-3">
 
           {#- ═══ Aba 1: Cabeçalho — todos os campos, exceto os dois de
-              parceiro (isolados na aba 2). Mesmo motor de campo do
+              parceiro (isolados na aba 2) e status (agora só muda via
+              os botões de ação acima — evita transição inválida por
+              engano num <select> solto). Mesmo motor de campo do
               CrudGen (weak_ref/enum/checkbox/textarea/number), só
               filtrado por lista. -#}
           <div class="tab-pane fade show active row g-3" id="aba-cabecalho">
-            {% for field in fields if field not in campos_parceiros %}
+            {% for field in fields if field not in campos_parceiros and field not in campos_ocultos_cabecalho %}
             {% set fv = field_html_validations.get(field, {}) %}
             <div class="col-md-4">
               <label class="form-label">{{ field_labels.get(field, field.replace('_', ' ').title()) }}{% if fv.get('required') %} <span class="text-danger">*</span>{% endif %}</label>
@@ -180,7 +221,6 @@
 <script type="application/json" id="estoque-item-pedido-config">
   {{ {"pedidoCompraId": item.id, "apiBaseItens": "/api/estoque/item-pedido-compras", "apiBaseUnidades": "/api/estoque/material-unidades"} | tojson }}
 </script>
-
 <div class="modal fade" id="modalItem" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -229,7 +269,36 @@
   </div>
 </div>
 
-{#- CSS correção (mesmo achado do modal Item Pedido de ProcessoCotacao):
+{#- Modal de Entrada de Mercadoria — achado do Christopher: "Receber
+    Pedido" era um botão cego, sem tela, sem lote/validade. Decisão de
+    sessão: modal simples, lista os itens já editável (lote/validade
+    sempre disponíveis, nunca obrigatórios — pode confirmar sem
+    preencher). Recebimento continua sempre total (decisão original da
+    Fase 4, mantida nesta correção). -#}
+<div class="modal fade" id="modalEntradaMercadoria" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Entrada de Mercadoria — {{ item.numero or ('#' ~ item.id) }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small">Lote e validade são opcionais — pode confirmar sem preencher. Isso gera uma Movimentação de entrada por item e não pode ser desfeito por aqui.</p>
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Material</th><th>Quantidade</th><th>Unidade</th><th>Lote do Fornecedor</th><th>Data de Validade</th></tr></thead>
+          <tbody data-alvo="tabela-entrada-mercadoria"><tr><td colspan="5" class="text-muted">Carregando…</td></tr></tbody>
+        </table>
+        <div class="alert alert-danger d-none mt-2" data-alvo="erro-entrada-mercadoria"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success" data-acao="confirmar-entrada-mercadoria">
+          <i class="bi bi-check2-circle"></i> Confirmar Entrada
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
     <select disabled> não herda o tema escuro por padrão em alguns
     navegadores. -#}
 <style>

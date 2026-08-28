@@ -212,6 +212,15 @@ entidades que precisam disso hoje (2: Fornecedor e Transportadora).
 
 ## 6. Fase 4 — Sistema de Compras
 
+> **[CORRIGIDO — achado do Christopher, sessão pós skill 24].** O
+> recebimento continua sempre total (decisão original abaixo,
+> mantida), mas deixou de ser um botão cego: agora é uma tela de
+> "Entrada de Mercadoria" (modal), com lote/validade opcionais por
+> item, e o status deixou de ser um `<select>` solto — vira botões de
+> ação explícitos (Enviar/Confirmar/Registrar Entrada de Mercadoria/
+> Cancelar). Detalhe completo no `BACKLOG.md`, seção "Entrada de
+> Mercadoria — lote/validade + ações explícitas de status".
+
 **[DECIDIDO]** Fluxo: `PedidoCompra` → recebimento (**só total nesta
 fase** — recebimento parcial fica para quando o volume real de uso
 justificar, mesmo raciocínio de "cresce quando um caso real exigir" já
