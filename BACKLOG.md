@@ -1192,6 +1192,33 @@ via suítes de outros addons (`test_feature_ingredientes.py`,
 (`TipoProduto.nome`, já documentadas acima) continuam as mesmas antes
 e depois desta correção — nada novo quebrado.
 
+### Correção pós-Fase 6.3 (4ª rodada) — feedback visual e documentação (achado real, reportado pelo Christopher)
+
+Achado: as ações de "Selecionar vencedor" (aba Comparação) e "Responder
+Preços" (Cotações) não davam nenhum retorno visual de sucesso — a
+pessoa só percebia que funcionou pelo dado reaparecendo (ou não) na
+tela.
+
+**Corrigido**: todo caminho de sucesso das telas desenhadas deste
+addon (Endereço, Item de Pedido de Compra, Item Pedido, Convidar
+Fornecedor, Responder Preços, Selecionar/Desmarcar Vencedor) agora
+chama `TesseractData.aviso(mensagem, "success")` — o toast em si já
+existia globalmente (`core_toast.js`, skill 15), só não estava sendo
+chamado nos caminhos de sucesso. Padrão documentado como regra de ouro
+na skill 24, seção 10, pra qualquer modal novo seguir.
+
+**Documentação**: manual (`docs/manual/03-funcionalidades.md`) ganhou
+as seções "Unidades de Material" (com a regra prática de
+`fator_para_base`), "Fornecedores e Transportadoras", "Pedidos de
+Compra" e "Cotação de Fornecedores (RFQ)" — nenhuma dessas existia
+antes, o manual estava parado na Fase 1/2. **Pendência registrada**:
+o manual ainda não cobre tudo (ex.: telas de Composições/Movimentações
+podem estar desatualizadas também) — revisão completa fica pra uma
+sessão dedicada, fora do escopo desta correção pontual.
+
+Nenhuma mudança de schema/backend — só JS (feedback visual) e
+documentação (`.md`).
+
 ### Fase 5 entregue — achados registrados durante a execução
 
 - **[RESOLVIDO]** `static/js/weak_ref_combo.js` (compartilhado por

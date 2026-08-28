@@ -256,3 +256,28 @@ primeira leva).
 Cada fase entra em patch separado, mesmo fluxo já validado (proposta →
 autorização → migration com FK conferida à mão → testes → `git am
 --keep-cr` em clone limpo → entrega).
+
+## 10. Padrão estabelecido — feedback visual em toda ação assíncrona
+
+**[EXECUTADO]** Achado do Christopher (as ações de "Selecionar
+vencedor" e "Responder Preços" não davam nenhum retorno visual de que
+tinham funcionado): toda ação disparada por JS nas telas desenhadas
+deste addon (salvar/remover/selecionar em qualquer modal — Endereço,
+Item de Pedido de Compra, Item Pedido/Cotação, Convidar Fornecedor,
+Selecionar Vencedor) agora chama `TesseractData.aviso(mensagem,
+"success")` no caminho de sucesso, além do já existente `TesseractData.
+aviso(e.message, "error")` no catch. O toast em si (`core_toast.js`,
+`window.__tesseractToast`) já existia globalmente (skill 15,
+carregado por `core/base.html`) — só não estava sendo chamado nos
+caminhos de sucesso das telas desenhadas à mão.
+
+**Regra de ouro pra qualquer modal novo neste addon (ou em outro,
+seguindo o mesmo padrão de telas desenhadas)**: todo `try { ... await
+TesseractData.rest.criar/atualizar/lixeira(...) ... }` sem redirect de
+página (ou seja, toda ação puramente AJAX) precisa terminar o caminho
+de sucesso com um `TesseractData.aviso("<mensagem curta>", "success")`
+— sem isso, a pessoa não tem confirmação nenhuma de que a ação
+funcionou, só percebe pelo dado reaparecendo (ou não) na tela.
+Ações que fazem `redirect()` de página (ex.: "Receber Pedido", "Gerar
+Pedido") já ganham o toast de graça via `flash()` no servidor — não
+precisam desse cuidado adicional.

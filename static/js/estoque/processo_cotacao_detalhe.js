@@ -132,6 +132,7 @@
         modal && modal.hide();
         await carregar();
         document.dispatchEvent(new CustomEvent("estoque:item-processo-salvo"));
+        TesseractData.aviso("Item pedido adicionado.", "success");
       } catch (e) {
         erroEl.textContent = e.message;
         erroEl.classList.remove("d-none");
@@ -225,6 +226,7 @@
         });
         modalCotacao && modalCotacao.hide();
         await carregar();
+        TesseractData.aviso("Fornecedor convidado.", "success");
       } catch (e) {
         erroEl.textContent = e.message;
         erroEl.classList.remove("d-none");
@@ -333,6 +335,7 @@
         }
         await carregar();
         document.dispatchEvent(new CustomEvent("estoque:item-cotacao-salvo"));
+        TesseractData.aviso("Preço salvo.", "success");
       } catch (e) {
         erroEl.textContent = e.message;
         erroEl.classList.remove("d-none");
@@ -452,6 +455,7 @@
         try {
           await TesseractData._json(config.apiBaseItens + "/" + selecionar.dataset.id + "/selecionar-vencedor", { method: "POST" });
           await carregar();
+          TesseractData.aviso("Vencedor selecionado.", "success");
         } catch (e) {
           TesseractData.aviso(e.message, "error");
         }
@@ -459,6 +463,7 @@
         try {
           await TesseractData._json(config.apiBaseItens + "/" + desmarcar.dataset.id + "/desmarcar-vencedor", { method: "POST" });
           await carregar();
+          TesseractData.aviso("Vencedor desmarcado.", "success");
         } catch (e) {
           TesseractData.aviso(e.message, "error");
         }

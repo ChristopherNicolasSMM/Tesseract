@@ -185,6 +185,7 @@
         }
         modal && modal.hide();
         await carregar();
+        TesseractData.aviso("Item salvo.", "success");
       } catch (e) {
         erroEl.textContent = e.message;
         erroEl.classList.remove("d-none");
@@ -196,6 +197,7 @@
       try {
         await TesseractData.rest.lixeira(config.apiBaseItens, id);
         await carregar();
+        TesseractData.aviso("Item removido.", "success");
       } catch (e) {
         TesseractData.aviso(e.message, "error");
       }

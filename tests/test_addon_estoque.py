@@ -1577,3 +1577,32 @@ def test_criar_material_com_erro_de_validacao_preserva_dados_digitados(app, clie
     })
     assert resp.status_code == 200  # re-renderiza, nao redireciona
     assert b"Material Sem SKU Duplicado Teste" in resp.data
+
+
+# ── Correção pós-Fase 6.3 (4ª rodada) — feedback visual (toast de sucesso) ──
+
+def test_js_processo_cotacao_tem_toasts_de_sucesso():
+    """Achado real: 'Selecionar vencedor'/'Responder Preços' nao davam
+    nenhum retorno visual - regressao-alvo: garante que os caminhos de
+    sucesso chamam TesseractData.aviso(..., 'success')."""
+    with open("static/js/estoque/processo_cotacao_detalhe.js", encoding="utf-8") as f:
+        conteudo = f.read()
+    assert 'TesseractData.aviso("Vencedor selecionado.", "success")' in conteudo
+    assert 'TesseractData.aviso("Vencedor desmarcado.", "success")' in conteudo
+    assert 'TesseractData.aviso("Preço salvo.", "success")' in conteudo
+    assert 'TesseractData.aviso("Fornecedor convidado.", "success")' in conteudo
+    assert 'TesseractData.aviso("Item pedido adicionado.", "success")' in conteudo
+
+
+def test_js_pedido_compra_itens_tem_toast_de_sucesso():
+    with open("static/js/estoque/pedido_compra_detalhe-itens.js", encoding="utf-8") as f:
+        conteudo = f.read()
+    assert 'TesseractData.aviso("Item salvo.", "success")' in conteudo
+    assert 'TesseractData.aviso("Item removido.", "success")' in conteudo
+
+
+def test_js_endereco_embutido_tem_toast_de_sucesso():
+    with open("static/js/estoque/estoque-endereco-embutido.js", encoding="utf-8") as f:
+        conteudo = f.read()
+    assert 'TesseractData.aviso("Endereço salvo.", "success")' in conteudo
+    assert 'TesseractData.aviso("Endereço removido.", "success")' in conteudo

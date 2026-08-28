@@ -142,6 +142,7 @@
         }
         modal && modal.hide();
         await carregar();
+        TesseractData.aviso("Endereço salvo.", "success");
       } catch (e) {
         erroEl.textContent = e.message;
         erroEl.classList.remove("d-none");
@@ -153,6 +154,7 @@
       try {
         await TesseractData.rest.lixeira(config.apiBase, id);
         await carregar();
+        TesseractData.aviso("Endereço removido.", "success");
       } catch (e) {
         TesseractData.aviso(e.message, "error");
       }
