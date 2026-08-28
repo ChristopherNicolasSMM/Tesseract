@@ -21,7 +21,7 @@ padrão já usado em `YeastBankConfig`
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, enum_field, field_labels, display_field
+from annotations import label, plural, required, enum_field, field_labels, display_field, weak_ref
 
 
 @display_field("unidade")
@@ -30,6 +30,9 @@ from annotations import label, plural, required, enum_field, field_labels, displ
 @required("material_id", message="Material é obrigatório")
 @required("unidade", message="Unidade é obrigatória")
 @required("fator_para_base", message="Fator de conversão para a unidade-base é obrigatório")
+@weak_ref("material_id",
+          resolver="addons.addon_estoque.root.services.material_lookup.get_material",
+          options="materials")
 @enum_field("tipo_uso", options=[
     ("compra", "Compra"), ("consumo", "Consumo"), ("ambos", "Ambos"),
 ])

@@ -11,11 +11,12 @@ addons/addon_estoque/root/services/estoque_seed.py), nunca None.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length
+from annotations import label, plural, required, max_length, display_field
 
 SEED_NOME_A_DEFINIR = "A definir"
 
 
+@display_field("nome")
 @label("Origem")
 @plural("origems")
 @required("nome", message="Nome da origem é obrigatório")

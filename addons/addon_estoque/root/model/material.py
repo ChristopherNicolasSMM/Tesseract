@@ -31,7 +31,7 @@ sempre editavel depois.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length, display_field
+from annotations import label, plural, required, max_length, display_field, weak_ref
 
 
 @label("Material")
@@ -44,6 +44,18 @@ from annotations import label, plural, required, max_length, display_field
 @required("categoria_id", message="Categoria é obrigatória")
 @max_length("nome", 200)
 @max_length("sku", 60)
+@weak_ref("fabricante_id",
+          resolver="addons.addon_estoque.root.services.fabricante_lookup.get_fabricante",
+          options="fabricantes")
+@weak_ref("origem_id",
+          resolver="addons.addon_estoque.root.services.origem_lookup.get_origem",
+          options="origems")
+@weak_ref("tipo_produto_id",
+          resolver="addons.addon_estoque.root.services.tipo_produto_lookup.get_tipo_produto",
+          options="tipo_produtos")
+@weak_ref("categoria_id",
+          resolver="addons.addon_estoque.root.services.categoria_lookup.get_categoria",
+          options="categorias")
 class Material(db.Model):
     __tablename__ = "material"
 

@@ -203,6 +203,10 @@
           <select class="form-select" data-campo="material_unidade_id" disabled>
             <option value="">— escolha o Material primeiro —</option>
           </select>
+          <div class="form-text d-none" data-alvo="sem-unidade">
+            Nenhuma unidade cadastrada para este Material —
+            <a href="{{ url_for('material_unidades.manage') }}" target="_blank">cadastre uma</a> e volte aqui.
+          </div>
         </div>
         <div class="row">
           <div class="col-6 mb-3">
@@ -224,6 +228,17 @@
     </div>
   </div>
 </div>
+
+{#- CSS correção (mesmo achado do modal Item Pedido de ProcessoCotacao):
+    <select disabled> não herda o tema escuro por padrão em alguns
+    navegadores. -#}
+<style>
+  #modalItem select:disabled {
+    background-color: var(--bs-tertiary-bg, #2b2f38);
+    color: var(--bs-secondary-color, #8a8f98);
+    opacity: 1;
+  }
+</style>
 
 <script src="{{ url_for('static', filename='js/rule_engine.js') }}"></script>
 <script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>

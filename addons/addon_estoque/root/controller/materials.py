@@ -3,8 +3,18 @@ addons/addon_estoque/root/controller/materials.py
 
 Rotas web (HTML) — gerado pelo CrudGen. NÃO editar diretamente.
 Customizações via materials_hooks.py (nunca sobrescrito).
+
+CORREÇÃO (achado do Christopher — combos de referência/enum não
+funcionavam): este controller é mais antigo que o padrão moderno de
+renderização de campo (enum/weak_ref/checkbox/textarea) já usado em
+Fornecedor/Transportadora/etc. desde a Fase 3 — nunca calculava
+weak_ref_fields/enum_field_options/field_html_validations, então os
+templates (mesmo já modernizados) não tinham o que precisavam pra
+trocar o <input type="number"> cru por um combo de busca. Adicionado
+aqui, mesmo padrão exato de fornecedores.py.
 """
 import csv
+import importlib
 import io
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
@@ -12,7 +22,8 @@ from flask_login import login_required, current_user
 
 from core.db import db
 from core.permissions import permission_required
-from annotations import get_choices_fields
+from annotations import get_choices_fields, get_weak_refs, get_enum_fields, get_model_metadata, get_field_labels
+from core.crudgen.field_types import html_types_for_model
 from addons.addon_estoque.root.services.material_service import MaterialService
 from addons.addon_estoque.root.model.material import Material
 
@@ -46,7 +57,63 @@ _BOOLEAN_FIELDS = [
 # mas nunca tinha sido conectada a nenhum filtro de verdade).
 _CHOICES_FIELDS = [f["field"] for f in get_choices_fields(Material) if f["field"] in _EDITABLE_FIELDS]
 
+# Campos com @weak_ref no model (skill 11) — mesmo padrão de
+# fornecedores.py (achado desta correção: nunca existiam aqui).
+_WEAK_REFS = [wr for wr in get_weak_refs(Material) if wr["field"] in _EDITABLE_FIELDS]
+_WEAK_REF_FIELDS = [wr["field"] for wr in _WEAK_REFS]
+
+# Campos com @enum_field no model — Material não tem nenhum hoje, mas
+# calculado do mesmo jeito por consistência/futuro-proof.
+_ENUM_FIELDS = [ef for ef in get_enum_fields(Material) if ef["field"] in _EDITABLE_FIELDS]
+_ENUM_FIELD_OPTIONS = {ef["field"]: ef["options"] for ef in _ENUM_FIELDS}
+
+# Tradução de @required/@max_length/etc. + tipo real da coluna
+# SQLAlchemy (skill 20) em atributos HTML5 nativos — mesmo padrão de
+# fornecedores.py.
+_FIELD_HTML_VALIDATIONS: dict = {}
+for _field, _rules in get_model_metadata(Material).get("validations", {}).items():
+    if _field not in _EDITABLE_FIELDS:
+        continue
+    _attrs: dict = {}
+    for _rule in _rules:
+        if _rule["type"] == "required":
+            _attrs["required"] = True
+        elif _rule["type"] == "max_length":
+            _attrs["maxlength"] = _rule.get("max")
+        elif _rule["type"] == "min_length":
+            _attrs["minlength"] = _rule.get("min")
+        elif _rule["type"] == "min_value":
+            _attrs["min_value"] = _rule.get("min")
+    if _attrs:
+        _FIELD_HTML_VALIDATIONS[_field] = _attrs
+for _field, _html_attrs in html_types_for_model(Material, _EDITABLE_FIELDS).items():
+    _FIELD_HTML_VALIDATIONS.setdefault(_field, {}).update(_html_attrs)
+
+# Rótulos de campo em PT-BR (@field_labels) — Material não declara
+# nenhum hoje, mas calculado por consistência (fallback do template
+# já cobre com field.replace('_', ' ').title() se vazio).
+_FIELD_LABELS: dict = get_field_labels(Material)
+
 _LIST_KEY = "materials"
+
+
+def _resolve_weak_ref_display(item) -> dict:
+    """Mesmo padrão de fornecedores.py — resolve @weak_ref pra
+    exibição, nunca levanta erro pra fora."""
+    result: dict = {}
+    for wr in _WEAK_REFS:
+        value = getattr(item, wr["field"], None)
+        if value is None:
+            continue
+        try:
+            module_path, func_name = wr["resolver"].rsplit(".", 1)
+            resolver_fn = getattr(importlib.import_module(module_path), func_name)
+            resolved = resolver_fn(value)
+        except Exception:  # noqa: BLE001
+            continue
+        if resolved and resolved.get("display"):
+            result[wr["field"]] = resolved["display"]
+    return result
 
 
 def _get_field_rules() -> dict:
@@ -125,10 +192,7 @@ def _choices_options() -> dict:
     return options
 
 
-@materials_bp.route("/", methods=["GET"])
-@login_required
-@permission_required("materials.list")
-def manage():
+def _manage_context(submitted_data: dict | None = None, form_error: str | None = None) -> dict:
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
     search = (request.args.get("q") or "").strip()
@@ -139,15 +203,44 @@ def manage():
     items = query.order_by(Material.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
     pages = max(1, (total + per_page - 1) // per_page)
 
-    return render_template(
-        "materials/manage.html",
+    return dict(
         items=items, label="Material", fields=_EDITABLE_FIELDS, summary_field=_SUMMARY_FIELD,
         page=page, pages=pages, total=total, per_page=per_page, search=search,
         visible_columns=_get_column_prefs(),
         boolean_fields=_BOOLEAN_FIELDS, choices_fields=_CHOICES_FIELDS,
         choices_options=_choices_options(), request_args=request.args,
         field_rules=_get_field_rules(),
+        weak_ref_fields=_WEAK_REF_FIELDS,
+        weak_ref_display={item.id: _resolve_weak_ref_display(item) for item in items},
+        weak_ref_options={wr["field"]: wr["options"] for wr in _WEAK_REFS if wr["options"]},
+        weak_ref_value_fields={wr["field"]: wr["value_field"] for wr in _WEAK_REFS if wr.get("value_field")},
+        enum_field_options=_ENUM_FIELD_OPTIONS,
+        field_html_validations=_FIELD_HTML_VALIDATIONS,
+        field_labels=_FIELD_LABELS,
+        submitted_data=submitted_data, form_error=form_error,
     )
+
+
+def _detail_context(item, submitted_data: dict | None = None, form_error: str | None = None) -> dict:
+    return dict(
+        item=item, label="Material", fields=_EDITABLE_FIELDS,
+        field_rules=_get_field_rules(),
+        weak_ref_fields=_WEAK_REF_FIELDS,
+        weak_ref_display=_resolve_weak_ref_display(item),
+        weak_ref_options={wr["field"]: wr["options"] for wr in _WEAK_REFS if wr["options"]},
+        weak_ref_value_fields={wr["field"]: wr["value_field"] for wr in _WEAK_REFS if wr.get("value_field")},
+        enum_field_options=_ENUM_FIELD_OPTIONS,
+        field_html_validations=_FIELD_HTML_VALIDATIONS,
+        field_labels=_FIELD_LABELS,
+        submitted_data=submitted_data, form_error=form_error,
+    )
+
+
+@materials_bp.route("/", methods=["GET"])
+@login_required
+@permission_required("materials.list")
+def manage():
+    return render_template("materials/manage.html", **_manage_context())
 
 
 @materials_bp.route("/column-prefs", methods=["POST"])
@@ -228,22 +321,42 @@ def detail(id: int):
     if not item:
         flash("Registro não encontrado.", "error")
         return redirect(url_for("materials.manage"))
-    return render_template(
-        "materials/detail.html",
-        item=item, label="Material", fields=_EDITABLE_FIELDS,
-        field_rules=_get_field_rules(),
-    )
+    return render_template("materials/detail.html", **_detail_context(item))
+
+
+def _normalize_checkbox_fields(submitted: dict) -> dict:
+    """HTML nunca manda o campo no POST quando um checkbox está
+    desmarcado — sem isso, desmarcar um boolean que já estava True não
+    teria efeito (mesmo achado documentado em fornecedores.py)."""
+    for field in _BOOLEAN_FIELDS:
+        if field not in submitted:
+            submitted[field] = "false"
+    return submitted
 
 
 @materials_bp.route("/", methods=["POST"])
 @login_required
 @permission_required("materials.create")
 def create():
-    result = _service.create(request.form.to_dict())
-    if not result.success:
-        flash(result.error, "error")
-    else:
-        flash("Criado com sucesso.", "success")
+    submitted = _normalize_checkbox_fields(request.form.to_dict())
+    try:
+        result = _service.create(submitted)
+        success, error = result.success, result.error
+    except Exception as e:  # noqa: BLE001
+        # Mesmo achado de fornecedores.py — hook/relationship pode
+        # disparar autoflush antes do try/except do service alcançar o
+        # commit; sem este catch vira 500 e perde o formulário.
+        db.session.rollback()
+        success, error = False, str(e)
+    if not success:
+        # Achado real: redirect() aqui descartava TUDO que a pessoa
+        # tinha digitado — corrigido pra re-renderizar com os valores
+        # submetidos (mesmo padrão de fornecedores.py).
+        return render_template(
+            "materials/manage.html",
+            **_manage_context(submitted_data=submitted, form_error=error),
+        )
+    flash("Criado com sucesso.", "success")
     return redirect(url_for("materials.manage"))
 
 
@@ -251,11 +364,24 @@ def create():
 @login_required
 @permission_required("materials.update")
 def update(id: int):
-    result = _service.update(id, request.form.to_dict())
-    if not result.success:
-        flash(result.error, "error")
-    else:
-        flash("Salvo com sucesso.", "success")
+    item = _service.get_by_id(id)
+    if not item:
+        flash("Registro não encontrado.", "error")
+        return redirect(url_for("materials.manage"))
+
+    submitted = _normalize_checkbox_fields(request.form.to_dict())
+    try:
+        result = _service.update(id, submitted)
+        success, error = result.success, result.error
+    except Exception as e:  # noqa: BLE001
+        db.session.rollback()
+        success, error = False, str(e)
+    if not success:
+        return render_template(
+            "materials/detail.html",
+            **_detail_context(item, submitted_data=submitted, form_error=error),
+        )
+    flash("Salvo com sucesso.", "success")
     return redirect(url_for("materials.detail", id=id))
 
 

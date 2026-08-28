@@ -13,6 +13,7 @@ from core.app_factory import create_app
 from core.db import db
 from model.core.user import User
 from addons.addon_estoque.root.model.material import Material
+from addons.addon_estoque.root.model.fabricante import Fabricante
 from addons.addon_estoque.root.model.composicao import Composicao
 from addons.addon_estoque.root.model.saldo import Saldo
 from addons.addon_estoque.root.model.categoria import Categoria
@@ -1432,3 +1433,147 @@ def test_detalhe_pedido_compra_aba_parceiros_mostra_combo(app, client):
     assert resp.status_code == 200
     assert b'data-weakref-source="fornecedores"' in resp.data
     assert b'data-weakref-source="transportadoras"' in resp.data
+
+
+# ── Correção pós-Fase 6.3 (2ª rodada) — combos de Material/Categoria/MaterialUnidade ──
+
+def test_api_options_fabricantes_transportadoras_funciona(app, client):
+    """Achado real: Fabricante/Origem/TipoProduto/Categoria nunca
+    tiveram @display_field - causa raiz original de Material nunca
+    ter tido combo funcionando."""
+    _login_admin(app, client)
+    with app.app_context():
+        db.session.add(Fabricante(nome="Fabricante Options Teste"))
+        db.session.commit()
+
+    resp = client.get("/api/options/fabricantes?search=Options")
+    assert resp.status_code == 200
+    assert len(resp.get_json()["results"]) == 1
+
+
+def test_api_options_origems_tipo_produtos_categorias_funciona(app, client):
+    _login_admin(app, client)
+    resp = client.get("/api/options/origems?search=A definir")
+    assert resp.status_code == 200
+    assert len(resp.get_json()["results"]) >= 1
+
+    resp = client.get("/api/options/tipo_produtos?search=Insumo")
+    assert resp.status_code == 200
+    assert len(resp.get_json()["results"]) >= 1
+
+    with app.app_context():
+        db.session.add(Categoria(descricao="Categoria Options Teste", codigo="CAT-OPT"))
+        db.session.commit()
+    resp = client.get("/api/options/categorias?search=Options")
+    assert resp.status_code == 200
+    assert len(resp.get_json()["results"]) == 1
+
+
+def test_api_options_material_unidades_material_id_funciona(app, client):
+    """Bug reportado pelo Christopher (print) - MaterialUnidade.material_id
+    nunca teve @weak_ref, form de criação mostrava spinner numérico
+    cru em vez de combo de busca."""
+    _login_admin(app, client)
+    resp = client.get("/api/options/materials?search=")
+    assert resp.status_code == 200  # não é mais 400
+
+
+def test_form_criacao_material_mostra_combos(app, client):
+    """Regressão-alvo: tela de criação de Material (manage.html) tinha
+    <input type=number> cru pros 4 campos de referência - agora deve
+    ter os 4 combos de busca."""
+    _login_admin(app, client)
+    resp = client.get("/estoque/materials", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b'data-weakref-source="fabricantes"' in resp.data
+    assert b'data-weakref-source="origems"' in resp.data
+    assert b'data-weakref-source="tipo_produtos"' in resp.data
+    assert b'data-weakref-source="categorias"' in resp.data
+
+
+def test_form_criacao_material_unidade_mostra_combo_de_material(app, client):
+    """Bug reportado pelo Christopher (print 1) - tela de criação de
+    Unidade de Material."""
+    _login_admin(app, client)
+    resp = client.get("/estoque/material-unidades", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b'data-weakref-source="materials"' in resp.data
+    assert b"estoque-unidades-padrao" in resp.data  # datalist de valores padrao
+
+
+def test_detalhe_material_mostra_grid_de_unidades(app, client):
+    """'para cadastrar material tem de associar a unidade' - grid
+    embutido no detalhe de Material, mesmo padrao da Fase 5."""
+    _login_admin(app, client)
+    with app.app_context():
+        material = _criar_material(nome="Material Grid Unidades")
+        material_id = material.id
+
+    resp = client.get(f"/estoque/materials/{material_id}", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"material-unidades-embutido.js" in resp.data
+    assert b'data-weakref-source="fabricantes"' in resp.data  # aba de edicao tambem corrigida
+
+
+def test_criar_material_com_combos_funciona_end_to_end(app, client):
+    """Fluxo completo: criar Fabricante/Origem/TipoProduto/Categoria,
+    depois criar Material referenciando os 4 via POST direto (como o
+    weak_ref_combo.js faria) - confirma que o service aceita e a
+    tela de detalhe renderiza sem erro depois."""
+    _login_admin(app, client)
+    with app.app_context():
+        fabricante = Fabricante(nome="Fabricante E2E LTDA")
+        db.session.add(fabricante)
+        origem = Origem.query.filter_by(nome=SEED_NOME_A_DEFINIR).first()
+        tipo_produto = TipoProduto.query.filter_by(descricao=SEED_NOME_INSUMO).first()
+        db.session.commit()
+        categoria = Categoria(descricao="Categoria E2E", codigo="CAT-E2E", tipo_produto_id=tipo_produto.id)
+        db.session.add(categoria)
+        db.session.commit()
+        fabricante_id, origem_id, tipo_produto_id, categoria_id = (
+            fabricante.id, origem.id, tipo_produto.id, categoria.id,
+        )
+
+    resp = client.post("/estoque/materials/", data={
+        "nome": "Material E2E Combos", "sku": "SKU-E2E-COMBOS",
+        "fabricante_id": str(fabricante_id), "origem_id": str(origem_id),
+        "tipo_produto_id": str(tipo_produto_id), "categoria_id": str(categoria_id),
+    })
+    assert resp.status_code == 302
+
+    with app.app_context():
+        material = Material.query.filter_by(sku="SKU-E2E-COMBOS").first()
+        assert material is not None
+        assert material.fabricante_id == fabricante_id
+        material_id = material.id
+
+    resp = client.get(f"/estoque/materials/{material_id}", follow_redirects=True)
+    assert resp.status_code == 200
+
+
+def test_categoria_com_tipo_produto_mostra_combo_no_detalhe(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        tipo_produto = TipoProduto.query.filter_by(descricao=SEED_NOME_EMBALAGEM).first()
+        categoria = Categoria(descricao="Categoria Combo Teste", codigo="CAT-COMBO", tipo_produto_id=tipo_produto.id)
+        db.session.add(categoria)
+        db.session.commit()
+        categoria_id = categoria.id
+
+    resp = client.get(f"/estoque/categorias/{categoria_id}", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b'data-weakref-source="tipo_produtos"' in resp.data
+
+
+def test_criar_material_com_erro_de_validacao_preserva_dados_digitados(app, client):
+    """Achado real (mesma classe de bug ja documentado em
+    fornecedores.py): create() fazia redirect() em erro, perdendo tudo
+    que a pessoa tinha digitado - materials.py nunca tinha recebido
+    essa correcao."""
+    _login_admin(app, client)
+    resp = client.post("/estoque/materials/", data={
+        "nome": "Material Sem SKU Duplicado Teste",
+        # sku ausente de proposito - deve falhar validacao (required)
+    })
+    assert resp.status_code == 200  # re-renderiza, nao redireciona
+    assert b"Material Sem SKU Duplicado Teste" in resp.data

@@ -39,21 +39,27 @@
     const materialCombo = modalEl.querySelector(".weakref-combo[data-weakref-source='materials']");
     const materialHidden = materialCombo.querySelector(".weakref-combo-value");
     const selectUnidade = modalEl.querySelector("[data-campo='ip-material_unidade_id']");
+    const avisoSemUnidade = modalEl.querySelector("[data-alvo='ip-sem-unidade']");
     let cache = [];
 
     async function carregarUnidades(materialId) {
       selectUnidade.innerHTML = '<option value="">Carregando…</option>';
       selectUnidade.disabled = true;
+      avisoSemUnidade.classList.add("d-none");
       if (!materialId) {
         selectUnidade.innerHTML = '<option value="">— escolha o Material primeiro —</option>';
         return;
       }
       const dado = await TesseractData._json(config.apiBaseUnidades + "/?material_id=" + materialId).catch(() => ({ items: [] }));
       const unidades = dado.items || [];
-      selectUnidade.innerHTML = unidades.length
-        ? unidades.map((u) => "<option value=\"" + u.id + "\">" + TesseractData.esc(u.unidade) + (u.is_unidade_base ? " (base)" : "") + "</option>").join("")
-        : '<option value="">Nenhuma unidade cadastrada</option>';
-      selectUnidade.disabled = !unidades.length;
+      if (unidades.length) {
+        selectUnidade.innerHTML = unidades.map((u) => "<option value=\"" + u.id + "\">" + TesseractData.esc(u.unidade) + (u.is_unidade_base ? " (base)" : "") + "</option>").join("");
+        selectUnidade.disabled = false;
+      } else {
+        selectUnidade.innerHTML = '<option value="">Nenhuma unidade cadastrada</option>';
+        selectUnidade.disabled = true;
+        avisoSemUnidade.classList.remove("d-none");
+      }
     }
 
     function linhaHtml(item) {

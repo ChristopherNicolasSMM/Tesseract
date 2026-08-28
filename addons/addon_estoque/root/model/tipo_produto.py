@@ -18,7 +18,7 @@ referencia este model via `tipo_produto_id` - ver categoria.py.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length
+from annotations import label, plural, required, max_length, display_field
 
 
 SEED_NOME_INSUMO = "Insumo"
@@ -27,6 +27,7 @@ SEED_NOME_PRODUTO_ACABADO = "Produto Acabado"
 SEED_NOME_PECA = "Peça"
 SEED_NOME_USO_E_CONSUMO = "Uso e Consumo"
 
+@display_field("descricao")
 @label("Tipo de Produto")
 @plural("tipo_produtos")
 @required("descricao", message="Descricao do tipo de produto é obrigatório")

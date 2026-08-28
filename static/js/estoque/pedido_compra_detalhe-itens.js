@@ -24,6 +24,7 @@
     const modalEl = document.getElementById("modalItem");
     const modal = window.bootstrap ? new window.bootstrap.Modal(modalEl) : null;
     const selectUnidade = modalEl.querySelector("[data-campo='material_unidade_id']");
+    const avisoSemUnidade = modalEl.querySelector("[data-alvo='sem-unidade']");
     const materialCombo = modalEl.querySelector(".weakref-combo[data-weakref-source='materials']");
     const materialHidden = materialCombo.querySelector(".weakref-combo-value");
     let datatableInstancia = null;
@@ -101,6 +102,7 @@
     async function carregarUnidades(materialId, unidadeSelecionadaId) {
       selectUnidade.innerHTML = '<option value="">Carregando…</option>';
       selectUnidade.disabled = true;
+      avisoSemUnidade.classList.add("d-none");
       if (!materialId) {
         selectUnidade.innerHTML = '<option value="">— escolha o Material primeiro —</option>';
         return;
@@ -109,7 +111,8 @@
         const dado = await TesseractData._json(config.apiBaseUnidades + "/?material_id=" + encodeURIComponent(materialId));
         const unidades = dado.items || [];
         if (!unidades.length) {
-          selectUnidade.innerHTML = '<option value="">Nenhuma unidade cadastrada para este Material</option>';
+          selectUnidade.innerHTML = '<option value="">Nenhuma unidade cadastrada</option>';
+          avisoSemUnidade.classList.remove("d-none");
           return;
         }
         selectUnidade.innerHTML = unidades.map((u) =>

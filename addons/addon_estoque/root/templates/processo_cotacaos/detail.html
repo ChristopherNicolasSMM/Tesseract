@@ -195,6 +195,10 @@
             <select class="form-select" data-campo="ip-material_unidade_id" disabled>
               <option value="">— escolha o Material primeiro —</option>
             </select>
+            <div class="form-text d-none" data-alvo="ip-sem-unidade">
+              Nenhuma unidade cadastrada para este Material —
+              <a href="{{ url_for('material_unidades.manage') }}" target="_blank">cadastre uma</a> e volte aqui.
+            </div>
           </div>
           <div class="col-6 mb-3">
             <label class="form-label">Quantidade Desejada <span class="text-danger">*</span></label>
@@ -210,6 +214,20 @@
     </div>
   </div>
 </div>
+
+{#- CSS correção (achado do Christopher): <select disabled> não herda
+    o tema escuro por padrão em alguns navegadores (fica com fundo
+    claro/UA padrão) — escopo restrito só aos selects de unidade
+    desenhados à mão nesta página (Item Pedido / Responder Preços),
+    não mexe no tema global. -#}
+<style>
+  #modalItemProcesso select:disabled,
+  #modalItensCotacao select:disabled {
+    background-color: var(--bs-tertiary-bg, #2b2f38);
+    color: var(--bs-secondary-color, #8a8f98);
+    opacity: 1;
+  }
+</style>
 
 {#- Modal: convidar fornecedor (Cotacao nova) -#}
 <div class="modal fade" id="modalCotacao" tabindex="-1">

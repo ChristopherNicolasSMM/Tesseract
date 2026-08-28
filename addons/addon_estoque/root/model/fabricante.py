@@ -8,9 +8,10 @@ negócio (unique), igual ao padrão já usado em Material.nome.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length
+from annotations import label, plural, required, max_length, display_field
 
 
+@display_field("nome")
 @label("Fabricante")
 @plural("fabricantes")
 @required("nome", message="Nome do fabricante é obrigatório")

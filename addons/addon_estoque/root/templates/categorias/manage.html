@@ -10,13 +10,56 @@
       <button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#novoRegistroForm">
         <i class="bi bi-plus-lg"></i> Novo registro
       </button>
-      <div class="collapse" id="novoRegistroForm">
+      {% if form_error %}
+      <div class="alert alert-danger" role="alert">{{ form_error }}</div>
+      {% endif %}
+      <div class="collapse{% if submitted_data %} show{% endif %}" id="novoRegistroForm">
         <form method="post" action="{{ url_for('categorias.create') }}" class="row g-3" id="createForm">
           {% for field in fields %}
+          {% set fv = field_html_validations.get(field, {}) %}
           <div class="col-md-4">
-            <label class="form-label">{{ field.replace('_', ' ').title() }}</label>
-            <input type="text" name="{{ field }}" class="form-control"
+            <label class="form-label">{{ field_labels.get(field, field.replace('_', ' ').title()) }}{% if fv.get('required') %} <span class="text-danger">*</span>{% endif %}</label>
+            {% if field in enum_field_options %}
+            <select name="{{ field }}" class="form-select"
+                    {% if fv.get('required') %}required{% endif %}
+                    {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+              {% if not fv.get('required') %}<option value="" {{ 'selected' if submitted_data and not submitted_data.get(field) else '' }}>—</option>{% endif %}
+              {% for opt in enum_field_options[field] %}
+              <option value="{{ opt.value }}" {{ 'selected' if submitted_data and submitted_data.get(field) == opt.value else '' }}>{{ opt.label }}</option>
+              {% endfor %}
+            </select>
+            {% elif field in weak_ref_fields and weak_ref_options.get(field) %}
+            <div class="weakref-combo" data-weakref-source="{{ weak_ref_options[field] }}"
+                 {% if weak_ref_value_fields.get(field) %}data-weakref-value-field="{{ weak_ref_value_fields[field] }}"{% endif %}>
+              <input type="hidden" name="{{ field }}" class="weakref-combo-value" value="{{ submitted_data.get(field, '') if submitted_data else '' }}">
+              <input type="text" class="form-control weakref-combo-search" autocomplete="off"
+                     {% if fv.get('required') %}required{% endif %} placeholder="Buscar...">
+              <ul class="list-group weakref-combo-results"></ul>
+            </div>
+            {% if submitted_data and submitted_data.get(field) %}<small class="text-muted">Valor anterior mantido (id {{ submitted_data.get(field) }}) — busque de novo se quiser trocar.</small>{% endif %}
+            {% elif fv.get('html_type') == 'checkbox' %}
+            <div class="form-check">
+              <input type="checkbox" name="{{ field }}" class="form-check-input" value="true"
+                     {% if submitted_data and submitted_data.get(field) in ('true', 'True', '1', 'on') %}checked{% endif %}
+                     {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+            </div>
+            {% elif fv.get('html_type') == 'textarea' %}
+            <textarea name="{{ field }}" class="form-control" rows="3"
+                      {% if fv.get('required') %}required{% endif %}
+                      {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
+                      {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>{{ submitted_data.get(field, '') if submitted_data else '' }}</textarea>
+            {% else %}
+            <input type="{{ fv.get('html_type', 'text') }}" name="{{ field }}"
+                   class="form-control{% if fv.get('html_type') == 'number' %} crudgen-decimal-input{% endif %}"
+                   value="{{ submitted_data.get(field, '') if submitted_data else '' }}"
+                   {% if fv.get('required') %}required{% endif %}
+                   {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
+                   {% if fv.get('minlength') %}minlength="{{ fv['minlength'] }}"{% endif %}
+                   {% if fv.get('min_value') is not none %}min="{{ fv['min_value'] }}"{% endif %}
+                   {% if fv.get('step') %}step="{{ fv['step'] }}"{% endif %}
+                   {% if fv.get('html_type') == 'number' %}inputmode="decimal"{% endif %}
                    {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+            {% endif %}
           </div>
           {% endfor %}
           <div class="col-12">
@@ -32,7 +75,7 @@
 
         {% for field in boolean_fields %}
         <div class="col-md-2">
-          <label class="form-label small mb-0">{{ field.replace('_', ' ').title() }}</label>
+          <label class="form-label small mb-0">{{ field_labels.get(field, field.replace('_', ' ').title()) }}</label>
           <select name="filter_{{ field }}" class="form-select form-select-sm">
             <option value="">Todos</option>
             <option value="true" {% if request_args.get('filter_' + field) == 'true' %}selected{% endif %}>Sim</option>
@@ -41,9 +84,22 @@
         </div>
         {% endfor %}
 
-        {% for field in choices_fields %}
+        {% for field in enum_field_options %}
         <div class="col-md-2">
-          <label class="form-label small mb-0">{{ field.replace('_', ' ').title() }}</label>
+          <label class="form-label small mb-0">{{ field_labels.get(field, field.replace('_', ' ').title()) }}</label>
+          <select name="filter_{{ field }}" class="form-select form-select-sm">
+            <option value="">Todos</option>
+            {% for opt in enum_field_options[field] %}
+            <option value="{{ opt.value }}" {% if request_args.get('filter_' + field) == opt.value %}selected{% endif %}>{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endfor %}
+
+        {% for field in choices_fields %}
+        {% if field not in enum_field_options %}
+        <div class="col-md-2">
+          <label class="form-label small mb-0">{{ field_labels.get(field, field.replace('_', ' ').title()) }}</label>
           <select name="filter_{{ field }}" class="form-select form-select-sm">
             <option value="">Todos</option>
             {% for opt in choices_options.get(field, []) %}
@@ -51,12 +107,13 @@
             {% endfor %}
           </select>
         </div>
+        {% endif %}
         {% endfor %}
 
         <div class="col-md-1">
           <button class="btn btn-outline-primary w-100" type="submit"><i class="bi bi-search"></i></button>
         </div>
-        {% if search or boolean_fields or choices_fields %}
+        {% if search or boolean_fields or choices_fields or enum_field_options %}
         <div class="col-md-1">
           <a href="{{ url_for('categorias.manage') }}" class="btn btn-outline-secondary w-100"><i class="bi bi-x-circle"></i></a>
         </div>
@@ -80,7 +137,7 @@
               {% for field in fields %}
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" name="columns" id="col_{{ field }}" value="{{ field }}" {% if field in visible_columns %}checked{% endif %}>
-                <label class="form-check-label" for="col_{{ field }}">{{ field.replace('_', ' ').title() }}</label>
+                <label class="form-check-label" for="col_{{ field }}">{{ field_labels.get(field, field.replace('_', ' ').title()) }}</label>
               </div>
               {% endfor %}
             </div>
@@ -103,7 +160,7 @@
             {% set data = item.to_dict() %}
             <tr>
               <td>{{ item.id }}</td>
-              {% for col in visible_columns %}<td>{{ data.get(col) }}</td>{% endfor %}
+              {% for col in visible_columns %}<td>{% if col in weak_ref_fields %}{{ weak_ref_display.get(item.id, {}).get(col) or data.get(col) }}{% else %}{{ data.get(col) }}{% endif %}</td>{% endfor %}
               <td>
                 <a href="{{ url_for('categorias.detail', id=item.id) }}" class="btn btn-sm btn-outline-primary">Ver / Editar</a>
                 <form method="post" action="{{ url_for('categorias.trash', id=item.id) }}" class="d-inline" data-confirm-key="core.confirm.trash_generic">
@@ -134,6 +191,8 @@
 </section>
 
 <script src="{{ url_for('static', filename='js/rule_engine.js') }}"></script>
+<script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>
+<script src="{{ url_for('static', filename='js/decimal_input_normalizer.js') }}"></script>
 <script>
   document.getElementById('createForm').addEventListener('submit', function (e) {
     if (!RuleEngine.validateForm(this)) {

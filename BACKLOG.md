@@ -1145,6 +1145,53 @@ Addon novo (`addon_compras` descartado).
 - [ ] Mais campos em `Fabricante` (hoje só `nome`) — continua em
       aberto, fora do escopo da skill 23 (não pedido nesta sessão).
 
+### Correção pós-Fase 6.3 (3ª rodada) — Material/Categoria/MaterialUnidade sem combo (achado real, reportado com print pelo Christopher)
+
+Bug de fundação, presente desde a Fase 1 — só apareceu agora porque
+ninguém tinha tentado usar as telas de Material/MaterialUnidade de
+verdade ainda:
+
+- **Causa raiz**: `Fabricante`/`Origem`/`TipoProduto`/`Categoria`
+  nunca tiveram `@display_field` — corrigido. `Material` (4 campos:
+  `fabricante_id`/`origem_id`/`tipo_produto_id`/`categoria_id`) e
+  `MaterialUnidade.material_id` nunca tiveram `@weak_ref` — corrigido.
+  4 lookups novos (`fabricante_lookup.py`, `origem_lookup.py`,
+  `tipo_produto_lookup.py`, `categoria_lookup.py`).
+- **Achado adicional, mesma investigação**: `materials.py` e
+  `categorias.py` (controllers) eram de um estilo **anterior** ao
+  padrão moderno de renderização de campo (usado em
+  Fornecedor/Transportadora/etc. desde a Fase 3) — nunca calculavam
+  `weak_ref_fields`/`enum_field_options`/`field_html_validations`, e
+  os templates (`manage.html`/`detail.html`) renderizavam **todo**
+  campo como `<input type="text">` puro (nem checkbox, nem textarea,
+  nem combo). Modernizados os dois controllers + os 4 templates pro
+  padrão atual (copiado de `fornecedores.py`, adaptado).
+- **Achado extra**: `create()`/`update()` de `materials.py`/
+  `categorias.py` faziam `redirect()` em erro de validação,
+  descartando tudo que a pessoa tinha digitado — mesmo bug já
+  documentado e corrigido em `fornecedores.py` numa sessão anterior,
+  nunca propagado pra estes dois. Corrigido (preserva
+  `submitted_data`/`form_error`, re-renderiza em vez de redirecionar).
+- **"para cadastrar material tem de associar a unidade"**: grid
+  "Unidades" embutido no detalhe de Material (mesmo padrão da Fase 5),
+  consumindo `/api/estoque/material-unidades/?material_id=`.
+- **CSS/UX**: `<select disabled>` não herdava o tema escuro em alguns
+  navegadores (fundo claro, destoando) — corrigido nos dois modais que
+  dependem de `MaterialUnidade` (Item Pedido de `ProcessoCotacao`,
+  Item de `PedidoCompra`). Mensagem de ajuda com link adicionada
+  quando um Material não tem nenhuma unidade cadastrada ainda.
+- **Valores padrão de unidade**: datalist HTML5 (UN, PCT, CX, KG, G,
+  L, ML, SC, FD, M) no campo `unidade` de `MaterialUnidade` — continua
+  campo livre (decisão original da skill 23 mantida), só sugere os
+  mais comuns.
+
+Nenhuma mudança de schema — só annotations/lookups/controllers/
+templates/CSS. 10 testes novos (99/99 passando no total). Confirmado
+via suítes de outros addons (`test_feature_ingredientes.py`,
+`test_weak_ref_display_field.py`) que as falhas pré-existentes
+(`TipoProduto.nome`, já documentadas acima) continuam as mesmas antes
+e depois desta correção — nada novo quebrado.
+
 ### Fase 5 entregue — achados registrados durante a execução
 
 - **[RESOLVIDO]** `static/js/weak_ref_combo.js` (compartilhado por

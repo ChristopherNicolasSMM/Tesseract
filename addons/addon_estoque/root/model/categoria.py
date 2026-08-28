@@ -20,13 +20,17 @@ existente). Ver docs/skills/23-proposta-expansao-addon-estoque.md.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length
+from annotations import label, plural, required, max_length, display_field, weak_ref
 
 
+@display_field("descricao")
 @label("Categoria")
 @plural("categorias")
 @required("descricao", message="Descricao da categoria é obrigatório")
 @max_length("descricao", 100)
+@weak_ref("tipo_produto_id",
+          resolver="addons.addon_estoque.root.services.tipo_produto_lookup.get_tipo_produto",
+          options="tipo_produtos")
 class Categoria(db.Model):
     __tablename__ = "categoria"
 

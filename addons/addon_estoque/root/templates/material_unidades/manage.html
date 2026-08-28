@@ -52,6 +52,7 @@
             <input type="{{ fv.get('html_type', 'text') }}" name="{{ field }}"
                    class="form-control{% if fv.get('html_type') == 'number' %} crudgen-decimal-input{% endif %}"
                    value="{{ submitted_data.get(field, '') if submitted_data else '' }}"
+                   {% if field == 'unidade' %}list="estoque-unidades-padrao" placeholder="Ex.: KG, UN, saco25kg…"{% endif %}
                    {% if fv.get('required') %}required{% endif %}
                    {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
                    {% if fv.get('minlength') %}minlength="{{ fv['minlength'] }}"{% endif %}
@@ -67,6 +68,24 @@
           </div>
         </form>
       </div>
+
+      {#- Valores padrão de unidade (correção pós skill 24) — o campo
+          continua livre (unidades atípicas por Material existem, ver
+          skill 23 seção 3), mas sugere os mais comuns via datalist
+          nativo do HTML5, sem travar em lista fechada. -#}
+      <datalist id="estoque-unidades-padrao">
+        <option value="UN">Unidade</option>
+        <option value="PCT">Pacote</option>
+        <option value="CX">Caixa</option>
+        <option value="KG">Quilograma</option>
+        <option value="G">Grama</option>
+        <option value="L">Litro</option>
+        <option value="ML">Mililitro</option>
+        <option value="SC">Saco</option>
+        <option value="FD">Fardo</option>
+        <option value="M">Metro</option>
+      </datalist>
+
 
       <form method="get" class="row g-2 mb-3 align-items-end">
         <div class="col-md-3">
