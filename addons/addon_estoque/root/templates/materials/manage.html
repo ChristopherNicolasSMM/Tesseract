@@ -414,6 +414,53 @@
             <option value="false">Não</option>
           </select>
         </div>
+
+        <hr>
+        <p class="text-muted small mb-2">Ficha técnica (achado do Christopher — mesmos campos do detalhe de Material):</p>
+
+        <div class="mb-3">
+          <label class="form-label">Pendente Revisão</label>
+          <select class="form-select" id="massaModPendenteRevisao">
+            <option value="">(não alterar)</option>
+            <option value="true">Sim</option>
+            <option value="false">Não</option>
+          </select>
+        </div>
+        <div class="row">
+          <div class="col-6 mb-3">
+            <label class="form-label">Unidade Medida</label>
+            <input type="text" class="form-control" id="massaModUnidadeMedida" placeholder="(não alterar)">
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label">Peso</label>
+            <input type="number" step="0.0001" class="form-control" id="massaModPeso" placeholder="(não alterar)">
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-6 mb-3">
+            <label class="form-label">Volume Calculado</label>
+            <input type="number" step="0.0001" class="form-control" id="massaModVolumeCalculado" placeholder="(não alterar)">
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label">Unidade Medida Volume Calculado</label>
+            <input type="text" class="form-control" id="massaModUnidadeMedidaVolumeCalculado" placeholder="(não alterar)">
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-6 mb-3">
+            <label class="form-label">Volume Real</label>
+            <input type="number" step="0.0001" class="form-control" id="massaModVolumeReal" placeholder="(não alterar)">
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label">Unidade Medida Volume Real</label>
+            <input type="text" class="form-control" id="massaModUnidadeMedidaVolumeReal" placeholder="(não alterar)">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Formato Físico</label>
+          <input type="text" class="form-control" id="massaModFormatoFisico" placeholder="(não alterar)">
+        </div>
+
         <div class="alert alert-danger d-none" data-alvo="erro-modificar-massa"></div>
       </div>
       <div class="modal-footer">

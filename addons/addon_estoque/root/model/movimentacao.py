@@ -26,7 +26,7 @@ calculo de saldo.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, choices, min_value
+from annotations import label, plural, required, choices, min_value, weak_ref
 
 
 @label("Movimentação de Estoque")
@@ -35,6 +35,12 @@ from annotations import label, plural, required, choices, min_value
 @required("material_id", message="Material é obrigatório")
 @required("tipo_movimentacao", message="Tipo da movimentação é obrigatório")
 @min_value("quantidade", 0, message="Quantidade não pode ser negativa")
+@weak_ref("material_id",
+          resolver="addons.addon_estoque.root.services.material_lookup.get_material",
+          options="materials")
+@weak_ref("fornecedor_id",
+          resolver="addons.addon_estoque.root.services.fornecedor_lookup.get_fornecedor",
+          options="fornecedores")
 class Movimentacao(db.Model):
     __tablename__ = "movimentacao"
 

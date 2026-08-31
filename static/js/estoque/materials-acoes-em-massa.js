@@ -318,12 +318,28 @@
       const tipoProdutoId = document.getElementById("massaModTipoProdutoId").value;
       const categoriaId = document.getElementById("massaModCategoriaId").value;
       const ativo = document.getElementById("massaModAtivo").value;
+      const pendenteRevisao = document.getElementById("massaModPendenteRevisao").value;
+      const unidadeMedida = document.getElementById("massaModUnidadeMedida").value.trim();
+      const peso = document.getElementById("massaModPeso").value;
+      const volumeCalculado = document.getElementById("massaModVolumeCalculado").value;
+      const unidadeMedidaVolumeCalculado = document.getElementById("massaModUnidadeMedidaVolumeCalculado").value.trim();
+      const volumeReal = document.getElementById("massaModVolumeReal").value;
+      const unidadeMedidaVolumeReal = document.getElementById("massaModUnidadeMedidaVolumeReal").value.trim();
+      const formatoFisico = document.getElementById("massaModFormatoFisico").value.trim();
 
       if (fabricanteId) alteracoes.fabricante_id = Number(fabricanteId);
       if (origemId) alteracoes.origem_id = Number(origemId);
       if (tipoProdutoId) alteracoes.tipo_produto_id = Number(tipoProdutoId);
       if (categoriaId) alteracoes.categoria_id = Number(categoriaId);
       if (ativo) alteracoes.ativo = ativo === "true";
+      if (pendenteRevisao) alteracoes.pendente_revisao = pendenteRevisao === "true";
+      if (unidadeMedida) alteracoes.unidade_medida = unidadeMedida;
+      if (peso) alteracoes.peso = Number(peso);
+      if (volumeCalculado) alteracoes.volume_calculado = Number(volumeCalculado);
+      if (unidadeMedidaVolumeCalculado) alteracoes.unidade_medida_volume_calculado = unidadeMedidaVolumeCalculado;
+      if (volumeReal) alteracoes.volume_real = Number(volumeReal);
+      if (unidadeMedidaVolumeReal) alteracoes.unidade_medida_volume_real = unidadeMedidaVolumeReal;
+      if (formatoFisico) alteracoes.formato_fisico = formatoFisico;
 
       if (!Object.keys(alteracoes).length) {
         erroEl.textContent = "Preencha ao menos um campo pra aplicar.";

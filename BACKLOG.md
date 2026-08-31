@@ -4776,3 +4776,44 @@ dois models.
 
 Nenhuma mudança de schema. 16 testes novos (124/124 passando no
 total).
+
+### Movimentação/Saldo sem combo + usuário não salvo + formatação de moeda/data (achado real, print do Christopher)
+
+Mesma classe de bug das rodadas anteriores, agora em `Movimentacao` e
+`Saldo` — nunca tiveram `@weak_ref`, controllers ainda no estilo
+antigo (todo campo virava `<input type="text">` puro). Christopher
+também reportou que `usuario_id` nunca era salvo numa Movimentação, e
+pediu formatação de moeda/data configurável em nível de sistema.
+
+**Corrigido**:
+- `Movimentacao`: `@weak_ref` em `material_id`/`fornecedor_id`.
+  `usuario_id` **saiu do formulário editável** (nunca fazia sentido
+  escolher "de quem" foi a movimentação) — controller injeta
+  `current_user.id` automaticamente no `create()`. Detalhe mostra
+  "Registrado por: [nome]" resolvido direto (sem precisar do
+  mecanismo genérico de weak_ref, já que não é campo editável).
+- `Saldo`: `@weak_ref` em `material_id`/`ultimo_fornecedor_id`.
+  `valor_total_estoque`/`estoque_minimo` nascem em `0.0` (não mais
+  `null`) — corrigido na raiz (`_get_or_create_saldo()` em
+  `estoque_service.py`, o ponto real de criação; hook do CrudGen em
+  `saldo_service_hooks.py` como reforço pro caminho de edição manual).
+- Ambos os controllers modernizados pro padrão atual (mesma
+  refatoração de `materials.py`/`categorias.py`).
+- **Novo módulo Core** `core/formatting.py` — filtros Jinja globais
+  `| moeda` e `| data_br`, lendo de `system_config`
+  (`format.moeda_simbolo`, `format.moeda_casas_decimais`,
+  `format.data_formato`) com defaults sensatos (R$, 2 casas,
+  dd/mm/aaaa) — funciona sem nenhuma configuração prévia. Tela nova
+  `/admin/format-settings` pra editar sem mexer no banco. Aplicado nas
+  listas de Movimentação/Saldo (custo/valor/data). **Disponível pra
+  qualquer template do sistema** usar de agora em diante — não
+  retrofitado em telas que já existiam fora do que foi pedido nesta
+  sessão.
+- `Material`: "Modificação em Massa" ganhou os campos de ficha
+  técnica do print (pendente_revisao/unidade_medida/peso/
+  volume_calculado/unidade_medida_volume_calculado/volume_real/
+  unidade_medida_volume_real/formato_fisico), além dos 5 já existentes.
+
+Nenhuma mudança de schema (só `@weak_ref`, nenhuma coluna nova). 14
+testes novos (138/138 passando no total). Suíte de Core (admin/menu)
+re-testada — 23/23, nada quebrado pelas mudanças em `app_factory.py`.

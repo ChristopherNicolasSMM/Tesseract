@@ -18,12 +18,18 @@ incondicionalmente).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required
+from annotations import label, plural, required, weak_ref
 
 
 @label("Saldo de Estoque")
 @plural("saldos")
 @required("material_id", message="Material é obrigatório")
+@weak_ref("material_id",
+          resolver="addons.addon_estoque.root.services.material_lookup.get_material",
+          options="materials")
+@weak_ref("ultimo_fornecedor_id",
+          resolver="addons.addon_estoque.root.services.fornecedor_lookup.get_fornecedor",
+          options="fornecedores")
 class Saldo(db.Model):
     __tablename__ = "saldo"
 

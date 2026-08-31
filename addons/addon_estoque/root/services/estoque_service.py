@@ -35,7 +35,10 @@ class TipoMovimentacaoInvalidoError(Exception):
 def _get_or_create_saldo(material_id: int) -> Saldo:
     saldo = Saldo.query.filter_by(material_id=material_id).first()
     if saldo is None:
-        saldo = Saldo(material_id=material_id, quantidade_atual=0.0)
+        # valor_total_estoque/estoque_minimo já nascem em 0 (achado do
+        # Christopher) — nunca null, evita "—"/branco na tela até a
+        # primeira Movimentação/edição manual preencher de verdade.
+        saldo = Saldo(material_id=material_id, quantidade_atual=0.0, valor_total_estoque=0.0, estoque_minimo=0.0)
         db.session.add(saldo)
         db.session.flush()
     return saldo
@@ -549,7 +552,15 @@ def criar_pedido_compra_em_massa(
     return {"pedido_compra": pedido.to_dict(), "itens": itens_criados}
 
 
-_CAMPOS_MODIFICACAO_EM_MASSA = ("fabricante_id", "origem_id", "tipo_produto_id", "categoria_id", "ativo")
+_CAMPOS_MODIFICACAO_EM_MASSA = (
+    "fabricante_id", "origem_id", "tipo_produto_id", "categoria_id", "ativo",
+    # Ampliação (achado do Christopher — campos do print de detalhe de
+    # Material): nenhum destes é FK obrigatória (skill 23), então não
+    # precisam da trava de "não pode limpar" abaixo.
+    "pendente_revisao", "unidade_medida", "peso",
+    "volume_calculado", "unidade_medida_volume_calculado",
+    "volume_real", "unidade_medida_volume_real", "formato_fisico",
+)
 
 
 def modificar_materiais_em_massa(material_ids: list[int], alteracoes: dict) -> dict:

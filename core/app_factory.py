@@ -76,6 +76,9 @@ def create_app(env: str | None = None) -> Flask:
 
     app.jinja_env.filters["tojson_utf8"] = _tojson_utf8
 
+    from core.formatting import registrar_filtros_jinja
+    registrar_filtros_jinja(app)
+
     register_example_listener()
 
     app.module_manager = ModuleManager(app)
@@ -151,6 +154,7 @@ def create_app(env: str | None = None) -> Flask:
     from controller.core.profile import profile_bp
     from controller.core.model_builder import model_builder_bp
     from controller.core.admin_menu_settings import admin_menu_settings_bp
+    from controller.core.admin_format_settings import admin_format_settings_bp
     from controller.core.playground import playground_bp
     #Para funções no core deve ser importado manualmente, pois não é registrado automaticamente pelo ModuleManager
     #--------------------------------------------------------------------------------------------------------------
@@ -178,6 +182,7 @@ def create_app(env: str | None = None) -> Flask:
     app.register_blueprint(profile_bp)
     app.register_blueprint(model_builder_bp)
     app.register_blueprint(admin_menu_settings_bp)
+    app.register_blueprint(admin_format_settings_bp)
     app.register_blueprint(playground_bp)
     #Para funções no core deve ser importado manualmente, pois não é registrado automaticamente pelo ModuleManager
     #--------------------------------------------------------------------------------------------------------------

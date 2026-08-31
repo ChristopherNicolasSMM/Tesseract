@@ -189,4 +189,14 @@ CORE_TRANSACTIONS = [
         "permission_required": "system_config.menu_settings",
         "is_standard": True,
     },
+    {
+        "code": "TX_ADMIN_FORMAT_SETTINGS",
+        "label": "Formatação (Moeda/Data)",
+        "parent_code": "TX_GROUP_ADMIN",
+        "description": "Padrão global de símbolo de moeda e formato de data — vale para o sistema inteiro (achado addon_estoque, sessão pós skill 24).",
+        "icon": "bi-currency-exchange",
+        "route": "/admin/format-settings",
+        "permission_required": "system_config.format_settings",
+        "is_standard": True,
+    },
 ]

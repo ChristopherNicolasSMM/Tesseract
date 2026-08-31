@@ -1971,3 +1971,178 @@ def test_criar_processo_cotacao_em_massa_rejeita_processo_finalizado(app):
                 [{"material_id": material.id, "material_unidade_id": unidade.id, "quantidade_desejada": 1.0}],
                 processo_cotacao_id=processo.id,
             )
+
+
+# ── Formatação de moeda/data + Movimentação/Saldo com nome (achado do Christopher) ──
+
+def test_formatar_moeda_usa_padrao_quando_sem_config(app):
+    from core.formatting import formatar_moeda
+    with app.app_context():
+        assert formatar_moeda(1234.5) == "R$ 1.234,50"
+        assert formatar_moeda(None) == "—"
+        assert formatar_moeda(0) == "R$ 0,00"
+
+
+def test_formatar_moeda_le_config_customizada(app):
+    from core.formatting import formatar_moeda
+    from model.core.system_config import SystemConfig
+    with app.app_context():
+        db.session.add(SystemConfig(key="format.moeda_simbolo", value="US$", value_type="string"))
+        db.session.add(SystemConfig(key="format.moeda_casas_decimais", value="3", value_type="int"))
+        db.session.commit()
+        assert formatar_moeda(10) == "US$ 10,000"
+
+
+def test_formatar_data_padrao_dd_mm_yyyy(app):
+    from core.formatting import formatar_data
+    with app.app_context():
+        assert formatar_data("2026-08-31") == "31/08/2026"
+        assert formatar_data(_dt.date(2026, 8, 31)) == "31/08/2026"
+        assert formatar_data(None) == "—"
+
+
+def test_formatar_data_le_config_customizada(app):
+    from core.formatting import formatar_data
+    from model.core.system_config import SystemConfig
+    with app.app_context():
+        db.session.add(SystemConfig(key="format.data_formato", value="%Y-%m-%d", value_type="string"))
+        db.session.commit()
+        assert formatar_data("2026-08-31") == "2026-08-31"
+
+
+def test_filtros_jinja_moeda_e_data_br_registrados(app):
+    assert "moeda" in app.jinja_env.filters
+    assert "data_br" in app.jinja_env.filters
+
+
+def test_tela_format_settings_salva_e_aplica(app, client):
+    _login_admin(app, client)
+    resp = client.post("/admin/format-settings/", data={
+        "moeda_simbolo": "US$", "moeda_casas_decimais": "2", "data_formato": "%Y-%m-%d",
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    with app.app_context():
+        from core.formatting import formatar_moeda, formatar_data
+        assert formatar_moeda(10) == "US$ 10,00"
+        assert formatar_data("2026-08-31") == "2026-08-31"
+
+
+# ── Movimentacao: combo funcionando + usuario_id automatico ──
+
+def test_movimentacao_criada_pela_tela_preenche_usuario_automaticamente(app, client):
+    """Achado do Christopher: usuario_id nunca era salvo - corrigido
+    injetando current_user.id no controller, campo nem aparece mais no
+    form editavel."""
+    _login_admin(app, client)
+    with app.app_context():
+        material = _criar_material(nome="Malte Usuario Auto")
+        material_id = material.id
+
+    resp = client.post("/estoque/movimentacaos/", data={
+        "material_id": str(material_id), "tipo_movimentacao": "entrada", "quantidade": "10.0",
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    with app.app_context():
+        mov = Movimentacao.query.filter_by(material_id=material_id).first()
+        assert mov is not None
+        assert mov.usuario_id is not None
+
+
+def test_form_criacao_movimentacao_mostra_combo_material_e_fornecedor(app, client):
+    _login_admin(app, client)
+    resp = client.get("/estoque/movimentacaos", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b'data-weakref-source="materials"' in resp.data
+    assert b'data-weakref-source="fornecedores"' in resp.data
+    # usuario_id nao deve aparecer como campo editavel (nem spinner, nem combo)
+    assert b'name="usuario_id"' not in resp.data
+
+
+def test_detalhe_movimentacao_mostra_nome_do_usuario_registrado(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        material = _criar_material(nome="Malte Detalhe Usuario")
+        material_id = material.id
+
+    client.post("/estoque/movimentacaos/", data={
+        "material_id": str(material_id), "tipo_movimentacao": "entrada", "quantidade": "5.0",
+    })
+    with app.app_context():
+        mov = Movimentacao.query.filter_by(material_id=material_id).first()
+        mov_id = mov.id
+
+    resp = client.get(f"/estoque/movimentacaos/{mov_id}", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Registrado por" in resp.data
+
+
+# ── Saldo: combo funcionando + valores default 0 ──
+
+def test_saldo_novo_nasce_com_valor_total_e_estoque_minimo_zero(app):
+    """Achado do Christopher: campos ficavam null (mostravam em branco
+    na tela) - agora nascem em 0."""
+    with app.app_context():
+        material = _criar_material(nome="Malte Saldo Zero")
+        resultado = estoque_service.registrar_movimentacao(material.id, "entrada", 1.0)
+        saldo = resultado["saldo"]
+        assert saldo["valor_total_estoque"] is not None
+        assert saldo["estoque_minimo"] == 0.0
+
+
+def test_form_criacao_saldo_mostra_combo_material_e_fornecedor(app, client):
+    _login_admin(app, client)
+    resp = client.get("/estoque/saldos", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b'data-weakref-source="materials"' in resp.data
+    assert b'data-weakref-source="fornecedores"' in resp.data
+
+
+def test_detalhe_saldo_mostra_nome_do_material(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        material = _criar_material(nome="Malte Detalhe Saldo Nome")
+        resultado = estoque_service.registrar_movimentacao(material.id, "entrada", 3.0)
+        saldo_id = resultado["saldo"]["id"]
+
+    resp = client.get(f"/estoque/saldos/{saldo_id}", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Malte Detalhe Saldo Nome" in resp.data
+
+
+# ── Material: Modificação em Massa ampliada (achado do Christopher) ──
+
+def test_modificar_materiais_em_massa_aceita_campos_de_ficha_tecnica(app):
+    with app.app_context():
+        m1 = _criar_material(nome="Malte Ficha Tecnica Massa")
+
+        resultado = estoque_service.modificar_materiais_em_massa(
+            [m1.id],
+            {
+                "pendente_revisao": True, "unidade_medida": "KG", "peso": 25.5,
+                "volume_calculado": 10.0, "unidade_medida_volume_calculado": "L",
+                "volume_real": 9.8, "unidade_medida_volume_real": "L",
+                "formato_fisico": "Saco",
+            },
+        )
+        assert resultado["atualizados"] == 1
+
+        db.session.refresh(m1)
+        assert m1.pendente_revisao is True
+        assert m1.unidade_medida == "KG"
+        assert m1.peso == 25.5
+        assert m1.volume_calculado == 10.0
+        assert m1.unidade_medida_volume_calculado == "L"
+        assert m1.volume_real == 9.8
+        assert m1.unidade_medida_volume_real == "L"
+        assert m1.formato_fisico == "Saco"
+
+
+def test_modal_modificacao_em_massa_mostra_campos_de_ficha_tecnica(app, client):
+    _login_admin(app, client)
+    resp = client.get("/estoque/materials", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"massaModPendenteRevisao" in resp.data
+    assert b"massaModPeso" in resp.data
+    assert b"massaModFormatoFisico" in resp.data

@@ -149,3 +149,23 @@ de Compra direto:
 salvar/selecionar nessas telas mostra uma confirmação rápida no canto
 da tela (alguns segundos) — é só uma indicação de que a ação
 funcionou, não precisa fazer nada com ela.
+
+## Movimentações e Saldo de Estoque
+
+Toda entrada/saída/ajuste de estoque fica registrada em
+**Movimentações** — cada uma mostra o nome do Material (não mais um
+número de identificação cru) e quem registrou. Você não escolhe quem
+fez a movimentação — o sistema já sabe, é sempre o usuário logado.
+
+O **Saldo de Estoque** é atualizado automaticamente a cada
+Movimentação — mostra a quantidade atual, custo médio, valor total em
+estoque, e o último fornecedor/preço de compra (nome do fornecedor
+aparece direto, não precisa decorar um número).
+
+## Formatação (Moeda/Data)
+
+Em **Admin → Formatação**, você define de uma vez só como o sistema
+inteiro mostra valores em dinheiro (símbolo, ex.: "R$") e datas
+(ex.: dd/mm/aaaa). Muda em um lugar só, vale para qualquer tela que
+use esses formatos — sem essa configuração, o sistema já funciona com
+"R$" e dd/mm/aaaa por padrão.

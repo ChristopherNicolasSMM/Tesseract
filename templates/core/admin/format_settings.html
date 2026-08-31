@@ -1,0 +1,50 @@
+{% extends "core/base.html" %}
+{% block title %}Formatação (Moeda/Data) - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Formatação do Sistema</h1>
+  <nav>
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item">Admin</li>
+      <li class="breadcrumb-item active">Formatação</li>
+    </ol>
+  </nav>
+</div>
+
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <p class="text-muted">Define como valores monetários e datas aparecem em todo o sistema — não é preciso mexer em nada dentro de um Addon específico depois de configurado aqui.</p>
+
+      <form method="post" class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label">Símbolo da Moeda</label>
+          <input type="text" name="moeda_simbolo" class="form-control" value="{{ moeda_simbolo }}" maxlength="10">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Casas Decimais da Moeda</label>
+          <input type="number" name="moeda_casas_decimais" class="form-control" value="{{ moeda_casas_decimais }}" min="0" max="6">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Formato de Data</label>
+          <select name="data_formato" class="form-select">
+            {% for valor, rotulo in opcoes_data_formato %}
+            <option value="{{ valor }}" {{ 'selected' if valor == data_formato else '' }}>{{ rotulo }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-12">
+          <div class="alert alert-info mb-0">
+            Prévia com os valores atuais: <strong>{{ exemplo_moeda }}</strong> · <strong>{{ exemplo_data }}</strong>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <button class="btn btn-primary" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}
