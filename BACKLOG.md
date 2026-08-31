@@ -4733,3 +4733,46 @@ desenhado ainda — decisões em aberto: é um novo tipo de documento
 (`RetificacaoMovimentacao`?) ou só uma ação de "editar" numa
 `Movimentacao` já existente (quebraria a regra de ledger imutável já
 estabelecida — precisa de conversa própria antes de decidir).
+
+### Ações em massa na lista de Materiais (achado real, pedido pelo Christopher)
+
+Pedido: selecionar várias linhas na lista de Materiais e, a partir da
+seleção, disparar ações em lote: Movimentar Estoque, Criar Cotação,
+Criar Pedido, Modificação em Massa.
+
+**Decisões de sessão**:
+- Movimentar Estoque: mesmo tipo (entrada/saída/ajuste) pra todos os
+  selecionados, quantidade individual por Material (grid editável).
+- Criar Cotação/Pedido: escolhe entre criar um Processo/Pedido **novo**
+  ou adicionar itens a um **já existente** (rascunho/aberto).
+- Modificação em Massa: só campos de classificação (Fabricante/
+  Origem/Tipo de Produto/Categoria/Ativo) — campo em branco não é
+  tocado em nenhum Material.
+
+**Implementado**:
+- 4 funções novas em `estoque_service.py`:
+  `movimentar_estoque_em_massa()` (best-effort por item, mesmo padrão
+  de `receber_pedido_compra()`/`gerar_pedidos_de_cotacao()` —
+  `registrar_movimentacao()` já comita por conta própria, não dá pra
+  forçar atomicidade entre N materiais sem reescrever essa função),
+  `criar_processo_cotacao_em_massa()`, `criar_pedido_compra_em_massa()`
+  (ambas aceitam processo/pedido novo OU existente, validam status —
+  só `rascunho` pra Pedido, rejeita `finalizado`/`cancelado` pra
+  Processo), `modificar_materiais_em_massa()` (rejeita campo fora da
+  whitelist e tentativa de limpar um campo obrigatório de Material).
+- 4 endpoints JSON novos em `materials_hooks.py`, checkbox por linha +
+  "selecionar todos" + barra de ações + 4 modais em
+  `materials/manage.html`, JS novo
+  (`static/js/estoque/materials-acoes-em-massa.js`).
+
+**Achado durante a implementação**: `PedidoCompra` e `ProcessoCotacao`
+também nunca tiveram `@display_field` — mesma classe de bug das
+rodadas anteriores (Fornecedor/Transportadora/Material/Categoria/
+etc.), só que dessa vez pego **antes** de virar um caso real reportado
+(os combos "Pedido Existente"/"Processo Existente" desta ação em massa
+foram os primeiros lugares do sistema a precisar buscar essas duas
+entidades por nome). Corrigido junto — `@display_field("numero")` nos
+dois models.
+
+Nenhuma mudança de schema. 16 testes novos (124/124 passando no
+total).

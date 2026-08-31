@@ -124,6 +124,32 @@ class AddonEstoque(AddonBase):
             )
             pedido_compras_bp._entrada_mercadoria_route_registered = True
 
+        # Ações em massa (achado do Christopher — seleção de linhas na
+        # lista de Materiais): 4 endpoints JSON novos, mesmo padrão de
+        # guarda contra dupla execução.
+        if not getattr(materials_bp, "_acoes_em_massa_registradas", False):
+            from addons.addon_estoque.root.controller.materials_hooks import (
+                movimentar_em_massa_view, criar_cotacao_em_massa_view,
+                criar_pedido_em_massa_view, modificar_em_massa_view,
+            )
+            materials_bp.add_url_rule(
+                "/acoes-em-massa/movimentar", endpoint="movimentar_em_massa",
+                view_func=movimentar_em_massa_view, methods=["POST"],
+            )
+            materials_bp.add_url_rule(
+                "/acoes-em-massa/criar-cotacao", endpoint="criar_cotacao_em_massa",
+                view_func=criar_cotacao_em_massa_view, methods=["POST"],
+            )
+            materials_bp.add_url_rule(
+                "/acoes-em-massa/criar-pedido", endpoint="criar_pedido_em_massa",
+                view_func=criar_pedido_em_massa_view, methods=["POST"],
+            )
+            materials_bp.add_url_rule(
+                "/acoes-em-massa/modificar", endpoint="modificar_em_massa",
+                view_func=modificar_em_massa_view, methods=["POST"],
+            )
+            materials_bp._acoes_em_massa_registradas = True
+
         # Fase 6.2 (skill 24): ações "selecionar-vencedor"/
         # "desmarcar-vencedor" — mesmo padrão de guarda da ação
         # "receber" acima.

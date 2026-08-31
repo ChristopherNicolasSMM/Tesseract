@@ -9,9 +9,10 @@ PedidoCompra.numero (skill 23, Fase 4).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, enum_field, field_labels
+from annotations import label, plural, required, enum_field, field_labels, display_field
 
 
+@display_field("numero")
 @label("Processo de Cotação")
 @plural("processo_cotacaos")
 @required("descricao", message="Descrição é obrigatória")

@@ -1732,3 +1732,242 @@ def test_api_entrada_mercadoria_pedido_ainda_rascunho_retorna_erro(app, client):
     resp = client.post(f"/estoque/pedido-compras/{pedido_id}/entrada-mercadoria", json={"itens": []})
     assert resp.status_code == 422
     assert resp.get_json()["success"] is False
+
+
+# ── Ações em massa em Materiais (achado do Christopher) ──
+
+def test_movimentar_estoque_em_massa_aplica_mesmo_tipo_quantidade_individual(app):
+    with app.app_context():
+        m1 = _criar_material(nome="Malte Massa A")
+        m2 = _criar_material(nome="Malte Massa B")
+
+        resultado = estoque_service.movimentar_estoque_em_massa(
+            "entrada", [
+                {"material_id": m1.id, "quantidade": 10.0},
+                {"material_id": m2.id, "quantidade": 25.0},
+            ],
+        )
+
+        assert all(r["sucesso"] for r in resultado["resultados"])
+        assert estoque_service.consultar_saldo(m1.id)["quantidade_atual"] == 10.0
+        assert estoque_service.consultar_saldo(m2.id)["quantidade_atual"] == 25.0
+
+
+def test_movimentar_estoque_em_massa_erro_em_um_nao_impede_os_outros(app):
+    with app.app_context():
+        m1 = _criar_material(nome="Malte Massa Erro")
+
+        resultado = estoque_service.movimentar_estoque_em_massa(
+            "entrada", [
+                {"material_id": m1.id, "quantidade": 5.0},
+                {"material_id": 999999, "quantidade": 5.0},  # material inexistente
+            ],
+        )
+
+        assert resultado["resultados"][0]["sucesso"] is True
+        assert resultado["resultados"][1]["sucesso"] is False
+        assert estoque_service.consultar_saldo(m1.id)["quantidade_atual"] == 5.0
+
+
+def test_criar_processo_cotacao_em_massa_com_processo_novo(app):
+    with app.app_context():
+        m1 = _criar_material(nome="Malte Cotacao Massa")
+        m2 = _criar_material(nome="Lupulo Cotacao Massa")
+        u1 = MaterialUnidade(material_id=m1.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        u2 = MaterialUnidade(material_id=m2.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add_all([u1, u2])
+        db.session.commit()
+
+        resultado = estoque_service.criar_processo_cotacao_em_massa(
+            [
+                {"material_id": m1.id, "material_unidade_id": u1.id, "quantidade_desejada": 100.0},
+                {"material_id": m2.id, "material_unidade_id": u2.id, "quantidade_desejada": 20.0},
+            ],
+            novo_processo={"descricao": "Processo Massa Teste", "data_abertura": "2026-08-01"},
+        )
+
+        assert resultado["processo_cotacao"]["numero"].startswith("COT-")
+        assert len(resultado["itens"]) == 2
+
+
+def test_criar_processo_cotacao_em_massa_com_processo_existente(app):
+    with app.app_context():
+        processo = _criar_processo_cotacao()
+        material = _criar_material(nome="Malte Cotacao Existente Massa")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+
+        resultado = estoque_service.criar_processo_cotacao_em_massa(
+            [{"material_id": material.id, "material_unidade_id": unidade.id, "quantidade_desejada": 5.0}],
+            processo_cotacao_id=processo.id,
+        )
+        assert resultado["processo_cotacao"]["id"] == processo.id
+
+
+def test_criar_processo_cotacao_em_massa_exige_um_dos_dois(app):
+    with app.app_context():
+        with pytest.raises(ValueError):
+            estoque_service.criar_processo_cotacao_em_massa([], processo_cotacao_id=1, novo_processo={"descricao": "x", "data_abertura": "2026-08-01"})
+        with pytest.raises(ValueError):
+            estoque_service.criar_processo_cotacao_em_massa([])
+
+
+def test_criar_pedido_compra_em_massa_com_pedido_novo(app):
+    with app.app_context():
+        fornecedor = _criar_fornecedor(razao_social="Fornecedor Massa LTDA")
+        material = _criar_material(nome="Malte Pedido Massa")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+
+        resultado = estoque_service.criar_pedido_compra_em_massa(
+            [{"material_id": material.id, "material_unidade_id": unidade.id, "quantidade": 50.0, "preco_unitario": 3.5}],
+            novo_pedido={"fornecedor_id": fornecedor.id, "data_pedido": "2026-08-01"},
+        )
+
+        assert resultado["pedido_compra"]["numero"].startswith("PC-")
+        assert len(resultado["itens"]) == 1
+
+
+def test_criar_pedido_compra_em_massa_com_pedido_existente(app):
+    with app.app_context():
+        pedido = _criar_pedido_compra()
+        material = _criar_material(nome="Malte Pedido Existente Massa")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+
+        resultado = estoque_service.criar_pedido_compra_em_massa(
+            [{"material_id": material.id, "material_unidade_id": unidade.id, "quantidade": 10.0, "preco_unitario": 2.0}],
+            pedido_compra_id=pedido.id,
+        )
+        assert resultado["pedido_compra"]["id"] == pedido.id
+
+
+def test_modificar_materiais_em_massa_so_altera_campos_informados(app):
+    with app.app_context():
+        m1 = _criar_material(nome="Malte Modificacao Massa A")
+        m2 = _criar_material(nome="Malte Modificacao Massa B")
+        fabricante = Fabricante(nome="Fabricante Massa LTDA")
+        db.session.add(fabricante)
+        db.session.commit()
+
+        resultado = estoque_service.modificar_materiais_em_massa(
+            [m1.id, m2.id], {"fabricante_id": fabricante.id, "ativo": False},
+        )
+
+        assert resultado["atualizados"] == 2
+        db.session.refresh(m1)
+        db.session.refresh(m2)
+        assert m1.fabricante_id == fabricante.id
+        assert m1.ativo is False
+        assert m2.fabricante_id == fabricante.id
+        # origem_id/tipo_produto_id/categoria_id nao foram tocados (nao estavam em alteracoes)
+        assert m1.origem_id is not None
+
+
+def test_modificar_materiais_em_massa_rejeita_campo_nao_permitido(app):
+    with app.app_context():
+        m1 = _criar_material(nome="Malte Campo Proibido Massa")
+        with pytest.raises(ValueError):
+            estoque_service.modificar_materiais_em_massa([m1.id], {"nome": "Tentativa de trapaça"})
+
+
+def test_modificar_materiais_em_massa_rejeita_limpar_campo_obrigatorio(app):
+    with app.app_context():
+        m1 = _criar_material(nome="Malte Limpar Obrigatorio Massa")
+        with pytest.raises(ValueError):
+            estoque_service.modificar_materiais_em_massa([m1.id], {"fabricante_id": None, "categoria_id": None})
+
+
+def test_api_movimentar_em_massa_end_to_end(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        m1 = _criar_material(nome="Malte API Massa Movimentar")
+        m1_id = m1.id
+
+    resp = client.post("/estoque/materials/acoes-em-massa/movimentar", json={
+        "tipo_movimentacao": "entrada", "itens": [{"material_id": m1_id, "quantidade": 15.0}],
+    })
+    assert resp.status_code == 200
+    assert resp.get_json()["success"] is True
+
+
+def test_api_modificar_em_massa_end_to_end(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        m1 = _criar_material(nome="Malte API Massa Modificar")
+        origem_alt = Origem(nome="Origem Massa Teste")
+        db.session.add(origem_alt)
+        db.session.commit()
+        m1_id, origem_id = m1.id, origem_alt.id
+
+    resp = client.post("/estoque/materials/acoes-em-massa/modificar", json={
+        "material_ids": [m1_id], "alteracoes": {"origem_id": origem_id},
+    })
+    assert resp.status_code == 200
+    assert resp.get_json()["success"] is True
+    assert resp.get_json()["atualizados"] == 1
+
+
+def test_lista_materials_renderiza_checkboxes_e_modais_de_massa(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        _criar_material(nome="Material Checkbox Massa")
+
+    resp = client.get("/estoque/materials", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"checkbox-selecionar-material" in resp.data
+    assert b"checkboxSelecionarTodos" in resp.data
+    assert b"barraAcoesEmMassa" in resp.data
+    assert b"modalMovimentarMassa" in resp.data
+    assert b"modalCotacaoMassa" in resp.data
+    assert b"modalPedidoMassa" in resp.data
+    assert b"modalModificarMassa" in resp.data
+    assert b"materials-acoes-em-massa.js" in resp.data
+
+
+def test_api_options_pedido_compras_e_processo_cotacaos_funciona(app, client):
+    """Achado durante a implementação: PedidoCompra/ProcessoCotacao
+    tambem nunca tiveram @display_field - mesma classe de bug das
+    rodadas anteriores, corrigido antes de virar mais um caso igual."""
+    _login_admin(app, client)
+    with app.app_context():
+        _criar_pedido_compra()
+        _criar_processo_cotacao()
+
+    resp = client.get("/api/options/pedido_compras?search=PC-")
+    assert resp.status_code == 200
+    resp2 = client.get("/api/options/processo_cotacaos?search=COT-")
+    assert resp2.status_code == 200
+
+
+def test_criar_pedido_compra_em_massa_rejeita_pedido_ja_confirmado(app):
+    with app.app_context():
+        pedido = _criar_pedido_compra(status="confirmado")
+        material = _criar_material(nome="Malte Pedido Confirmado Massa")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+
+        with pytest.raises(estoque_service.PedidoCompraStatusInvalidoError):
+            estoque_service.criar_pedido_compra_em_massa(
+                [{"material_id": material.id, "material_unidade_id": unidade.id, "quantidade": 1.0, "preco_unitario": 1.0}],
+                pedido_compra_id=pedido.id,
+            )
+
+
+def test_criar_processo_cotacao_em_massa_rejeita_processo_finalizado(app):
+    with app.app_context():
+        processo = _criar_processo_cotacao(status="finalizado")
+        material = _criar_material(nome="Malte Processo Finalizado Massa")
+        unidade = MaterialUnidade(material_id=material.id, unidade="kg", fator_para_base=1.0, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+
+        with pytest.raises(ValueError):
+            estoque_service.criar_processo_cotacao_em_massa(
+                [{"material_id": material.id, "material_unidade_id": unidade.id, "quantidade_desejada": 1.0}],
+                processo_cotacao_id=processo.id,
+            )

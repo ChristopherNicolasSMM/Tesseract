@@ -17,9 +17,10 @@ informado — editável depois, mesmo padrão que Material.sku documenta
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, enum_field, field_labels, weak_ref
+from annotations import label, plural, required, enum_field, field_labels, weak_ref, display_field
 
 
+@display_field("numero")
 @label("Pedido de Compra")
 @plural("pedido_compras")
 @required("fornecedor_id", message="Fornecedor é obrigatório")

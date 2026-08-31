@@ -66,6 +66,25 @@ O Saldo de Estoque é sempre calculado na unidade-base — comprar em
 "sacos" e consumir em "kg" não gera inconsistência, a conversão
 acontece automaticamente ao registrar a compra ou o consumo.
 
+## Ações em Massa na Lista de Materiais
+
+Na lista de Materiais, cada linha tem uma caixinha de seleção (e uma
+no cabeçalho pra marcar todos de uma vez). Ao marcar 1 ou mais, uma
+barra aparece no topo com 4 ações:
+
+- **Movimentar Estoque** — escolhe um tipo (entrada/saída/ajuste) que
+  vale pra todos os selecionados, e digita a quantidade de cada um
+  numa lista (cada material pode ter uma quantidade diferente).
+- **Criar Cotação** — os materiais selecionados viram itens pedidos
+  de um Processo de Cotação. Você escolhe entre criar um processo
+  **novo** ou adicionar num que já existe.
+- **Criar Pedido** — mesma lógica, agora pra um Pedido de Compra
+  (novo, com Fornecedor, ou um que já está em rascunho).
+- **Modificação em Massa** — muda Fabricante, Origem, Tipo de Produto,
+  Categoria ou Ativo de todos os selecionados de uma vez. Só os campos
+  que você preencher são alterados — deixar em branco não mexe em
+  nada naquele campo.
+
 ## Fabricantes, Origens, Tipos de Produto, Categorias
 
 Telas de apoio — cadastros simples (só um nome) usados para

@@ -403,3 +403,191 @@ def gerar_pedidos_de_cotacao(processo_cotacao_id: int) -> dict:
     db.session.commit()
 
     return {"processo_cotacao": processo.to_dict(), "pedidos_gerados": pedidos_gerados}
+
+
+# ═══ Ações em massa (achado do Christopher — seleção de linhas na
+# lista de Materiais, mesmo raciocínio de "várias telas pequenas" já
+# usado em todo o addon, mas agora disparado a partir de N materiais
+# escolhidos de uma vez). ═══════════════════════════════════════════
+
+def movimentar_estoque_em_massa(
+    tipo_movimentacao: str,
+    itens: list[dict],
+    *,
+    usuario_id: int | None = None,
+) -> dict:
+    """
+    "Movimentar Estoque" em massa (decisão de sessão: mesmo tipo pra
+    todos, quantidade individual por Material — grid). `itens`:
+    `[{"material_id": int, "quantidade": float}, ...]`.
+
+    Best-effort por item, não atômico entre itens — mesmo padrão já
+    usado em `receber_pedido_compra()`/`gerar_pedidos_de_cotacao()`
+    (cada `registrar_movimentacao()` já comita a própria transação;
+    forçar atomicidade entre N materiais exigiria reescrever
+    `registrar_movimentacao()` pra não comitar sozinha, fora do escopo
+    desta correção). Item com erro não impede os seguintes — resultado
+    traz sucesso/erro por material pra pessoa corrigir só o que falhou.
+    """
+    resultados = []
+    for linha in itens:
+        material_id = linha.get("material_id")
+        quantidade = linha.get("quantidade")
+        if not material_id or quantidade is None:
+            resultados.append({"material_id": material_id, "sucesso": False, "erro": "Material e quantidade são obrigatórios."})
+            continue
+        try:
+            resultado = registrar_movimentacao(
+                int(material_id), tipo_movimentacao, float(quantidade), usuario_id=usuario_id,
+                observacoes="Movimentação em massa (seleção múltipla de Materiais).",
+            )
+            resultados.append({"material_id": material_id, "sucesso": True, "saldo": resultado["saldo"]})
+        except Exception as e:  # noqa: BLE001
+            resultados.append({"material_id": material_id, "sucesso": False, "erro": str(e)})
+    return {"resultados": resultados}
+
+
+def criar_processo_cotacao_em_massa(
+    itens: list[dict],
+    *,
+    processo_cotacao_id: int | None = None,
+    novo_processo: dict | None = None,
+) -> dict:
+    """
+    "Criar Cotação" em massa (decisão de sessão: escolhe entre
+    processo NOVO ou um já existente em rascunho/aberto). `itens`:
+    `[{"material_id": int, "material_unidade_id": int,
+    "quantidade_desejada": float}, ...]` — vira um `ItemProcessoCotacao`
+    por material, no processo indicado (ou recém-criado).
+
+    Exatamente um de `processo_cotacao_id`/`novo_processo` deve ser
+    informado — validado aqui, não deixado pro banco reclamar.
+    """
+    from addons.addon_estoque.root.model.processo_cotacao import ProcessoCotacao
+    from addons.addon_estoque.root.services.processo_cotacao_service import ProcessoCotacaoService
+    from addons.addon_estoque.root.services.item_processo_cotacao_service import ItemProcessoCotacaoService
+
+    if bool(processo_cotacao_id) == bool(novo_processo):
+        raise ValueError("Informe processo_cotacao_id OU novo_processo, nunca os dois nem nenhum.")
+
+    if novo_processo:
+        resultado_processo = ProcessoCotacaoService().create(novo_processo)
+        if not resultado_processo.success:
+            raise RuntimeError(f"Falha ao criar ProcessoCotacao: {resultado_processo.error}")
+        processo = resultado_processo.data
+    else:
+        processo = ProcessoCotacao.query.filter_by(id=processo_cotacao_id, is_deleted=False).first()
+        if processo is None:
+            raise ProcessoCotacaoNaoEncontradoError(f"ProcessoCotacao id={processo_cotacao_id} não encontrado ou removido")
+        if processo.status in ("finalizado", "cancelado"):
+            raise ValueError(f"Não é possível adicionar itens a um processo {processo.status} (id={processo_cotacao_id})")
+
+    item_service = ItemProcessoCotacaoService()
+    itens_criados = []
+    for linha in itens:
+        resultado_item = item_service.create({
+            "processo_cotacao_id": processo.id,
+            "material_id": linha["material_id"],
+            "material_unidade_id": linha["material_unidade_id"],
+            "quantidade_desejada": linha["quantidade_desejada"],
+        })
+        if not resultado_item.success:
+            raise RuntimeError(f"Falha ao criar ItemProcessoCotacao para material_id={linha.get('material_id')}: {resultado_item.error}")
+        itens_criados.append(resultado_item.data.to_dict())
+
+    return {"processo_cotacao": processo.to_dict(), "itens": itens_criados}
+
+
+def criar_pedido_compra_em_massa(
+    itens: list[dict],
+    *,
+    pedido_compra_id: int | None = None,
+    novo_pedido: dict | None = None,
+) -> dict:
+    """
+    "Criar Pedido" em massa — mesmo raciocínio de
+    criar_processo_cotacao_em_massa(), agora pra PedidoCompra/
+    ItemPedidoCompra. `itens`: `[{"material_id": int,
+    "material_unidade_id": int, "quantidade": float,
+    "preco_unitario": float}, ...]`.
+    """
+    from addons.addon_estoque.root.model.pedido_compra import PedidoCompra
+    from addons.addon_estoque.root.services.pedido_compra_service import PedidoCompraService
+    from addons.addon_estoque.root.services.item_pedido_compra_service import ItemPedidoCompraService
+
+    if bool(pedido_compra_id) == bool(novo_pedido):
+        raise ValueError("Informe pedido_compra_id OU novo_pedido, nunca os dois nem nenhum.")
+
+    if novo_pedido:
+        resultado_pedido = PedidoCompraService().create(novo_pedido)
+        if not resultado_pedido.success:
+            raise RuntimeError(f"Falha ao criar PedidoCompra: {resultado_pedido.error}")
+        pedido = resultado_pedido.data
+    else:
+        pedido = PedidoCompra.query.filter_by(id=pedido_compra_id, is_deleted=False).first()
+        if pedido is None:
+            raise PedidoCompraNaoEncontradoError(f"PedidoCompra id={pedido_compra_id} não encontrado ou removido")
+        if pedido.status != "rascunho":
+            raise PedidoCompraStatusInvalidoError(
+                f"Só é possível adicionar itens em massa a um pedido em rascunho (atual: {pedido.status!r})"
+            )
+
+    item_service = ItemPedidoCompraService()
+    itens_criados = []
+    for linha in itens:
+        resultado_item = item_service.create({
+            "pedido_compra_id": pedido.id,
+            "material_id": linha["material_id"],
+            "material_unidade_id": linha["material_unidade_id"],
+            "quantidade": linha["quantidade"],
+            "preco_unitario": linha["preco_unitario"],
+        })
+        if not resultado_item.success:
+            raise RuntimeError(f"Falha ao criar ItemPedidoCompra para material_id={linha.get('material_id')}: {resultado_item.error}")
+        itens_criados.append(resultado_item.data.to_dict())
+
+    return {"pedido_compra": pedido.to_dict(), "itens": itens_criados}
+
+
+_CAMPOS_MODIFICACAO_EM_MASSA = ("fabricante_id", "origem_id", "tipo_produto_id", "categoria_id", "ativo")
+
+
+def modificar_materiais_em_massa(material_ids: list[int], alteracoes: dict) -> dict:
+    """
+    "Modificação em Massa" (decisão de sessão: só campos de
+    classificação — Fabricante/Origem/Tipo de Produto/Categoria/Ativo).
+    `alteracoes` só aplica as chaves PRESENTES no dict — campo ausente
+    não é tocado em nenhum Material (mesmo raciocínio de update()
+    parcial já usado em toda a Fase 4/skill 24: só mexe no que foi
+    explicitamente enviado). Chave com valor `None` é rejeitada — os 4
+    campos de referência são obrigatórios em Material (skill 23), não
+    dá pra "limpar" via ação em massa.
+    """
+    from addons.addon_estoque.root.model.material import Material
+
+    campos_invalidos = set(alteracoes) - set(_CAMPOS_MODIFICACAO_EM_MASSA)
+    if campos_invalidos:
+        raise ValueError(f"Campos não permitidos em modificação em massa: {sorted(campos_invalidos)}")
+
+    for campo in ("fabricante_id", "origem_id", "tipo_produto_id", "categoria_id"):
+        if campo in alteracoes and alteracoes[campo] is None:
+            raise ValueError(f"'{campo}' é obrigatório em Material — não pode ser limpo via modificação em massa.")
+
+    if not alteracoes:
+        raise ValueError("Nenhuma alteração informada.")
+
+    materiais = Material.query.filter(Material.id.in_(material_ids), Material.is_deleted.is_(False)).all()
+    encontrados_ids = {m.id for m in materiais}
+    nao_encontrados = [mid for mid in material_ids if mid not in encontrados_ids]
+
+    for material in materiais:
+        for campo, valor in alteracoes.items():
+            setattr(material, campo, valor)
+        material.updated_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+    return {
+        "atualizados": len(materiais),
+        "material_ids_atualizados": sorted(encontrados_ids),
+        "material_ids_nao_encontrados": nao_encontrados,
+    }
