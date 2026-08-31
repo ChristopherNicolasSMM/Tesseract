@@ -130,6 +130,28 @@ aqui (Core, RBAC, versionamento, CrudGen, `addon_brewstation` com 3
 Features/24 entidades, páginas HTML, Roles/Permissions, catálogo de
 Transações, Migrations, `addon_device_manager`) seguiu essas regras.
 
+### Propostas planejadas, ainda não implementadas (2026-08-31)
+
+Três skills novas fecham o planejamento de uma sessão de revisão de
+`addon_brewstation`/`addon_estoque` — todas em **[DECIDIDO]**, aguardando
+autorização explícita pra execução (nenhum código escrito ainda):
+
+- **25-proposta-acoes-em-massa-padrao-crudgen.md** — apagar/inativar em
+  massa vira padrão gerado pelo CrudGen (não mais construído à mão por
+  tela); novo mecanismo de "hook de template"; aplicação em
+  Malte/Lúpulo/Levedura (`feature_ingredientes`) e MashRecipe
+  (`feature_mash_control`).
+- **26-proposta-envase-consumo-insumo-custo-industrializacao.md** —
+  `Envase` passa a referenciar o Material resultante (produto acabado);
+  `ItemEnvase` descontinuado (substituído pela Composição do resultante);
+  novo fluxo de baixa de insumo na brassagem; cálculo de custo real de
+  industrialização.
+- **27-proposta-sincronizacao-seletiva-brewfather.md** — tela de seleção
+  prévia (checkbox, mesmo padrão da skill 25) antes de importar receitas
+  do BrewFather, já que a API não suporta filtro por tag/pasta no
+  servidor.
+
+
 As skills 06, 07, 08 e 09 já foram **executadas** — ver o próprio
 arquivo de cada uma para o detalhe do que foi implementado e eventuais
 revisões em relação à proposta original (skill 08, seção 10; skill 06,

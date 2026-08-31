@@ -4817,3 +4817,92 @@ pediu formatação de moeda/data configurável em nível de sistema.
 Nenhuma mudança de schema (só `@weak_ref`, nenhuma coluna nova). 14
 testes novos (138/138 passando no total). Suíte de Core (admin/menu)
 re-testada — 23/23, nada quebrado pelas mudanças em `app_factory.py`.
+
+## Planejamento — Ações em Massa Padrão, Reestruturação de Envase, Sync Seletiva BrewFather (2026-08-31)
+
+Sessão de revisão de `addon_brewstation`/`addon_estoque`, sem nenhuma
+implementação ainda — planejamento completo, formalizado em três
+skills novas. Todos os itens abaixo estão **[DECIDIDO]** (prontos pra
+executar quando autorizados), exceto onde marcado **[ABERTO]**.
+
+### Ações em massa padrão via CrudGen (skill 25)
+
+- Apagar/inativar em massa deixam de ser construídos à mão por tela
+  (risco real: a implementação de Materiais foi feita direto num
+  arquivo **gerado**, `materials/manage.html`, sujeita a ser perdida
+  no próximo `--overwrite`) e passam a ser gerados por padrão pelo
+  CrudGen — checkbox por linha + barra de ações + apagar/inativar,
+  reaproveitando JS genérico único (`crudgen-bulk-actions.js`).
+- Bifurcação decidida pra "inativar": entidade com `ativo` próprio
+  seta local; entidade sem `ativo` mas com `@weak_ref` obrigatório pra
+  algo que tem, **delega** (ex.: Malte/Lúpulo/Levedura delegam pro
+  `Material.ativo` via `estoque_service.modificar_materiais_em_massa`,
+  função já existente — sem update novo em `material_lookup`).
+- Novo mecanismo — "hook de template"
+  (`_acoes_em_massa_extra.html`, criado uma única vez, nunca
+  sobrescrito) absorve os 4 botões específicos de Materiais
+  (Movimentar Estoque/Cotação/Pedido/Modificação em Massa), que hoje
+  não têm nenhuma proteção contra `--overwrite`.
+- Malte/Lúpulo/Levedura (`feature_ingredientes`) e MashRecipe
+  (`feature_mash_control`) ganham apagar/inativar em massa via esse
+  padrão novo — sem migration em Malte/Lúpulo/Levedura (delega pro
+  Material); MashRecipe usa `is_active` já existente.
+- **Correção necessária junto**: `sync_service._importar_receita()`
+  não filtra `is_deleted=False` — hoje apagar/inativar uma receita
+  BrewFather não força reimportação na próxima sync (bug real
+  encontrado durante o planejamento, não implementado ainda).
+- **[ABERTO]**: painel unificado (Malte/Lúpulo/Levedura em abas, molde
+  igual ao `feature_yeast_bank/painel.html`) — desejável, não bloqueia
+  a entrega do bulk actions simples.
+
+### Reestruturação de Envase / custo de industrialização (skill 26)
+
+- `Envase` ganha `material_resultante_id` (referência fraca pro
+  Material acabado, ex. "Growler 1L Valirian Pilsen"). `ItemEnvase`
+  descontinuado como entrada manual — a Composição (`Composicao`,
+  já existente) do Material resultante resolve os componentes
+  (rótulo/tampa/etc.) automaticamente; dado histórico não é apagado.
+- Custo de componente via Composição **não precisa de schema novo** —
+  achado importante: `MaterialUnidade.fator_para_base` (conversão de
+  unidade de compra) e `Saldo.custo_medio` (custo médio ponderado, já
+  por unidade-base, recalculado a cada entrada) já resolvem o exemplo
+  do Christopher (saco 25kg por R$250 → R$10/kg).
+- Peça que de fato não existe: consumo de insumo de receita na
+  brassagem — `feature_mash_control` nunca chamou `estoque_service`
+  (diferente de `feature_envase`, que já dá baixa de embalagem).
+  Função nova, espelhando `envase_estoque_service.registrar_envase()`,
+  consome `RecipeIngredient` contra o estoque real.
+- Rastreio de "insumos já baixados": **decidido — flag em
+  `BrewSession`** (`insumos_baixados_em`, DateTime nullable), não
+  campo novo em `Movimentacao` (preserva isolamento entre Addons,
+  skill 02). Baixa ideal acontece na brassagem; fallback lazy no
+  envase se ainda não tiver ocorrido.
+- **[ABERTO]**: gatilho exato do "momento de brassar" — transição de
+  `BrewSession.status` pra `active`, ou ação explícita separada.
+- Cálculo/preview (sem gravar nada) e baixa/commit (protegida pelo
+  flag acima) são funções separadas desde o desenho — não uma escolha
+  entre as duas.
+- Confirmado por investigação no projeto legado (`BrewStation`,
+  `calculadora.py`): nunca existiu cálculo de física de brassagem
+  (OG/FG/IBU sempre vieram prontos do BrewFather) — escopo real sempre
+  foi custo. Camada de precificação de venda (%lucro/%impostos/etc.,
+  também vista no legado) registrada como extensão futura, fora do
+  escopo decidido agora.
+
+### Sincronização seletiva do BrewFather (skill 27)
+
+- Confirmado na documentação oficial: `GET /v2/recipes` não expõe
+  filtro por tag/pasta no servidor (só `include`/`complete`/
+  paginação/`order_by`) — filtro só pode acontecer no Tesseract.
+- Fluxo novo: listagem enxuta (`complete=false`) → tela de seleção
+  (checkbox, mesmo padrão da skill 25) → importação só das receitas
+  marcadas, buscando detalhe completo só delas.
+- Cada linha da listagem sinaliza "Já importada" / "Apagada —
+  pendente de reimportar" / "Nova", cruzando com
+  `MashRecipe.origem_receita_id` — depende da correção de
+  `_importar_receita()` já registrada na skill 25.
+
+Nenhuma migration, service ou template foi criado nesta sessão — só
+os três documentos de skill (`docs/skills/25-*.md`, `26-*.md`,
+`27-*.md`) e este registro no BACKLOG. Implementação aguarda
+autorização explícita, item por item.
