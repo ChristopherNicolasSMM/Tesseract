@@ -5087,3 +5087,31 @@ equivalente (assinatura de métodos fora dos hooks) nas 6 entidades
 customizadas antes de decidir se algo mais precisa de tratamento
 especial. `mash_recipes` fica permanentemente fora do escopo de
 regeneração genérica.
+
+## Pendências registradas pra rodada futura (2026-09-01)
+
+Itens explicitamente adiados, não esquecidos — cada um só deve ser
+puxado com autorização própria, na ordem que fizer sentido na hora:
+
+1. **Migrar `fornecedores`/`transportadoras` pro hook de `_detail_extra.html`**
+   — mesmo padrão já resolvido em Materiais (grid de endereço embutida
+   à mão, achado na auditoria da skill 25). Migração direta, sem
+   decisão de arquitetura nova — só repetir a receita.
+2. **Investigar `pedido_compras`/`processo_cotacaos`** — `detail.html`
+   com abas + grid de itens, mais complexo que o padrão de "seção
+   extra" simples (Material/Fornecedor/Transportadora). Precisa de
+   investigação própria antes de decidir se cabe no mesmo hook ou se
+   exige um mecanismo diferente.
+3. **Limpeza geral de skills repetidas/redundantes em `docs/skills/`**
+   — conjunto já cresceu bastante (00–27); antes de seguir empilhando
+   skills novas, revisar o conjunto inteiro em busca de sobreposição,
+   decisões duplicadas ou desatualizadas entre documentos, e consolidar
+   onde fizer sentido.
+4. **Melhorar documentação técnica e manual** (trilhos da skill 04) —
+   `docs/technical/`/`docs/manual/` de vários Addons/Features ainda
+   estão incompletos ou desatualizados em relação ao código real;
+   revisão geral pendente, não item a item.
+
+Itens 3 e 4 ficam como **último item da fila geral** — só entram depois
+que o trabalho de implementação em andamento (skills 25 seguinte
+rodada, 26, 27) estiver fechado.
