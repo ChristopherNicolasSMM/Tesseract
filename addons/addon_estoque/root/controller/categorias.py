@@ -3,26 +3,43 @@ addons/addon_estoque/root/controller/categorias.py
 
 Rotas web (HTML) — gerado pelo CrudGen. NÃO editar diretamente.
 Customizações via categorias_hooks.py (nunca sobrescrito).
-
-CORREÇÃO (mesmo achado de materials.py — combos de referência/enum
-não funcionavam): Categoria ganhou tipo_produto_id na Fase 1 (skill
-23), mas este controller nunca calculava weak_ref_fields/
-enum_field_options/field_html_validations. Adicionado aqui, mesmo
-padrão de fornecedores.py.
 """
 import csv
 import importlib
 import io
+import logging
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
 from flask_login import login_required, current_user
 
 from core.db import db
 from core.permissions import permission_required
-from annotations import get_choices_fields, get_weak_refs, get_enum_fields, get_model_metadata, get_field_labels
+from annotations import get_choices_fields, get_weak_refs, get_enum_fields, get_model_metadata, get_field_labels, get_readonly_fields
 from core.crudgen.field_types import html_types_for_model
 from addons.addon_estoque.root.services.categoria_service import CategoriaService
 from addons.addon_estoque.root.model.categoria import Categoria
+
+logger = logging.getLogger(__name__)
+
+# Hooks de controller — achado real (skill 21): controller.py.j2 nunca
+# importava/chamava categorias_hooks.py de verdade, só tinha o
+# docstring aspiracional acima. Mesmo padrão seguro já usado em
+# service.py.j2 (try/except + _hook() com fallback no-op) — hook
+# ausente/sem a função específica não quebra nada, comportamento
+# padrão de sempre continua valendo.
+try:
+    from addons.addon_estoque.root.controller import categorias_hooks as _hooks
+except ImportError:
+    _hooks = None
+
+
+def _noop(*args, **kwargs):
+    return None
+
+
+def _hook(name):
+    return getattr(_hooks, name, _noop) if _hooks else _noop
+
 
 categorias_bp = Blueprint(
     "categorias", __name__, url_prefix="/estoque/categorias"
@@ -31,7 +48,7 @@ _service = CategoriaService()
 
 # Campos editáveis via formulário — calculado por introspecção das
 # colunas do model (genérico, não precisa saber o schema de antemão).
-_READONLY_FIELDS = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"}
+_READONLY_FIELDS = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"} | get_readonly_fields(Categoria)
 _EDITABLE_FIELDS = [c.name for c in Categoria.__table__.columns if c.name not in _READONLY_FIELDS]
 
 # Campo usado como "resumo" na coluna da lista — prefere um nome
@@ -54,18 +71,25 @@ _BOOLEAN_FIELDS = [
 # mas nunca tinha sido conectada a nenhum filtro de verdade).
 _CHOICES_FIELDS = [f["field"] for f in get_choices_fields(Categoria) if f["field"] in _EDITABLE_FIELDS]
 
-# Campos com @weak_ref no model (skill 11) — mesmo padrão de
-# fornecedores.py (achado desta correção: nunca existiam aqui).
+# Campos com @weak_ref no model (skill 11) — referência fraca (sem FK
+# real, cross-Addon) resolvida em exibição via função apontada por
+# "resolver". _WEAK_REFS guarda a declaração completa (field/resolver/
+# options); _WEAK_REF_FIELDS é só a lista de nomes, usada pelo template
+# pra decidir se substitui a célula pelo valor resolvido.
 _WEAK_REFS = [wr for wr in get_weak_refs(Categoria) if wr["field"] in _EDITABLE_FIELDS]
 _WEAK_REF_FIELDS = [wr["field"] for wr in _WEAK_REFS]
 
-# Campos com @enum_field no model — Categoria não tem nenhum hoje, mas
-# calculado do mesmo jeito por consistência/futuro-proof.
+# Campos com @enum_field no model — opção FIXA (estática, declarada no
+# código), vira <select> no formulário de detalhe. Diferente de
+# @choices (dinâmico, só filtro de lista — ver _CHOICES_FIELDS acima).
 _ENUM_FIELDS = [ef for ef in get_enum_fields(Categoria) if ef["field"] in _EDITABLE_FIELDS]
 _ENUM_FIELD_OPTIONS = {ef["field"]: ef["options"] for ef in _ENUM_FIELDS}
 
-# Tradução de @required/@max_length/etc. + tipo real da coluna
-# SQLAlchemy (skill 20) em atributos HTML5 nativos.
+# Tradução de @required/@max_length/@min_length/@min_value em
+# atributos HTML5 nativos + badge visual (skill 12 — decisão desta
+# sessão de ligar essas anotações a algo real; eram só decorativas
+# antes). Camada complementar ao rule_engine.js (skill 07b) — validação
+# nativa do browser, roda antes de qualquer JS, sem servidor envolvido.
 _FIELD_HTML_VALIDATIONS: dict = {}
 for _field, _rules in get_model_metadata(Categoria).get("validations", {}).items():
     if _field not in _EDITABLE_FIELDS:
@@ -82,17 +106,81 @@ for _field, _rules in get_model_metadata(Categoria).get("validations", {}).items
             _attrs["min_value"] = _rule.get("min")
     if _attrs:
         _FIELD_HTML_VALIDATIONS[_field] = _attrs
+
+# Tipo real da coluna SQLAlchemy -> html_type (skill 20 — date,
+# datetime-local, time, number+step, checkbox, textarea). Mescla no
+# MESMO dict acima (chave html_type/step nova), nunca substitui o que
+# já foi calculado por @required/@max_length/etc. Precedência real
+# fica no template: @enum_field e @weak_ref continuam decidindo o
+# campo ANTES de html_type ser consultado (skill 20, seção J) — este
+# dict só alimenta o fallback final.
 for _field, _html_attrs in html_types_for_model(Categoria, _EDITABLE_FIELDS).items():
     _FIELD_HTML_VALIDATIONS.setdefault(_field, {}).update(_html_attrs)
 
+# Rótulos de campo em PT-BR (skill 12, @field_labels) — sem a
+# anotação no model, o template cai no fallback de sempre
+# (field.replace('_', ' ').title()).
 _FIELD_LABELS: dict = get_field_labels(Categoria)
 
 _LIST_KEY = "categorias"
 
+# Ações em massa (skill 25) — Apagar sempre disponível (is_deleted já
+# é padrão de todo model CrudGen). Inativar só aparece se este model
+# tem coluna `ativo` própria, OU se algum @weak_ref declara
+# bulk_deactivate_service (delega pro model do outro lado da
+# referência fraca — ex.: Malte/Lúpulo/Levedura delegam pro
+# Material.ativo). Nunca os dois ao mesmo tempo — local tem
+# precedência se por acaso um model tiver as duas coisas.
+_HAS_ATIVO_FIELD = any(f in _EDITABLE_FIELDS for f in ("ativo", "is_active"))
+_DEACTIVATE_DELEGATE = None
+if not _HAS_ATIVO_FIELD:
+    _DEACTIVATE_DELEGATE = next((wr for wr in _WEAK_REFS if wr.get("bulk_deactivate_service")), None)
+_PODE_INATIVAR_EM_MASSA = _HAS_ATIVO_FIELD or _DEACTIVATE_DELEGATE is not None
+
+
+def _inactivate_many_delegated(ids: list[int]) -> dict:
+    """
+    Resolve os ids selecionados (desta entidade) para os valores do
+    campo de referência fraca (ex.: material_id), deduplica, e chama a
+    função pública apontada por bulk_deactivate_service — nunca ORM
+    direto de outro Addon (skill 02). Ids da própria entidade que não
+    tiverem o campo preenchido são reportados como falha, não pulados
+    silenciosamente.
+    """
+    module_path, func_name = _DEACTIVATE_DELEGATE["bulk_deactivate_service"].rsplit(".", 1)
+    delegate_fn = getattr(importlib.import_module(module_path), func_name)
+    field = _DEACTIVATE_DELEGATE["field"]
+
+    resultados = []
+    valores_por_id: dict[int, int] = {}
+    for id in ids:
+        obj = db.session.get(Categoria, id)
+        valor = getattr(obj, field, None) if obj else None
+        if not obj or valor is None:
+            resultados.append({"id": id, "sucesso": False, "erro": "Registro não encontrado ou sem referência preenchida."})
+            continue
+        valores_por_id[id] = valor
+
+    valores_unicos = sorted(set(valores_por_id.values()))
+    if valores_unicos:
+        try:
+            delegate_fn(valores_unicos, {"ativo": False})
+            for id in valores_por_id:
+                resultados.append({"id": id, "sucesso": True, "erro": None})
+        except Exception as e:  # noqa: BLE001
+            for id in valores_por_id:
+                resultados.append({"id": id, "sucesso": False, "erro": str(e)})
+    return {"resultados": resultados}
+
 
 def _resolve_weak_ref_display(item) -> dict:
-    """Mesmo padrão de fornecedores.py — resolve @weak_ref pra
-    exibição, nunca levanta erro pra fora."""
+    """
+    Resolve os campos com @weak_ref (skill 11) para exibição, chamando
+    a função apontada por "resolver" (caminho pontuado, resolvido via
+    importlib). Nunca levanta erro pra fora — referência fraca não tem
+    garantia de integridade (ex.: registro apagado do outro lado), e a
+    tela sempre pode cair pro valor cru sem quebrar.
+    """
     result: dict = {}
     for wr in _WEAK_REFS:
         value = getattr(item, wr["field"], None)
@@ -172,6 +260,13 @@ def _apply_filters(query):
         if value:
             query = query.filter(getattr(Categoria, field) == value)
 
+    for _ef in _ENUM_FIELDS:
+        if _ef["field"] in _CHOICES_FIELDS:
+            continue  # já filtrado acima — evita duplicar a mesma condição
+        value = request.args.get(f"filter_{_ef['field']}")
+        if value:
+            query = query.filter(getattr(Categoria, _ef["field"]) == value)
+
     return query
 
 
@@ -186,6 +281,15 @@ def _choices_options() -> dict:
 
 
 def _manage_context(submitted_data: dict | None = None, form_error: str | None = None) -> dict:
+    """
+    Monta o context de manage.html. Compartilhado entre manage() (GET)
+    e create() (POST, quando falha) — achado real (BACKLOG.md): antes
+    disso, um erro de validação no create() fazia redirect() e
+    descartava TUDO que o usuário tinha digitado, forçando digitar de
+    novo do zero. Com submitted_data preenchido, o formulário de
+    "Novo registro" reabre com os valores que a pessoa já tinha
+    digitado, só o(s) campo(s) com problema precisam ser corrigidos.
+    """
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
     search = (request.args.get("q") or "").strip()
@@ -210,22 +314,9 @@ def _manage_context(submitted_data: dict | None = None, form_error: str | None =
         enum_field_options=_ENUM_FIELD_OPTIONS,
         field_html_validations=_FIELD_HTML_VALIDATIONS,
         field_labels=_FIELD_LABELS,
-        submitted_data=submitted_data, form_error=form_error,
-    )
-
-
-def _detail_context(item, submitted_data: dict | None = None, form_error: str | None = None) -> dict:
-    return dict(
-        item=item, label="Categoria", fields=_EDITABLE_FIELDS,
-        field_rules=_get_field_rules(),
-        weak_ref_fields=_WEAK_REF_FIELDS,
-        weak_ref_display=_resolve_weak_ref_display(item),
-        weak_ref_options={wr["field"]: wr["options"] for wr in _WEAK_REFS if wr["options"]},
-        weak_ref_value_fields={wr["field"]: wr["value_field"] for wr in _WEAK_REFS if wr.get("value_field")},
-        enum_field_options=_ENUM_FIELD_OPTIONS,
-        field_html_validations=_FIELD_HTML_VALIDATIONS,
-        field_labels=_FIELD_LABELS,
-        submitted_data=submitted_data, form_error=form_error,
+        submitted_data=submitted_data,
+        form_error=form_error,
+        pode_inativar_em_massa=_PODE_INATIVAR_EM_MASSA,
     )
 
 
@@ -306,6 +397,24 @@ def export_xlsx():
     )
 
 
+def _detail_context(item, submitted_data: dict | None = None, form_error: str | None = None) -> dict:
+    """Compartilhado entre detail() (GET) e update() (POST, quando
+    falha) — mesmo raciocínio do _manage_context() acima."""
+    return dict(
+        item=item, label="Categoria", fields=_EDITABLE_FIELDS,
+        field_rules=_get_field_rules(),
+        weak_ref_fields=_WEAK_REF_FIELDS,
+        weak_ref_display=_resolve_weak_ref_display(item),
+        weak_ref_options={wr["field"]: wr["options"] for wr in _WEAK_REFS if wr["options"]},
+        weak_ref_value_fields={wr["field"]: wr["value_field"] for wr in _WEAK_REFS if wr.get("value_field")},
+        enum_field_options=_ENUM_FIELD_OPTIONS,
+        field_html_validations=_FIELD_HTML_VALIDATIONS,
+        field_labels=_FIELD_LABELS,
+        submitted_data=submitted_data,
+        form_error=form_error,
+    )
+
+
 @categorias_bp.route("/<int:id>", methods=["GET"])
 @login_required
 @permission_required("categorias.detail")
@@ -318,8 +427,15 @@ def detail(id: int):
 
 
 def _normalize_checkbox_fields(submitted: dict) -> dict:
-    """HTML nunca manda o campo no POST quando um checkbox está
-    desmarcado (mesmo achado documentado em fornecedores.py)."""
+    """
+    HTML nunca manda o campo no POST quando um checkbox está
+    desmarcado — sem isso, desmarcar um campo boolean que já estava
+    `True` não teria efeito nenhum (o campo simplesmente não aparece
+    em `request.form`, `_apply_fields` nunca o toca, o valor antigo
+    persiste). Achado real (skill 20, risco documentado antes de
+    implementar): força "false" pra todo `_BOOLEAN_FIELDS` ausente do
+    submit, sem mexer nos que já vieram marcados.
+    """
     for field in _BOOLEAN_FIELDS:
         if field not in submitted:
             submitted[field] = "false"
@@ -331,18 +447,49 @@ def _normalize_checkbox_fields(submitted: dict) -> dict:
 @permission_required("categorias.create")
 def create():
     submitted = _normalize_checkbox_fields(request.form.to_dict())
+    # Hook opcional (skill 21) — permite uma entidade bloquear
+    # criação direta por essa tela (ex.: um registro que só deve
+    # nascer a partir de um Evento de Banco, achado real: a via
+    # direta continuava aberta mesmo depois da decisão).
+    # Hook ausente/retornando None = comportamento padrão, sem bloqueio.
+    _block_message = _hook("block_create")(submitted)
+    if _block_message is not None:
+        flash(_block_message, "error")
+        return redirect(url_for("categorias.manage"))
     try:
         result = _service.create(submitted)
         success, error = result.success, result.error
     except Exception as e:  # noqa: BLE001
+        # Achado real (BACKLOG.md): um hook que acessa relationship
+        # (ex.: `if obj.strain:`) pode disparar autoflush ANTES do
+        # try/except do service alcançar o commit — nesse caso o erro
+        # (ex.: ValueError de coerção de tipo) escapa do
+        # ServiceResult e vem parar aqui. Sem este catch, vira 500 e
+        # perde o formulário do mesmo jeito que o redirect perdia.
         db.session.rollback()
+        logger.warning("Erro inesperado ao criar Categoria: %s", e)
         success, error = False, str(e)
     if not success:
+        # Achado real (BACKLOG.md): redirect() aqui descartava TUDO
+        # que a pessoa tinha digitado em qualquer erro de validação —
+        # não só erro de tipo (ex.: vírgula num Float), qualquer erro
+        # de regra de negócio também. Re-renderiza com os valores
+        # submetidos em vez de redirecionar; só o(s) campo(s) com
+        # problema precisam ser corrigidos, o resto continua
+        # preenchido.
         return render_template(
             "categorias/manage.html",
             **_manage_context(submitted_data=submitted, form_error=error),
         )
     flash("Criado com sucesso.", "success")
+    # Hook opcional (skill 21) — permite uma entidade customizar o
+    # destino do redirect depois de criar com sucesso (ex.: criar um
+    # YeastBankEvent tipo "Starter" redireciona pra edição do Starter
+    # recém-criado, não pra lista de eventos). Sem hook definido, cai
+    # no redirect padrão de sempre.
+    _redirect_override = _hook("post_create_redirect")(result.data)
+    if _redirect_override is not None:
+        return _redirect_override
     return redirect(url_for("categorias.manage"))
 
 
@@ -360,9 +507,13 @@ def update(id: int):
         result = _service.update(id, submitted)
         success, error = result.success, result.error
     except Exception as e:  # noqa: BLE001
+        # Mesmo raciocínio do create() acima.
         db.session.rollback()
+        logger.warning("Erro inesperado ao atualizar Categoria id=%s: %s", id, e)
         success, error = False, str(e)
     if not success:
+        # Mesmo raciocínio do create() acima — re-renderiza com os
+        # valores submetidos em vez de redirect() + perder tudo.
         return render_template(
             "categorias/detail.html",
             **_detail_context(item, submitted_data=submitted, form_error=error),
@@ -399,3 +550,53 @@ def delete_permanent(id: int):
     if not result.success:
         flash(result.error, "error")
     return redirect(url_for("categorias.manage"))
+
+
+# Ações em massa (skill 25) — JSON, chamadas via fetch pelo JS genérico
+# (core/static/js/crudgen-bulk-actions.js), mesmo padrão de resposta
+# já usado em materials_hooks.py (achado real, addon_estoque).
+def _bulk_ids_from_request() -> list[int]:
+    payload = request.get_json(silent=True) or {}
+    ids = payload.get("ids") or []
+    return [int(i) for i in ids if str(i).strip().isdigit()]
+
+
+@categorias_bp.route("/bulk-trash", methods=["POST"])
+@login_required
+@permission_required("categorias.trash")
+def bulk_trash():
+    from flask import jsonify
+
+    ids = _bulk_ids_from_request()
+    if not ids:
+        return jsonify({"success": False, "error": "Selecione ao menos um registro."}), 400
+    resultado = _service.trash_many(ids)
+    falhas = [r for r in resultado["resultados"] if not r["sucesso"]]
+    return jsonify({
+        "success": not falhas,
+        "resultados": resultado["resultados"],
+        "error": f"{len(falhas)} de {len(ids)} registro(s) falharam — veja o detalhe por linha." if falhas else None,
+    })
+
+
+@categorias_bp.route("/bulk-inactivate", methods=["POST"])
+@login_required
+@permission_required("categorias.update")
+def bulk_inactivate():
+    from flask import jsonify
+
+    if not _PODE_INATIVAR_EM_MASSA:
+        return jsonify({"success": False, "error": "Esta entidade não suporta inativação em massa."}), 400
+    ids = _bulk_ids_from_request()
+    if not ids:
+        return jsonify({"success": False, "error": "Selecione ao menos um registro."}), 400
+    if _HAS_ATIVO_FIELD:
+        resultado = _service.inactivate_many(ids)
+    else:
+        resultado = _inactivate_many_delegated(ids)
+    falhas = [r for r in resultado["resultados"] if not r["sucesso"]]
+    return jsonify({
+        "success": not falhas,
+        "resultados": resultado["resultados"],
+        "error": f"{len(falhas)} de {len(ids)} registro(s) falharam — veja o detalhe por linha." if falhas else None,
+    })

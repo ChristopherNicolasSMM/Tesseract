@@ -92,112 +92,9 @@
   </div>
 </section>
 
-{#- ═══ Unidades (correção pós skill 24 — Christopher) ══════════════
-    Grid desenhado à mão (fora do CrudGen), mesmo padrão da Fase 5 —
-    "para cadastrar material tem de associar a unidade": em vez de
-    obrigar isso no mesmo form de criação (Material pode nascer sem
-    unidade ainda), fica fácil de fazer logo em seguida, aqui no
-    detalhe. Consome /api/estoque/material-unidades/?material_id=<id>. -#}
-<script type="application/json" id="estoque-material-unidades-config">
-  {{ {"materialId": item.id, "apiBase": "/api/estoque/material-unidades"} | tojson }}
-</script>
-
-<section class="section">
-  <div class="card">
-    <div class="card-body">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="card-title mb-0">Unidades</h5>
-        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalUnidade" data-acao="nova-unidade">
-          <i class="bi bi-plus-lg"></i> Adicionar Unidade
-        </button>
-      </div>
-      <p class="text-muted small">Marque uma como "Unidade-Base" — é nela que o Saldo de Estoque é sempre calculado (skill 23, Fase 2).</p>
-
-      <table class="table table-hover align-middle" data-datatable>
-        <thead>
-          <tr>
-            <th>Unidade</th>
-            <th>Fator p/ Base</th>
-            <th>Base?</th>
-            <th>Tipo de Uso</th>
-            <th>Ativo</th>
-            <th class="text-end">Ações</th>
-          </tr>
-        </thead>
-        <tbody data-alvo="tabela-unidades">
-          <tr><td colspan="6" class="text-muted">Carregando…</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
-
-<div class="modal fade" id="modalUnidade" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Unidade</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <input type="hidden" data-campo="unidade-id">
-        <div class="mb-3">
-          <label class="form-label">Unidade <span class="text-danger">*</span></label>
-          <input type="text" class="form-control" data-campo="unidade" list="estoque-unidades-padrao" placeholder="Ex.: KG, UN, saco25kg…">
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Fator para Unidade-Base <span class="text-danger">*</span></label>
-          <input type="number" step="0.0001" min="0" class="form-control" data-campo="fator_para_base" value="1">
-          <div class="form-text">Quantas unidades-base equivalem a 1 desta unidade (a própria unidade-base usa 1).</div>
-        </div>
-        <div class="row">
-          <div class="col-6 mb-3">
-            <label class="form-label">Tipo de Uso</label>
-            <select class="form-select" data-campo="tipo_uso">
-              <option value="ambos">Ambos</option>
-              <option value="compra">Compra</option>
-              <option value="consumo">Consumo</option>
-            </select>
-          </div>
-          <div class="col-6 mb-3 d-flex flex-column justify-content-end">
-            <div class="form-check">
-              <input type="checkbox" class="form-check-input" data-campo="is_unidade_base" id="chkUnidadeBase">
-              <label class="form-check-label" for="chkUnidadeBase">É a Unidade-Base?</label>
-            </div>
-            <div class="form-check">
-              <input type="checkbox" class="form-check-input" data-campo="ativo" id="chkUnidadeAtivo" checked>
-              <label class="form-check-label" for="chkUnidadeAtivo">Ativo</label>
-            </div>
-          </div>
-        </div>
-        <div class="alert alert-danger d-none" data-alvo="erro-unidade"></div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-primary" data-acao="salvar-unidade">Salvar</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<datalist id="estoque-unidades-padrao">
-  <option value="UN">Unidade</option>
-  <option value="PCT">Pacote</option>
-  <option value="CX">Caixa</option>
-  <option value="KG">Quilograma</option>
-  <option value="G">Grama</option>
-  <option value="L">Litro</option>
-  <option value="ML">Mililitro</option>
-  <option value="SC">Saco</option>
-  <option value="FD">Fardo</option>
-  <option value="M">Metro</option>
-</datalist>
-
 <script src="{{ url_for('static', filename='js/rule_engine.js') }}"></script>
 <script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>
 <script src="{{ url_for('static', filename='js/decimal_input_normalizer.js') }}"></script>
-<script src="{{ url_for('static', filename='js/freestyle/freestyle-tesseract-data.js') }}"></script>
-<script src="{{ url_for('static', filename='js/estoque/material-unidades-embutido.js') }}"></script>
 <script>
   document.getElementById('editForm').addEventListener('submit', function (e) {
     if (!RuleEngine.validateForm(this)) {
@@ -205,4 +102,14 @@
     }
   });
 </script>
+
+{#- Hook de TEMPLATE (skill 25, extensão) — mesma regra de
+    _acoes_em_massa_extra.html em manage.html: criado uma única vez,
+    nunca sobrescrito. Absorve seções inteiras extras que uma entidade
+    precise anexar depois do card principal (ex.: grid de Unidades de
+    Materiais) — não é pra botões avulsos, é pra blocos de conteúdo
+    completos (<section>, <script> próprio, etc.). Entidade sem
+    necessidade disso nunca cria o arquivo — "ignore missing" não
+    renderiza nada. -#}
+{% include "materials/_detail_extra.html" ignore missing %}
 {% endblock %}

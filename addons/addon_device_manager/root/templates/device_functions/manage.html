@@ -10,21 +10,54 @@
       <button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#novoRegistroForm">
         <i class="bi bi-plus-lg"></i> Novo registro
       </button>
-      <div class="collapse" id="novoRegistroForm">
+      {% if form_error %}
+      <div class="alert alert-danger" role="alert">{{ form_error }}</div>
+      {% endif %}
+      <div class="collapse{% if submitted_data %} show{% endif %}" id="novoRegistroForm">
         <form method="post" action="{{ url_for('device_functions.create') }}" class="row g-3" id="createForm">
           {% for field in fields %}
+          {% set fv = field_html_validations.get(field, {}) %}
           <div class="col-md-4">
-            <label class="form-label">{{ field.replace('_', ' ').title() }}</label>
+            <label class="form-label">{{ field_labels.get(field, field.replace('_', ' ').title()) }}{% if fv.get('required') %} <span class="text-danger">*</span>{% endif %}</label>
             {% if field in enum_field_options %}
             <select name="{{ field }}" class="form-select"
+                    {% if fv.get('required') %}required{% endif %}
                     {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
-              <option value="">—</option>
+              {% if not fv.get('required') %}<option value="" {{ 'selected' if submitted_data and not submitted_data.get(field) else '' }}>—</option>{% endif %}
               {% for opt in enum_field_options[field] %}
-              <option value="{{ opt.value }}">{{ opt.label }}</option>
+              <option value="{{ opt.value }}" {{ 'selected' if submitted_data and submitted_data.get(field) == opt.value else '' }}>{{ opt.label }}</option>
               {% endfor %}
             </select>
+            {% elif field in weak_ref_fields and weak_ref_options.get(field) %}
+            <div class="weakref-combo" data-weakref-source="{{ weak_ref_options[field] }}"
+                 {% if weak_ref_value_fields.get(field) %}data-weakref-value-field="{{ weak_ref_value_fields[field] }}"{% endif %}>
+              <input type="hidden" name="{{ field }}" class="weakref-combo-value" value="{{ submitted_data.get(field, '') if submitted_data else '' }}">
+              <input type="text" class="form-control weakref-combo-search" autocomplete="off"
+                     {% if fv.get('required') %}required{% endif %} placeholder="Buscar...">
+              <ul class="list-group weakref-combo-results"></ul>
+            </div>
+            {% if submitted_data and submitted_data.get(field) %}<small class="text-muted">Valor anterior mantido (id {{ submitted_data.get(field) }}) — busque de novo se quiser trocar.</small>{% endif %}
+            {% elif fv.get('html_type') == 'checkbox' %}
+            <div class="form-check">
+              <input type="checkbox" name="{{ field }}" class="form-check-input" value="true"
+                     {% if submitted_data and submitted_data.get(field) in ('true', 'True', '1', 'on') %}checked{% endif %}
+                     {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+            </div>
+            {% elif fv.get('html_type') == 'textarea' %}
+            <textarea name="{{ field }}" class="form-control" rows="3"
+                      {% if fv.get('required') %}required{% endif %}
+                      {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
+                      {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>{{ submitted_data.get(field, '') if submitted_data else '' }}</textarea>
             {% else %}
-            <input type="text" name="{{ field }}" class="form-control"
+            <input type="{{ fv.get('html_type', 'text') }}" name="{{ field }}"
+                   class="form-control{% if fv.get('html_type') == 'number' %} crudgen-decimal-input{% endif %}"
+                   value="{{ submitted_data.get(field, '') if submitted_data else '' }}"
+                   {% if fv.get('required') %}required{% endif %}
+                   {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
+                   {% if fv.get('minlength') %}minlength="{{ fv['minlength'] }}"{% endif %}
+                   {% if fv.get('min_value') is not none %}min="{{ fv['min_value'] }}"{% endif %}
+                   {% if fv.get('step') %}step="{{ fv['step'] }}"{% endif %}
+                   {% if fv.get('html_type') == 'number' %}inputmode="decimal"{% endif %}
                    {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
             {% endif %}
           </div>
@@ -42,7 +75,7 @@
 
         {% for field in boolean_fields %}
         <div class="col-md-2">
-          <label class="form-label small mb-0">{{ field.replace('_', ' ').title() }}</label>
+          <label class="form-label small mb-0">{{ field_labels.get(field, field.replace('_', ' ').title()) }}</label>
           <select name="filter_{{ field }}" class="form-select form-select-sm">
             <option value="">Todos</option>
             <option value="true" {% if request_args.get('filter_' + field) == 'true' %}selected{% endif %}>Sim</option>
@@ -53,7 +86,7 @@
 
         {% for field in enum_field_options %}
         <div class="col-md-2">
-          <label class="form-label small mb-0">{{ field.replace('_', ' ').title() }}</label>
+          <label class="form-label small mb-0">{{ field_labels.get(field, field.replace('_', ' ').title()) }}</label>
           <select name="filter_{{ field }}" class="form-select form-select-sm">
             <option value="">Todos</option>
             {% for opt in enum_field_options[field] %}
@@ -66,7 +99,7 @@
         {% for field in choices_fields %}
         {% if field not in enum_field_options %}
         <div class="col-md-2">
-          <label class="form-label small mb-0">{{ field.replace('_', ' ').title() }}</label>
+          <label class="form-label small mb-0">{{ field_labels.get(field, field.replace('_', ' ').title()) }}</label>
           <select name="filter_{{ field }}" class="form-select form-select-sm">
             <option value="">Todos</option>
             {% for opt in choices_options.get(field, []) %}
@@ -104,7 +137,7 @@
               {% for field in fields %}
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" name="columns" id="col_{{ field }}" value="{{ field }}" {% if field in visible_columns %}checked{% endif %}>
-                <label class="form-check-label" for="col_{{ field }}">{{ field.replace('_', ' ').title() }}</label>
+                <label class="form-check-label" for="col_{{ field }}">{{ field_labels.get(field, field.replace('_', ' ').title()) }}</label>
               </div>
               {% endfor %}
             </div>
@@ -113,10 +146,32 @@
         </div>
       </div>
 
+      {#- ═══ Ações em massa (skill 25 — padrão do CrudGen) ═══════════
+          Apagar/Inativar genéricos sempre vêm daqui. Botões extras
+          específicos de uma entidade (ex.: os 4 de Materiais) vêm do
+          include logo abaixo, nunca daqui. -#}
+      <div class="alert alert-primary d-none align-items-center justify-content-between mb-3" id="barraAcoesEmMassa">
+        <span><strong data-alvo="contagem-selecionados">0</strong> registro(s) selecionado(s) — Função de Dispositivo</span>
+        <div class="d-flex gap-2">
+          {% if pode_inativar_em_massa %}
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-crudgen-acao-massa="inativar"
+                  data-confirm-key="core.confirm.bulk_inactivate" data-confirm-param-count="0">
+            <i class="bi bi-slash-circle"></i> Inativar
+          </button>
+          {% endif %}
+          <button type="button" class="btn btn-sm btn-outline-danger" data-crudgen-acao-massa="apagar"
+                  data-confirm-key="core.confirm.bulk_trash" data-confirm-param-count="0">
+            <i class="bi bi-trash"></i> Apagar
+          </button>
+          {% include "device_functions/_acoes_em_massa_extra.html" ignore missing %}
+        </div>
+      </div>
+
       <div class="table-responsive">
         <table class="table table-striped">
           <thead>
             <tr>
+              <th style="width:36px"><input type="checkbox" class="form-check-input" id="crudgenCheckboxSelecionarTodos"></th>
               <th>ID</th>
               {% for col in visible_columns %}<th>{{ col.replace('_', ' ').title() }}</th>{% endfor %}
               <th>Ações</th>
@@ -126,8 +181,9 @@
             {% for item in items %}
             {% set data = item.to_dict() %}
             <tr>
+              <td><input type="checkbox" class="form-check-input crudgen-checkbox-selecionar-item" data-item-id="{{ item.id }}" data-item-display="{{ data.get(summary_field, '') }}"></td>
               <td>{{ item.id }}</td>
-              {% for col in visible_columns %}<td>{{ data.get(col) }}</td>{% endfor %}
+              {% for col in visible_columns %}<td>{% if col in weak_ref_fields %}{{ weak_ref_display.get(item.id, {}).get(col) or data.get(col) }}{% else %}{{ data.get(col) }}{% endif %}</td>{% endfor %}
               <td>
                 <a href="{{ url_for('device_functions.detail', id=item.id) }}" class="btn btn-sm btn-outline-primary">Ver / Editar</a>
                 <form method="post" action="{{ url_for('device_functions.trash', id=item.id) }}" class="d-inline" data-confirm-key="core.confirm.trash_generic">
@@ -136,7 +192,7 @@
               </td>
             </tr>
             {% else %}
-            <tr><td colspan="{{ visible_columns|length + 2 }}" class="text-muted">Nenhum registro encontrado.</td></tr>
+            <tr><td colspan="{{ visible_columns|length + 3 }}" class="text-muted">Nenhum registro encontrado.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -158,6 +214,8 @@
 </section>
 
 <script src="{{ url_for('static', filename='js/rule_engine.js') }}"></script>
+<script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>
+<script src="{{ url_for('static', filename='js/decimal_input_normalizer.js') }}"></script>
 <script>
   document.getElementById('createForm').addEventListener('submit', function (e) {
     if (!RuleEngine.validateForm(this)) {
@@ -165,4 +223,13 @@
     }
   });
 </script>
+
+{#- Ações em massa (skill 25) — config lido pelo JS genérico único
+    (core/static/js/crudgen-bulk-actions.js), reaproveitado por
+    qualquer manage.html gerado. Botões/modais extras específicos de
+    uma entidade (include acima) trazem seu próprio JS, se precisarem. -#}
+<script type="application/json" id="crudgen-bulk-actions-config">
+  {{ {"bulkTrashUrl": url_for('device_functions.bulk_trash'), "bulkInactivateUrl": url_for('device_functions.bulk_inactivate') if pode_inativar_em_massa else None, "reloadOnSuccess": true} | tojson }}
+</script>
+<script src="{{ url_for('static', filename='js/crudgen-bulk-actions.js') }}"></script>
 {% endblock %}

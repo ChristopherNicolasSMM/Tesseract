@@ -146,10 +146,32 @@
         </div>
       </div>
 
+      {#- ═══ Ações em massa (skill 25 — padrão do CrudGen) ═══════════
+          Apagar/Inativar genéricos sempre vêm daqui. Botões extras
+          específicos de uma entidade (ex.: os 4 de Materiais) vêm do
+          include logo abaixo, nunca daqui. -#}
+      <div class="alert alert-primary d-none align-items-center justify-content-between mb-3" id="barraAcoesEmMassa">
+        <span><strong data-alvo="contagem-selecionados">0</strong> registro(s) selecionado(s) — Endereço</span>
+        <div class="d-flex gap-2">
+          {% if pode_inativar_em_massa %}
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-crudgen-acao-massa="inativar"
+                  data-confirm-key="core.confirm.bulk_inactivate" data-confirm-param-count="0">
+            <i class="bi bi-slash-circle"></i> Inativar
+          </button>
+          {% endif %}
+          <button type="button" class="btn btn-sm btn-outline-danger" data-crudgen-acao-massa="apagar"
+                  data-confirm-key="core.confirm.bulk_trash" data-confirm-param-count="0">
+            <i class="bi bi-trash"></i> Apagar
+          </button>
+          {% include "enderecos/_acoes_em_massa_extra.html" ignore missing %}
+        </div>
+      </div>
+
       <div class="table-responsive">
         <table class="table table-striped">
           <thead>
             <tr>
+              <th style="width:36px"><input type="checkbox" class="form-check-input" id="crudgenCheckboxSelecionarTodos"></th>
               <th>ID</th>
               {% for col in visible_columns %}<th>{{ col.replace('_', ' ').title() }}</th>{% endfor %}
               <th>Ações</th>
@@ -159,6 +181,7 @@
             {% for item in items %}
             {% set data = item.to_dict() %}
             <tr>
+              <td><input type="checkbox" class="form-check-input crudgen-checkbox-selecionar-item" data-item-id="{{ item.id }}" data-item-display="{{ data.get(summary_field, '') }}"></td>
               <td>{{ item.id }}</td>
               {% for col in visible_columns %}<td>{% if col in weak_ref_fields %}{{ weak_ref_display.get(item.id, {}).get(col) or data.get(col) }}{% else %}{{ data.get(col) }}{% endif %}</td>{% endfor %}
               <td>
@@ -169,7 +192,7 @@
               </td>
             </tr>
             {% else %}
-            <tr><td colspan="{{ visible_columns|length + 2 }}" class="text-muted">Nenhum registro encontrado.</td></tr>
+            <tr><td colspan="{{ visible_columns|length + 3 }}" class="text-muted">Nenhum registro encontrado.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -200,4 +223,13 @@
     }
   });
 </script>
+
+{#- Ações em massa (skill 25) — config lido pelo JS genérico único
+    (core/static/js/crudgen-bulk-actions.js), reaproveitado por
+    qualquer manage.html gerado. Botões/modais extras específicos de
+    uma entidade (include acima) trazem seu próprio JS, se precisarem. -#}
+<script type="application/json" id="crudgen-bulk-actions-config">
+  {{ {"bulkTrashUrl": url_for('enderecos.bulk_trash'), "bulkInactivateUrl": url_for('enderecos.bulk_inactivate') if pode_inativar_em_massa else None, "reloadOnSuccess": true} | tojson }}
+</script>
+<script src="{{ url_for('static', filename='js/crudgen-bulk-actions.js') }}"></script>
 {% endblock %}

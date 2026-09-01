@@ -55,6 +55,9 @@ _FILES_TO_GENERATE = [
     # uma entidade (ex.: os 4 de Materiais) sem risco de serem
     # perdidos no próximo --overwrite de manage.html.
     ("acoes_em_massa_extra_hook.html.j2", "templates/{plural}/_acoes_em_massa_extra.html", True),
+    # Hook de TEMPLATE pra detail.html (skill 25, extensão) — mesma
+    # regra: criado uma única vez, nunca sobrescrito.
+    ("detail_extra_hook.html.j2", "templates/{plural}/_detail_extra.html", True),
 ]
 
 

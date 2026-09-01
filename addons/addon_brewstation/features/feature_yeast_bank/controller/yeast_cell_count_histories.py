@@ -124,6 +124,54 @@ _FIELD_LABELS: dict = get_field_labels(YeastCellCountHistory)
 
 _LIST_KEY = "yeast_cell_count_histories"
 
+# Ações em massa (skill 25) — Apagar sempre disponível (is_deleted já
+# é padrão de todo model CrudGen). Inativar só aparece se este model
+# tem coluna `ativo` própria, OU se algum @weak_ref declara
+# bulk_deactivate_service (delega pro model do outro lado da
+# referência fraca — ex.: Malte/Lúpulo/Levedura delegam pro
+# Material.ativo). Nunca os dois ao mesmo tempo — local tem
+# precedência se por acaso um model tiver as duas coisas.
+_HAS_ATIVO_FIELD = any(f in _EDITABLE_FIELDS for f in ("ativo", "is_active"))
+_DEACTIVATE_DELEGATE = None
+if not _HAS_ATIVO_FIELD:
+    _DEACTIVATE_DELEGATE = next((wr for wr in _WEAK_REFS if wr.get("bulk_deactivate_service")), None)
+_PODE_INATIVAR_EM_MASSA = _HAS_ATIVO_FIELD or _DEACTIVATE_DELEGATE is not None
+
+
+def _inactivate_many_delegated(ids: list[int]) -> dict:
+    """
+    Resolve os ids selecionados (desta entidade) para os valores do
+    campo de referência fraca (ex.: material_id), deduplica, e chama a
+    função pública apontada por bulk_deactivate_service — nunca ORM
+    direto de outro Addon (skill 02). Ids da própria entidade que não
+    tiverem o campo preenchido são reportados como falha, não pulados
+    silenciosamente.
+    """
+    module_path, func_name = _DEACTIVATE_DELEGATE["bulk_deactivate_service"].rsplit(".", 1)
+    delegate_fn = getattr(importlib.import_module(module_path), func_name)
+    field = _DEACTIVATE_DELEGATE["field"]
+
+    resultados = []
+    valores_por_id: dict[int, int] = {}
+    for id in ids:
+        obj = db.session.get(YeastCellCountHistory, id)
+        valor = getattr(obj, field, None) if obj else None
+        if not obj or valor is None:
+            resultados.append({"id": id, "sucesso": False, "erro": "Registro não encontrado ou sem referência preenchida."})
+            continue
+        valores_por_id[id] = valor
+
+    valores_unicos = sorted(set(valores_por_id.values()))
+    if valores_unicos:
+        try:
+            delegate_fn(valores_unicos, {"ativo": False})
+            for id in valores_por_id:
+                resultados.append({"id": id, "sucesso": True, "erro": None})
+        except Exception as e:  # noqa: BLE001
+            for id in valores_por_id:
+                resultados.append({"id": id, "sucesso": False, "erro": str(e)})
+    return {"resultados": resultados}
+
 
 def _resolve_weak_ref_display(item) -> dict:
     """
@@ -268,6 +316,7 @@ def _manage_context(submitted_data: dict | None = None, form_error: str | None =
         field_labels=_FIELD_LABELS,
         submitted_data=submitted_data,
         form_error=form_error,
+        pode_inativar_em_massa=_PODE_INATIVAR_EM_MASSA,
     )
 
 
@@ -501,3 +550,53 @@ def delete_permanent(id: int):
     if not result.success:
         flash(result.error, "error")
     return redirect(url_for("yeast_cell_count_histories.manage"))
+
+
+# Ações em massa (skill 25) — JSON, chamadas via fetch pelo JS genérico
+# (core/static/js/crudgen-bulk-actions.js), mesmo padrão de resposta
+# já usado em materials_hooks.py (achado real, addon_estoque).
+def _bulk_ids_from_request() -> list[int]:
+    payload = request.get_json(silent=True) or {}
+    ids = payload.get("ids") or []
+    return [int(i) for i in ids if str(i).strip().isdigit()]
+
+
+@yeast_cell_count_histories_bp.route("/bulk-trash", methods=["POST"])
+@login_required
+@permission_required("yeast_cell_count_histories.trash")
+def bulk_trash():
+    from flask import jsonify
+
+    ids = _bulk_ids_from_request()
+    if not ids:
+        return jsonify({"success": False, "error": "Selecione ao menos um registro."}), 400
+    resultado = _service.trash_many(ids)
+    falhas = [r for r in resultado["resultados"] if not r["sucesso"]]
+    return jsonify({
+        "success": not falhas,
+        "resultados": resultado["resultados"],
+        "error": f"{len(falhas)} de {len(ids)} registro(s) falharam — veja o detalhe por linha." if falhas else None,
+    })
+
+
+@yeast_cell_count_histories_bp.route("/bulk-inactivate", methods=["POST"])
+@login_required
+@permission_required("yeast_cell_count_histories.update")
+def bulk_inactivate():
+    from flask import jsonify
+
+    if not _PODE_INATIVAR_EM_MASSA:
+        return jsonify({"success": False, "error": "Esta entidade não suporta inativação em massa."}), 400
+    ids = _bulk_ids_from_request()
+    if not ids:
+        return jsonify({"success": False, "error": "Selecione ao menos um registro."}), 400
+    if _HAS_ATIVO_FIELD:
+        resultado = _service.inactivate_many(ids)
+    else:
+        resultado = _inactivate_many_delegated(ids)
+    falhas = [r for r in resultado["resultados"] if not r["sucesso"]]
+    return jsonify({
+        "success": not falhas,
+        "resultados": resultado["resultados"],
+        "error": f"{len(falhas)} de {len(ids)} registro(s) falharam — veja o detalhe por linha." if falhas else None,
+    })

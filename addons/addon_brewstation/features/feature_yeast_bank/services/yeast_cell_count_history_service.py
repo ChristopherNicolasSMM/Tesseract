@@ -25,6 +25,15 @@ logger = logging.getLogger(__name__)
 # (get_readonly_fields do model) protege os dois lugares agora.
 _READONLY = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"} | get_readonly_fields(YeastCellCountHistory)
 
+# Nome real da coluna de "ativo" deste model (skill 25) — o projeto
+# usa as duas convenções (Material.ativo, MashRecipe.is_active), sem
+# padronização retroativa nesta rodada (fora de escopo). Detecta as
+# duas, na ordem; None se o model não tiver nenhuma delas.
+_ATIVO_FIELD_NAME = next(
+    (f for f in ("ativo", "is_active") if f in YeastCellCountHistory.__table__.columns.keys()),
+    None,
+)
+
 try:
     from addons.addon_brewstation.features.feature_yeast_bank.services import yeast_cell_count_history_service_hooks as _hooks
 except ImportError:
@@ -106,6 +115,48 @@ class YeastCellCountHistoryService:
         obj.deleted_at = datetime.now(timezone.utc)
         db.session.commit()
         return ServiceResult(success=True, data=obj)
+
+    def trash_many(self, ids: list[int]) -> dict:
+        """
+        "Apagar em massa" (skill 25) — best-effort por id, mesmo padrão
+        já usado em addon_estoque (estoque_service.movimentar_estoque_em_massa
+        etc.): um id com erro não impede os demais. Reaproveita a
+        mesma regra do trash() individual (não permite apagar duas
+        vezes), então um id já na lixeira aparece como falha
+        informativa, não como exceção.
+        """
+        resultados = []
+        for id in ids:
+            result = self.trash(id)
+            resultados.append({"id": id, "sucesso": result.success, "erro": None if result.success else result.error})
+        return {"resultados": resultados}
+
+    def inactivate_many(self, ids: list[int]) -> dict:
+        """
+        "Inativar em massa" (skill 25) — só chamado quando este model
+        tem coluna de ativo própria (ver controller.py.j2,
+        _HAS_ATIVO_FIELD; mesma detecção de _ATIVO_FIELD_NAME acima).
+        Quando não tem, a entidade delega pra outro service via
+        `@weak_ref(bulk_deactivate_service=...)` — ver
+        `_inactivate_many_delegated()` no controller gerado, este
+        método aqui nunca é chamado nesse caso.
+        """
+        if _ATIVO_FIELD_NAME is None:
+            return {"resultados": [{"id": id, "sucesso": False, "erro": "Entidade sem campo de ativo."} for id in ids]}
+        resultados = []
+        for id in ids:
+            obj = self.get_by_id(id)
+            if not obj:
+                resultados.append({"id": id, "sucesso": False, "erro": "Não encontrado."})
+                continue
+            if obj.is_deleted:
+                resultados.append({"id": id, "sucesso": False, "erro": "Não é possível inativar um registro na lixeira."})
+                continue
+            setattr(obj, _ATIVO_FIELD_NAME, False)
+            obj.updated_at = datetime.now(timezone.utc)
+            resultados.append({"id": id, "sucesso": True, "erro": None})
+        db.session.commit()
+        return {"resultados": resultados}
 
     def restore(self, id: int) -> ServiceResult:
         obj = self.get_by_id(id)

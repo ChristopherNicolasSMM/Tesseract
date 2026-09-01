@@ -1,0 +1,20 @@
+{#-
+  templates/brew_sessions/_detail_extra.html
+
+  Hook de TEMPLATE (skill 25, extensão) — criado UMA ÚNICA VEZ pelo
+  CrudGen, nunca sobrescrito, mesmo com --overwrite.
+
+  Use este arquivo pra anexar seções inteiras de conteúdo extra depois
+  do card de edição de "Sessão de Brassagem" (ex.: grid de Unidades de Materiais,
+  bloco de endereços de Fornecedor) — diferente de
+  _acoes_em_massa_extra.html (que é só pra botões avulsos dentro da
+  barra de ações em massa de manage.html), este arquivo é incluído no
+  FIM de detail.html, fora de qualquer <section> já existente, então
+  pode conter seu(s) próprio(s) <section>, <script type="application/json">
+  de config e <script src="..."> — igual a como já era feito antes de
+  existir este hook.
+
+  Vazio por padrão — "ignore missing" faz o Jinja não reclamar mesmo
+  se o arquivo for removido, e um arquivo vazio (como este) também não
+  renderiza nada extra na tela.
+-#}

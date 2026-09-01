@@ -102,4 +102,14 @@
     }
   });
 </script>
+
+{#- Hook de TEMPLATE (skill 25, extensão) — mesma regra de
+    _acoes_em_massa_extra.html em manage.html: criado uma única vez,
+    nunca sobrescrito. Absorve seções inteiras extras que uma entidade
+    precise anexar depois do card principal (ex.: grid de Unidades de
+    Materiais) — não é pra botões avulsos, é pra blocos de conteúdo
+    completos (<section>, <script> próprio, etc.). Entidade sem
+    necessidade disso nunca cria o arquivo — "ignore missing" não
+    renderiza nada. -#}
+{% include "enderecos/_detail_extra.html" ignore missing %}
 {% endblock %}

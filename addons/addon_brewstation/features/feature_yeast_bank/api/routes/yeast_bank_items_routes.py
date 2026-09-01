@@ -71,7 +71,7 @@ def create_item():
     if not result.success:
         return _err(result.error, result.code)
     # Mesmo hook post_create_redirect do controller web (skill 21) —
-    # aqui só pelo efeito colateral (ex.: criar o YeastStarterLog
+    # aqui só pelo efeito colateral (ex.: criar um registro
     # vinculado), o valor de retorno (um redirect() do Flask) não faz
     # sentido pra resposta JSON e é descartado de propósito.
     _hook("post_create_redirect")(result.data)

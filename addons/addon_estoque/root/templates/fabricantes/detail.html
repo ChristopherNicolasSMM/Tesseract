@@ -8,13 +8,63 @@
 <section class="section">
   <div class="card">
     <div class="card-body">
+      {% if form_error %}
+      <div class="alert alert-danger" role="alert">{{ form_error }}</div>
+      {% endif %}
       <form method="post" action="{{ url_for('fabricantes.update', id=item.id) }}" class="row g-3" id="editForm">
-        {% set data = item.to_dict() %}
+        {% set data = submitted_data if submitted_data else item.to_dict() %}
         {% for field in fields %}
+        {% set fv = field_html_validations.get(field, {}) %}
         <div class="col-md-4">
-          <label class="form-label">{{ field.replace('_', ' ').title() }}</label>
+          <label class="form-label">{{ field_labels.get(field, field.replace('_', ' ').title()) }}{% if fv.get('required') %} <span class="text-danger">*</span>{% endif %}</label>
+          {% if field in enum_field_options %}
+          <select name="{{ field }}" class="form-select"
+                  {% if fv.get('required') %}required{% endif %}
+                  {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+            {% if not fv.get('required') %}<option value="" {{ 'selected' if not data.get(field) else '' }}>—</option>{% endif %}
+            {% for opt in enum_field_options[field] %}
+            <option value="{{ opt.value }}" {{ 'selected' if data.get(field) == opt.value else '' }}>{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+          {% elif field in weak_ref_fields and weak_ref_options.get(field) %}
+          <div class="weakref-combo" data-weakref-source="{{ weak_ref_options[field] }}"
+               {% if weak_ref_value_fields.get(field) %}data-weakref-value-field="{{ weak_ref_value_fields[field] }}"{% endif %}>
+            <input type="hidden" name="{{ field }}" class="weakref-combo-value" value="{{ data.get(field) if data.get(field) is not none else '' }}">
+            <input type="text" class="form-control weakref-combo-search" autocomplete="off"
+                   {% if fv.get('required') %}required{% endif %}
+                   value="{{ weak_ref_display.get(field, data.get(field) or '') }}" placeholder="Buscar...">
+            <ul class="list-group weakref-combo-results"></ul>
+          </div>
+          {% elif field in weak_ref_fields %}
           <input type="text" name="{{ field }}" class="form-control" value="{{ data.get(field) if data.get(field) is not none else '' }}"
+                 {% if fv.get('required') %}required{% endif %}
+                 {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
+                 {% if fv.get('minlength') %}minlength="{{ fv['minlength'] }}"{% endif %}
                  {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+          {% if weak_ref_display.get(field) %}<small class="text-muted">{{ weak_ref_display[field] }}</small>{% endif %}
+          {% elif fv.get('html_type') == 'checkbox' %}
+          <div class="form-check">
+            <input type="checkbox" name="{{ field }}" class="form-check-input" value="true"
+                   {% if data.get(field) %}checked{% endif %}
+                   {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+          </div>
+          {% elif fv.get('html_type') == 'textarea' %}
+          <textarea name="{{ field }}" class="form-control" rows="3"
+                    {% if fv.get('required') %}required{% endif %}
+                    {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
+                    {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>{{ data.get(field) or '' }}</textarea>
+          {% else %}
+          <input type="{{ fv.get('html_type', 'text') }}" name="{{ field }}"
+                 class="form-control{% if fv.get('html_type') == 'number' %} crudgen-decimal-input{% endif %}"
+                 value="{{ data.get(field) if data.get(field) is not none else '' }}"
+                 {% if fv.get('required') %}required{% endif %}
+                 {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
+                 {% if fv.get('minlength') %}minlength="{{ fv['minlength'] }}"{% endif %}
+                 {% if fv.get('min_value') is not none %}min="{{ fv['min_value'] }}"{% endif %}
+                 {% if fv.get('step') %}step="{{ fv['step'] }}"{% endif %}
+                 {% if fv.get('html_type') == 'number' %}inputmode="decimal"{% endif %}
+                 {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+          {% endif %}
         </div>
         {% endfor %}
         <div class="col-12">
@@ -43,6 +93,8 @@
 </section>
 
 <script src="{{ url_for('static', filename='js/rule_engine.js') }}"></script>
+<script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>
+<script src="{{ url_for('static', filename='js/decimal_input_normalizer.js') }}"></script>
 <script>
   document.getElementById('editForm').addEventListener('submit', function (e) {
     if (!RuleEngine.validateForm(this)) {
@@ -50,4 +102,14 @@
     }
   });
 </script>
+
+{#- Hook de TEMPLATE (skill 25, extensão) — mesma regra de
+    _acoes_em_massa_extra.html em manage.html: criado uma única vez,
+    nunca sobrescrito. Absorve seções inteiras extras que uma entidade
+    precise anexar depois do card principal (ex.: grid de Unidades de
+    Materiais) — não é pra botões avulsos, é pra blocos de conteúdo
+    completos (<section>, <script> próprio, etc.). Entidade sem
+    necessidade disso nunca cria o arquivo — "ignore missing" não
+    renderiza nada. -#}
+{% include "fabricantes/_detail_extra.html" ignore missing %}
 {% endblock %}

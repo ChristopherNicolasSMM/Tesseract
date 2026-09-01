@@ -181,7 +181,7 @@
             {% for item in items %}
             {% set data = item.to_dict() %}
             <tr>
-              <td><input type="checkbox" class="form-check-input crudgen-checkbox-selecionar-item" data-item-id="{{ item.id }}"></td>
+              <td><input type="checkbox" class="form-check-input crudgen-checkbox-selecionar-item" data-item-id="{{ item.id }}" data-item-display="{{ data.get(summary_field, '') }}"></td>
               <td>{{ item.id }}</td>
               {% for col in visible_columns %}<td>{% if col in weak_ref_fields %}{{ weak_ref_display.get(item.id, {}).get(col) or data.get(col) }}{% else %}{{ data.get(col) }}{% endif %}</td>{% endfor %}
               <td>

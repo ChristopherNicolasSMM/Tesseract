@@ -5016,3 +5016,74 @@ Christopher decidir regenerar essas entidades): `item_envases`,
 `recipe_ingredients` — ambas passaram a ter acesso ao mesmo padrão
 genérico automaticamente (o template já mudou), só não foram
 regeneradas agora.
+
+
+## Execução da skill 25 (continuação) — Hook de detail.html + regeneração em massa (2026-09-01)
+
+### Hook de template pra detail.html
+
+`detail.html.j2` ganhou o mesmo mecanismo de `manage.html.j2`:
+`{% include "<plural>/_detail_extra.html" ignore missing %}` no fim,
+antes de `{% endblock %}`. Novo item em `generator.py` (`detail_extra_hook.html.j2`,
+tratado como hook — nunca sobrescrito). Diferença de propósito em
+relação a `_acoes_em_massa_extra.html`: este é pra **seções inteiras**
+de conteúdo extra (não botões avulsos) — cabe `<section>`, `<script>`
+de config e JS próprios.
+
+**Material**: grid de Unidades (skill 24) migrada pra
+`materials/_detail_extra.html`. Os 3 scripts padrão e o listener de
+validação do form principal, que antes apareciam duplicados no fim do
+arquivo hand-made, agora vêm só do `detail.html.j2` (não duplicados no
+hook). `materials/detail.html` regenerado com `--overwrite` de
+verdade — `test_detalhe_material_mostra_grid_de_unidades` confirma a
+grid ainda presente.
+
+### Regeneração em massa — 40 entidades sem HTML customizado
+
+Auditoria de todos os 49 `detail.html` do projeto (contagem de
+`<section>`, scripts fora dos 3 padrão, presença de `<table>`) —
+6 flagradas como customizadas: `mash_recipes` (página inteira
+substituída, não é "seção extra" — **nunca regenerar via CrudGen
+genérico**, fora de qualquer plano futuro de `--overwrite`),
+`materials` (resolvida acima), `fornecedores`/`transportadoras`
+(grid de endereços embutida — mesmo padrão de Materiais, ainda não
+migrada pra hook), `pedido_compras`/`processo_cotacaos` (abas + grid
+de itens — ainda não migrada).
+
+As 40 restantes (`BrewFatherSync`, `Envase`, `ItemEnvase`, 15 entidades
+de `mash_control`, 7 de `yeast_bank`, 4 de `device_manager`, 9 de
+`estoque`) regeneradas com `--overwrite` de verdade via `generate()`
+— cada uma ganhou o padrão novo (checkbox/apagar/inativar + os 2 hooks
+de template, vazios).
+
+**Achado real ao validar**: a auditoria inicial só checava
+`detail.html` — não pegava customização em `service.py`/`controller.py`
+fora de hooks. Duas entidades tinham lógica hand-made nesses arquivos
+e quebraram testes reais ao regenerar:
+- `material_unidades`: `MaterialUnidadeService.list()` tinha parâmetro
+  `material_id` customizado (filtro usado pela API), sobrescrito pelo
+  `list()` genérico sem esse parâmetro.
+- `movimentacaos`: `controller/movimentacaos.py` tinha
+  `_resolve_usuario_nome()` (resolve nome do usuário que registrou a
+  movimentação), perdida na regeneração.
+
+**As duas foram revertidas por completo** (todos os arquivos, incluindo
+os hooks de template recém-criados) — ficam de fora desta rodada,
+junto com as 6 já identificadas na auditoria de `detail.html`. Suíte
+completa (`test_addon_estoque`, `test_feature_envase`,
+`test_feature_brew_father`, `test_admin_smart_list_parity`,
+`test_phase5_yeast_bank`, `test_phase5b_yeast_bank_full`,
+`test_phase14_yeast_container`, `test_phase6a_device_manager`,
+`test_yeast_bank_painel`, `test_phase6b_mash_control`,
+`test_skill25_acoes_em_massa`) rodada depois do revert: de volta às
+mesmas 10 falhas pré-existentes (bug de `_criar_material`/
+`TipoProduto.nome` já documentado), nenhuma regressão nova.
+
+**Pendência explícita pra próxima rodada**: `fornecedores`,
+`transportadoras` (mesmo padrão de Materiais — migração direta pro
+hook de `_detail_extra.html`), `pedido_compras`/`processo_cotacaos`
+(abas, precisa de mais investigação antes de migrar), e uma auditoria
+equivalente (assinatura de métodos fora dos hooks) nas 6 entidades
+customizadas antes de decidir se algo mais precisa de tratamento
+especial. `mash_recipes` fica permanentemente fora do escopo de
+regeneração genérica.

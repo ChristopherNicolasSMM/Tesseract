@@ -10,6 +10,20 @@ from flask_login import login_required
 from core.permissions import permission_required
 from addons.addon_brewstation.features.feature_brew_father.services.brew_father_sync_service import BrewFatherSyncService
 
+try:
+    from addons.addon_brewstation.features.feature_brew_father.controller import brewfather_syncs_hooks as _hooks
+except ImportError:
+    _hooks = None
+
+
+def _noop(*args, **kwargs):
+    return None
+
+
+def _hook(name):
+    return getattr(_hooks, name, _noop) if _hooks else _noop
+
+
 brewfather_syncs_api_bp = Blueprint(
     "brewfather_syncs_api", __name__, url_prefix="/api/brewstation/brewfather-syncs"
 )
@@ -47,9 +61,20 @@ def get_item(id: int):
 @permission_required("brewfather_syncs.create")
 def create_item():
     data = request.get_json(silent=True) or {}
+    # Hook opcional (skill 21) — mesmo bloqueio de criação direta que
+    # o controller web aplica (ver controller.py.j2), pra não deixar
+    # a API virar um bypass da regra.
+    _block_message = _hook("block_create")(data)
+    if _block_message is not None:
+        return _err(_block_message, 403)
     result = _service.create(data)
     if not result.success:
         return _err(result.error, result.code)
+    # Mesmo hook post_create_redirect do controller web (skill 21) —
+    # aqui só pelo efeito colateral (ex.: criar um registro
+    # vinculado), o valor de retorno (um redirect() do Flask) não faz
+    # sentido pra resposta JSON e é descartado de propósito.
+    _hook("post_create_redirect")(result.data)
     return _ok({"item": result.data.to_dict() if hasattr(result.data, "to_dict") else {"id": result.data.id}}, result.code)
 
 
@@ -92,6 +117,3 @@ def delete_permanent_item(id: int):
     if not result.success:
         return _err(result.error, result.code)
     return _ok()
-
-# Importa hooks (endpoints extras/customizações) — hooks.py nunca é sobrescrito pelo CrudGen.
-from addons.addon_brewstation.features.feature_brew_father.api.routes import brewfather_syncs_routes_hooks as _api_hooks  # noqa: F401, E402

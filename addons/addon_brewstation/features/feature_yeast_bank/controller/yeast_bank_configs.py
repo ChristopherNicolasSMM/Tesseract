@@ -14,12 +14,32 @@ from flask_login import login_required, current_user
 
 from core.db import db
 from core.permissions import permission_required
-from annotations import get_choices_fields, get_weak_refs, get_enum_fields, get_model_metadata, get_field_labels
+from annotations import get_choices_fields, get_weak_refs, get_enum_fields, get_model_metadata, get_field_labels, get_readonly_fields
 from core.crudgen.field_types import html_types_for_model
 from addons.addon_brewstation.features.feature_yeast_bank.services.yeast_bank_config_service import YeastBankConfigService
 from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_config import YeastBankConfig
 
 logger = logging.getLogger(__name__)
+
+# Hooks de controller — achado real (skill 21): controller.py.j2 nunca
+# importava/chamava yeast_bank_configs_hooks.py de verdade, só tinha o
+# docstring aspiracional acima. Mesmo padrão seguro já usado em
+# service.py.j2 (try/except + _hook() com fallback no-op) — hook
+# ausente/sem a função específica não quebra nada, comportamento
+# padrão de sempre continua valendo.
+try:
+    from addons.addon_brewstation.features.feature_yeast_bank.controller import yeast_bank_configs_hooks as _hooks
+except ImportError:
+    _hooks = None
+
+
+def _noop(*args, **kwargs):
+    return None
+
+
+def _hook(name):
+    return getattr(_hooks, name, _noop) if _hooks else _noop
+
 
 yeast_bank_configs_bp = Blueprint(
     "yeast_bank_configs", __name__, url_prefix="/brewstation/yeast-bank-configs"
@@ -28,7 +48,7 @@ _service = YeastBankConfigService()
 
 # Campos editáveis via formulário — calculado por introspecção das
 # colunas do model (genérico, não precisa saber o schema de antemão).
-_READONLY_FIELDS = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"}
+_READONLY_FIELDS = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"} | get_readonly_fields(YeastBankConfig)
 _EDITABLE_FIELDS = [c.name for c in YeastBankConfig.__table__.columns if c.name not in _READONLY_FIELDS]
 
 # Campo usado como "resumo" na coluna da lista — prefere um nome
@@ -103,6 +123,54 @@ for _field, _html_attrs in html_types_for_model(YeastBankConfig, _EDITABLE_FIELD
 _FIELD_LABELS: dict = get_field_labels(YeastBankConfig)
 
 _LIST_KEY = "yeast_bank_configs"
+
+# Ações em massa (skill 25) — Apagar sempre disponível (is_deleted já
+# é padrão de todo model CrudGen). Inativar só aparece se este model
+# tem coluna `ativo` própria, OU se algum @weak_ref declara
+# bulk_deactivate_service (delega pro model do outro lado da
+# referência fraca — ex.: Malte/Lúpulo/Levedura delegam pro
+# Material.ativo). Nunca os dois ao mesmo tempo — local tem
+# precedência se por acaso um model tiver as duas coisas.
+_HAS_ATIVO_FIELD = any(f in _EDITABLE_FIELDS for f in ("ativo", "is_active"))
+_DEACTIVATE_DELEGATE = None
+if not _HAS_ATIVO_FIELD:
+    _DEACTIVATE_DELEGATE = next((wr for wr in _WEAK_REFS if wr.get("bulk_deactivate_service")), None)
+_PODE_INATIVAR_EM_MASSA = _HAS_ATIVO_FIELD or _DEACTIVATE_DELEGATE is not None
+
+
+def _inactivate_many_delegated(ids: list[int]) -> dict:
+    """
+    Resolve os ids selecionados (desta entidade) para os valores do
+    campo de referência fraca (ex.: material_id), deduplica, e chama a
+    função pública apontada por bulk_deactivate_service — nunca ORM
+    direto de outro Addon (skill 02). Ids da própria entidade que não
+    tiverem o campo preenchido são reportados como falha, não pulados
+    silenciosamente.
+    """
+    module_path, func_name = _DEACTIVATE_DELEGATE["bulk_deactivate_service"].rsplit(".", 1)
+    delegate_fn = getattr(importlib.import_module(module_path), func_name)
+    field = _DEACTIVATE_DELEGATE["field"]
+
+    resultados = []
+    valores_por_id: dict[int, int] = {}
+    for id in ids:
+        obj = db.session.get(YeastBankConfig, id)
+        valor = getattr(obj, field, None) if obj else None
+        if not obj or valor is None:
+            resultados.append({"id": id, "sucesso": False, "erro": "Registro não encontrado ou sem referência preenchida."})
+            continue
+        valores_por_id[id] = valor
+
+    valores_unicos = sorted(set(valores_por_id.values()))
+    if valores_unicos:
+        try:
+            delegate_fn(valores_unicos, {"ativo": False})
+            for id in valores_por_id:
+                resultados.append({"id": id, "sucesso": True, "erro": None})
+        except Exception as e:  # noqa: BLE001
+            for id in valores_por_id:
+                resultados.append({"id": id, "sucesso": False, "erro": str(e)})
+    return {"resultados": resultados}
 
 
 def _resolve_weak_ref_display(item) -> dict:
@@ -248,6 +316,7 @@ def _manage_context(submitted_data: dict | None = None, form_error: str | None =
         field_labels=_FIELD_LABELS,
         submitted_data=submitted_data,
         form_error=form_error,
+        pode_inativar_em_massa=_PODE_INATIVAR_EM_MASSA,
     )
 
 
@@ -378,6 +447,15 @@ def _normalize_checkbox_fields(submitted: dict) -> dict:
 @permission_required("yeast_bank_configs.create")
 def create():
     submitted = _normalize_checkbox_fields(request.form.to_dict())
+    # Hook opcional (skill 21) — permite uma entidade bloquear
+    # criação direta por essa tela (ex.: um registro que só deve
+    # nascer a partir de um Evento de Banco, achado real: a via
+    # direta continuava aberta mesmo depois da decisão).
+    # Hook ausente/retornando None = comportamento padrão, sem bloqueio.
+    _block_message = _hook("block_create")(submitted)
+    if _block_message is not None:
+        flash(_block_message, "error")
+        return redirect(url_for("yeast_bank_configs.manage"))
     try:
         result = _service.create(submitted)
         success, error = result.success, result.error
@@ -404,6 +482,14 @@ def create():
             **_manage_context(submitted_data=submitted, form_error=error),
         )
     flash("Criado com sucesso.", "success")
+    # Hook opcional (skill 21) — permite uma entidade customizar o
+    # destino do redirect depois de criar com sucesso (ex.: criar um
+    # YeastBankEvent tipo "Starter" redireciona pra edição do Starter
+    # recém-criado, não pra lista de eventos). Sem hook definido, cai
+    # no redirect padrão de sempre.
+    _redirect_override = _hook("post_create_redirect")(result.data)
+    if _redirect_override is not None:
+        return _redirect_override
     return redirect(url_for("yeast_bank_configs.manage"))
 
 
@@ -464,3 +550,53 @@ def delete_permanent(id: int):
     if not result.success:
         flash(result.error, "error")
     return redirect(url_for("yeast_bank_configs.manage"))
+
+
+# Ações em massa (skill 25) — JSON, chamadas via fetch pelo JS genérico
+# (core/static/js/crudgen-bulk-actions.js), mesmo padrão de resposta
+# já usado em materials_hooks.py (achado real, addon_estoque).
+def _bulk_ids_from_request() -> list[int]:
+    payload = request.get_json(silent=True) or {}
+    ids = payload.get("ids") or []
+    return [int(i) for i in ids if str(i).strip().isdigit()]
+
+
+@yeast_bank_configs_bp.route("/bulk-trash", methods=["POST"])
+@login_required
+@permission_required("yeast_bank_configs.trash")
+def bulk_trash():
+    from flask import jsonify
+
+    ids = _bulk_ids_from_request()
+    if not ids:
+        return jsonify({"success": False, "error": "Selecione ao menos um registro."}), 400
+    resultado = _service.trash_many(ids)
+    falhas = [r for r in resultado["resultados"] if not r["sucesso"]]
+    return jsonify({
+        "success": not falhas,
+        "resultados": resultado["resultados"],
+        "error": f"{len(falhas)} de {len(ids)} registro(s) falharam — veja o detalhe por linha." if falhas else None,
+    })
+
+
+@yeast_bank_configs_bp.route("/bulk-inactivate", methods=["POST"])
+@login_required
+@permission_required("yeast_bank_configs.update")
+def bulk_inactivate():
+    from flask import jsonify
+
+    if not _PODE_INATIVAR_EM_MASSA:
+        return jsonify({"success": False, "error": "Esta entidade não suporta inativação em massa."}), 400
+    ids = _bulk_ids_from_request()
+    if not ids:
+        return jsonify({"success": False, "error": "Selecione ao menos um registro."}), 400
+    if _HAS_ATIVO_FIELD:
+        resultado = _service.inactivate_many(ids)
+    else:
+        resultado = _inactivate_many_delegated(ids)
+    falhas = [r for r in resultado["resultados"] if not r["sucesso"]]
+    return jsonify({
+        "success": not falhas,
+        "resultados": resultado["resultados"],
+        "error": f"{len(falhas)} de {len(ids)} registro(s) falharam — veja o detalhe por linha." if falhas else None,
+    })

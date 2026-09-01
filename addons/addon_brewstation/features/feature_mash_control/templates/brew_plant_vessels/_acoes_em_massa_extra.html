@@ -1,0 +1,32 @@
+{#-
+  templates/brew_plant_vessels/_acoes_em_massa_extra.html
+
+  Hook de TEMPLATE (skill 25) — criado UMA ÚNICA VEZ pelo CrudGen,
+  nunca sobrescrito, mesmo com --overwrite (mesma regra de qualquer
+  arquivo *_hooks.py, skill 00/01).
+
+  Use este arquivo pra adicionar botões/modais de ações em massa
+  ESPECÍFICOS de "Tanque" — ex.: fluxos que não fazem sentido pra
+  nenhuma outra entidade (mesmo espírito dos 4 botões extras de
+  Materiais: Movimentar Estoque / Criar Cotação / Criar Pedido /
+  Modificação em Massa). Ações genéricas (Apagar/Inativar) já vêm de
+  manage.html.j2 — não duplique aqui.
+
+  Este arquivo é incluído dentro da barra de ações em massa
+  (#barraAcoesEmMassa), depois dos botões genéricos:
+
+    {% include "brew_plant_vessels/_acoes_em_massa_extra.html" ignore missing %}
+
+  Vazio por padrão — "ignore missing" faz o Jinja não reclamar mesmo
+  se o arquivo for removido, e um arquivo vazio (como este) também não
+  renderiza nada extra na tela.
+
+  Convenções ao preencher:
+  - Botões: <button type="button" class="btn btn-sm btn-outline-primary" data-acao-massa="...">
+  - JS próprio: crie um arquivo separado (nunca inline, skill 00) e
+    referencie com <script src="..."> no fim deste mesmo arquivo — ele
+    é incluído dentro do <body>, então o <script> funciona normalmente.
+  - Seleção de linha (ids marcados) já está disponível globalmente via
+    as mesmas classes que o genérico usa: cada checkbox de linha tem
+    `.crudgen-checkbox-selecionar-item` com `data-item-id`.
+-#}
