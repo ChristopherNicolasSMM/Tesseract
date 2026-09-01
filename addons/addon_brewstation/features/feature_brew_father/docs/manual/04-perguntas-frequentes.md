@@ -1,5 +1,11 @@
 # 04 — Perguntas Frequentes (Integração BrewFather)
 
+**P: Apaguei uma receita importada por engano — como trago ela de
+volta?**
+R: Vá em "Selecionar Receitas pra Sincronizar" — ela vai aparecer com
+o selo "Apagada — pendente de reimportar". Marque e sincronize de
+novo; volta como uma nova versão.
+
 **P: Preciso resolver o de-para toda vez que sincronizo?**
 R: Não. Só na primeira vez que um ingrediente com aquele nome
 aparece. Depois de resolvido uma vez, qualquer receita futura com o

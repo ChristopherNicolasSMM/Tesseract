@@ -5273,3 +5273,49 @@ contradições óbvias entre documentos. Fica registrado como primeira
 rodada; uma auditoria de conteúdo mais profunda (duplicação de regras
 específicas dentro do corpo de cada skill, não só o cabeçalho) segue
 como possível próxima rodada, se valer a pena.
+
+## Manuais atualizados — item 4 da lista de pendências, primeira rodada (2026-09-01)
+
+Auditoria de `docs/manual/` de todos os Addons/Features
+(`addon_brewstation` raiz + 5 Features + `addon_device_manager` +
+`addon_estoque`) contra o estado real do código pós skills 25/26/27.
+Achado principal: **`feature_envase` estava genuinamente errado**, não
+só incompleto — descrevia o fluxo antigo de `ItemEnvase` (digitar
+componente por componente), removido pela skill 26. Reescrito por
+completo (os 4 arquivos).
+
+Demais ajustes, menores (adição, não reescrita):
+
+- **`feature_brew_father`**: faltava por completo a sincronização
+  seletiva (skill 27) — "Selecionar Receitas pra Sincronizar" e os
+  selos de status (Nova/Já importada/Apagada) não apareciam em lugar
+  nenhum do manual.
+- **`feature_mash_control`**: seção "Sessões de Brassagem" não
+  mencionava o botão "Confirmar Ingredientes" (skill 26).
+- **`feature_ingredientes`**: faltava a seção de ações em massa
+  (skill 25) e a observação de que "inativar" aqui delega pro
+  Material vinculado, não é campo próprio.
+- **`addon_brewstation` (raiz)**: passo a passo dos primeiros passos
+  desatualizado — ainda descrevia a baixa de embalagem do jeito
+  antigo (Envase direto, sem menção a Confirmar Ingredientes/Material
+  resultante).
+- **`addon_estoque`**: faltava a seção de ações em massa (skill 25,
+  Materiais/Fornecedores/Transportadoras).
+
+**Não tocados nesta rodada** (auditados, sem achado que justificasse
+mudança): `feature_yeast_bank` (manual já substancial, nenhuma skill
+desta sessão mexeu no domínio dele — só ganhou ações em massa
+genéricas, tratadas como nota de rodapé, não prioridade) e
+`addon_device_manager` (idem — conteúdo já preciso, sem mudança de
+comportamento desde a última revisão).
+
+### Skills — segunda rodada de verificação
+
+Revisão adicional (além da auditoria de cabeçalhos já feita) não
+encontrou skill nova pra corrigir — `docs/skills/04-padrao-de-documentacao.md`
+não faz nenhuma referência desatualizada ao estado dos manuais.
+
+**Fica pra uma rodada futura, se fizer sentido**: `feature_yeast_bank`
+e `addon_device_manager` não tiveram o manual revisado linha a linha
+nesta sessão — só confirmado que não há erro óbvio, não uma auditoria
+completa como a de `feature_envase`.

@@ -20,3 +20,10 @@ densidade final e comportamento da fermentação.
 Em todas as três telas, o campo que liga a especificação ao Material
 do Estoque é um campo de busca — comece a digitar o nome do material
 já cadastrado e escolha na lista, em vez de digitar um código.
+
+## Ações em massa
+
+Marque várias linhas (checkbox) pra apagar ou inativar de uma vez.
+**Inativar** aqui não desliga nada na própria especificação — inativa
+o Material do Estoque vinculado (é ele quem controla se um item está
+ativo ou não).

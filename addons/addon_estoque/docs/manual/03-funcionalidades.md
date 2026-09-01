@@ -169,3 +169,12 @@ inteiro mostra valores em dinheiro (símbolo, ex.: "R$") e datas
 (ex.: dd/mm/aaaa). Muda em um lugar só, vale para qualquer tela que
 use esses formatos — sem essa configuração, o sistema já funciona com
 "R$" e dd/mm/aaaa por padrão.
+
+## Ações em massa
+
+Nas listas de Materiais, Fornecedores e Transportadoras, marque várias
+linhas (checkbox no cabeçalho pra selecionar todas) e use a barra que
+aparece pra **Apagar** ou **Inativar** de uma vez, em vez de linha por
+linha. Em Materiais, a mesma barra também tem os atalhos de
+Movimentar Estoque, Criar Cotação, Criar Pedido e Modificação em
+Massa (campo por campo, em várias linhas de uma vez).

@@ -6,6 +6,20 @@ Busca as receitas da sua conta BrewFather e traz pro sistema —
 ingredientes, etapas de mostura e fermentação. Pode ser clicado várias
 vezes; receitas já importadas não são duplicadas.
 
+## Selecionar Receitas pra Sincronizar
+
+Alternativa ao "Sincronizar Tudo": mostra a lista de receitas
+disponíveis na sua conta BrewFather (nome, estilo, tipo) com um selo
+de status em cada uma —
+
+- **Nova**: nunca foi importada.
+- **Já importada**: já existe no sistema.
+- **Apagada — pendente de reimportar**: já existiu, foi apagada, e uma
+  nova sincronização vai trazê-la de volta como uma nova versão.
+
+Marque as que quiser e clique em "Sincronizar selecionadas" — só o
+detalhe completo das marcadas é buscado, o resto fica de fora.
+
 ## Sincronizações (histórico)
 
 Lista de cada sincronização já feita — quando rodou, quantas receitas

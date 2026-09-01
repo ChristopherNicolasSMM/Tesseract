@@ -20,6 +20,12 @@ Acompanhamento de uma brassagem em andamento: etapas, logs (incluindo
 os gerados automaticamente pela automação), e alarmes (que podem ser
 confirmados/reconhecidos por um usuário).
 
+Na tela de cada sessão, o botão **Confirmar Ingredientes** dá baixa no
+estoque dos insumos da receita (malte, lúpulo, levedura) e trava o
+custo total gasto — só tem efeito uma vez por lote. Não é obrigatório
+clicar antes de envasar: se você for direto pro Envase sem confirmar,
+o sistema confirma sozinho nesse momento (ver manual de Envase).
+
 ## Regras de Automação
 
 Cadastro de regras (sensor → condição → ator) que **já disparam de

@@ -11,5 +11,9 @@
 5. Crie uma Sessão de Brassagem vinculando os dois — se você conectou
    sensores/atuadores à planta, o sistema já reage sozinho às leituras
    a partir daqui.
-6. Ao final, registre o Envase do lote — isso já dá baixa automática
-   no estoque de embalagem usada.
+6. Antes (ou na hora) de envasar, confirme o consumo de insumo da
+   receita na tela do lote (botão "Confirmar Ingredientes").
+7. Ao final, registre o Envase do lote, apontando pro Material
+   resultante (o produto acabado já cadastrado no Estoque, com sua
+   Composição de embalagem) — isso dá baixa automática nos
+   componentes e calcula o custo real do lote envasado.
