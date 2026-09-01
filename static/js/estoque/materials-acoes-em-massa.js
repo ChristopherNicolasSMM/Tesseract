@@ -4,7 +4,15 @@
  * Ações em massa a partir da seleção de linhas na lista de Materiais
  * (achado do Christopher): Movimentar Estoque, Criar Cotação, Criar
  * Pedido, Modificação em Massa. 4 modais, cada um com seu próprio
- * fluxo — este arquivo cobre os 4.
+ * fluxo — este arquivo cobre só os 4 extras.
+ *
+ * Refatorado (skill 25): seleção de linha/"selecionar todos"/contagem
+ * deixou de ser próprio daqui — delega pro genérico
+ * (core/static/js/crudgen-bulk-actions.js), que já roda na mesma
+ * página (checkbox `.crudgen-checkbox-selecionar-item`, com
+ * `data-item-id`/`data-item-display` genéricos). Apagar/Inativar
+ * genéricos vêm de lá; este arquivo só reage à MESMA seleção pra
+ * alimentar os 4 modais específicos de Material.
  */
 (function () {
   "use strict";
@@ -14,34 +22,11 @@
     if (!configEl) return; // página sem seleção em massa (ex.: outra lista)
     const config = TesseractData.config("estoque-materials-massa-config");
 
-    const barra = document.getElementById("barraAcoesEmMassa");
-    const contagemEl = barra.querySelector("[data-alvo='contagem-selecionados']");
-    const checkboxTodos = document.getElementById("checkboxSelecionarTodos");
-
-    function checkboxesLinha() {
-      return Array.from(document.querySelectorAll(".checkbox-selecionar-material"));
-    }
-
     function selecionados() {
-      return checkboxesLinha()
+      return Array.from(document.querySelectorAll(".crudgen-checkbox-selecionar-item"))
         .filter((cb) => cb.checked)
-        .map((cb) => ({ id: Number(cb.dataset.materialId), nome: cb.dataset.materialNome }));
+        .map((cb) => ({ id: Number(cb.dataset.itemId), nome: cb.dataset.itemDisplay }));
     }
-
-    function atualizarBarra() {
-      const n = selecionados().length;
-      contagemEl.textContent = n;
-      barra.classList.toggle("d-none", n === 0);
-      barra.classList.toggle("d-flex", n > 0);
-    }
-
-    checkboxTodos.addEventListener("change", function () {
-      checkboxesLinha().forEach((cb) => { cb.checked = checkboxTodos.checked; });
-      atualizarBarra();
-    });
-    document.addEventListener("change", function (evt) {
-      if (evt.target.classList.contains("checkbox-selecionar-material")) atualizarBarra();
-    });
 
     initMovimentar(config, selecionados);
     initCotacao(config, selecionados);

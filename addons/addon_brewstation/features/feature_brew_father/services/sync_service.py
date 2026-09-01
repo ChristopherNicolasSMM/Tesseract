@@ -82,15 +82,35 @@ def sync_recipes() -> dict:
 def _importar_receita(receita_externa: dict) -> MashRecipe:
     origem_id = receita_externa["id"]
 
+    # Correção (skill 25, seção 3.1): sem is_deleted=False aqui, uma
+    # receita apagada (ou futuramente inativada em massa) continuava
+    # sendo encontrada como "já existe" e a sync nunca a reimportava —
+    # "apagar pra forçar re-sync" não tinha efeito nenhum antes desta
+    # correção.
     ja_existe = MashRecipe.query.filter_by(
-        origem_receita="BrewFather", origem_receita_id=origem_id,
+        origem_receita="BrewFather", origem_receita_id=origem_id, is_deleted=False,
     ).first()
     if ja_existe is not None:
         return ja_existe
 
+    # Correção adicional (skill 25 — achado ao testar a correção
+    # acima): MashRecipe tem UniqueConstraint(name, versao) — uma
+    # receita apagada continua ocupando esse par, então reimportar com
+    # versao=1 fixo colide (IntegrityError) sempre que o nome bater com
+    # uma versão já existente (apagada ou não) do mesmo nome. Resolvido
+    # com o mesmo espírito de versionamento imutável já usado pelo
+    # resto do model (BACKLOG.md/skill de mash_control: "toda edição
+    # salva cria uma nova versão/linha, imutável após criada") — uma
+    # reimportação após apagar é tratada como nova versão, não como
+    # tentativa de reaproveitar a mesma.
+    ultima_versao = db.session.query(
+        db.func.max(MashRecipe.versao)
+    ).filter_by(name=receita_externa["name"]).scalar()
+    proxima_versao = (ultima_versao or 0) + 1
+
     receita = MashRecipe(
         name=receita_externa["name"],
-        versao=1,
+        versao=proxima_versao,
         origem_receita="BrewFather",
         origem_receita_id=origem_id,
     )

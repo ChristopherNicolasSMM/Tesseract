@@ -15,7 +15,8 @@ _MATERIAL_RESOLVER = "addons.addon_estoque.root.services.material_lookup.get_mat
 @label("Malte")
 @plural("maltes")
 @choices("tipo", label="Tipo")
-@weak_ref("material_id", resolver=_MATERIAL_RESOLVER, options="materials")
+@weak_ref("material_id", resolver=_MATERIAL_RESOLVER, options="materials",
+          bulk_deactivate_service="addons.addon_estoque.root.services.estoque_service.modificar_materiais_em_massa")
 @required("material_id", message="Material é obrigatório")
 @min_value("cor_ebc", 0, message="Cor EBC não pode ser negativa")
 class Malte(db.Model):

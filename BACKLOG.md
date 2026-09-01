@@ -4906,3 +4906,113 @@ Nenhuma migration, service ou template foi criado nesta sessão — só
 os três documentos de skill (`docs/skills/25-*.md`, `26-*.md`,
 `27-*.md`) e este registro no BACKLOG. Implementação aguarda
 autorização explícita, item por item.
+
+## Execução da skill 25 — Ações em Massa Padrão (2026-09-01)
+
+Primeira fase autorizada da skill 25 (`docs/skills/25-proposta-acoes-em-massa-padrao-crudgen.md`)
+implementada e testada. Escopo: núcleo genérico no CrudGen + aplicação
+em Malte/Lúpulo/Levedura/MashRecipe/Material.
+
+### Núcleo do CrudGen
+
+- `annotations/__init__.py`: `@weak_ref` ganhou `bulk_deactivate_service`
+  (opcional) — caminho pontuado até `fn(ids, alteracoes) -> dict`,
+  usado quando o model não tem campo de ativo próprio e precisa
+  delegar "inativar em massa" pro model do outro lado da referência
+  fraca.
+- `core/crudgen/templates/service.py.j2`: `trash_many()`/
+  `inactivate_many()` genéricos, best-effort por id (mesmo padrão de
+  `estoque_service`). `inactivate_many()` detecta a coluna real via
+  `_ATIVO_FIELD_NAME` — **achado real ao testar**: o projeto usa as
+  duas convenções (`Material.ativo` e `MashRecipe.is_active`), a
+  primeira versão só reconhecia `ativo` e deixava MashRecipe sem botão
+  de inativar; corrigido pra checar as duas.
+- `core/crudgen/templates/controller.py.j2`: `_HAS_ATIVO_FIELD`/
+  `_DEACTIVATE_DELEGATE`/`_PODE_INATIVAR_EM_MASSA` (mesma correção de
+  nome de campo do item acima), `_inactivate_many_delegated()`, rotas
+  novas `POST /bulk-trash` e `POST /bulk-inactivate` (JSON).
+- `core/crudgen/templates/manage.html.j2`: checkbox por linha
+  (`crudgen-checkbox-selecionar-item`, com `data-item-display`
+  genérico via `summary_field` — usado pelos scripts extra, ex.
+  Materiais) + "selecionar todos" + barra de ações (Apagar sempre,
+  Inativar condicional) + `{% include ".../_acoes_em_massa_extra.html"
+  ignore missing %}` (o novo hook de template).
+- `core/crudgen/generator.py` + `acoes_em_massa_extra_hook.html.j2`:
+  novo item em `_FILES_TO_GENERATE`, tratado como hook (nunca
+  sobrescrito, mesmo com `--overwrite`) — **primeiro hook de template
+  do projeto**, mesma regra dos `*_hooks.py`.
+- `static/js/crudgen-bulk-actions.js`: JS genérico único, reaproveitado
+  por qualquer `manage.html` gerado. Usa `window.__tesseractToast`
+  (já global via `base.html`) — **não** `TesseractData` (achado
+  durante a implementação: não é global, só existe em telas que a
+  incluem manualmente).
+- `core/i18n/pt_BR.json`: chaves `core.confirm.bulk_trash`/
+  `core.confirm.bulk_inactivate`, reaproveitando `core_confirm_dialog.js`
+  (skill 15) já existente — não precisou de mecanismo de confirmação
+  novo.
+
+### Aplicação
+
+- Malte/Lúpulo/Levedura: `@weak_ref("material_id", ...,
+  bulk_deactivate_service="...estoque_service.modificar_materiais_em_massa")`
+  — inativar em massa delega pro `Material.ativo`; apagar é local
+  (`is_deleted` próprio).
+- MashRecipe: local nos dois (`is_active`/`is_deleted` já existentes).
+- Material: regenerado com `--overwrite` real — os 4 botões extras
+  (Movimentar Estoque/Cotação/Pedido/Modificação em Massa) migrados
+  manualmente pro novo hook `materials/_acoes_em_massa_extra.html`
+  **antes** da regeneração, confirmado presente depois via teste
+  (`test_materials_manage_preserva_botoes_extras_e_ganha_genericos`).
+  `materials-acoes-em-massa.js` refatorado: seleção/contagem deixou de
+  ser própria, delega pro genérico — só os 4 fluxos extras continuam
+  aqui.
+- `sync_service._importar_receita()`: filtro `is_deleted=False`
+  aplicado (skill 25, seção 3.1). **Achado real ao testar**: isso
+  sozinho colidia com `UniqueConstraint(name, versao)` de
+  `MashRecipe` — reimportar após apagar tentava recriar com
+  `versao=1` fixo. Corrigido bumpando pra
+  `max(versao existente com o mesmo name) + 1`, mesmo espírito do
+  versionamento imutável já usado no resto do model.
+
+### Achado real durante a execução — risco de `--overwrite` real confirmado e mitigado
+
+Rodar a suíte de testes já existente (`test_crudgen_cli_generate_relationship_bug.py`)
+regenera arquivos reais do repositório como efeito colateral (roda
+`flask generate --overwrite` de verdade, não em projeto temporário).
+Isso expôs dois casos de conteúdo **desenhado à mão** que teriam sido
+apagados por uma regeneração de `detail.html`:
+
+1. `materials/detail.html` — grid de Unidades (skill 24).
+2. `mash_recipes/detail.html` — tela de detalhe com tabelas de
+   ingredientes agrupadas por tipo (fermentável/lúpulo/levedura).
+
+Nenhum dos dois foi tocado nesta rodada — só `manage.html` (que já
+tinha, ou ganhou agora, o hook de template). Os dois `detail.html`
+foram revertidos ao original assim que o problema apareceu.
+
+**Pendência explícita, fora do escopo desta execução**: `detail.html.j2`
+não tem o mesmo mecanismo de hook de template que `manage.html.j2`
+ganhou agora — enquanto isso não existir, `detail.html` de qualquer
+entidade customizada à mão (Materiais, MashRecipe, e possivelmente
+outras ainda não auditadas) não pode ser regenerado com `--overwrite`
+sem risco de perda. Registrado como item futuro da skill 25, não
+implementado agora.
+
+### Testes
+
+`tests/test_skill25_acoes_em_massa.py` (6 testes novos) + ajustes em
+`tests/test_phase4_crudgen.py` (contagem de arquivos 8→9, hooks 3→4 —
+novo hook de template conta como arquivo gerado) e
+`tests/test_addon_estoque.py` (nomes de classe/id genéricos, não mais
+específicos de Material). Suíte alvo completa rodada várias vezes:
+sempre as mesmas 17 falhas pré-existentes (bug real e não-relacionado
+em `_criar_material`/`TipoProduto.nome` dos testes de
+`feature_ingredientes`/`feature_brew_father`/`feature_envase`/
+`mash_control_ingredient_resolution` — já existiam antes desta sessão,
+não é regressão).
+
+**Fora de escopo desta execução** (não tocado, fica pra quando
+Christopher decidir regenerar essas entidades): `item_envases`,
+`recipe_ingredients` — ambas passaram a ter acesso ao mesmo padrão
+genérico automaticamente (o template já mudou), só não foram
+regeneradas agora.

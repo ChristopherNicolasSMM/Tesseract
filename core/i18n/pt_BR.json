@@ -1,5 +1,7 @@
 {
   "core.confirm.trash_generic": "Mover para a lixeira?",
+  "core.confirm.bulk_trash": "Mover {count} registro(s) selecionado(s) para a lixeira?",
+  "core.confirm.bulk_inactivate": "Inativar {count} registro(s) selecionado(s)?",
   "core.confirm.delete_permanent_generic": "Excluir PERMANENTEMENTE? Esta ação não pode ser desfeita.",
   "core.confirm.delete_role": "Excluir este Role? Só é possível se nenhum usuário o tiver atribuído.",
   "core.confirm.remove_field_rule": "Remover esta regra?",

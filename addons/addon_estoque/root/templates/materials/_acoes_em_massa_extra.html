@@ -1,0 +1,284 @@
+{#-
+  templates/materials/_acoes_em_massa_extra.html
+
+  Hook de TEMPLATE (skill 25) — migrado nesta sessão do conteúdo que
+  antes vivia direto em manage.html (achado do Christopher: ações em
+  massa específicas de Material — Movimentar Estoque / Criar Cotação /
+  Criar Pedido / Modificação em Massa). Preservado aqui pra sobreviver
+  a um `--overwrite` futuro de manage.html, que agora é regenerado com
+  o padrão genérico (checkbox/Apagar/Inativar) — este arquivo nunca é
+  tocado pelo CrudGen depois de criado.
+-#}
+          <button type="button" class="btn btn-sm btn-outline-primary" data-acao-massa="movimentar">
+            <i class="bi bi-arrow-left-right"></i> Movimentar Estoque
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-primary" data-acao-massa="cotacao">
+            <i class="bi bi-clipboard-data"></i> Criar Cotação
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-primary" data-acao-massa="pedido">
+            <i class="bi bi-cart-plus"></i> Criar Pedido
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-acao-massa="modificar">
+            <i class="bi bi-pencil-square"></i> Modificação em Massa
+          </button>
+
+
+{#- ═══ Modais de ações em massa (achado do Christopher) ═══════════ -#}
+
+<script type="application/json" id="estoque-materials-massa-config">
+  {{ {"apiBaseUnidades": "/api/estoque/material-unidades", "apiOptionsFornecedores": "/api/options/fornecedores", "apiOptionsProcessoCotacaos": "/api/options/processo_cotacaos", "apiOptionsPedidoCompras": "/api/options/pedido_compras"} | tojson }}
+</script>
+
+{#- Modal 1: Movimentar Estoque — mesmo tipo pra todos, quantidade
+    individual por Material (decisão de sessão). -#}
+<div class="modal fade" id="modalMovimentarMassa" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Movimentar Estoque — Seleção Múltipla</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Tipo de Movimentação <span class="text-danger">*</span></label>
+          <select class="form-select" id="massaMovimentarTipo">
+            <option value="entrada">Entrada</option>
+            <option value="saida">Saída</option>
+            <option value="ajuste">Ajuste</option>
+          </select>
+          <div class="form-text">Aplica o mesmo tipo pra todos os materiais selecionados — a quantidade é por linha.</div>
+        </div>
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Material</th><th style="width:160px">Quantidade (unidade-base)</th></tr></thead>
+          <tbody data-alvo="tabela-movimentar-massa"></tbody>
+        </table>
+        <div class="alert alert-danger d-none mt-2" data-alvo="erro-movimentar-massa"></div>
+        <div data-alvo="resultado-movimentar-massa"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+        <button type="button" class="btn btn-primary" data-acao="confirmar-movimentar-massa">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{#- Modal 2: Criar Cotação — novo processo ou um já existente
+    (decisão de sessão). -#}
+<div class="modal fade" id="modalCotacaoMassa" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Criar Cotação — Seleção Múltipla</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="btn-group mb-3" role="group">
+          <input type="radio" class="btn-check" name="cotacaoMassaModo" id="cotacaoMassaModoNovo" value="novo" checked>
+          <label class="btn btn-outline-primary btn-sm" for="cotacaoMassaModoNovo">Novo Processo</label>
+          <input type="radio" class="btn-check" name="cotacaoMassaModo" id="cotacaoMassaModoExistente" value="existente">
+          <label class="btn btn-outline-primary btn-sm" for="cotacaoMassaModoExistente">Processo Existente</label>
+        </div>
+
+        <div id="cotacaoMassaBlocoNovo">
+          <div class="row">
+            <div class="col-8 mb-3">
+              <label class="form-label">Descrição <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="massaCotacaoDescricao" placeholder="Ex.: Cotação Malte — Safra 2026">
+            </div>
+            <div class="col-4 mb-3">
+              <label class="form-label">Data de Abertura <span class="text-danger">*</span></label>
+              <input type="date" class="form-control" id="massaCotacaoDataAbertura">
+            </div>
+          </div>
+        </div>
+        <div id="cotacaoMassaBlocoExistente" class="d-none mb-3">
+          <label class="form-label">Processo de Cotação <span class="text-danger">*</span></label>
+          <div class="weakref-combo" data-weakref-source="processo_cotacaos">
+            <input type="hidden" class="weakref-combo-value" id="massaCotacaoProcessoId" value="">
+            <input type="text" class="form-control weakref-combo-search" autocomplete="off" placeholder="Buscar processo…">
+            <ul class="list-group weakref-combo-results"></ul>
+          </div>
+        </div>
+
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Material</th><th style="width:140px">Unidade</th><th style="width:140px">Quantidade Desejada</th></tr></thead>
+          <tbody data-alvo="tabela-cotacao-massa"></tbody>
+        </table>
+        <div class="alert alert-danger d-none mt-2" data-alvo="erro-cotacao-massa"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" data-acao="confirmar-cotacao-massa">Criar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{#- Modal 3: Criar Pedido — mesmo raciocínio do Modal 2, agora com
+    Fornecedor + preço por linha. -#}
+<div class="modal fade" id="modalPedidoMassa" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Criar Pedido de Compra — Seleção Múltipla</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="btn-group mb-3" role="group">
+          <input type="radio" class="btn-check" name="pedidoMassaModo" id="pedidoMassaModoNovo" value="novo" checked>
+          <label class="btn btn-outline-primary btn-sm" for="pedidoMassaModoNovo">Novo Pedido</label>
+          <input type="radio" class="btn-check" name="pedidoMassaModo" id="pedidoMassaModoExistente" value="existente">
+          <label class="btn btn-outline-primary btn-sm" for="pedidoMassaModoExistente">Pedido Existente (rascunho)</label>
+        </div>
+
+        <div id="pedidoMassaBlocoNovo">
+          <div class="row">
+            <div class="col-8 mb-3">
+              <label class="form-label">Fornecedor <span class="text-danger">*</span></label>
+              <div class="weakref-combo" data-weakref-source="fornecedores">
+                <input type="hidden" class="weakref-combo-value" id="massaPedidoFornecedorId" value="">
+                <input type="text" class="form-control weakref-combo-search" autocomplete="off" placeholder="Buscar fornecedor…">
+                <ul class="list-group weakref-combo-results"></ul>
+              </div>
+            </div>
+            <div class="col-4 mb-3">
+              <label class="form-label">Data do Pedido <span class="text-danger">*</span></label>
+              <input type="date" class="form-control" id="massaPedidoDataPedido">
+            </div>
+          </div>
+        </div>
+        <div id="pedidoMassaBlocoExistente" class="d-none mb-3">
+          <label class="form-label">Pedido de Compra (rascunho) <span class="text-danger">*</span></label>
+          <div class="weakref-combo" data-weakref-source="pedido_compras">
+            <input type="hidden" class="weakref-combo-value" id="massaPedidoPedidoId" value="">
+            <input type="text" class="form-control weakref-combo-search" autocomplete="off" placeholder="Buscar pedido…">
+            <ul class="list-group weakref-combo-results"></ul>
+          </div>
+        </div>
+
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Material</th><th style="width:140px">Unidade</th><th style="width:120px">Quantidade</th><th style="width:120px">Preço Unit.</th></tr></thead>
+          <tbody data-alvo="tabela-pedido-massa"></tbody>
+        </table>
+        <div class="alert alert-danger d-none mt-2" data-alvo="erro-pedido-massa"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" data-acao="confirmar-pedido-massa">Criar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{#- Modal 4: Modificação em Massa — só campos de classificação
+    (decisão de sessão). Campo em branco = não mexe. -#}
+<div class="modal fade" id="modalModificarMassa" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Modificação em Massa</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small">Deixe em branco os campos que não quer alterar — só os preenchidos são aplicados a todos os materiais selecionados.</p>
+
+        <div class="mb-3">
+          <label class="form-label">Fabricante</label>
+          <div class="weakref-combo" data-weakref-source="fabricantes">
+            <input type="hidden" class="weakref-combo-value" id="massaModFabricanteId" value="">
+            <input type="text" class="form-control weakref-combo-search" autocomplete="off" placeholder="(não alterar)">
+            <ul class="list-group weakref-combo-results"></ul>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Origem</label>
+          <div class="weakref-combo" data-weakref-source="origems">
+            <input type="hidden" class="weakref-combo-value" id="massaModOrigemId" value="">
+            <input type="text" class="form-control weakref-combo-search" autocomplete="off" placeholder="(não alterar)">
+            <ul class="list-group weakref-combo-results"></ul>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Tipo de Produto</label>
+          <div class="weakref-combo" data-weakref-source="tipo_produtos">
+            <input type="hidden" class="weakref-combo-value" id="massaModTipoProdutoId" value="">
+            <input type="text" class="form-control weakref-combo-search" autocomplete="off" placeholder="(não alterar)">
+            <ul class="list-group weakref-combo-results"></ul>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Categoria</label>
+          <div class="weakref-combo" data-weakref-source="categorias">
+            <input type="hidden" class="weakref-combo-value" id="massaModCategoriaId" value="">
+            <input type="text" class="form-control weakref-combo-search" autocomplete="off" placeholder="(não alterar)">
+            <ul class="list-group weakref-combo-results"></ul>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Ativo</label>
+          <select class="form-select" id="massaModAtivo">
+            <option value="">(não alterar)</option>
+            <option value="true">Sim</option>
+            <option value="false">Não</option>
+          </select>
+        </div>
+
+        <hr>
+        <p class="text-muted small mb-2">Ficha técnica (achado do Christopher — mesmos campos do detalhe de Material):</p>
+
+        <div class="mb-3">
+          <label class="form-label">Pendente Revisão</label>
+          <select class="form-select" id="massaModPendenteRevisao">
+            <option value="">(não alterar)</option>
+            <option value="true">Sim</option>
+            <option value="false">Não</option>
+          </select>
+        </div>
+        <div class="row">
+          <div class="col-6 mb-3">
+            <label class="form-label">Unidade Medida</label>
+            <input type="text" class="form-control" id="massaModUnidadeMedida" placeholder="(não alterar)">
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label">Peso</label>
+            <input type="number" step="0.0001" class="form-control" id="massaModPeso" placeholder="(não alterar)">
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-6 mb-3">
+            <label class="form-label">Volume Calculado</label>
+            <input type="number" step="0.0001" class="form-control" id="massaModVolumeCalculado" placeholder="(não alterar)">
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label">Unidade Medida Volume Calculado</label>
+            <input type="text" class="form-control" id="massaModUnidadeMedidaVolumeCalculado" placeholder="(não alterar)">
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-6 mb-3">
+            <label class="form-label">Volume Real</label>
+            <input type="number" step="0.0001" class="form-control" id="massaModVolumeReal" placeholder="(não alterar)">
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label">Unidade Medida Volume Real</label>
+            <input type="text" class="form-control" id="massaModUnidadeMedidaVolumeReal" placeholder="(não alterar)">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Formato Físico</label>
+          <input type="text" class="form-control" id="massaModFormatoFisico" placeholder="(não alterar)">
+        </div>
+
+        <div class="alert alert-danger d-none" data-alvo="erro-modificar-massa"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" data-acao="confirmar-modificar-massa">Aplicar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/freestyle/freestyle-tesseract-data.js') }}"></script>
+<script src="{{ url_for('static', filename='js/estoque/materials-acoes-em-massa.js') }}"></script>

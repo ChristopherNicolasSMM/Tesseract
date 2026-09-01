@@ -1918,9 +1918,12 @@ def test_lista_materials_renderiza_checkboxes_e_modais_de_massa(app, client):
 
     resp = client.get("/estoque/materials", follow_redirects=True)
     assert resp.status_code == 200
-    assert b"checkbox-selecionar-material" in resp.data
-    assert b"checkboxSelecionarTodos" in resp.data
+    # Genérico (skill 25 — CrudGen passou a gerar isso por padrão; nomes
+    # de classe/id mudaram de específicos de Material pra genéricos).
+    assert b"crudgen-checkbox-selecionar-item" in resp.data
+    assert b"crudgenCheckboxSelecionarTodos" in resp.data
     assert b"barraAcoesEmMassa" in resp.data
+    # Extras específicos de Material (migrados pra _acoes_em_massa_extra.html)
     assert b"modalMovimentarMassa" in resp.data
     assert b"modalCotacaoMassa" in resp.data
     assert b"modalPedidoMassa" in resp.data

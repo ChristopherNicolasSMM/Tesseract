@@ -48,6 +48,13 @@ _FILES_TO_GENERATE = [
     ("routes_hooks.py.j2", "api/routes/{plural}_routes_hooks.py", True),
     ("manage.html.j2", "templates/{plural}/manage.html", False),
     ("detail.html.j2", "templates/{plural}/detail.html", False),
+    # Hook de TEMPLATE (skill 25) — primeiro do tipo no projeto: mesma
+    # regra de qualquer *_hooks.py (criado uma única vez, nunca
+    # sobrescrito, mesmo com overwrite=True), só que HTML em vez de
+    # Python. Absorve botões/modais de ações em massa específicos de
+    # uma entidade (ex.: os 4 de Materiais) sem risco de serem
+    # perdidos no próximo --overwrite de manage.html.
+    ("acoes_em_massa_extra_hook.html.j2", "templates/{plural}/_acoes_em_massa_extra.html", True),
 ]
 
 

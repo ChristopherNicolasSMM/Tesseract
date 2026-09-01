@@ -47,7 +47,13 @@ def display_field(value: str):
     return decorator
 
 
-def weak_ref(field: str, resolver: str, options: str | None = None, value_field: str | None = None):
+def weak_ref(
+    field: str,
+    resolver: str,
+    options: str | None = None,
+    value_field: str | None = None,
+    bulk_deactivate_service: str | None = None,
+):
     """
     Marca `field` como referência fraca (skill 02 — sem FK real,
     cross-Addon) resolvida em runtime por `resolver`. Também usada
@@ -92,12 +98,33 @@ def weak_ref(field: str, resolver: str, options: str | None = None, value_field:
 
     Múltiplas @weak_ref podem ser empilhadas se o model tiver mais de
     um campo de referência fraca.
+
+    `bulk_deactivate_service` (opcional, skill 25): quando este model
+    NÃO tem coluna `ativo` própria, mas o botão "Inativar em massa"
+    gerado pelo CrudGen deve delegar pro model do outro lado da
+    referência fraca (ex.: `Malte` não tem `ativo`, mas
+    `Material.ativo` sim). Caminho pontuado até uma função
+    `(ids: list, alteracoes: dict) -> dict` — mesmo contrato de
+    `estoque_service.modificar_materiais_em_massa` (chamada
+    posicionalmente: `fn(ids_resolvidos, {"ativo": False})`). `ids`
+    recebido pela função é a lista de valores de `field` (já
+    resolvidos, deduplicados) dos registros selecionados — nunca o id
+    do próprio model que declara o `@weak_ref`. Só o primeiro
+    `@weak_ref` do model que tiver este parâmetro preenchido é
+    usado — não empilha delegação de mais de um campo.
+
+    Uso no model:
+        @weak_ref("material_id",
+                   resolver="addons.addon_estoque.root.services.material_lookup.get_material",
+                   options="materials",
+                   bulk_deactivate_service="addons.addon_estoque.root.services.estoque_service.modificar_materiais_em_massa")
     """
     def decorator(cls):
         if not hasattr(cls, '_weak_refs'):
             cls._weak_refs = []
         cls._weak_refs.append({
             "field": field, "resolver": resolver, "options": options, "value_field": value_field,
+            "bulk_deactivate_service": bulk_deactivate_service,
         })
         return cls
     return decorator

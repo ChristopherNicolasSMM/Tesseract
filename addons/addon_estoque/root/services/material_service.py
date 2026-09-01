@@ -9,15 +9,30 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 
 from core.db import db
 from addons.addon_estoque.root.model.material import Material
+from annotations import get_readonly_fields
 
 logger = logging.getLogger(__name__)
 
-_READONLY = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"}
+# Achado real (reanálise de eventos, 2026-08-24): @readonly_fields só
+# protegia o formulário gerado (controller.py.j2) — a camada de
+# serviço aceitava e aplicava o campo normalmente se alguém mandasse
+# via API/JSON direto, contornando a proteção da tela. Mesma fonte
+# (get_readonly_fields do model) protege os dois lugares agora.
+_READONLY = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"} | get_readonly_fields(Material)
+
+# Nome real da coluna de "ativo" deste model (skill 25) — o projeto
+# usa as duas convenções (Material.ativo, MashRecipe.is_active), sem
+# padronização retroativa nesta rodada (fora de escopo). Detecta as
+# duas, na ordem; None se o model não tiver nenhuma delas.
+_ATIVO_FIELD_NAME = next(
+    (f for f in ("ativo", "is_active") if f in Material.__table__.columns.keys()),
+    None,
+)
 
 try:
     from addons.addon_estoque.root.services import material_service_hooks as _hooks
@@ -101,6 +116,48 @@ class MaterialService:
         db.session.commit()
         return ServiceResult(success=True, data=obj)
 
+    def trash_many(self, ids: list[int]) -> dict:
+        """
+        "Apagar em massa" (skill 25) — best-effort por id, mesmo padrão
+        já usado em addon_estoque (estoque_service.movimentar_estoque_em_massa
+        etc.): um id com erro não impede os demais. Reaproveita a
+        mesma regra do trash() individual (não permite apagar duas
+        vezes), então um id já na lixeira aparece como falha
+        informativa, não como exceção.
+        """
+        resultados = []
+        for id in ids:
+            result = self.trash(id)
+            resultados.append({"id": id, "sucesso": result.success, "erro": None if result.success else result.error})
+        return {"resultados": resultados}
+
+    def inactivate_many(self, ids: list[int]) -> dict:
+        """
+        "Inativar em massa" (skill 25) — só chamado quando este model
+        tem coluna de ativo própria (ver controller.py.j2,
+        _HAS_ATIVO_FIELD; mesma detecção de _ATIVO_FIELD_NAME acima).
+        Quando não tem, a entidade delega pra outro service via
+        `@weak_ref(bulk_deactivate_service=...)` — ver
+        `_inactivate_many_delegated()` no controller gerado, este
+        método aqui nunca é chamado nesse caso.
+        """
+        if _ATIVO_FIELD_NAME is None:
+            return {"resultados": [{"id": id, "sucesso": False, "erro": "Entidade sem campo de ativo."} for id in ids]}
+        resultados = []
+        for id in ids:
+            obj = self.get_by_id(id)
+            if not obj:
+                resultados.append({"id": id, "sucesso": False, "erro": "Não encontrado."})
+                continue
+            if obj.is_deleted:
+                resultados.append({"id": id, "sucesso": False, "erro": "Não é possível inativar um registro na lixeira."})
+                continue
+            setattr(obj, _ATIVO_FIELD_NAME, False)
+            obj.updated_at = datetime.now(timezone.utc)
+            resultados.append({"id": id, "sucesso": True, "erro": None})
+        db.session.commit()
+        return {"resultados": resultados}
+
     def restore(self, id: int) -> ServiceResult:
         obj = self.get_by_id(id)
         if not obj:
@@ -149,6 +206,18 @@ class MaterialService:
         value: 'true'` ao tentar salvar (bug real encontrado só ao
         testar filtro/checkbox de verdade, não em uso via API JSON,
         que já manda o tipo certo).
+
+        Date/DateTime/Time — achado real (skill 20/BACKLOG Fase 18):
+        faltava aqui desde sempre. `type="date"`/`type="datetime-local"`
+        (skill 20) mandam string ISO (`"2026-01-01"`/
+        `"2026-01-01T10:30"`), mas sem conversão explícita o valor
+        ficava STRING no objeto — "funcionava" por acaso porque SQLite
+        não valida tipo de coluna, até qualquer código tentar fazer
+        aritmética de data de verdade (`date + timedelta`), que quebra
+        com string. `try/except` silencioso, igual ao padrão de
+        int/float acima — valor mal formatado não trava o salvamento
+        inteiro, só não converte (fica string, mesmo comportamento de
+        antes desta correção).
         """
         if column is None or not isinstance(value, str):
             return value
@@ -168,6 +237,18 @@ class MaterialService:
         if python_type is float and value.strip() != "":
             try:
                 return float(value)
+            except ValueError:
+                return value
+        if python_type is date and value.strip() != "":
+            try:
+                return date.fromisoformat(value.strip())
+            except ValueError:
+                return value
+        if python_type is datetime and value.strip() != "":
+            try:
+                # <input type="datetime-local"> manda "YYYY-MM-DDTHH:MM"
+                # (sem segundos) — fromisoformat aceita os dois formatos.
+                return datetime.fromisoformat(value.strip())
             except ValueError:
                 return value
         if value == "":
