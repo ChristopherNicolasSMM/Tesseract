@@ -30,3 +30,19 @@
     as mesmas classes que o genérico usa: cada checkbox de linha tem
     `.crudgen-checkbox-selecionar-item` com `data-item-id`.
 -#}
+
+{#- Achado real (skill 27): as rotas /sincronizar, /pendentes e
+    /disponiveis (esta última nova) já existiam ou foram criadas mas
+    não tinham nenhum link na UI — só acessíveis por URL direta. Este
+    hook nunca tinha sido preenchido antes de agora. -#}
+<a href="{{ url_for('brewfather_syncs.disponiveis') }}" class="btn btn-sm btn-outline-primary">
+  <i class="bi bi-ui-checks"></i> Selecionar Receitas pra Sincronizar
+</a>
+<form method="post" action="{{ url_for('brewfather_syncs.sincronizar') }}" class="d-inline" data-confirm-key="brewstation_bf.syncs.confirm_sincronizar_tudo">
+  <button type="submit" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-cloud-download"></i> Sincronizar Tudo
+  </button>
+</form>
+<a href="{{ url_for('brewfather_syncs.pendentes') }}" class="btn btn-sm btn-outline-warning">
+  <i class="bi bi-exclamation-triangle"></i> Pendentes de Resolução
+</a>

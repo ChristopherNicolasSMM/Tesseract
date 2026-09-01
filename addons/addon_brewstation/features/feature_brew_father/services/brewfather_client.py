@@ -266,39 +266,77 @@ def _get_recipe_detail(recipe_id: str) -> dict:
         return {}
 
 
-def get_recipes(limit: int = _DEFAULT_LIMIT) -> list[dict]:
+def list_recipes_basico(limit: int = _DEFAULT_LIMIT) -> list[dict]:
     """
-    Retorna lista de receitas do BrewFather no formato padronizado.
-    Busca a lista básica via GET /v2/recipes, depois o detalhe de cada
-    receita via GET /v2/recipes/{id} para obter mash steps, fermentation
-    steps e specs completos de ingredientes.
+    Skill 27 — listagem ENXUTA (`GET /recipes`, sem detalhe por
+    receita), pra alimentar a tela de seleção prévia antes de
+    sincronizar. Não gasta as chamadas mais caras de detalhe (a API
+    tem limite de 150/hora) — só quando o usuário efetivamente marcar
+    uma receita é que `get_recipe_normalizado()` é chamado pra ela.
+
+    Retorna os campos crus da API (`_id`, `name`, `style`, `type`,
+    ...) — não passa pela normalização de ingredientes/steps (não faz
+    sentido pra uma tela de navegação, só de importação de verdade).
     """
     if _is_testing():
         return []
-
     if not _is_enabled():
         raise BrewFatherDisabledError(
             "Integração BrewFather desabilitada — defina BREWFATHER_ENABLED=True no .env"
         )
-
-    # Lista básica — sem include[], que causava HTTP 500
     raw_list = _get("/recipes", params={"limit": limit})
     if not isinstance(raw_list, list):
         raise BrewFatherAPIError(f"Resposta inesperada da API (esperado lista): {type(raw_list)}")
+    return raw_list
+
+
+def get_recipe_normalizado(recipe_id: str) -> dict:
+    """
+    Skill 27 — detalhe completo de UMA receita, já normalizado pro
+    formato interno (mesmo formato que cada item de `get_recipes()`
+    devolvia) — usado pela sincronização seletiva, que só busca
+    detalhe das receitas que o usuário de fato marcou.
+    """
+    if _is_testing():
+        return {"id": recipe_id, "name": "", "ingredients": [], "mash_steps": [], "fermentation_steps": [], "water_profiles": []}
+    if not _is_enabled():
+        raise BrewFatherDisabledError(
+            "Integração BrewFather desabilitada — defina BREWFATHER_ENABLED=True no .env"
+        )
+    detail = _get_recipe_detail(recipe_id)
+    r_full = detail if detail else {}
+    return {
+        "id": recipe_id,
+        "name": r_full.get("name", ""),
+        "ingredients": _normalizar_ingredientes(r_full),
+        "mash_steps": _normalizar_mash_steps(r_full),
+        "fermentation_steps": _normalizar_fermentation_steps(r_full),
+        "water_profiles": _normalizar_water_profiles(r_full),
+    }
+
+
+def get_recipes(limit: int = _DEFAULT_LIMIT) -> list[dict]:
+    """
+    Retorna lista de receitas do BrewFather no formato padronizado —
+    usado pela sincronização "tudo de uma vez" (`sync_service.sync_recipes()`).
+    Composta a partir de `list_recipes_basico()` + `get_recipe_normalizado()`
+    por item (skill 27 — antes era um bloco só, sem reaproveitamento).
+    """
+    if _is_testing():
+        return []
+
+    raw_list = list_recipes_basico(limit=limit)
 
     result = []
     for r in raw_list:
         recipe_id = r.get("_id", "")
-        # Busca detalhe completo para ter mash/fermentation steps e specs
-        detail = _get_recipe_detail(recipe_id) if recipe_id else r
-        # Se detalhe veio vazio (erro), usa o resumo da lista como fallback
-        r_full = detail if detail else r
-        result.append({
-            "id": recipe_id,
-            "name": r_full.get("name") or r.get("name", ""),
-            "ingredients": _normalizar_ingredientes(r_full),
-            "mash_steps": _normalizar_mash_steps(r_full),
-            "fermentation_steps": _normalizar_fermentation_steps(r_full),
-            "water_profiles": _normalizar_water_profiles(r_full),
-        })
+        if not recipe_id:
+            continue
+        normalizado = get_recipe_normalizado(recipe_id)
+        # Fallback: se o detalhe falhou (normalizado veio vazio de
+        # ingredientes/steps), pelo menos o nome do resumo da lista
+        # não se perde.
+        if not normalizado.get("name"):
+            normalizado["name"] = r.get("name", "")
+        result.append(normalizado)
     return result

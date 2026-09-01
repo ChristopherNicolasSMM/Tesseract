@@ -1,0 +1,81 @@
+{% extends "core/base.html" %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Receitas Disponíveis no BrewFather</h1>
+  <p class="text-muted">Escolha quais receitas sincronizar — a API do BrewFather não permite filtrar por tag/pasta no servidor (skill 27), então a seleção acontece aqui.</p>
+</div>
+
+<section class="section">
+
+  <div class="d-flex align-items-center gap-3 mb-3">
+    <a href="{{ url_for('brewfather_syncs.manage') }}" class="btn btn-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Voltar
+    </a>
+    <span class="text-muted small">{{ receitas|length }} receita(s) encontrada(s)</span>
+  </div>
+
+  {% if erro %}
+    <div class="alert alert-danger">{{ erro }}</div>
+  {% elif not receitas %}
+    <div class="card">
+      <div class="card-body text-center py-5">
+        <p class="mb-0">Nenhuma receita encontrada no BrewFather.</p>
+      </div>
+    </div>
+  {% else %}
+    <form method="post" action="{{ url_for('brewfather_syncs.sincronizar_selecionadas') }}">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <div class="form-check">
+          <input type="checkbox" class="form-check-input" id="checkboxSelecionarTodasDisponiveis">
+          <label class="form-check-label" for="checkboxSelecionarTodasDisponiveis">Selecionar todas</label>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i class="bi bi-cloud-download"></i> Sincronizar selecionadas
+        </button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-striped align-middle">
+          <thead>
+            <tr>
+              <th style="width:36px"></th>
+              <th>Nome</th>
+              <th>Estilo</th>
+              <th>Tipo</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for receita in receitas %}
+            <tr>
+              <td><input type="checkbox" class="form-check-input checkbox-selecionar-disponivel" name="origem_ids" value="{{ receita.id }}"></td>
+              <td>{{ receita.name }}</td>
+              <td>{{ receita.style or "—" }}</td>
+              <td>{{ receita.type or "—" }}</td>
+              <td>
+                {% if receita.status == "ja_importada" %}
+                  <span class="badge bg-success">Já importada</span>
+                {% elif receita.status == "apagada_pendente_reimportar" %}
+                  <span class="badge bg-warning text-dark">Apagada — pendente de reimportar</span>
+                {% else %}
+                  <span class="badge bg-secondary">Nova</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </form>
+  {% endif %}
+
+</section>
+
+<script>
+  document.getElementById('checkboxSelecionarTodasDisponiveis')?.addEventListener('change', function () {
+    document.querySelectorAll('.checkbox-selecionar-disponivel').forEach(function (cb) {
+      cb.checked = this.checked;
+    }, this);
+  });
+</script>
+{% endblock %}

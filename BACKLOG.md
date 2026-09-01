@@ -5159,3 +5159,39 @@ falhas pré-existentes de sempre (mesmo bug de
 entrega): camada de precificação de venda (%lucro/%impostos/etc. em
 cima de `custo_total_industrializacao`), confirmada como não
 implementada nem no legado real.
+
+## Execução da skill 27 — Sincronização Seletiva do BrewFather (2026-09-01)
+
+Implementada e testada (`docs/skills/27-proposta-sincronizacao-seletiva-brewfather.md`).
+
+- `brewfather_client.py`: `list_recipes_basico()` (listagem enxuta,
+  `GET /recipes` sem detalhe) + `get_recipe_normalizado()` (detalhe de
+  UMA receita) — `get_recipes()` (fluxo "tudo de uma vez") refatorado
+  pra compor os dois em vez de duplicar a lógica de normalização.
+- `sync_service.py`: `listar_receitas_disponiveis()` (cruza com
+  `MashRecipe.origem_receita_id` pra sinalizar nova/já importada/
+  apagada-pendente-de-reimportar) + `sincronizar_selecionadas(ids)`
+  (busca detalhe e importa só o que foi marcado).
+- Tela nova `brewfather_syncs/disponiveis.html` — checkbox por linha +
+  "selecionar todas" + badge de status.
+
+**Achado real, fora do escopo original da skill mas corrigido
+junto**: as rotas `/sincronizar` e `/pendentes` já existiam no código
+de sessões anteriores, mas **nenhum template linkava pra elas** — só
+acessíveis por URL direta. O hook `_acoes_em_massa_extra.html` de
+`brewfather_syncs` (criado vazio na skill 25) nunca tinha sido
+preenchido — populado agora com os 3 links (Selecionar Receitas pra
+Sincronizar / Sincronizar Tudo / Pendentes de Resolução), resolvendo a
+órfandade junto com a tela nova. Teste de regressão adicionado
+especificamente pra isso
+(`test_manage_brewfather_syncs_tem_links_pra_disponiveis_e_pendentes`).
+
+8 testes novos (`tests/test_feature_brew_father.py`). Suíte completa
+rodada depois: 28 passando, só as 6 falhas pré-existentes de sempre
+(mesmo bug de `_criar_material`/`TipoProduto.nome`, não relacionado).
+
+Com isso, as skills 25, 26 e 27 planejadas na sessão de 2026-08-31
+estão todas **[EXECUTADO]**. Only pendências remanescentes: as
+registradas na seção "Pendências registradas pra rodada futura"
+acima (migração de fornecedores/transportadoras/pedido_compras/
+processo_cotacaos, limpeza de skills, melhoria de documentação).

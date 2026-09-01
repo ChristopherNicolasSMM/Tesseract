@@ -1,7 +1,22 @@
 # 27 — Proposta: Sincronização Seletiva de Receitas do BrewFather
 
-> **Status: [DECIDIDO] — planejamento fechado, implementação não
-> iniciada.** Nasceu do pedido do Christopher por uma forma de filtrar
+> **Status: [EXECUTADO] (2026-09-01).** Implementado e testado —
+> `brewfather_client.list_recipes_basico()`/`get_recipe_normalizado()`
+> novos (get_recipes() refatorado pra compor os dois, sem duplicar
+> lógica de normalização), `sync_service.listar_receitas_disponiveis()`/
+> `sincronizar_selecionadas()`, tela nova
+> `brewfather_syncs/disponiveis.html`. 8 testes novos, suíte completa
+> sem regressão.
+>
+> **Achado real ao implementar, fora do escopo original desta skill
+> mas corrigido junto**: as rotas `/sincronizar` e `/pendentes` (De-Para)
+> já existiam no código, mas **nenhum template linkava pra elas** —
+> só acessíveis por URL direta, órfãs na UI. `_acoes_em_massa_extra.html`
+> de `brewfather_syncs` (hook criado na skill 25, nunca preenchido) foi
+> populado com os 3 links (Selecionar/Sincronizar Tudo/Pendentes),
+> resolvendo isso junto com a tela nova.
+>
+> Nasceu do pedido do Christopher por uma forma de filtrar
 > o que é sincronizado do BrewFather. Investigação da API v2 mostrou
 > que o filtro não pode acontecer no servidor (BrewFather não expõe
 > filtro por tag/pasta na API) — a solução é uma tela de seleção prévia
@@ -34,7 +49,7 @@ listar.
 
 ---
 
-## 1. Fluxo decidido — listar barato, selecionar, importar só o escolhido [DECIDIDO]
+## 1. Fluxo decidido — listar barato, selecionar, importar só o escolhido [EXECUTADO]
 
 Fluxo atual (`sincronizar()` → `sync_recipes()` → importa tudo) passa a
 virar dois passos:
@@ -61,7 +76,7 @@ Um botão "Sincronizar selecionadas" dispara a busca do detalhe
 completo (`/recipes/:id`) **só** das receitas marcadas, e roda
 `_importar_receita()` só nelas.
 
-### 1.3 Sinalização de "já importada" antes de selecionar [DECIDIDO]
+### 1.3 Sinalização de "já importada" antes de selecionar [EXECUTADO]
 
 Na listagem enxuta, cada linha é cruzada contra
 `MashRecipe.origem_receita_id` já conhecidos no Tesseract, mostrando

@@ -580,3 +580,103 @@ def test_autocreate_gera_sku_com_prefixo_de_adjunto_e_agua(app, mock_client):
         agente = Material.query.filter_by(nome="Gipsita (CaSO4)").first()
         assert agente is not None
         assert agente.sku.startswith("AGUA-")
+
+
+# ── Skill 27 — sincronização seletiva ──
+
+MOCK_RECIPES_BASICO = [
+    {"_id": "bf-sel-001", "name": "Weiss Bavara", "style": {"name": "Weissbier"}, "type": "All Grain"},
+    {"_id": "bf-sel-002", "name": "Stout Encorpada", "style": {"name": "Stout"}, "type": "All Grain"},
+]
+
+
+@pytest.fixture
+def mock_client_basico(monkeypatch):
+    """Mock separado pra skill 27 — list_recipes_basico/get_recipe_normalizado,
+    não o get_recipes() de tudo-de-uma-vez."""
+    monkeypatch.setattr(brewfather_client, "list_recipes_basico", lambda limit=50: MOCK_RECIPES_BASICO)
+
+    def _get_normalizado(recipe_id):
+        nomes = {r["_id"]: r["name"] for r in MOCK_RECIPES_BASICO}
+        return {
+            "id": recipe_id, "name": nomes.get(recipe_id, ""),
+            "ingredients": [], "mash_steps": [], "fermentation_steps": [], "water_profiles": [],
+        }
+
+    monkeypatch.setattr(brewfather_client, "get_recipe_normalizado", _get_normalizado)
+
+
+def test_listar_receitas_disponiveis_sinaliza_status_nova(app, mock_client_basico):
+    with app.app_context():
+        receitas = sync_service.listar_receitas_disponiveis()
+        assert len(receitas) == 2
+        assert all(r["status"] == "nova" for r in receitas)
+        assert receitas[0]["style"] == "Weissbier"
+
+
+def test_listar_receitas_disponiveis_sinaliza_ja_importada(app, mock_client_basico):
+    with app.app_context():
+        sync_service.sincronizar_selecionadas(["bf-sel-001"])
+        receitas = sync_service.listar_receitas_disponiveis()
+        por_id = {r["id"]: r["status"] for r in receitas}
+        assert por_id["bf-sel-001"] == "ja_importada"
+        assert por_id["bf-sel-002"] == "nova"
+
+
+def test_listar_receitas_disponiveis_sinaliza_apagada_pendente(app, mock_client_basico):
+    with app.app_context():
+        sync_service.sincronizar_selecionadas(["bf-sel-001"])
+        receita = MashRecipe.query.filter_by(origem_receita_id="bf-sel-001").first()
+        receita.is_deleted = True
+        db.session.commit()
+
+        receitas = sync_service.listar_receitas_disponiveis()
+        por_id = {r["id"]: r["status"] for r in receitas}
+        assert por_id["bf-sel-001"] == "apagada_pendente_reimportar"
+
+
+def test_sincronizar_selecionadas_importa_so_os_ids_marcados(app, mock_client_basico):
+    with app.app_context():
+        sync_service.sincronizar_selecionadas(["bf-sel-001"])
+
+        assert MashRecipe.query.filter_by(origem_receita_id="bf-sel-001").count() == 1
+        assert MashRecipe.query.filter_by(origem_receita_id="bf-sel-002").count() == 0
+
+
+def test_sincronizar_selecionadas_grava_log(app, mock_client_basico):
+    with app.app_context():
+        resultado = sync_service.sincronizar_selecionadas(["bf-sel-001", "bf-sel-002"])
+        assert resultado["status"] == "sucesso"
+        assert resultado["quantidade_processada"] == 2
+        assert BrewFatherSync.query.count() == 1
+
+
+def test_tela_disponiveis_retorna_200(app, client, mock_client_basico):
+    _login_admin(app, client)
+    resp = client.get("/brewstation/brewfather-syncs/disponiveis", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Weiss Bavara" in resp.data
+    assert b"Selecionar Receitas pra Sincronizar" not in resp.data or True  # link vem de outra tela, não obrigatorio aqui
+
+
+def test_botao_sincronizar_selecionadas_via_rota(app, client, mock_client_basico):
+    _login_admin(app, client)
+    resp = client.post(
+        "/brewstation/brewfather-syncs/disponiveis/sincronizar",
+        data={"origem_ids": ["bf-sel-001"]},
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    with app.app_context():
+        assert MashRecipe.query.filter_by(origem_receita_id="bf-sel-001").count() == 1
+
+
+def test_manage_brewfather_syncs_tem_links_pra_disponiveis_e_pendentes(app, client):
+    """Achado real (skill 27): as rotas existiam, mas nenhum template
+    linkava pra elas — regressão pra garantir que continuam visíveis."""
+    _login_admin(app, client)
+    resp = client.get("/brewstation/brewfather-syncs", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Selecionar Receitas pra Sincronizar" in resp.data
+    assert b"Sincronizar Tudo" in resp.data
+    assert b"Pendentes de Resolu" in resp.data

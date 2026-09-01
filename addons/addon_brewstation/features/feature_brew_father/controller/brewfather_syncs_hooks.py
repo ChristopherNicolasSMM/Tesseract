@@ -43,6 +43,51 @@ def sincronizar():
     return redirect(url_for("brewfather_syncs.manage"))
 
 
+@brewfather_syncs_bp.route("/disponiveis", methods=["GET"])
+@login_required
+@permission_required("brewfather_syncs.list")
+def disponiveis():
+    """
+    Skill 27 — tela de seleção prévia: lista enxuta do BrewFather
+    (sem gastar chamada de detalhe por receita) com status de cada
+    uma (nova/já importada/apagada-pendente), pra escolher o que
+    sincronizar em vez de tudo de uma vez.
+    """
+    try:
+        receitas = sync_service.listar_receitas_disponiveis()
+        erro = None
+    except (brewfather_client.BrewFatherDisabledError, brewfather_client.BrewFatherAPIError) as exc:
+        receitas = []
+        erro = str(exc)
+
+    return render_template("brewfather_syncs/disponiveis.html", receitas=receitas, erro=erro)
+
+
+@brewfather_syncs_bp.route("/disponiveis/sincronizar", methods=["POST"])
+@login_required
+@permission_required("brewfather_syncs.create")
+def sincronizar_selecionadas():
+    """Recebe os ids marcados na tela de seleção e importa só esses."""
+    origem_ids = request.form.getlist("origem_ids")
+    if not origem_ids:
+        flash("Selecione ao menos uma receita.", "error")
+        return redirect(url_for("brewfather_syncs.disponiveis"))
+
+    resultado = sync_service.sincronizar_selecionadas(origem_ids)
+    status = resultado.get("status", "?")
+    processadas = resultado.get("quantidade_processada", 0)
+    erros = resultado.get("quantidade_erro", 0)
+
+    if status == "sucesso":
+        flash(f"{processadas} receita(s) sincronizada(s) com sucesso.", "success")
+    elif status == "parcial":
+        flash(f"{processadas} receita(s) sincronizada(s), {erros} com erro.", "warning")
+    else:
+        flash(f"Erro ao sincronizar: {resultado.get('mensagem_erro') or 'veja o log.'}", "error")
+
+    return redirect(url_for("brewfather_syncs.manage"))
+
+
 @brewfather_syncs_bp.route("/pendentes", methods=["GET"])
 @login_required
 @permission_required("brewfather_syncs.list")

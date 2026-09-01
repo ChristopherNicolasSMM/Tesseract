@@ -1,3 +1,4 @@
 {
-  "brewstation_bf.depara.confirm_create_materials": "Criar um Material no estoque para cada ingrediente pendente? Os dados de spec (EBC, alpha, etc.) do BrewFather serão usados."
+  "brewstation_bf.depara.confirm_create_materials": "Criar um Material no estoque para cada ingrediente pendente? Os dados de spec (EBC, alpha, etc.) do BrewFather serão usados.",
+  "brewstation_bf.syncs.confirm_sincronizar_tudo": "Sincronizar TODAS as receitas do BrewFather de uma vez? Prefira \"Selecionar Receitas pra Sincronizar\" se quiser escolher — isso importa tudo."
 }

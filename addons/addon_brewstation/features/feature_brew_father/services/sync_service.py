@@ -79,6 +79,86 @@ def sync_recipes() -> dict:
     return log.to_dict()
 
 
+def listar_receitas_disponiveis() -> list[dict]:
+    """
+    Skill 27 — listagem enxuta pra tela de seleção prévia (não importa
+    nada, só lista + sinaliza status). Cruza cada receita do BrewFather
+    com `MashRecipe.origem_receita_id` já conhecidos no Tesseract:
+
+    - "nova": nunca vista aqui.
+    - "ja_importada": existe uma MashRecipe ativa (não apagada) com
+      esse `origem_receita_id`.
+    - "apagada_pendente_reimportar": só existe versão(ões) apagada(s)
+      — a correção da skill 25 (seção 3.1) já garante que uma nova
+      sincronização recria, aqui é só o rótulo de UI avisando disso.
+    """
+    receitas = brewfather_client.list_recipes_basico()
+
+    resultado = []
+    for r in receitas:
+        origem_id = r.get("_id", "")
+        ativa = MashRecipe.query.filter_by(
+            origem_receita="BrewFather", origem_receita_id=origem_id, is_deleted=False,
+        ).first()
+        apagada = None
+        if not ativa:
+            apagada = MashRecipe.query.filter_by(
+                origem_receita="BrewFather", origem_receita_id=origem_id, is_deleted=True,
+            ).first()
+
+        if ativa:
+            status = "ja_importada"
+        elif apagada:
+            status = "apagada_pendente_reimportar"
+        else:
+            status = "nova"
+
+        resultado.append({
+            "id": origem_id,
+            "name": r.get("name", ""),
+            "style": (r.get("style") or {}).get("name") if isinstance(r.get("style"), dict) else r.get("style"),
+            "type": r.get("type"),
+            "status": status,
+        })
+    return resultado
+
+
+def sincronizar_selecionadas(origem_ids: list[str]) -> dict:
+    """
+    Skill 27 — importa só as receitas cujo `id` (do BrewFather) foi
+    marcado na tela de seleção. Busca o detalhe completo só delas
+    (`get_recipe_normalizado`, uma chamada por id) — nunca a lista
+    inteira. Mesmo formato de log (`BrewFatherSync`) de `sync_recipes()`,
+    pra aparecer no mesmo histórico.
+    """
+    log = BrewFatherSync(tipo_sync="recipes", status="em_andamento")
+    db.session.add(log)
+    db.session.commit()
+
+    processadas = 0
+    erros = 0
+    raw_capturado = []
+
+    for origem_id in origem_ids:
+        try:
+            receita_externa = brewfather_client.get_recipe_normalizado(origem_id)
+            raw_capturado.append(receita_externa)
+            _importar_receita(receita_externa)
+            processadas += 1
+        except Exception as exc:  # noqa: BLE001
+            erros += 1
+            log.mensagem_erro = f"{origem_id}: {exc}"
+
+    log.quantidade_processada = processadas
+    log.quantidade_erro = erros
+    log.raw_data = _serializar(raw_capturado)
+    log.status = "sucesso" if erros == 0 else ("parcial" if processadas > 0 else "erro")
+    log.finalizado_em = datetime.now(timezone.utc)
+    db.session.commit()
+
+    return log.to_dict()
+
+
 def _importar_receita(receita_externa: dict) -> MashRecipe:
     origem_id = receita_externa["id"]
 
