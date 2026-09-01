@@ -1,6 +1,9 @@
 # 07 — Personalização de Menu (Ordem e Colapso)
 
-> **Status: SKILL FORMALIZADA (fase de decisão, 2026-07-01).** Nasceu
+> **Status: [EXECUTADO] — achado ao auditar as skills (2026-09-01):
+> confirmado no código real (`model/core/user_menu_preference.py`,
+> `order_overrides_json`/`collapsed_nodes_json`); o cabeçalho ficou
+> parado em "fase de decisão" mesmo depois de implementado. Nasceu
 > de um bug reportado ("o menu deve carregar com os itens colapsados,
 > encolhidos, e ter forma de ordenar o menu"), que expôs uma lacuna
 > real: nenhuma das skills 00–04 define onde vive o estado de

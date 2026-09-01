@@ -254,7 +254,13 @@ estão. Ver `BACKLOG.md` pra retomar quando quiser.
 
 ---
 
-## 3. Os 8 artefatos gerados + hooks + `--overwrite` + `--only`
+## 3. Os 10 artefatos gerados + hooks + `--overwrite` + `--only`
+
+> **Atualizado (skill 25, 2026-09-01)**: a lista abaixo ganhou 2 hooks
+> de TEMPLATE (`_acoes_em_massa_extra.html`/`_detail_extra.html`) —
+> antes desta sessão eram 8 artefatos (3 hooks Python + 5 não-hook),
+> agora são 10 (5 hooks + 5 não-hook). Ver skill 25, seção 1.4, pro
+> raciocínio completo de por que esse tipo de hook passou a existir.
 
 ```python
 _FILES_TO_GENERATE = [
@@ -266,19 +272,28 @@ _FILES_TO_GENERATE = [
     ("routes_hooks.py.j2",    "api/routes/{plural}_routes_hooks.py",          True),
     ("manage.html.j2",        "templates/{plural}/manage.html",               False),
     ("detail.html.j2",        "templates/{plural}/detail.html",               False),
+    ("acoes_em_massa_extra_hook.html.j2", "templates/{plural}/_acoes_em_massa_extra.html", True),
+    ("detail_extra_hook.html.j2",         "templates/{plural}/_detail_extra.html",         True),
 ]
 ```
 
 **Hooks nunca são sobrescritos — comprovado empiricamente** (marcador
 manual inserido num hook existente sobreviveu a `generate --overwrite`
-real; log confirma `"N hook(s) preservado(s)"`). A checagem de hook
-roda **antes** de qualquer checagem de `overwrite` no código.
+real; log confirma `"N hook(s) preservado(s)"` — agora até 5, não mais
+até 3). A checagem de hook roda **antes** de qualquer checagem de
+`overwrite` no código. Os 2 hooks de template seguem exatamente a
+mesma regra dos 3 hooks Python — só a extensão (`.html` em vez de
+`.py`) e o propósito mudam (absorver seção/botão HTML hand-made em vez
+de código Python hand-made).
 
 **`--overwrite`**: reescreve os 5 artefatos não-hook. Tudo-ou-nada,
 a menos que `--only` seja usado.
 
 **`--only templates`** (EXECUTADO nesta sessão): restringe a
-regeneração só a `manage.html`/`detail.html`. **Exige `--overwrite`
+regeneração aos 4 artefatos de template — `manage.html`/`detail.html`
+(sempre reescritos) + os 2 hooks de template (só escritos na primeira
+vez; se já existirem, entram em "hooks preservados" como qualquer
+outro hook). **Exige `--overwrite`
 junto** — sem isso, `generate()` levanta `ValueError` explícito (não
 faz sentido pedir "só templates" sem também pedir pra sobrescrever o
 que já existe). Uso:

@@ -1,12 +1,24 @@
 # 15 — Pop-ups Padrão: Diálogo de Confirmação e Toast/Alert
 
-> **Status: DECIDIDO, execução pendente.** Nasceu de uma revisão real do
-> estado de confirmação/alerta do projeto (`window.confirm()` nativo sem
-> estilo, `flash()` duplicado por template). Escopo desta skill: só
-> **confirmação** e **toast/alert** — formulário em modal (`_modals/
-> form_modal.html`) foi removido do projeto e está fora deste documento
-> (ver skill 01, nota de arquivo `form_modal.html.j2`/`_modals/`
-> confirmadamente morto).
+> **Status: [EXECUTADO] — achado ao auditar as skills (2026-09-01):
+> os 6 arquivos previstos na seção 3 já existem no repositório real
+> (`core_confirm_dialog.js`, `core_toast.js`, `core_popups.css`,
+> `i18n_service.py`, chaves `core.confirm.*` em `core/i18n/pt_BR.json`)
+> e já são usados ativamente — confirmados durante a implementação da
+> skill 25/26 (a barra de ações em massa e o botão "Confirmar
+> Ingredientes" reaproveitam `data-confirm-key` sem precisar criar
+> nada novo). O cabeçalho ficou parado em "execução pendente" mesmo
+> depois da execução real — corrigido aqui.** Nasceu de uma revisão
+> real do estado de confirmação/alerta do projeto (`window.confirm()`
+> nativo sem estilo, `flash()` duplicado por template). Escopo desta
+> skill: só **confirmação** e **toast/alert** — formulário em modal
+> (`_modals/form_modal.html`) foi removido do projeto e está fora
+> deste documento (ver skill 01, nota de arquivo
+> `form_modal.html.j2`/`_modals/` confirmadamente morto).
+>
+> A ressalva da seção 4 (validação manual extra no Plant Workspace)
+> não foi reconfirmada nesta auditoria — se ainda for relevante, só
+> alguém com acesso à tela de verdade pode confirmar.
 
 ## 0. Por que Core, e não Addon/Plugin
 

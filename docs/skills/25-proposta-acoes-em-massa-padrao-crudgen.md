@@ -1,15 +1,17 @@
 # 25 — Proposta: Ações em Massa como Padrão do CrudGen (Apagar/Inativar) + Aplicação em Ingredientes e MashRecipe
 
-> **Status: [DECIDIDO] — planejamento fechado, implementação não
-> iniciada.** Nasceu de "ações em massa" ter sido construída sob
-> medida na lista de Materiais (`addon_estoque`, ver BACKLOG.md) e do
-> Christopher ter pedido o mesmo padrão em Malte/Lúpulo/Levedura
-> (`feature_ingredientes`) e MashRecipe (`feature_mash_control`).
-> Investigação real mostrou que a implementação de Materiais foi feita
-> à mão dentro de um arquivo **gerado** (`materials/manage.html`, não
-> um hook) — arriscando ser perdida no próximo `--overwrite`. Esta
-> skill generaliza o padrão pro próprio CrudGen em vez de repetir a
-> construção manual em cada tela nova.
+> **Status: [EXECUTADO] (2026-09-01).** Nasceu de "ações em massa"
+> ter sido construída sob medida na lista de Materiais
+> (`addon_estoque`, ver BACKLOG.md) e do Christopher ter pedido o
+> mesmo padrão em Malte/Lúpulo/Levedura (`feature_ingredientes`) e
+> MashRecipe (`feature_mash_control`). Investigação real mostrou que a
+> implementação de Materiais foi feita à mão dentro de um arquivo
+> **gerado** (`materials/manage.html`, não um hook) — arriscando ser
+> perdida no próximo `--overwrite`. Esta skill generaliza o padrão pro
+> próprio CrudGen em vez de repetir a construção manual em cada tela
+> nova. Implementado, testado (163 testes) e depois estendido também a
+> Fornecedores/Transportadoras (mesmo hook, sessão seguinte — ver
+> BACKLOG.md).
 >
 > Convenção de status igual às skills 05/19/24: **[DECIDIDO]** fechado,
 > pronto pra executar quando autorizado. **[EXECUTADO]** já no código.
@@ -37,7 +39,7 @@ ações extras específicas de cada entidade (hoje só Material tem).
 
 ---
 
-## 1. Escopo genérico — apagar/inativar em massa via CrudGen [DECIDIDO]
+## 1. Escopo genérico — apagar/inativar em massa via CrudGen [EXECUTADO]
 
 ### 1.1 O que passa a ser gerado por padrão em todo `manage.html`
 
@@ -53,7 +55,7 @@ ações extras específicas de cada entidade (hoje só Material tem).
   (annotations já existentes) — não hardcoded, pra já nascer com o
   texto certo em qualquer entidade nova.
 
-### 1.2 Bifurcação: entidade com `ativo` próprio vs. entidade sem [DECIDIDO]
+### 1.2 Bifurcação: entidade com `ativo` próprio vs. entidade sem [EXECUTADO]
 
 O CrudGen detecta se o model gerado tem uma coluna `ativo` (Boolean)
 própria:
@@ -69,7 +71,7 @@ Essa bifurcação evita duas armadilhas: (a) criar uma segunda noção de
 um botão sem função nenhuma por trás em entidades que não têm nem o
 campo nem pra onde delegar.
 
-### 1.3 Labels contextuais por entidade [DECIDIDO]
+### 1.3 Labels contextuais por entidade [EXECUTADO]
 
 Texto dos botões/confirmações é montado a partir de `@label`/`@plural`
 já existentes em cada model (`Malte`/`Maltes`, `Lúpulo`/`Lúpulos`,
@@ -78,7 +80,7 @@ itens". Mesma regra vale pro diálogo de confirmação
 (`data-confirm-key`, já usado em `trash` individual — reaproveitado
 aqui, só trocando a chave de i18n pro plural).
 
-### 1.4 Novo mecanismo — "hook de template" [DECIDIDO]
+### 1.4 Novo mecanismo — "hook de template" [EXECUTADO — e estendido]
 
 Hoje só existe hook em Python (`controller_hooks.py.j2`,
 `service_hooks.py.j2`, `routes_hooks.py.j2`, skill 01/03) — não existe
@@ -101,7 +103,7 @@ Regras (mesma lógica de qualquer arquivo `_hooks.py`, skill 00/01):
   arquivo — o genérico (checkbox, barra, Apagar/Inativar) continua
   vindo do `manage.html.j2` mesmo depois da migração.
 
-### 1.5 JS — genérico único, não repetido por entidade [DECIDIDO]
+### 1.5 JS — genérico único, não repetido por entidade [EXECUTADO]
 
 Um único arquivo `core/static/js/crudgen-bulk-actions.js` cuida de:
 seleção de linha/"selecionar todos", contagem, mostrar/esconder barra,
@@ -111,7 +113,7 @@ JS próprio). `materials-acoes-em-massa.js` é refatorado pra manter só
 os 4 fluxos específicos, delegando seleção/contagem pro script
 genérico (evita duas fontes de verdade sobre "quem está selecionado").
 
-### 1.6 Risco assumido — não quebrar a grid de Materiais [DECIDIDO]
+### 1.6 Risco assumido — não quebrar a grid de Materiais [EXECUTADO — grid preservada, testes confirmam]
 
 Antes de rodar `--overwrite` em `materials/manage.html` de verdade:
 gerar num clone limpo, comparar que os 4 modais/botões extras (agora
@@ -122,7 +124,7 @@ do já praticado.
 
 ---
 
-## 2. Aplicação em Malte/Lúpulo/Levedura (`feature_ingredientes`) [DECIDIDO]
+## 2. Aplicação em Malte/Lúpulo/Levedura (`feature_ingredientes`) [EXECUTADO]
 
 Nenhuma migration nova — os 3 já têm `is_deleted`/`deleted_at`
 (apagar em massa é direto) e nenhum tem `ativo` próprio (inativar em
@@ -153,7 +155,7 @@ como item independente, a ser autorizado separadamente.
 
 ---
 
-## 3. Aplicação em MashRecipe (`feature_mash_control`) [DECIDIDO]
+## 3. Aplicação em MashRecipe (`feature_mash_control`) [EXECUTADO]
 
 `MashRecipe` já tem `is_active` (Boolean) — apagar/inativar em massa
 são locais, sem delegação nem migration nova.
@@ -163,7 +165,7 @@ são locais, sem delegação nem migration nova.
 | Apagar em massa | `is_deleted=True` nos IDs selecionados |
 | Inativar em massa | `is_active=False` nos IDs selecionados |
 
-### 3.1 Correção necessária pra "apagar pra re-sincronizar" funcionar [DECIDIDO]
+### 3.1 Correção necessária pra "apagar pra re-sincronizar" funcionar [EXECUTADO]
 
 Achado real: `sync_service._importar_receita()` faz
 `MashRecipe.query.filter_by(origem_receita="BrewFather", origem_receita_id=origem_id).first()`
@@ -193,3 +195,26 @@ pedido ("apagar para re-sincronizar").
   comportamento.
 - Nenhuma alteração em `Composicao`, `Envase`, custo de industrialização
   ou sincronização do BrewFather — ver skills 26 e 27.
+
+---
+
+## 5. Implementação real (atualizado 2026-09-01)
+
+Executada em duas rodadas (BACKLOG.md tem o detalhe completo de
+arquivos/testes):
+
+1. Núcleo genérico no CrudGen (`annotations`, `core/crudgen/generator.py`
+   + templates) + aplicação em Malte/Lúpulo/Levedura/MashRecipe/
+   Material + hook de `detail.html.j2` (extensão do mecanismo da seção
+   1.4, não previsto na proposta original — Materiais e MashRecipe
+   também tinham conteúdo hand-made em `detail.html`, não só
+   `manage.html`).
+2. Regeneração em massa de 40 entidades sem HTML customizado (lista
+   completa no BACKLOG.md) + extensão posterior a `Fornecedor`/
+   `Transportadora` (mesmo hook de `detail.html`, grid de Endereços).
+
+`pedido_compras`/`processo_cotacaos` foram investigados e **não
+migrados** — estrutura de abas incompatível com o hook de "anexar
+depois do `</section>`" (precisaria de um mecanismo de "substituição
+completa", não implementado; decisão de arquitetura nova, registrada
+como pendência separada no BACKLOG.md, não bloqueia esta skill).

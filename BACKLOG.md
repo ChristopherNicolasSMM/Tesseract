@@ -5223,3 +5223,53 @@ Suíte completa de `test_addon_estoque.py`: 138/138 passando.
 **Pendência 1 da lista registrada em 2026-09-01 fechada.** Restam: 2
 (`pedido_compras`/`processo_cotacaos`, investigação própria), 3 e 4
 (limpeza de skills/documentação, último item da fila).
+
+## Auditoria e limpeza de docs/skills/ — primeira rodada (2026-09-01)
+
+Início do item 3 da lista de pendências ("limpeza geral de skills
+repetidas/redundantes"). Auditoria real (não superficial) de todos os
+28 documentos — resultado principal: **não havia skills genuinamente
+duplicadas** (21 vs. 22 e 12 vs. 13, os dois pares mais suspeitos por
+tratarem do mesmo assunto, já são companheiros bem cross-referenciados,
+sem conteúdo repetido — não mexidos). O problema real encontrado foi
+**staleness**: cabeçalhos de status parados numa fase antiga mesmo
+depois da execução real ter acontecido. Corrigido:
+
+- **Skill 25**: cabeçalho inteiro dizia "[DECIDIDO] — implementação
+  não iniciada" mesmo já totalmente executada (e estendida depois a
+  Fornecedor/Transportadora). Todos os 10 marcadores de seção
+  corrigidos pra [EXECUTADO] + seção 5 nova resumindo a implementação
+  real.
+- **Skill 12** (CrudGen referência), seção 3: dizia "8 artefatos
+  gerados" — são 10 desde a skill 25 (os 2 hooks de template novos).
+  Corrigido código de exemplo, contagem, e a explicação de
+  `--only templates`.
+- **Skill 15** (pop-ups/diálogos): dizia "DECIDIDO, execução
+  pendente" — confirmado no disco que os 6 arquivos previstos já
+  existem e já são usados ativamente (inclusive pelas skills 25/26
+  desta mesma sessão, sem precisar criar nada novo pra confirmação).
+- **Skill 07** (menu personalização) e **skill 09** (auto-descoberta):
+  ambas diziam "SKILL FORMALIZADA (fase de decisão)" — confirmado no
+  código real (`model/core/user_menu_preference.py`,
+  `core/module_discovery.py`) que estão executadas. Essa contradição
+  já existia dentro do próprio `docs/skills/README.md`, que dizia "as
+  skills 06, 07, 08 e 09 já foram executadas" logo abaixo de um bloco
+  que contradizia isso — sinal de que o README nunca tinha sido
+  revisado depois dos cabeçalhos individuais serem escritos.
+- **`docs/skills/README.md`**: seção "## Status" reescrita por
+  completo — a versão anterior tinha um bloco "Propostas planejadas,
+  ainda não implementadas" citando as skills 25/26/27 como não
+  implementadas (completamente stale, as três já estavam executadas
+  há sessões) misturado com parágrafos avulsos contraditórios sobre
+  outras skills. Substituído por uma tabela única (skill → executada?
+  → observação), sem duplicar o que já está no corpo de cada
+  documento. "Ordem de leitura recomendada" (lista numerada) também
+  estava incompleta — parava na skill 21 (item 22); completada até a
+  skill 27 (item 28).
+
+**Não foi uma auditoria linha-a-linha de todo o conteúdo de cada
+skill** — focou em cabeçalhos de status, o README (índice central) e
+contradições óbvias entre documentos. Fica registrado como primeira
+rodada; uma auditoria de conteúdo mais profunda (duplicação de regras
+específicas dentro do corpo de cada skill, não só o cabeçalho) segue
+como possível próxima rodada, se valer a pena.

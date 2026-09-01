@@ -1,6 +1,9 @@
 # 09 — Auto-Descoberta de Módulos (rotas, models, menu)
 
-> **Status: SKILL FORMALIZADA (fase de decisão, 2026-07-01).** Nasceu
+> **Status: [EXECUTADO] — achado ao auditar as skills (2026-09-01):
+> confirmado no código real (`core/module_discovery.py`, usa
+> `pkgutil.walk_packages` como descrito abaixo); o cabeçalho ficou
+> parado em "fase de decisão" mesmo depois de implementado.** Nasceu
 > de uma investigação direta no código real do PyTeca
 > (`ChristopherNicolasSMM/PyTeca`, pastas `main.py` e
 > `utils/generate_model/menu_builder.py`) — o PyTeca já resolvia

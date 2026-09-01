@@ -121,78 +121,107 @@ Ordem de leitura recomendada:
     `viable_cells_per_ml`). **Executada** (BACKLOG Fase 26) —
     3 migrations com migração real de dado existente (starter_log →
     bank_event antes de dropar a tabela).
+24. **23-proposta-expansao-addon-estoque.md** — taxonomia (Origem/
+    TipoProduto/Categoria), fracionamento (`MaterialUnidade`/
+    `fator_para_base`), cadastro de Fornecedor/Transportadora/Endereço
+    (referência fraca, sem dono fixo) e Pedido de Compra com Entrada
+    de Mercadoria. 4 fases entregues.
+25. **24-proposta-sistema-cotacao-rfq.md** — sistema de cotação
+    (RFQ) inspirado em SAP MM: `ItemProcessoCotacao` (item pedido uma
+    vez por processo) + `Cotacao`/`ItemCotacao` (resposta por
+    fornecedor), seleção de vencedor, geração de Pedido de Compra a
+    partir da cotação. 3 fases (6.1/6.2/6.3) entregues.
+26. **25-proposta-acoes-em-massa-padrao-crudgen.md** — apagar/
+    inativar em massa vira padrão gerado pelo CrudGen; novo mecanismo
+    de "hook de template" (`_acoes_em_massa_extra.html`/
+    `_detail_extra.html`); aplicação em Malte/Lúpulo/Levedura/
+    MashRecipe/Material, estendida depois a Fornecedor/Transportadora.
+27. **26-proposta-envase-consumo-insumo-custo-industrializacao.md** —
+    `Envase` passa a referenciar o Material resultante (produto
+    acabado) em vez de `ItemEnvase` digitado à mão (resolvido via
+    Composição); consumo de insumo da receita na brassagem (botão
+    "Confirmar Ingredientes", idempotente); custo real de
+    industrialização.
+28. **27-proposta-sincronizacao-seletiva-brewfather.md** — tela de
+    seleção prévia (checkbox) antes de importar receitas do
+    BrewFather, já que a API não suporta filtro por tag/pasta no
+    servidor; sinalização de status (nova/já importada/apagada
+    pendente de reimportar).
 
 ## Status
 
-As skills de fundação (nomenclatura, estrutura, parâmetros, documentação)
-estão completas e em uso ativo — toda a construção real do Tesseract até
-aqui (Core, RBAC, versionamento, CrudGen, `addon_brewstation` com 3
-Features/24 entidades, páginas HTML, Roles/Permissions, catálogo de
-Transações, Migrations, `addon_device_manager`) seguiu essas regras.
+As skills de fundação (00–04: nomenclatura, estrutura, parâmetros,
+documentação) estão completas e em uso ativo — toda a construção real
+do Tesseract seguiu essas regras.
 
-### Propostas planejadas, ainda não implementadas (2026-08-31)
+### Skills 05–27 — todas executadas
 
-Três skills novas fecham o planejamento de uma sessão de revisão de
-`addon_brewstation`/`addon_estoque` — todas em **[DECIDIDO]**, aguardando
-autorização explícita pra execução (nenhum código escrito ainda):
+Todas as skills numeradas de 05 a 27 estão **[EXECUTADO]** no código
+real, confirmado sessão a sessão. Consolidado aqui (2026-09-01) porque
+vários cabeçalhos individuais tinham ficado presos num status antigo
+mesmo depois de implementados — achado durante uma auditoria geral do
+conjunto (ver BACKLOG.md); os próprios arquivos já foram corrigidos,
+isso aqui é só o resumo:
 
-- **25-proposta-acoes-em-massa-padrao-crudgen.md** — apagar/inativar em
-  massa vira padrão gerado pelo CrudGen (não mais construído à mão por
-  tela); novo mecanismo de "hook de template"; aplicação em
-  Malte/Lúpulo/Levedura (`feature_ingredientes`) e MashRecipe
-  (`feature_mash_control`).
-- **26-proposta-envase-consumo-insumo-custo-industrializacao.md** —
-  `Envase` passa a referenciar o Material resultante (produto acabado);
-  `ItemEnvase` descontinuado (substituído pela Composição do resultante);
-  novo fluxo de baixa de insumo na brassagem; cálculo de custo real de
-  industrialização.
-- **27-proposta-sincronizacao-seletiva-brewfather.md** — tela de seleção
-  prévia (checkbox, mesmo padrão da skill 25) antes de importar receitas
-  do BrewFather, já que a API não suporta filtro por tag/pasta no
-  servidor.
+| Skill | Executada | Observação |
+|---|---|---|
+| 05 — Device Manager / MQTT vs. EventBus | Sim | Fases F/G (validação com hardware real, docs finais) ficam fora do repositório principal |
+| 06 — Model Builder / Playground | Sim | — |
+| 07 — Personalização de Menu | Sim | Cabeçalho corrigido nesta auditoria (dizia "fase de decisão") |
+| 08 — Logging/Observabilidade | Sim | Com revisões registradas no próprio arquivo |
+| 09 — Auto-Descoberta de Módulos | Sim | Cabeçalho corrigido nesta auditoria (dizia "fase de decisão") |
+| 10 — Menu Hierárquico | Sim | — |
+| 11 — Referência Fraca / `@display_field` | Sim | — |
+| 12 — CrudGen Referência Completa | Referência viva | Seção 3 corrigida nesta auditoria (dizia "8 artefatos", são 10 desde a skill 25) |
+| 13 — CrudGen Guia Operacional | Referência viva | Companheira da 12, sem sobreposição de conteúdo (12 = o que existe, 13 = como trabalhar) |
+| 14 — EventBus Convenção | Referência viva | — |
+| 15 — Pop-ups e Diálogos | Sim | Cabeçalho corrigido nesta auditoria (dizia "execução pendente") |
+| 16 — Designer: Ações/Dados | Sim | Construtor visual removido na Fase 12 — ver nota no próprio arquivo |
+| 17 — Páginas Customizadas | Sim | — |
+| 18 — Freestyle | Sim | — |
+| 19 — Yeast Bank Container | Sim | Tela integrada (item que faltava) fechada pelas skills 21/22 |
+| 20 — CrudGen tipo SQLAlchemy | Sim | — |
+| 21 — Tela Integrada Yeast Bank | Sim | Seção 1 parcialmente superada pela skill 22 (mesmo dia) — ver nota no próprio arquivo |
+| 22 — Fusão Starter/BankEvent/Neubauer | Sim | Continuação direta da 21 |
+| 23 — Expansão Addon Estoque | Sim | 4 fases entregues |
+| 24 — Sistema de Cotação (RFQ) | Sim | 3 fases entregues |
+| 25 — Ações em Massa (CrudGen) | Sim | Cabeçalho corrigido nesta auditoria (dizia "planejamento fechado, implementação não iniciada") — estendida depois a Fornecedor/Transportadora |
+| 26 — Envase / Custo de Industrialização | Sim | — |
+| 27 — Sync Seletiva BrewFather | Sim | — |
 
+**"Referência viva"** (12, 13, 14) significa que não há uma "execução"
+pontual pra marcar — são documentos descritivos do que já existe,
+atualizados conforme o próprio mecanismo evolui (ex.: skill 12 seção 3
+mudou de 8 pra 10 artefatos quando a skill 25 acrescentou os hooks de
+template).
 
-As skills 06, 07, 08 e 09 já foram **executadas** — ver o próprio
-arquivo de cada uma para o detalhe do que foi implementado e eventuais
-revisões em relação à proposta original (skill 08, seção 10; skill 06,
-Patches A/B/C). A skill 10 (menu hierárquico, `parent_id`/`order_index`
-em Transaction) também já foi **executada**. A skill 16 (Designer:
-Ações/Dados/Substituição, Fase 10) também já foi **executada** — ao
-contrário das demais, nasceu depois da implementação (documento
-descritivo, não proposta prévia).
+### Peças ainda sem skill própria
 
-Ainda não cobertos por uma skill própria (peças que ainda não foram
-construídas, ou que têm pouca regra formal além do próprio código):
+Não construídas, ou com pouca regra formal além do próprio código:
 
 - **Motor de regras — grupos Visibilidade/Cálculo** (catalogados em
   `core/rules_catalog.py`, sem função JS ainda — `progress_bar` do
-  Designer depende disso pra ficar dinâmico)
-- Tier 3 de componente do Designer (`tabs`/`accordion`/`chart`/
+  Designer depende disso pra ficar dinâmico).
+- **Tier 3 de componente do Designer** (`tabs`/`accordion`/`chart`/
   `rich_text`/`carousel`) e `screen_generator.py` (gerar página do
-  Designer inteira a partir de metadata OData) — ver skill 16, seção 7
+  Designer inteira a partir de metadata OData) — ver skill 16, seção 7.
+- **`detail.html` com abas complexas** (`pedido_compras`/
+  `processo_cotacaos`) — investigado na sessão de 2026-09-01 (skill 25,
+  extensão): não cabe no hook de `_detail_extra.html` existente (esse
+  só sabe *anexar depois*; aqui o form genérico foi *reorganizado em
+  abas*, precisaria de um hook de "substituição completa", não
+  implementado). Registrado como pendência no BACKLOG.md, não em skill
+  própria ainda.
+- **Modelos estáticos legados** (`static/modelo_paginas_nice_admin/
+  _modelo-pagina-{basico,completo}.html`) — decisão de consolidação
+  com `/freestyle/` (skill 17/18) ainda em aberto (BACKLOG, Fase 13).
 
-A skill 11 (referência fraca / `@display_field` / `@weak_ref`) está em
-**[DECIDIDO], pendente de implementação** — investigação direta no
-`ChristopherNicolasSMM/PyTeca` real confirmou que `@display_field` já
-tinha sido portado (Fase 4) mas nunca usado nem consumido; `@weak_ref`
-é anotação nova, sem equivalente no PyTeca (que não tem o conceito de
-referência fraca — lá toda relação é FK real).
+Cada novo documento deve seguir o mesmo padrão: sem código de
+implementação, só regra, schema e exemplo — pronto para ser citado por
+uma IA ou desenvolvedor durante a construção.
 
-A skill 15 (pop-ups/diálogos) está em **[DECIDIDO], pendente de
-implementação** — nasceu de revisão real do código (`confirm()` nativo
-sem estilo, `flash()` duplicado por template, sem centralização em
-`base.html`), e é o gatilho para a primeira implementação real do motor
-de i18n (skill 00, que até aqui era só regra, nunca teve `t()`/
-`i18n_service.py` de fato). Adendas nas skills 00 (motor de i18n) e 01
-(`static/` confirmado como global, sem `static/core/`).
-
-A skill 19 (reestruturação do yeast_bank com a entidade `Container`,
-entre Dispositivo e Item do banco) está **[EXECUTADA]** — model,
-CrudGen e as 6 migrations já estão no código (BACKLOG, Fase 14),
-validados ponta a ponta com dados reais. Falta só a tela integrada de
-navegação (drill-down container → itens → detalhe), fase própria e
-futura.
-
-Cada novo documento deve seguir o mesmo padrão: sem código de implementação,
-só regra, schema e exemplo — pronto para ser citado por uma IA ou
-desenvolvedor durante a construção.
+Cada skill formalizada como proposta (05, 06, 19–27) segue a mesma
+convenção de status interna: **[DECIDIDO]** (fechado, pronto pra
+executar), **[EXECUTADO]** (já no código) e **[ABERTO]** (ainda sem
+decisão) — definida uma vez na skill 05 e reaproveitada nas demais sem
+precisar redefinir a cada documento novo.
