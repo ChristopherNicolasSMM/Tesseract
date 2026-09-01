@@ -92,3 +92,30 @@ def get_saldo(material_id: int | None) -> dict | None:
         return None
     saldo = Saldo.query.filter_by(material_id=material_id).first()
     return saldo.to_dict() if saldo else None
+
+
+def get_composicao(material_pai_id: int | None) -> list[dict]:
+    """
+    Componentes ativos de um Material (BOM/kit, skill 26) — usado por
+    outros Addons pra resolver "do que esse Material é feito" sem ORM
+    direto em Composicao (skill 02). Cada item:
+    `{"material_componente_id": int, "quantidade": float}`.
+
+    Não devolve o objeto ORM nem dados do Material componente em si —
+    quem quiser nome/custo do componente chama get_material()/get_saldo()
+    pra cada id, separadamente (mesma regra de fronteira de sempre:
+    payload cross-Addon é sempre primitivo).
+    """
+    if not material_pai_id:
+        return []
+    from addons.addon_estoque.root.model.composicao import Composicao
+
+    componentes = (
+        Composicao.query
+        .filter_by(material_pai_id=material_pai_id, is_deleted=False)
+        .all()
+    )
+    return [
+        {"material_componente_id": c.material_componente_id, "quantidade": c.quantidade}
+        for c in componentes
+    ]

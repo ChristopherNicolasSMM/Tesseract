@@ -39,6 +39,19 @@ class BrewSession(db.Model):
     current_step_index = db.Column(db.Integer, default=0, nullable=True)
     operator_id = db.Column(db.Integer, db.ForeignKey("tesseract_user.id"), nullable=True)
 
+    # Skill 26 — controla se a baixa de insumo da receita já foi feita
+    # pra este lote (idempotência: None = ainda não). Ação explícita
+    # "Confirmar Ingredientes" na tela do lote é o gatilho normal;
+    # registrar_envase() dispara como fallback se ainda não tiver
+    # acontecido até a hora do envase.
+    insumos_baixados_em = db.Column(db.DateTime, nullable=True)
+    # Custo total (R$) dos insumos consumidos nessa baixa — calculado
+    # e congelado no momento da confirmação (soma de quantidade ×
+    # Saldo.custo_medio de cada RecipeIngredient no instante do
+    # consumo). Não é recalculado depois — é o valor real gasto contra
+    # o estoque, não uma estimativa.
+    custo_total_insumos = db.Column(db.Float, nullable=True)
+
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
 
@@ -63,6 +76,8 @@ class BrewSession(db.Model):
             "notes": self.notes,
             "current_step_index": self.current_step_index,
             "operator_id": self.operator_id,
+            "insumos_baixados_em": self.insumos_baixados_em.isoformat() if self.insumos_baixados_em else None,
+            "custo_total_insumos": self.custo_total_insumos,
             "is_deleted": self.is_deleted,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

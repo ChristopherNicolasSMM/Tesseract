@@ -5115,3 +5115,47 @@ puxado com autorização própria, na ordem que fizer sentido na hora:
 Itens 3 e 4 ficam como **último item da fila geral** — só entram depois
 que o trabalho de implementação em andamento (skills 25 seguinte
 rodada, 26, 27) estiver fechado.
+
+## Execução da skill 26 — Envase/Consumo de Insumo/Custo de Industrialização (2026-09-01)
+
+Implementada e testada (`docs/skills/26-proposta-envase-consumo-insumo-custo-industrializacao.md`,
+seção 5 tem a lista completa de arquivos). Resumo do que muda na
+prática:
+
+- `Envase` agora aponta pro Material resultante (produto acabado) em
+  vez de depender de `ItemEnvase` digitado à mão — os componentes de
+  embalagem são resolvidos automaticamente pela Composição (BOM) do
+  Material resultante. `ItemEnvase` mantido só como histórico (tabela
+  intacta, sem INSERT novo).
+- Novo fluxo de consumo de insumo de receita
+  (`ingredient_consumption_service.py`, `feature_mash_control`):
+  cálculo/preview puro + confirmação real (idempotente via
+  `BrewSession.insumos_baixados_em`).
+- **Gatilho decidido pelo Christopher**: botão explícito "Confirmar
+  Ingredientes" na tela do lote — não dispara automático na mudança
+  de status. `registrar_envase()` continua com o fallback automático
+  (confirma na hora do envase se ainda não tiver sido feito).
+- `calcular_custo_industrializacao_envase()` — custo real (parte
+  cerveja rateada + parte componentes via Composição), sem precisar de
+  nenhum schema novo pra isso (achado da sessão de planejamento:
+  `MaterialUnidade.fator_para_base` + `Saldo.custo_medio` já resolviam
+  o cálculo).
+- Migration `730e0d92ce65` — duas colunas nullable, sem migração de
+  dado (schema aditivo puro).
+
+**Quebra de compatibilidade assumida, sem impacto real**:
+`registrar_envase()` mudou de assinatura (`itens` removido,
+`material_resultante_id` no lugar) — confirmado antes de mexer que
+nenhum controller/rota chamava essa função em produção ainda, só
+testes (reescritos junto, `tests/test_feature_envase.py` — 16 testes).
+
+Suíte ampliada (`test_feature_envase`, `test_phase6b_mash_control`,
+`test_mash_control_ingredient_resolution`, `test_addon_estoque`,
+`test_skill25_acoes_em_massa`) rodada depois: 176 passando, só as 3
+falhas pré-existentes de sempre (mesmo bug de
+`_criar_material`/`TipoProduto.nome`, não relacionado).
+
+**Fora de escopo, registrado como extensão futura** (não bloqueia esta
+entrega): camada de precificação de venda (%lucro/%impostos/etc. em
+cima de `custo_total_industrializacao`), confirmada como não
+implementada nem no legado real.

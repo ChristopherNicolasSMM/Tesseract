@@ -18,3 +18,30 @@
   se o arquivo for removido, e um arquivo vazio (como este) também não
   renderiza nada extra na tela.
 -#}
+
+{#- ═══ Confirmar Ingredientes (skill 26) ═══════════════════════════
+    Gatilho explícito escolhido pra baixa de insumo da receita — não
+    dispara automaticamente na mudança de status. Idempotente
+    (BrewSession.insumos_baixados_em); registrar_envase() também
+    dispara isso como fallback se o operador chegar direto no envase
+    sem confirmar antes. -#}
+<section class="section">
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Insumos da Receita</h5>
+      {% if item.insumos_baixados_em %}
+      <p class="text-success mb-0">
+        <i class="bi bi-check-circle"></i>
+        Confirmado em {{ item.insumos_baixados_em }} — custo total: R$ {{ "%.2f"|format(item.custo_total_insumos or 0) }}
+      </p>
+      {% else %}
+      <p class="text-muted">Ainda não confirmado — o estoque dos insumos da receita ainda não foi baixado pra este lote.</p>
+      <form method="post" action="{{ url_for('brew_sessions.confirmar_ingredientes', id=item.id) }}" data-confirm-key="brewstation_mashctrl.brew_session.confirm_confirmar_ingredientes">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-clipboard-check"></i> Confirmar Ingredientes
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</section>

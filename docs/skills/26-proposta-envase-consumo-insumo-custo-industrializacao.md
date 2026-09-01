@@ -1,8 +1,18 @@
 # 26 — Proposta: Reestruturação de Envase, Consumo de Insumo na Brassagem e Custo de Industrialização
 
-> **Status: [DECIDIDO] — planejamento fechado, implementação não
-> iniciada.** Nasceu de revisão de conceito pedida pelo Christopher:
-> `Envase`/`ItemEnvase` (`feature_envase`) hoje exigem digitar
+> **Status: [EXECUTADO] (2026-09-01).** Implementado e testado —
+> `Envase.material_resultante_id`, `BrewSession.insumos_baixados_em`/
+> `custo_total_insumos`, `ingredient_consumption_service.py` novo,
+> `envase_estoque_service.registrar_envase()` reescrito (Composição em
+> vez de `ItemEnvase` digitado à mão), `calcular_custo_industrializacao_envase()`,
+> botão "Confirmar Ingredientes" (gatilho decidido: ação explícita, não
+> automática na mudança de status — ver seção 2.3, fechada nesta
+> rodada). `ItemEnvase` mantido só como histórico (tabela não apagada,
+> só parou de receber INSERT novo). 22 testes novos/reescritos
+> (`tests/test_feature_envase.py`), suíte completa sem regressão.
+>
+> Nasceu de revisão de conceito pedida pelo Christopher: `Envase`/
+> `ItemEnvase` (`feature_envase`) hoje exigem digitar
 > manualmente quais materiais de embalagem entraram em cada envase,
 > quando essa informação já poderia vir da Composição (BOM) do
 > Material resultante. O objetivo final é calcular e armazenar o custo
@@ -62,7 +72,7 @@ que percorre `Composicao` de um Material e soma
 
 ---
 
-## 2. Consumo de insumo na brassagem — a peça que de fato não existe [DECIDIDO]
+## 2. Consumo de insumo na brassagem — a peça que de fato não existia [EXECUTADO]
 
 Achado: `feature_mash_control` **nunca chama `estoque_service`** —
 diferente de `feature_envase`, que já dá baixa de estoque (com
@@ -71,7 +81,7 @@ diferente de `feature_envase`, que já dá baixa de estoque (com
 malte/lúpulo/levedura ao brassar uma receita **não desconta estoque
 nem registra custo hoje**.
 
-### 2.1 Fluxo decidido — baixa na brassagem, com fallback lazy no envase [DECIDIDO]
+### 2.1 Fluxo decidido — baixa na brassagem, com fallback lazy no envase [EXECUTADO]
 
 Dois momentos possíveis de baixa, com precedência clara:
 
@@ -80,15 +90,14 @@ Dois momentos possíveis de baixa, com precedência clara:
    receita (`RecipeIngredient.material_id` × `quantidade`) contra o
    estoque real, capturando `custo_unitario` de saída (mesmo campo já
    existente em `Movimentacao`). Chamada como ação própria vinculada à
-   `BrewSession` — **[ABERTO]**: gatilho exato ainda não decidido (ver
-   seção 2.3).
+   `BrewSession` — gatilho: botão "Confirmar Ingredientes" (ver seção 2.3).
 2. **Fallback no envase**: ao registrar um `Envase` daquele lote, o
    sistema verifica se a baixa já ocorreu (via o flag da seção 2.2).
    Se sim, só importa/usa os custos já registrados. Se não, executa a
    baixa **naquele momento**, antes de prosseguir com o cálculo do
    Envase — nunca deixa o lote sem custo de insumo rastreado.
 
-### 2.2 Rastreio de "já foi baixado" — decisão fechada: flag em `BrewSession` [DECIDIDO]
+### 2.2 Rastreio de "já foi baixado" — decisão fechada: flag em `BrewSession` [EXECUTADO]
 
 Duas opções foram avaliadas — **decidido: Opção Y**, flag local em
 `BrewSession` (`addon_brewstation`), não campo novo em `Movimentacao`
@@ -103,21 +112,19 @@ nullable — `None` = ainda não baixado). Setado no momento em que a
 função de consumo (seção 2.1) roda com sucesso, seja na brassagem, seja
 no fallback do envase.
 
-### 2.3 Gatilho exato do "momento de brassar" [ABERTO]
+### 2.3 Gatilho exato do "momento de brassar" [EXECUTADO — decidido pelo Christopher]
 
 `BrewSession.status` já tem `draft/active/paused/completed/aborted`.
-Duas possibilidades, ainda não fechadas com o Christopher:
+**Decisão fechada**: ação explícita separada — botão "Confirmar
+Ingredientes" na tela do lote, **não** automática na transição de
+status pra `active`. Implementado como rota própria
+(`POST /brewstation/brew-sessions/<id>/confirmar-ingredientes`, hook
+de controller) + card na tela de detalhe (hook de template,
+`_detail_extra.html`, skill 25 extensão). O fallback da seção 2.1
+continua cobrindo o caso de o operador chegar direto no envase sem
+confirmar antes.
 
-- Disparar automaticamente na transição `draft → active` (início da
-  brassagem).
-- Ação explícita separada (ex. botão "Confirmar Ingredientes"/"Iniciar
-  Brassagem"), independente da mudança de status.
-
-Isso não bloqueia o resto do desenho — o fallback da seção 2.1 cobre
-qualquer um dos dois casos — mas precisa ser decidido antes da
-implementação da função de consumo em si.
-
-### 2.4 Cálculo separado de commit — "fazer e refazer os cálculos" [DECIDIDO]
+### 2.4 Cálculo separado de commit — "fazer e refazer os cálculos" [EXECUTADO]
 
 Duas funções com papéis diferentes, não uma opção ou outra:
 
@@ -129,7 +136,7 @@ Duas funções com papéis diferentes, não uma opção ou outra:
 
 ---
 
-## 3. Schema revisado de Envase [DECIDIDO]
+## 3. Schema revisado de Envase [EXECUTADO]
 
 ### 3.1 `Envase` — campo novo
 
@@ -144,7 +151,7 @@ deriva quantas unidades físicas (garrafas/latas/growlers) aquele
 Envase representa — sem precisar de campo próprio pra "quantidade de
 unidades", é sempre calculado.
 
-### 3.2 `ItemEnvase` — descontinuado [DECIDIDO]
+### 3.2 `ItemEnvase` — descontinuado [EXECUTADO]
 
 Deixa de ser necessário como tabela de entrada manual — a baixa de
 estoque dos componentes de embalagem passa a ser derivada
@@ -156,7 +163,7 @@ depreciação, não de exclusão imediata** — dado histórico já gravado em
 registros. Decisão final sobre remoção física fica para quando o novo
 fluxo estiver validado em produção.
 
-### 3.3 Nova função de cálculo de custo do Envase [DECIDIDO]
+### 3.3 Nova função de cálculo de custo do Envase [EXECUTADO]
 
 Combina as duas fontes já mapeadas:
 
@@ -188,3 +195,45 @@ escopo decidido nesta skill, mas é uma extensão natural (mais um
 conjunto de percentuais aplicado sobre `custo_total_industrializacao`
 da seção 3.3, sem exigir mudança no desenho de Envase/Composição já
 fechado aqui). Registrado como item futuro, não bloqueia esta entrega.
+
+---
+
+## 5. Implementação real (2026-09-01)
+
+Arquivos tocados na execução, pra referência rápida:
+
+- `addons/addon_brewstation/features/feature_mash_control/model/brew_session.py`
+  — `insumos_baixados_em`/`custo_total_insumos`.
+- `addons/addon_brewstation/features/feature_envase/model/envase.py`
+  — `material_resultante_id` (`@weak_ref`, sem FK).
+- `migrations/versions/730e0d92ce65_skill26_consumo_insumo_material_.py`
+  — as duas colunas acima, sem migração de dado (ambas nullable).
+- `addons/addon_estoque/root/services/material_lookup.py` —
+  `get_composicao(material_pai_id)` novo (ponto de acesso público
+  cross-Addon, skill 02).
+- `addons/addon_brewstation/features/feature_mash_control/services/ingredient_consumption_service.py`
+  (novo) — `calcular_custo_insumos_receita()` (puro) e
+  `confirmar_consumo_ingredientes()` (idempotente, best-effort por
+  linha — mesmo padrão de `estoque_service.movimentar_estoque_em_massa`).
+- `addons/addon_brewstation/features/feature_envase/services/envase_estoque_service.py`
+  (reescrito) — `registrar_envase(lote_id, material_resultante_id,
+  quantidade_litros, ...)` (assinatura nova, `itens` removido);
+  `calcular_custo_industrializacao_envase(envase_id)` novo.
+- `addons/addon_brewstation/features/feature_mash_control/controller/brew_sessions_hooks.py`
+  — rota `POST /brewstation/brew-sessions/<id>/confirmar-ingredientes`.
+- `addons/addon_brewstation/features/feature_mash_control/templates/brew_sessions/_detail_extra.html`
+  — card "Confirmar Ingredientes" (hook de template, skill 25
+  extensão — primeiro uso real desse hook fora de Materiais).
+- `addons/addon_brewstation/features/feature_mash_control/i18n/pt_BR.json`
+  — chave de confirmação nova.
+- `tests/test_feature_envase.py` — reescrito por completo (16 testes:
+  caminho feliz com Composição, validações, fallback de confirmação
+  de insumo, idempotência, cálculo de custo, botão end-to-end).
+
+**Quebra de compatibilidade assumida**: `registrar_envase()` mudou de
+assinatura (não recebe mais `itens: list[dict]`, recebe
+`material_resultante_id` no lugar) — não havia nenhum controller/rota
+chamando essa função em produção ainda (confirmado antes de mexer),
+só os testes antigos, que foram reescritos junto. Nenhum dado real
+existente foi afetado — `ItemEnvase` continua na tabela pra qualquer
+Envase criado antes desta mudança.

@@ -7,7 +7,9 @@ Evento de empacotamento de um Lote (BrewSession, feature_mash_control).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, choices, min_value, enum_field
+from annotations import label, plural, required, choices, min_value, enum_field, weak_ref
+
+_MATERIAL_RESOLVER = "addons.addon_estoque.root.services.material_lookup.get_material"
 
 
 @label("Envase")
@@ -16,6 +18,7 @@ from annotations import label, plural, required, choices, min_value, enum_field
 @choices("status", label="Status")
 @required("lote_id", message="Lote é obrigatório")
 @min_value("quantidade_litros", 0, message="Quantidade não pode ser negativa")
+@weak_ref("material_resultante_id", resolver=_MATERIAL_RESOLVER, options="materials")
 class Envase(db.Model):
     __tablename__ = "envase"
 
@@ -23,6 +26,12 @@ class Envase(db.Model):
 
     lote_id = db.Column(db.Integer, db.ForeignKey("session.id"), nullable=False, index=True)
     lote = db.relationship("BrewSession", backref=db.backref("envases", lazy=True))
+
+    # Skill 26 — Material acabado que este Envase representa (ex.:
+    # "Growler 1L Valirian Pilsen"). Referência fraca (SEM FK,
+    # addon_estoque, skill 02) — nullable por enquanto pra não quebrar
+    # Envase já existentes, criados antes desta coluna existir.
+    material_resultante_id = db.Column(db.Integer, nullable=True, index=True)
 
     quantidade_litros = db.Column(db.Float, nullable=True)
     data_envase = db.Column(db.Date, nullable=True)
@@ -38,6 +47,7 @@ class Envase(db.Model):
         return {
             "id": self.id,
             "lote_id": self.lote_id,
+            "material_resultante_id": self.material_resultante_id,
             "quantidade_litros": self.quantidade_litros,
             "data_envase": self.data_envase.isoformat() if self.data_envase else None,
             "tipo_envase": self.tipo_envase,
