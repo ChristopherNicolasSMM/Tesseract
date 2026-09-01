@@ -5195,3 +5195,31 @@ estão todas **[EXECUTADO]**. Only pendências remanescentes: as
 registradas na seção "Pendências registradas pra rodada futura"
 acima (migração de fornecedores/transportadoras/pedido_compras/
 processo_cotacaos, limpeza de skills, melhoria de documentação).
+
+## Pendência 1 concluída — Fornecedores/Transportadoras migrados pro hook de detail.html (2026-09-01)
+
+Mesma receita já usada em Materiais (skill 25): grid de Endereços
+(skill 23, Fase 5), antes hand-made direto em `detail.html`, migrada
+pra `fornecedores/_detail_extra.html` e `transportadoras/_detail_extra.html`
+(hook criado, nunca sobrescrito). Os 3 scripts padrão + listener de
+validação do form principal, antes duplicados no fim do arquivo
+hand-made, agora vêm só do `detail.html.j2` (skill 25) — não
+duplicados no hook.
+
+`Fornecedor`/`Transportadora` regenerados com `--overwrite` de
+verdade — ganharam de bônus o padrão de ações em massa (checkbox/
+apagar/inativar) da skill 25, que ainda não tinha sido aplicado aqui
+porque nenhuma das duas entrou no lote de 40 regeneradas naquela
+sessão (tinham `detail.html` customizado, então ficaram de fora até
+agora).
+
+Testes já existentes cobrindo a grid de endereço
+(`test_detalhe_fornecedor_renderiza_com_grid_de_enderecos`,
+`test_detalhe_transportadora_renderiza_com_grid_de_enderecos`, e mais
+26 outros relacionados a fornecedor/transportadora/endereço) — todos
+passando depois da migração, sem nenhum ajuste necessário neles.
+Suíte completa de `test_addon_estoque.py`: 138/138 passando.
+
+**Pendência 1 da lista registrada em 2026-09-01 fechada.** Restam: 2
+(`pedido_compras`/`processo_cotacaos`, investigação própria), 3 e 4
+(limpeza de skills/documentação, último item da fila).
