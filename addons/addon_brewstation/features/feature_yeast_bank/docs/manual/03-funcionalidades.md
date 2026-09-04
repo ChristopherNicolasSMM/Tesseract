@@ -109,9 +109,9 @@ existente normalmente, só a criação passa por aqui.
 
 ## Contagens de Célula
 
-Registro de uma contagem real — nasce a partir de um Evento do Banco
-tipo "Contagem de Células". É a fonte mais confiável pro cálculo de
-viabilidade, quando disponível.
+Registro de uma contagem real (ao microscópio, por exemplo) — nasce a
+partir de um Evento do Banco tipo "Contagem de Células". É a fonte
+mais confiável pro cálculo de viabilidade, quando disponível.
 
 Se você usa câmara de Neubauer, dá pra digitar direto o que contou
 (células vivas, células mortas, quantos quadrados usou, fator de
@@ -119,19 +119,32 @@ diluição) e o sistema calcula sozinho células/mL e % de viabilidade —
 sem precisar fazer a conta na mão. Se preferir, ainda dá pra digitar
 o resultado final direto, sem passar pelos campos brutos.
 
-Registro de uma contagem real (ao microscópio, por exemplo) — nasce a
-partir de um Evento do Banco tipo "Contagem de Células". É a fonte
-mais confiável pro cálculo de viabilidade, quando disponível.
+Tem um campo **"Contaminação Detectada"** (checkbox) — marque se essa
+contagem específica mostrou sinal de contaminação. Isso é diferente de
+marcar o Item inteiro como "Contaminado": uma contagem marcada assim
+simplesmente não entra como referência no cálculo de viabilidade (nem
+essa, nem uma leitura de Starter marcada do mesmo jeito) — o item
+continua ativo, só essa leitura pontual é descartada do cálculo.
 
 ## Recalcular Viabilidade
 
 Botão que recalcula a viabilidade estimada de **todos** os itens de
 uma vez. Pra cada item, o sistema usa a melhor referência disponível,
 nesta ordem de prioridade: contagem real → viabilidade estimada
-anterior → starter → valor inicial cadastrado da cepa. O decaimento
-usado é o da Configuração do Banco (se existir uma pro tipo de
-armazenamento do item) ou o da cepa, como padrão. Itens
-descartados/contaminados são pulados.
+anterior → starter → valor inicial cadastrado da cepa. Contagens ou
+starters marcados com "Contaminação Detectada" nunca entram nessa
+busca, mesmo que sejam a leitura mais recente — o sistema pula pra
+próxima referência da lista. O decaimento usado é o da Configuração do
+Banco (se existir uma pro tipo de armazenamento do item) ou o da cepa,
+como padrão. Itens descartados/contaminados são pulados.
+
+## Ações em massa
+
+Nas listas (Cepas, Dispositivos, Containers, Itens do Banco, Eventos,
+Contagens, Configurações), marque várias linhas e use a barra que
+aparece pra **Apagar** várias de uma vez. Nenhuma dessas telas tem
+"Inativar em massa" — o Yeast Bank usa lixeira (apagar/restaurar), não
+um campo de "ativo" separado.
 
 ## Lixeira
 

@@ -5319,3 +5319,41 @@ não faz nenhuma referência desatualizada ao estado dos manuais.
 e `addon_device_manager` não tiveram o manual revisado linha a linha
 nesta sessão — só confirmado que não há erro óbvio, não uma auditoria
 completa como a de `feature_envase`.
+
+## Manuais revisados a fundo — feature_yeast_bank e addon_device_manager (2026-09-01)
+
+Segunda rodada do item 4, dessa vez revisão completa (não superficial)
+dos dois módulos que tinham ficado de fora da primeira passada,
+cruzando cada seção do manual com o código real
+(`viability_engine.py`, `mqtt_client_service.py`, models).
+
+**`feature_yeast_bank`** — o manual já era bem detalhado (140+ linhas
+de funcionalidades), mas achei:
+- Um parágrafo genuinamente duplicado em "Contagens de Célula" (dois
+  blocos quase idênticos, um com "(ao microscópio, por exemplo)" a
+  mais) — removido.
+- `contamination_detected` (campo real em `YeastCellCountHistory` e
+  `YeastBankEvent`) nunca era mencionado — uma leitura marcada assim
+  é excluída do cálculo de viabilidade mesmo sem o Item inteiro virar
+  "Contaminado". Documentado em funcionalidades e FAQ.
+- Faltava a seção de ações em massa (skill 25 — as 7 entidades do
+  módulo entraram no lote de 40 regeneradas). Confirmado no código:
+  nenhuma tem campo `ativo`/`is_active` próprio, então só "Apagar em
+  massa" existe aqui, nunca "Inativar" — documentado com essa
+  precisão, não genérico.
+
+**`addon_device_manager`** — manual muito mais raso (só ~60 linhas no
+total), reescrito com mais profundidade:
+- Faltava por completo como **ligar o MQTT de verdade**
+  (`MQTT_ENABLED=true` + as 6 `env_keys` do manifesto) — o manual só
+  descrevia Dispositivo Emulado, nunca explicava o caminho pra
+  hardware real.
+- O campo "Config Json" de Ator (formato `mqtt_config` com
+  `state_topic`/`command_topic`/`qos`, confirmado em
+  `mqtt_client_service.py`) nunca era mencionado — documentado com
+  exemplo real.
+- Ações em massa (skill 25): confirmado no código que só
+  `DeviceMetadata`/`DeviceActor` têm `is_active` (ganham Inativar);
+  `DeviceFunction`/`EmulatedDevice` só têm Apagar.
+
+Ambos sem código tocado — só `docs/manual/`.

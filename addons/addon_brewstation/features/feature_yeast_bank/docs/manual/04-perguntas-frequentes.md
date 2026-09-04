@@ -20,6 +20,15 @@ achar nenhuma referência, o item fica marcado como "sem referência".
 R: Não — itens descartados ou contaminados são sempre ignorados no
 recálculo de viabilidade.
 
+**P: Marquei "Contaminação Detectada" numa Contagem de Célula — o que
+isso muda?**
+R: Só aquela leitura específica deixa de contar como referência pro
+cálculo de viabilidade — o sistema pula pra próxima disponível
+(estimativa anterior, depois starter, depois valor inicial da cepa).
+O Item em si continua "Ativo" normalmente; se você quiser marcar o
+Item inteiro como contaminado, isso é outra coisa — feito via Evento
+do Banco tipo "Descarte", escolhendo "Contaminado".
+
 **P: Por que não consigo criar um Item do Banco sem escolher um
 Container?**
 R: Todo Item precisa estar dentro de um Container, e todo Container
