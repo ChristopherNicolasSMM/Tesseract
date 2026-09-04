@@ -5088,33 +5088,46 @@ customizadas antes de decidir se algo mais precisa de tratamento
 especial. `mash_recipes` fica permanentemente fora do escopo de
 regeneração genérica.
 
-## Pendências registradas pra rodada futura (2026-09-01)
+## Pendências registradas pra rodada futura (2026-09-01) — atualizado
 
-Itens explicitamente adiados, não esquecidos — cada um só deve ser
-puxado com autorização própria, na ordem que fizer sentido na hora:
+Status real de cada item, depois das rodadas seguintes (ver seções
+"concluída"/"revisados" mais abaixo neste arquivo pro detalhe
+completo de cada uma):
 
-1. **Migrar `fornecedores`/`transportadoras` pro hook de `_detail_extra.html`**
-   — mesmo padrão já resolvido em Materiais (grid de endereço embutida
-   à mão, achado na auditoria da skill 25). Migração direta, sem
-   decisão de arquitetura nova — só repetir a receita.
-2. **Investigar `pedido_compras`/`processo_cotacaos`** — `detail.html`
-   com abas + grid de itens, mais complexo que o padrão de "seção
-   extra" simples (Material/Fornecedor/Transportadora). Precisa de
-   investigação própria antes de decidir se cabe no mesmo hook ou se
-   exige um mecanismo diferente.
-3. **Limpeza geral de skills repetidas/redundantes em `docs/skills/`**
-   — conjunto já cresceu bastante (00–27); antes de seguir empilhando
-   skills novas, revisar o conjunto inteiro em busca de sobreposição,
-   decisões duplicadas ou desatualizadas entre documentos, e consolidar
-   onde fizer sentido.
+1. ~~**Migrar `fornecedores`/`transportadoras` pro hook de
+   `_detail_extra.html`**~~ — **Concluído** (seção "Pendência 1
+   concluída" abaixo). Mesmo padrão de Materiais, migração direta,
+   sem decisão de arquitetura nova.
+2. **Investigar `pedido_compras`/`processo_cotacaos`** — **Ainda
+   aberto, decisão consciente de não mexer por ora.** Investigado
+   (seção "Investigação: `pedido_compras`/`processo_cotacaos`" mais
+   abaixo) — não cabe no hook de `_detail_extra.html` existente (a
+   estrutura em abas reorganiza o form genérico, não só anexa
+   depois). Precisaria de um hook de "substituição completa", não
+   implementado. Christopher decidiu deixar como está por ora. Achado
+   à parte, não relacionado à decisão de arquitetura: um comentário
+   Jinja quebrado em `pedido_compras/detail.html` (linhas ~302-303)
+   deixa texto solto renderizando na tela — não corrigido ainda,
+   registrado aqui pra não esquecer.
+3. ~~**Limpeza geral de skills repetidas/redundantes em
+   `docs/skills/`**~~ — **Concluído**, primeira rodada (seção
+   "Auditoria e limpeza de docs/skills/" abaixo). Não achou skills
+   genuinamente duplicadas — o problema real era cabeçalho de status
+   desatualizado (07, 09, 12, 15, 25), corrigido. Auditoria foi de
+   cabeçalho/índice, não linha a linha do corpo de cada documento —
+   uma rodada mais profunda de conteúdo fica como possibilidade
+   futura, não pendência ativa.
 4. **Melhorar documentação técnica e manual** (trilhos da skill 04) —
-   `docs/technical/`/`docs/manual/` de vários Addons/Features ainda
-   estão incompletos ou desatualizados em relação ao código real;
-   revisão geral pendente, não item a item.
+   **`docs/manual/` concluído** (duas rodadas: skills 25/26/27 +
+   revisão profunda de `feature_yeast_bank`/`addon_device_manager`,
+   ver seções abaixo). **`docs/technical/` ainda não foi tocado** —
+   nenhuma rodada desta sessão revisou os arquivos de
+   `docs/technical/` de nenhum Addon/Feature contra o código real;
+   continua uma pendência genuína, separada do que já foi fechado
+   aqui.
 
-Itens 3 e 4 ficam como **último item da fila geral** — só entram depois
-que o trabalho de implementação em andamento (skills 25 seguinte
-rodada, 26, 27) estiver fechado.
+Item 2 e a metade de `docs/technical/` do item 4 são os únicos
+realmente abertos agora.
 
 ## Execução da skill 26 — Envase/Consumo de Insumo/Custo de Industrialização (2026-09-01)
 
@@ -5273,6 +5286,57 @@ contradições óbvias entre documentos. Fica registrado como primeira
 rodada; uma auditoria de conteúdo mais profunda (duplicação de regras
 específicas dentro do corpo de cada skill, não só o cabeçalho) segue
 como possível próxima rodada, se valer a pena.
+
+## Investigação: `pedido_compras`/`processo_cotacaos` (item 2, 2026-09-01)
+
+Investigação real (não implementação) do item 2 da lista de
+pendências. Achado principal: **não cabem no mesmo hook
+`_detail_extra.html`** já usado em Materiais/Fornecedores/
+Transportadoras.
+
+Nos casos já migrados, a customização era um bloco inteiro anexado
+**depois** do `</section>` genérico — fácil de extrair pro hook,
+porque o form principal continuava sendo o `{% for field in fields %}`
+puro do CrudGen. Aqui a estrutura é outra: existe só **uma**
+`<section>`, e dentro dela o form principal foi **reorganizado em
+abas** (Cabeçalho/Parceiros/Itens em `pedido_compras`; Cabeçalho/
+Cotações/Comparação em `processo_cotacaos`):
+
+- A aba "Cabeçalho" já não é o loop genérico completo — é filtrado
+  (`{% for field in fields if field not in campos_parceiros and
+  field not in campos_ocultos_cabecalho %}`), porque campos foram
+  deslocados pra outra aba e `status` foi escondido de propósito (vira
+  botão de ação).
+- A aba "Itens"/"Cotações" é uma grid customizada inteira, embutida
+  dentro do form em vez de depois dele.
+- Botões de ação por status (Enviar/Confirmar/Cancelar/Registrar
+  Entrada) existem **antes** da própria `<section>`.
+
+O hook `_detail_extra.html` só sabe **anexar depois** — não tem como
+"recortar" o form genérico em pedaços pra encaixar em abas diferentes.
+
+**Duas opções levantadas, nenhuma escolhida:**
+- **Opção A** — excluir permanentemente da regeneração genérica
+  (mesmo tratamento já dado a `MashRecipe`), documentar como "mantido
+  à mão", sem mecanismo novo.
+- **Opção B** — criar um novo tipo de hook, `_detail_override.html`,
+  que faz `detail.html.j2` renderizar só ele (substituição completa,
+  não anexo) quando existir.
+
+**Decisão do Christopher: deixar como está por ora** — nenhuma das
+duas opções implementada. Item continua aberto.
+
+**Achado à parte, não relacionado à decisão de arquitetura**: bug real
+de template em `pedido_compras/detail.html`, linhas ~302-303 — um
+comentário Jinja quebrado (falta o `{#-` de abertura) deixa texto
+solto renderizando literalmente na tela, entre o modal de Entrada de
+Mercadoria e o `<style>` seguinte:
+```
+    <select disabled> não herda o tema escuro por padrão em alguns
+    navegadores. -#}
+```
+Não corrigido ainda (fora do escopo da decisão de arquitetura, mas
+vale lembrar quando alguém voltar a mexer nesse arquivo).
 
 ## Manuais atualizados — item 4 da lista de pendências, primeira rodada (2026-09-01)
 
