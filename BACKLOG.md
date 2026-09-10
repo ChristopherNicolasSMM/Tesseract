@@ -5117,17 +5117,16 @@ completo de cada uma):
    cabeçalho/índice, não linha a linha do corpo de cada documento —
    uma rodada mais profunda de conteúdo fica como possibilidade
    futura, não pendência ativa.
-4. **Melhorar documentação técnica e manual** (trilhos da skill 04) —
-   **`docs/manual/` concluído** (duas rodadas: skills 25/26/27 +
-   revisão profunda de `feature_yeast_bank`/`addon_device_manager`,
-   ver seções abaixo). **`docs/technical/` ainda não foi tocado** —
-   nenhuma rodada desta sessão revisou os arquivos de
-   `docs/technical/` de nenhum Addon/Feature contra o código real;
-   continua uma pendência genuína, separada do que já foi fechado
-   aqui.
+4. ~~**Melhorar documentação técnica e manual**~~ (trilhos da skill
+   04) — **Concluído.** `docs/manual/` (duas rodadas: skills 25/26/27
+   + revisão profunda de `feature_yeast_bank`/`addon_device_manager`)
+   e `docs/technical/` (seção "`docs/technical/` revisado" mais
+   abaixo — priorizado os 3 módulos que skills 25/26/27 mudaram de
+   verdade: `feature_envase`, `feature_mash_control`,
+   `feature_brew_father`; os demais só ganharam UI/ações em massa, sem
+   mudança de arquitetura que justificasse revisão de C4/ER/fluxo).
 
-Item 2 e a metade de `docs/technical/` do item 4 são os únicos
-realmente abertos agora.
+Só o item 2 continua genuinamente aberto agora.
 
 ## Execução da skill 26 — Envase/Consumo de Insumo/Custo de Industrialização (2026-09-01)
 
@@ -5421,3 +5420,54 @@ total), reescrito com mais profundidade:
   `DeviceFunction`/`EmulatedDevice` só têm Apagar.
 
 Ambos sem código tocado — só `docs/manual/`.
+
+## `docs/technical/` revisado — item 4 fechado (2026-09-01)
+
+Segunda metade do item 4 (a primeira foi `docs/manual/`, ver seções
+acima). Em vez de auditar os 42 arquivos de `docs/technical/`
+genericamente, priorizei os **3 módulos que skills 25/26/27 realmente
+mudaram de arquitetura/schema/service** — mesma lógica da rodada de
+manuais: `feature_ingredientes`/`feature_yeast_bank`/
+`addon_device_manager`/`addon_estoque`/`addon_brewstation` (raiz)
+só ganharam ações em massa (camada de UI/CrudGen), que não é
+conteúdo de C4/ER/fluxo/caso de uso — não precisavam de revisão aqui.
+
+**`feature_envase`** — reescrita completa dos 6 arquivos (era o mais
+desatualizado, ainda descrevia o `ItemEnvase` digitado à mão,
+pré-skill-26): `Envase.material_resultante_id`, resolução via
+Composição, fallback de confirmação de insumo, novo diagrama de
+sequência pra `calcular_custo_industrializacao_envase()`, UC02/UC03
+novos, `ItemEnvase` documentado como histórico (seção própria em
+`04-modelo-de-dados.md` explicando que a FK continua existindo mas não
+recebe INSERT novo).
+
+**`feature_mash_control`** — atualizações pontuais (doc grande, maior
+parte continuava válida): campos novos de `BrewSession` no ER
+(`insumos_baixados_em`/`custo_total_insumos`), diagrama de sequência
+novo pro "Confirmar Ingredientes" (`03-fluxos.md`), UC09 novo,
+componentes novos no C4 (`ingredient_consumption_service`,
+`estoque_service` como dependência de **escrita**, distinta de
+`material_lookup` que já era só leitura), nova dependência
+documentada em `01-visao-geral.md`.
+
+**`feature_brew_father`** — os 6 arquivos atualizados com a
+sincronização seletiva (skill 27): `list_recipes_basico()`/
+`get_recipe_normalizado()` no C4, diagrama de sequência próprio (não
+existe em nenhum outro doc), UC02 novo. **Achado à parte, bug
+pré-existente não relacionado a esta sessão**: UC01 descrevia
+"escolhe escopo (Receitas/Lotes/Inventário/Tudo)" — isso nunca
+existiu no código real, `sync_service.py` só tem `sync_recipes()`.
+Corrigido. Também documentada a pegadinha do filtro `is_deleted=False`
+em `_importar_receita()` (skill 25) em "Erros conhecidos e
+pegadinhas" — se alguém remover esse filtro numa refatoração futura, o
+sintoma é sutil (nada quebra, a receita só nunca volta).
+
+17 arquivos tocados, todos `.md` (nenhum código) — validado por
+integridade estrutural (fences de \`\`\`/mermaid balanceados) e
+aplicação em clone limpo, mesmo processo de sempre.
+
+**Item 4 da lista de pendências original está fechado agora** —
+`docs/manual/` (rodadas anteriores) + `docs/technical/` dos 3 módulos
+relevantes (esta rodada). Só item 2 (`pedido_compras`/
+`processo_cotacaos`, decisão de arquitetura parada por escolha do
+Christopher) continua genuinamente aberto.

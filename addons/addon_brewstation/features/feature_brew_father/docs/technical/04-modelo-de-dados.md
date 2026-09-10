@@ -24,3 +24,9 @@ erDiagram
 ```
 
 Tabela real: `tesseract_brewstation_brewfather_sync`.
+
+`sincronizar_selecionadas()` (skill 27) grava nesta mesma tabela, com
+`tipo_sync="recipes"` igual a `sync_recipes()` — aparecem juntas no
+mesmo histórico, sem distinção de "foi tudo de uma vez ou seletiva"
+no schema (só o `raw_data` de cada log mostra quantas receitas
+entraram naquela chamada).

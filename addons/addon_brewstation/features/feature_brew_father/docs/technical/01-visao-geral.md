@@ -29,6 +29,25 @@ implementados** — a versão anterior deste documento dizia o oposto
 real. Ver `docs/technical/06-manutencao-e-expansao.md` (nova) para o
 funcionamento prático completo.
 
+## Sincronização seletiva (skill 27, 2026-09-01)
+
+Além de `sync_recipes()` (importa tudo de uma vez), existe um segundo
+caminho: `listar_receitas_disponiveis()` — listagem enxuta (sem
+detalhe por receita) cruzada com `MashRecipe.origem_receita_id` já
+conhecidos, sinalizando cada uma como nova/já importada/apagada
+(pendente de reimportar) — e `sincronizar_selecionadas(origem_ids)`,
+que busca o detalhe completo só das marcadas. Motivo: a API do
+BrewFather não expõe filtro por tag/pasta no servidor (`GET /v2/recipes`
+só aceita `include`/`complete`/paginação/`order_by`), então o filtro
+precisa acontecer no Tesseract. Ver `03-fluxos.md` e
+`docs/skills/27-proposta-sincronizacao-seletiva-brewfather.md`.
+
+`brewfather_client.py` foi dividido em `list_recipes_basico()`
+(listagem crua, sem normalizar) + `get_recipe_normalizado()` (detalhe
+de uma receita, já normalizado) — `get_recipes()` (usado por
+`sync_recipes()`) hoje é só a composição dos dois, não duplica mais a
+lógica de normalização.
+
 ## Pendências reais
 
 - Item (c) do `BACKLOG.md` — adjuntos (`miscs[]`) e água (`water`) da

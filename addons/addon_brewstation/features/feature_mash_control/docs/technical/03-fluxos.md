@@ -13,6 +13,48 @@ flowchart TD
     G --> H[Última etapa concluída → marcar sessão como completed]
 ```
 
+## Sequência: Confirmar Ingredientes (skill 26, 2026-09-01)
+
+```mermaid
+sequenceDiagram
+    participant User as Usuário
+    participant UI as Tela da Sessão
+    participant Hook as brew_sessions_hooks (rota)
+    participant IngSvc as ingredient_consumption_service
+    participant Session as tesseract_brewstation_mashctrl_session
+    participant RecIng as tesseract_brewstation_mashctrl_recipe_ingredient
+    participant Lookup as material_lookup (addon_estoque)
+    participant EstSvc as estoque_service (addon_estoque)
+
+    User->>UI: Clica "Confirmar Ingredientes"
+    UI->>Hook: POST /brew-sessions/<id>/confirmar-ingredientes
+    Hook->>IngSvc: confirmar_consumo_ingredientes(session_id)
+
+    alt session.insumos_baixados_em já preenchido
+        IngSvc-->>Hook: {ja_confirmado: true, custo já congelado}
+    else ainda não confirmado
+        IngSvc->>RecIng: busca ingredientes com material_id + quantidade preenchidos
+        loop para cada ingrediente resolvido
+            IngSvc->>Lookup: get_saldo(material_id) -> custo_medio
+            IngSvc->>EstSvc: registrar_movimentacao(material_id, "saida", quantidade, custo_unitario=custo_medio)
+            Note over IngSvc,EstSvc: best-effort por linha — uma falha não<br/>impede as demais (mesmo padrão de<br/>estoque_service.movimentar_estoque_em_massa)
+        end
+        IngSvc->>Session: UPDATE insumos_baixados_em=agora, custo_total_insumos=soma
+        IngSvc-->>Hook: {ja_confirmado: false, resultados por linha, custo_total_insumos}
+    end
+
+    Hook-->>UI: flash de sucesso/aviso + redirect
+```
+
+Ingredientes sem `material_id` resolvido (ainda pendente de de-para,
+ver `feature_brew_father`) são pulados silenciosamente — não contam
+como falha, só ficam de fora do cálculo/baixa até alguém resolver o
+de-para deles.
+
+Este mesmo service é chamado de novo, como fallback, quando um Envase
+é registrado sem essa confirmação ter acontecido antes — ver
+`feature_envase/docs/technical/03-fluxos.md`, primeiro diagrama.
+
 ## Sequência: motor de automação (event-driven, já dispara de verdade)
 
 > Corrigido — a versão anterior deste documento descrevia só o

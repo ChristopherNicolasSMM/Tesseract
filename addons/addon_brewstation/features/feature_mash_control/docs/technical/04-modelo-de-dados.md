@@ -122,6 +122,8 @@ erDiagram
         string status
         int recipe_id FK
         int plant_id FK
+        datetime insumos_baixados_em "nullable - skill 26, controla idempotencia da baixa de insumo"
+        float custo_total_insumos "nullable - congelado no momento da confirmacao, nao recalculado depois"
     }
     tesseract_brewstation_mashctrl_session_step {
         int id PK

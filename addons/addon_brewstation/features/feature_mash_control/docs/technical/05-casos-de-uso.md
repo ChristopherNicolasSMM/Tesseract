@@ -77,3 +77,19 @@
   alcinha padrão pra fora do tanque, em vez de reta escondida atrás
   do próprio widget
 - **Permissão RBAC**: `dashboard_widgets.create`, `dashboard_widgets.update`, `dashboard_widgets.trash`
+
+## UC09 — Confirmar Ingredientes de uma sessão (skill 26, 2026-09-01)
+- **Ator**: usuário com `brew_sessions.update`
+- **Pré-condição**: sessão com receita vinculada
+- **Fluxo principal**: na tela da sessão, clica "Confirmar
+  Ingredientes" → sistema dá baixa de cada `RecipeIngredient`
+  resolvido contra o estoque real (`addon_estoque`), captura o custo
+  médio de cada um no momento e grava
+  `insumos_baixados_em`/`custo_total_insumos` na própria sessão
+- **Fluxo alternativo**: sessão já confirmada → chamada de novo não
+  desconta nada, só devolve o que já foi congelado (idempotente)
+- **Fluxo alternativo**: usuário pula esse passo e vai direto pro
+  Envase (`feature_envase`) → a confirmação acontece sozinha nesse
+  momento, como fallback — ver
+  `feature_envase/docs/technical/05-casos-de-uso.md`, UC02
+- **Permissão RBAC**: `brew_sessions.update`

@@ -17,13 +17,15 @@ C4Component
     Component(dashboard_svc, "dashboard_runtime_service", "Python service", "Snapshot polling, editor visual (widget/tubulacao), delega card de Etapa pro timeline_svc")
     Component(rule, "AutomationRule/Log", "Model", "Definicao de regra")
     Component(engine, "automation_engine", "Python service", "Motor event-driven - subscribe no EventBus do Core, sem polling")
+    Component(consumption_svc, "ingredient_consumption_service", "Python service", "skill 26 - calcular_custo_insumos_receita() (puro) + confirmar_consumo_ingredientes() (baixa real, idempotente)")
 
     Container_Boundary(devicemanager_ext, "addon_device_manager") {
         Component(devicefunc_lookup, "device_function_lookup", "Service publico")
         Component(device_svc, "device_service", "Service publico", "set_value/get_value/on_change")
     }
     Container_Boundary(estoque_ext, "addon_estoque") {
-        Component(material_lookup, "material_lookup", "Service publico")
+        Component(material_lookup, "material_lookup", "Service publico", "leitura - get_material/get_saldo/get_composicao")
+        Component(estoque_svc, "estoque_service", "Service publico", "escrita - registrar_movimentacao()")
     }
     Container_Boundary(core_ext, "Core") {
         Component(event_bus, "event_bus", "Singleton", "core/event_bus.py")
@@ -46,6 +48,10 @@ C4Component
     Rel(engine, event_bus, "subscribe(device_manager.actor.value_changed)")
     Rel(engine, device_svc, "set_value() ao disparar")
     Rel(engine, rule, "avalia condicao, grava log")
+    Rel(consumption_svc, recipe_ingr, "le quantidade + material_id resolvido")
+    Rel(consumption_svc, material_lookup, "get_saldo() -> custo_medio, antes de cada baixa")
+    Rel(consumption_svc, estoque_svc, "registrar_movimentacao(saida) por ingrediente")
+    Rel(session, consumption_svc, "insumos_baixados_em/custo_total_insumos gravados por ele")
 ```
 
 ## Correção desta rodada

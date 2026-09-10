@@ -41,6 +41,13 @@ polling/scheduler próprio), não um controlador PID contínuo. Ver
   `RecipeIngredient`/`IngredientMapping` referenciam `Material` via
   referência fraca (`material_lookup.buscar_material_por_termo()`),
   usada no fluxo de resolução de ingrediente na importação de receita.
+- **`addon_estoque`, escrita direta (skill 26, 2026-09-01)**:
+  `ingredient_consumption_service.py` (novo, nesta Feature) chama
+  `estoque_service.registrar_movimentacao()` de verdade — primeira vez
+  que `feature_mash_control` desconta estoque real, não só lê/resolve
+  referência. Dispara pelo botão "Confirmar Ingredientes"
+  (`BrewSession.insumos_baixados_em`/`custo_total_insumos`) ou como
+  fallback automático a partir de `feature_envase` — ver `03-fluxos.md`.
 
 ## Receita — papel ampliado nesta rodada
 

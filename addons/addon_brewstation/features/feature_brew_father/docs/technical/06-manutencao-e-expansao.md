@@ -14,6 +14,14 @@ debugar.
    `sync_service.sync_recipes()`, que busca receitas via
    `brewfather_client.get_recipes()` e, pra cada uma, chama
    `_importar_receita()`.
+
+   **Caminho alternativo (skill 27)**: `GET /disponiveis` →
+   `sync_service.listar_receitas_disponiveis()` (só
+   `list_recipes_basico()`, sem detalhe) → usuário marca algumas →
+   `POST /disponiveis/sincronizar` → `sincronizar_selecionadas(ids)`,
+   que busca `get_recipe_normalizado()` só das marcadas e chama
+   `_importar_receita()` pra cada uma — mesmo destino final do caminho
+   1, só muda como as receitas chegam até `_importar_receita()`.
 2. **Por ingrediente**, `_importar_receita()` chama
    `ingredient_resolution_service.resolver_ingrediente(...)`, que:
    - Consulta `IngredientMapping` (cache de-para: `origem_receita` +
@@ -155,3 +163,11 @@ implementado):
   importadas diretamente por `brewfather_syncs_hooks.py` (cadastro
   rápido na tela de-para) — reaproveitamento intencional dentro do
   mesmo Addon, não vazamento acidental.
+- **`_importar_receita()` já filtra `is_deleted=False` na
+  deduplicação** (correção da skill 25, seção 3.1) — antes disso, uma
+  receita apagada continuava sendo encontrada como "já existe" e
+  nunca era reimportada, mesmo marcada de novo na tela de seleção
+  (skill 27). Se esse filtro for removido por engano numa refatoração
+  futura, o sintoma é sutil: nada quebra, a receita só nunca volta.
+  A correção também bumpa `versao` (em vez de fixar `versao=1`) pra
+  não colidir com `UniqueConstraint(name, versao)` de `MashRecipe`.
