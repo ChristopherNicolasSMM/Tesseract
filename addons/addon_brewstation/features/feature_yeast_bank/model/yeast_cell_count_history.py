@@ -19,11 +19,12 @@ automaticamente a partir deles quando presentes, ver
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, field_labels, weak_ref, readonly_fields
+from annotations import label, plural, required, field_labels, weak_ref, readonly_fields, display_field
 
 
 @label("Histórico de Contagem")
 @plural("yeast_cell_count_histories")
+@display_field("lot_code")
 @required("bank_item_id", message="Item do banco é obrigatório")
 @readonly_fields(["bank_event_id"])
 @field_labels({
@@ -45,6 +46,9 @@ from annotations import label, plural, required, field_labels, weak_ref, readonl
 @weak_ref("bank_item_id",
     resolver=("addons.addon_brewstation.features.feature_yeast_bank.services.yeast_reference_lookup.get_yeast_bank_item"),
     options="yeast_bank_items")
+@weak_ref("bank_event_id",
+    resolver=("addons.addon_brewstation.features.feature_yeast_bank.services.yeast_reference_lookup.get_yeast_bank_event"),
+    options="yeast_bank_events")
 class YeastCellCountHistory(db.Model):
     __tablename__ = "cell_count_history"
 

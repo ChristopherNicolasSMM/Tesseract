@@ -13,12 +13,13 @@ raciocinio que descartou JSON em addon_estoque.Material.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required
+from annotations import label, plural, required, weak_ref
 
 
 @label("Histórico de Receita")
 @plural("recipe_historys")
 @required("recipe_id", message="Receita é obrigatória")
+@weak_ref("recipe_id", resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_recipe", options="mash_recipes")
 class RecipeHistory(db.Model):
     __tablename__ = "recipe_history"
 

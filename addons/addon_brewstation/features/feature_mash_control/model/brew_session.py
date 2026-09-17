@@ -10,14 +10,17 @@ registrada no BACKLOG.md — Fase 6 é só CRUD).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, choices, enum_field
+from annotations import label, plural, required, choices, enum_field, display_field, weak_ref
 
 
 @label("Sessão de Brassagem")
 @plural("brew_sessions")
+@display_field("name")
 @enum_field("status", options=["draft", "active", "paused", "completed", "aborted"])
 @choices("status", label="Status")
 @required("name", message="Nome da sessão é obrigatório")
+@weak_ref("plant_id", resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_plant", options="brew_plants")
+@weak_ref("recipe_id", resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_recipe", options="mash_recipes")
 class BrewSession(db.Model):
     __tablename__ = "session"
 

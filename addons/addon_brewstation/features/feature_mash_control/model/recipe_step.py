@@ -16,16 +16,20 @@ FK real pra recipe.id e pra si mesma (parent_step_id) — mesma
 Feature, skill 02.
 """
 from core.db import db
-from annotations import label, plural, required, choices, min_value, enum_field
+from annotations import label, plural, required, choices, min_value, enum_field, display_field, weak_ref
 
 
 @label("Etapa da Receita")
 @plural("recipe_steps")
+@display_field("nome")
 @enum_field("step_type", options=["mash", "boil", "alert"])
 @choices("step_type", label="Tipo de Etapa")
 @choices("tipo", label="Subtipo (mostura)")
 @choices("source", label="Origem")
 @required("recipe_id", message="Receita é obrigatória")
+@weak_ref("recipe_id", resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_recipe", options="mash_recipes")
+@weak_ref("source_recipe_ingredient_id", resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_recipe_ingredient", options="recipe_ingredients")
+@weak_ref("parent_step_id", resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_recipe_step", options="recipe_steps")
 class RecipeStep(db.Model):
     __tablename__ = "recipe_step"
 

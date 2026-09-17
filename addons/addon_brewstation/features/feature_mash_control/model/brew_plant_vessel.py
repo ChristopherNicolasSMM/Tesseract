@@ -6,7 +6,7 @@ Tanque de uma planta (mash tun, boil kettle, fermenter...).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, display_field, enum_field
+from annotations import label, plural, required, display_field, enum_field, weak_ref
 
 
 @label("Tanque")
@@ -15,6 +15,7 @@ from annotations import label, plural, required, display_field, enum_field
 @display_field("label_text")
 @required("vessel_type", message="Tipo do tanque é obrigatório")
 @required("label_text", message="Identificação do tanque é obrigatória")
+@weak_ref("plant_id", resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_plant", options="brew_plants")
 class BrewPlantVessel(db.Model):
     __tablename__ = "plant_vessel"
 

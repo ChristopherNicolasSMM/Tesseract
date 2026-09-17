@@ -12,6 +12,12 @@ from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_item 
 from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_container import (
     YeastContainer,
 )
+from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_cell_count_history import (
+    YeastCellCountHistory,
+)
+from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_event import (
+    YeastBankEvent,
+)
 
 
 def get_yeast_strain(strain_id: int | None) -> dict | None:
@@ -106,6 +112,52 @@ def get_yeast_bank_item(bank_item_id: int | None) -> dict | None:
     data["display"] = (
         getattr(obj, display_field, None)
         or f"Item do Banco #{obj.id}"
+    )
+
+    return data
+
+
+def get_yeast_cell_count_history(cell_count_id: int | None) -> dict | None:
+    if not cell_count_id:
+        return None
+
+    obj = YeastCellCountHistory.query.filter_by(
+        id=cell_count_id,
+        is_deleted=False,
+    ).first()
+
+    if not obj:
+        return None
+
+    data = obj.to_dict()
+
+    display_field = getattr(YeastCellCountHistory, "_display_field", "id")
+    data["display"] = (
+        getattr(obj, display_field, None)
+        or f"Contagem #{obj.id}"
+    )
+
+    return data
+
+
+def get_yeast_bank_event(bank_event_id: int | None) -> dict | None:
+    if not bank_event_id:
+        return None
+
+    obj = YeastBankEvent.query.filter_by(
+        id=bank_event_id,
+        is_deleted=False,
+    ).first()
+
+    if not obj:
+        return None
+
+    data = obj.to_dict()
+
+    display_field = getattr(YeastBankEvent, "_display_field", "id")
+    data["display"] = (
+        getattr(obj, display_field, None)
+        or f"Evento #{obj.id}"
     )
 
     return data

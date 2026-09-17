@@ -8,13 +8,17 @@ real fica fora do escopo desta fase.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, enum_field
+from annotations import label, plural, required, enum_field, display_field, weak_ref
 
 
 @label("Passo da Sessão")
 @plural("brew_session_steps")
+@display_field("name")
 @enum_field("status", options=["pending", "active", "completed", "skipped"])
 @required("name", message="Nome do passo é obrigatório")
+@weak_ref("session_id", resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_session", options="brew_sessions")
+@weak_ref("source_recipe_step_id", resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_recipe_step", options="recipe_steps")
+@weak_ref("vessel_id", resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_vessel", options="brew_plant_vessels")
 class BrewSessionStep(db.Model):
     __tablename__ = "session_step"
 

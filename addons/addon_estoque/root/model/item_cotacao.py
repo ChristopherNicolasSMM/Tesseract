@@ -28,7 +28,7 @@ aplicar (estoque_service.selecionar_item_cotacao_vencedor).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, readonly_fields, field_labels
+from annotations import label, plural, required, readonly_fields, field_labels, weak_ref
 
 
 @label("Item da Cotação")
@@ -36,6 +36,9 @@ from annotations import label, plural, required, readonly_fields, field_labels
 @required("cotacao_id", message="Cotação é obrigatória")
 @required("item_processo_cotacao_id", message="Item do processo é obrigatório")
 @required("preco_unitario", message="Preço unitário é obrigatório")
+@weak_ref("cotacao_id",
+          resolver="addons.addon_estoque.root.services.cotacao_lookup.get_cotacao",
+          options="cotacaos")
 @readonly_fields(["fator_conversao_aplicado", "quantidade_convertida_base", "subtotal", "pedido_compra_item_id"])
 @field_labels({
     "cotacao_id": "Cotação",

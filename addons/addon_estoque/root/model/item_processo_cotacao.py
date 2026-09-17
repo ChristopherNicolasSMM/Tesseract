@@ -24,6 +24,9 @@ from annotations import label, plural, required, field_labels, weak_ref
 @required("material_id", message="Material é obrigatório")
 @required("material_unidade_id", message="Unidade é obrigatória")
 @required("quantidade_desejada", message="Quantidade desejada é obrigatória")
+@weak_ref("processo_cotacao_id",
+          resolver="addons.addon_estoque.root.services.processo_cotacao_lookup.get_processo_cotacao",
+          options="processo_cotacaos")
 @weak_ref("material_id",
           resolver="addons.addon_estoque.root.services.material_lookup.get_material",
           options="materials")

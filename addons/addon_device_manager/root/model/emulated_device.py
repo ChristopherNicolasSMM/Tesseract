@@ -15,12 +15,15 @@ em todo o resto do Tesseract).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required
+from annotations import label, plural, required, weak_ref
 
 
 @label("Dispositivo Emulado")
 @plural("emulated_devices")
 @required("emulation_mode", message="Modo de emulação é obrigatório")
+@weak_ref("device_id",
+          resolver="addons.addon_device_manager.root.services.device_metadata_lookup.get_device_metadata",
+          options="device_metadatas")
 class EmulatedDevice(db.Model):
     __tablename__ = "emulated_device"
 

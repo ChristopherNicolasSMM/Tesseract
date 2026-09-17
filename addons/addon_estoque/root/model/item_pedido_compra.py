@@ -27,6 +27,9 @@ from annotations import label, plural, required, readonly_fields, field_labels, 
 @required("material_unidade_id", message="Unidade de compra é obrigatória")
 @required("quantidade", message="Quantidade é obrigatória")
 @required("preco_unitario", message="Preço unitário é obrigatório")
+@weak_ref("pedido_compra_id",
+          resolver="addons.addon_estoque.root.services.pedido_compra_lookup.get_pedido_compra",
+          options="pedido_compras")
 @weak_ref("material_id",
           resolver="addons.addon_estoque.root.services.material_lookup.get_material",
           options="materials")

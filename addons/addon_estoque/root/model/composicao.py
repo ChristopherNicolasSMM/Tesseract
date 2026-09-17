@@ -13,7 +13,7 @@ incondicionalmente).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, min_value
+from annotations import label, plural, required, min_value, weak_ref
 
 
 @label("Composição de Material")
@@ -21,6 +21,12 @@ from annotations import label, plural, required, min_value
 @required("material_pai_id", message="Material pai é obrigatório")
 @required("material_componente_id", message="Material componente é obrigatório")
 @min_value("quantidade", 0, message="Quantidade não pode ser negativa")
+@weak_ref("material_pai_id",
+          resolver="addons.addon_estoque.root.services.material_lookup.get_material",
+          options="materials")
+@weak_ref("material_componente_id",
+          resolver="addons.addon_estoque.root.services.material_lookup.get_material",
+          options="materials")
 class Composicao(db.Model):
     __tablename__ = "composicao"
 

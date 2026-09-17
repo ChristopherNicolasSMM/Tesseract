@@ -5,13 +5,14 @@ Etapa de fermentacao planejada numa receita (temperatura, duracao).
 FK real para recipe.id (mesma Feature, skill 02).
 """
 from core.db import db
-from annotations import label, plural, required, min_value
+from annotations import label, plural, required, min_value, weak_ref
 
 
 @label("Etapa de Fermentação")
 @plural("fermentation_steps")
 @required("recipe_id", message="Receita é obrigatória")
 @min_value("temperatura", -5, message="Temperatura muito baixa")
+@weak_ref("recipe_id", resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_recipe", options="mash_recipes")
 class FermentationStep(db.Model):
     __tablename__ = "fermentation_step"
 

@@ -21,13 +21,23 @@ FK/ORM/relationship cross-Addon.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required
+from annotations import label, plural, required, display_field, weak_ref
 
 
 @label("Regra de Automação")
 @plural("automation_rules")
 @required("name", message="Nome da regra é obrigatório")
 @required("condition_operator", message="Operador da condição é obrigatório")
+@display_field("name")
+@weak_ref("sensor_function_name",
+          resolver="addons.addon_device_manager.root.services.device_function_lookup.get_function_by_name",
+          options="device_functions", value_field="name")
+@weak_ref("actor_function_name",
+          resolver="addons.addon_device_manager.root.services.device_function_lookup.get_function_by_name",
+          options="device_functions", value_field="name")
+@weak_ref("session_id",
+          resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_session",
+          options="brew_sessions")
 class AutomationRule(db.Model):
     __tablename__ = "rule"
 

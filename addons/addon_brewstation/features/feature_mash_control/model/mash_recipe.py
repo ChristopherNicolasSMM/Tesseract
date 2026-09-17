@@ -18,7 +18,7 @@ deliberadamente descartado - decisao registrada no BACKLOG.md.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, choices
+from annotations import label, plural, required, choices, display_field
 
 
 ORIGENS_RECEITA = ("Manual", "BrewFather", "BeerSmith", "BeerXML")
@@ -26,6 +26,7 @@ ORIGENS_RECEITA = ("Manual", "BrewFather", "BeerSmith", "BeerXML")
 
 @label("Receita de Brassagem")
 @plural("mash_recipes")
+@display_field("name")
 @choices("origem_receita", label="Origem")
 @required("name", message="Nome da receita é obrigatório")
 @required("origem_receita", message="Origem da receita é obrigatória")

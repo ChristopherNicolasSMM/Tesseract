@@ -12,13 +12,17 @@ mesmo fornecedor duas vezes no mesmo processo.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, enum_field, field_labels, weak_ref
+from annotations import label, plural, required, enum_field, field_labels, weak_ref, display_field
 
 
 @label("Cotação")
 @plural("cotacaos")
 @required("processo_cotacao_id", message="Processo de cotação é obrigatório")
 @required("fornecedor_id", message="Fornecedor é obrigatório")
+@display_field("numero")
+@weak_ref("processo_cotacao_id",
+          resolver="addons.addon_estoque.root.services.processo_cotacao_lookup.get_processo_cotacao",
+          options="processo_cotacaos")
 @weak_ref("fornecedor_id",
           resolver="addons.addon_estoque.root.services.fornecedor_lookup.get_fornecedor",
           options="fornecedores")

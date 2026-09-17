@@ -6,11 +6,12 @@ Histórico de disparo de uma AutomationRule.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural
+from annotations import label, plural, weak_ref
 
 
 @label("Log de Automação")
 @plural("automation_rule_logs")
+@weak_ref("rule_id", resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_rule", options="automation_rules")
 class AutomationRuleLog(db.Model):
     __tablename__ = "rule_log"
 

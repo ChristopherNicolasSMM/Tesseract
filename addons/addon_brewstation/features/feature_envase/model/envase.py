@@ -19,6 +19,9 @@ _MATERIAL_RESOLVER = "addons.addon_estoque.root.services.material_lookup.get_mat
 @required("lote_id", message="Lote é obrigatório")
 @min_value("quantidade_litros", 0, message="Quantidade não pode ser negativa")
 @weak_ref("material_resultante_id", resolver=_MATERIAL_RESOLVER, options="materials")
+@weak_ref("lote_id",
+          resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_session",
+          options="brew_sessions")
 class Envase(db.Model):
     __tablename__ = "envase"
 

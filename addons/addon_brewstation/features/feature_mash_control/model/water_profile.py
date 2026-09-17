@@ -18,7 +18,7 @@ mostura após ajuste), `sparge` (água de lavagem após ajuste), `total`
 — uma receita tem no máximo um registro por contexto.
 """
 from core.db import db
-from annotations import label, plural, required, choices
+from annotations import label, plural, required, choices, weak_ref
 
 CONTEXTOS_WATER_PROFILE = ("source", "target", "mash", "sparge", "total")
 
@@ -28,6 +28,7 @@ CONTEXTOS_WATER_PROFILE = ("source", "target", "mash", "sparge", "total")
 @choices("contexto", label="Contexto")
 @required("recipe_id", message="Receita é obrigatória")
 @required("contexto", message="Contexto é obrigatório")
+@weak_ref("recipe_id", resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_recipe", options="mash_recipes")
 class WaterProfile(db.Model):
     __tablename__ = "water_profile"
     __table_args__ = (

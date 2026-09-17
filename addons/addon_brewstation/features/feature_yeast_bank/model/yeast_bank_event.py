@@ -21,11 +21,12 @@ de propagação do Starter em si.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, enum_field, field_labels, readonly_fields, weak_ref
+from annotations import label, plural, required, enum_field, field_labels, readonly_fields, weak_ref, display_field
 
 
 @label("Evento do Banco")
 @plural("yeast_bank_events")
+@display_field("event_type")
 @required("event_type", message="Tipo do evento é obrigatório")
 @required("bank_item_id", message="Item do banco é obrigatório")
 @enum_field("event_type", options=["Starter", "Contagem de Células", "Descarte", "Outro"])
@@ -51,6 +52,9 @@ from annotations import label, plural, required, enum_field, field_labels, reado
 @weak_ref("bank_item_id",
     resolver=("addons.addon_brewstation.features.feature_yeast_bank.services.yeast_reference_lookup.get_yeast_bank_item"),
     options="yeast_bank_items")
+@weak_ref("cell_count_id",
+    resolver=("addons.addon_brewstation.features.feature_yeast_bank.services.yeast_reference_lookup.get_yeast_cell_count_history"),
+    options="yeast_cell_count_histories")
 class YeastBankEvent(db.Model):
     __tablename__ = "bank_event"
 

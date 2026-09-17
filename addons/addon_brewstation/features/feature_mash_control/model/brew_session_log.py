@@ -6,12 +6,14 @@ Log de eventos de uma sessão (info/warning/error/alarm).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required
+from annotations import label, plural, required, weak_ref
 
 
 @label("Log da Sessão")
 @plural("brew_session_logs")
 @required("message", message="Mensagem do log é obrigatória")
+@weak_ref("session_id", resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_session", options="brew_sessions")
+@weak_ref("step_id", resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_session_step", options="brew_session_steps")
 class BrewSessionLog(db.Model):
     __tablename__ = "session_log"
 
