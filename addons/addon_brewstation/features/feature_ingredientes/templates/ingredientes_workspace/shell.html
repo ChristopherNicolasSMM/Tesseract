@@ -22,7 +22,7 @@
 
 <div id="iwTabContent">
   {% for tab in tabs %}
-  <iframe src="{{ url_for(tab.endpoint) }}" data-tab-frame="{{ tab.key }}"
+  <iframe src="{{ url_for(tab.endpoint, embed=1) }}" data-tab-frame="{{ tab.key }}"
           style="width:100%; min-height:70vh; border:0; {{ '' if loop.first else 'display:none;' }}"></iframe>
   {% endfor %}
 </div>

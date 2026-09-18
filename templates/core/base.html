@@ -27,7 +27,13 @@
 
   {% block extra_css %}{% endblock %}
 </head>
-<body class="theme-{{ _theme }}{% if menu_sidebar_collapsed %} toggle-sidebar{% endif %}" data-theme="{{ _theme }}">
+<body class="theme-{{ _theme }}{% if menu_sidebar_collapsed or request.args.get('embed') %} toggle-sidebar{% endif %}{% if request.args.get('embed') %} embed-mode{% endif %}" data-theme="{{ _theme }}">
+  {% if request.args.get('embed') %}
+  <!-- Embutido num iframe de tela consolidada (is_workspace) — sem
+       cabeçalho/menu/rodapé próprios, pra não duplicar a navegação
+       que já está na página que envolve o iframe. -->
+  <style>#main { margin-top: 0 !important; }</style>
+  {% endif %}
   <!-- Container único de toast (skill 15) — nunca duplicar isso em
        manage.html/detail.html individual; os dois caminhos de disparo
        (flash tradicional + resposta AJAX) escrevem aqui via
@@ -35,6 +41,7 @@
   <div id="core-toast-container"></div>
 
   <!-- ======= Header ======= -->
+  {% if not request.args.get('embed') %}
   <header id="header" class="header fixed-top d-flex align-items-center">
     <!--
     <div class="d-flex align-items-center justify-content-between">
@@ -166,14 +173,17 @@
       {{ render_menu_nodes(transactions_tree) }}
     </ul>
   </aside><!-- End Sidebar -->
+  {% endif %}
 
   <main id="main" class="main">
     {% block content %}{% endblock %}
   </main>
 
+  {% if not request.args.get('embed') %}
   <footer id="footer" class="footer">
     <div class="copyright">&copy; Tesseract</div>
   </footer>
+  {% endif %}
 
   <script src="{{ url_for('static', filename='vendor/apexcharts/apexcharts.min.js') }}"></script>
   <script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
