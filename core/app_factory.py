@@ -20,7 +20,7 @@ from core.config import get_config
 from core.logging_config import configure_logging, apply_logging_level_overrides
 from core.db import init_db
 from core.event_bus import event_bus, register_example_listener
-from core.module_manager import ModuleManager
+from core.module_manager import ModuleManager, _running_under_flask_db_command
 from core.auth import init_auth
 from core.cli import register_cli_commands
 from core.seed_config import ensure_default_system_config
@@ -106,41 +106,55 @@ def create_app(env: str | None = None) -> Flask:
         app.module_manager.apply_template_loader()
 
         app.module_manager.create_all_pending_tables()
-        app.module_manager.sync_all_permissions()
-        app.module_manager.sync_all_transactions()
 
-        from core.permissions_sync import sync_core_fixed_permissions
-        sync_core_fixed_permissions()
+        # Guarda (achado real, patch is_workspace — BACKLOG.md): sob
+        # `flask db ...`, create_app() roda ANTES da migration ter a
+        # chance de alterar o schema — sync_all_permissions/
+        # sync_all_transactions/sync_core_*/os seeds abaixo fazem
+        # SELECT * contra o model já atualizado (com a coluna nova),
+        # que ainda não existe fisicamente na tabela. Mesma razão que
+        # já protegia só create_all_pending_tables() (comentário lá:
+        # "quem manda no schema é o Alembic") — agora estendida pra
+        # todo o resto deste bloco, que sofre do mesmo problema.
+        # Alembic quem popula caso a caso; sync roda normal no boot
+        # seguinte (`flask run`/`python run.py start`), já com o
+        # schema migrado.
+        if not _running_under_flask_db_command():
+            app.module_manager.sync_all_permissions()
+            app.module_manager.sync_all_transactions()
 
-        from core.transactions_sync import sync_core_transactions
-        sync_core_transactions()
+            from core.permissions_sync import sync_core_fixed_permissions
+            sync_core_fixed_permissions()
 
-        ensure_default_system_config()
-        apply_logging_level_overrides()
+            from core.transactions_sync import sync_core_transactions
+            sync_core_transactions()
 
-        from core.odata_local_seed import ensure_local_odata_connection
-        ensure_local_odata_connection()
+            ensure_default_system_config()
+            apply_logging_level_overrides()
 
-        from core.designer_menu_override import resolve_designer_page_menu_overrides
-        resolve_designer_page_menu_overrides()
+            from core.odata_local_seed import ensure_local_odata_connection
+            ensure_local_odata_connection()
 
-        # Lookups padrão de addon_estoque (Origem "A definir" / TipoProduto
-        # "Insumo") - usados pela resolução automática do autocreate de
-        # feature_brew_father. Import local porque é específico do Addon
-        # (skill 00 - core não conhece regra de domínio), mesmo padrão do
-        # cliente MQTT de addon_device_manager mais abaixo.
-        if "estoque" in app.module_manager.active_modules:
-            from addons.addon_estoque.root.services.estoque_seed import ensure_default_estoque_lookups
-            ensure_default_estoque_lookups()
+            from core.designer_menu_override import resolve_designer_page_menu_overrides
+            resolve_designer_page_menu_overrides()
 
-        # Preço padrão por tipo de insumo (malte/lupulo/levedura) —
-        # feature_envase cai neles quando não há preço real pago
-        # registrado pro Material (proposta-precificacao-envase.md).
-        if "brewstation" in app.module_manager.active_modules:
-            from addons.addon_brewstation.features.feature_ingredientes.services.preco_padrao_seed import (
-                ensure_default_precos_padrao_insumo,
-            )
-            ensure_default_precos_padrao_insumo()
+            # Lookups padrão de addon_estoque (Origem "A definir" / TipoProduto
+            # "Insumo") - usados pela resolução automática do autocreate de
+            # feature_brew_father. Import local porque é específico do Addon
+            # (skill 00 - core não conhece regra de domínio), mesmo padrão do
+            # cliente MQTT de addon_device_manager mais abaixo.
+            if "estoque" in app.module_manager.active_modules:
+                from addons.addon_estoque.root.services.estoque_seed import ensure_default_estoque_lookups
+                ensure_default_estoque_lookups()
+
+            # Preço padrão por tipo de insumo (malte/lupulo/levedura) —
+            # feature_envase cai neles quando não há preço real pago
+            # registrado pro Material (proposta-precificacao-envase.md).
+            if "brewstation" in app.module_manager.active_modules:
+                from addons.addon_brewstation.features.feature_ingredientes.services.preco_padrao_seed import (
+                    ensure_default_precos_padrao_insumo,
+                )
+                ensure_default_precos_padrao_insumo()
 
     from api.routes.core.auth import auth_api_bp
     from api.routes.core.admin.users import users_api_bp
