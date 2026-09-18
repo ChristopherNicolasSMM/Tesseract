@@ -125,12 +125,18 @@ def test_de_para_de_ingredientes_agora_fica_em_ingredientes(app):
         assert parent.code == "TX_GROUP_INGREDIENTES"
 
 
-def test_grupo_ingredientes_tem_4_transacoes(app):
+def test_grupo_ingredientes_tem_5_transacoes(app):
+    """
+    Era 4 (Maltes, Lúpulos, Leveduras + o próprio de-para de
+    ingredientes) — passou a 5 com TX_INGREDIENTES_WORKSPACE (tela
+    consolidada com as 3 abas + cards de preço padrão,
+    is_workspace=True), sem remover nenhuma das 4 já existentes.
+    """
     with app.app_context():
         folder = Transaction.query.filter_by(code="TX_GROUP_INGREDIENTES").first()
         assert folder is not None
         count = Transaction.query.filter_by(parent_id=folder.id).count()
-        assert count == 4
+        assert count == 5
 
 
 def test_grupo_dispositivos_iot_tem_4_transacoes(app):

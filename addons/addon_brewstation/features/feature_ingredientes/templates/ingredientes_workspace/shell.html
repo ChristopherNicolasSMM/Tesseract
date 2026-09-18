@@ -1,0 +1,152 @@
+{% extends "core/base.html" %}
+{% block title %}Insumos - Workspace{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1><i class="bi bi-grid-1x2-fill"></i> Insumos (Malte / Lúpulo / Levedura)</h1>
+  <p class="text-muted">Preço padrão por tipo — usado na precificação de Envase quando não há preço real pago registrado.</p>
+</div>
+
+<div class="row mb-3" id="iwPrecoCards">
+  <div class="col-12 text-center text-muted p-3"><div class="spinner-border spinner-border-sm"></div> Carregando preços…</div>
+</div>
+
+<ul class="nav nav-tabs mb-3" id="iwTabBar">
+  {% for tab in tabs %}
+  <li class="nav-item">
+    <button type="button" class="nav-link {{ 'active' if loop.first else '' }}" data-tab-key="{{ tab.key }}">
+      <i class="bi {{ tab.icon }}"></i> {{ tab.label }}
+    </button>
+  </li>
+  {% endfor %}
+</ul>
+
+<div id="iwTabContent">
+  {% for tab in tabs %}
+  <iframe src="{{ url_for(tab.endpoint) }}" data-tab-frame="{{ tab.key }}"
+          style="width:100%; min-height:70vh; border:0; {{ '' if loop.first else 'display:none;' }}"></iframe>
+  {% endfor %}
+</div>
+
+<div class="modal fade" id="iwPrecoModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar preço padrão</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="iwPrecoTipo">
+        <div class="mb-3">
+          <label class="form-label">Tipo de insumo</label>
+          <input type="text" class="form-control" id="iwPrecoTipoLabel" disabled>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Valor padrão (R$) <span class="text-danger">*</span></label>
+          <input type="number" step="0.01" min="0" class="form-control" id="iwPrecoValor">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Unidade</label>
+          <input type="text" class="form-control" id="iwPrecoUnidade" maxlength="10">
+        </div>
+        <div class="alert alert-danger d-none" id="iwPrecoErro"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="iwPrecoSalvar">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const TIPO_LABELS = { malte: 'Malte', lupulo: 'Lúpulo', levedura: 'Levedura' };
+  const cardsEl = document.getElementById('iwPrecoCards');
+  const modalEl = document.getElementById('iwPrecoModal');
+  const modal = new bootstrap.Modal(modalEl);
+
+  function renderCards(items) {
+    cardsEl.innerHTML = '';
+    items.forEach(function (item) {
+      const col = document.createElement('div');
+      col.className = 'col-xl-4 col-md-6';
+      col.innerHTML =
+        '<div class="card">' +
+        '  <div class="card-body d-flex justify-content-between align-items-center">' +
+        '    <div>' +
+        '      <h6 class="card-title mb-1">' + (TIPO_LABELS[item.tipo_insumo] || item.tipo_insumo) + '</h6>' +
+        '      <p class="card-text mb-0">R$ ' + Number(item.valor_padrao).toFixed(2) + ' / ' + item.unidade + '</p>' +
+        '    </div>' +
+        '    <button type="button" class="btn btn-sm btn-outline-secondary iw-edit-btn" ' +
+        '            data-tipo="' + item.tipo_insumo + '" data-valor="' + item.valor_padrao + '" data-unidade="' + item.unidade + '">' +
+        '      <i class="bi bi-pencil"></i>' +
+        '    </button>' +
+        '  </div>' +
+        '</div>';
+      cardsEl.appendChild(col);
+    });
+
+    cardsEl.querySelectorAll('.iw-edit-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.getElementById('iwPrecoTipo').value = btn.dataset.tipo;
+        document.getElementById('iwPrecoTipoLabel').value = TIPO_LABELS[btn.dataset.tipo] || btn.dataset.tipo;
+        document.getElementById('iwPrecoValor').value = btn.dataset.valor;
+        document.getElementById('iwPrecoUnidade').value = btn.dataset.unidade;
+        document.getElementById('iwPrecoErro').classList.add('d-none');
+        modal.show();
+      });
+    });
+  }
+
+  function loadCards() {
+    fetch('/api/brewstation/preco-padrao-insumos/')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.success) renderCards(data.items);
+      });
+  }
+
+  document.getElementById('iwPrecoSalvar').addEventListener('click', function () {
+    const tipo = document.getElementById('iwPrecoTipo').value;
+    const valor = document.getElementById('iwPrecoValor').value;
+    const unidade = document.getElementById('iwPrecoUnidade').value;
+    const erroEl = document.getElementById('iwPrecoErro');
+    erroEl.classList.add('d-none');
+
+    fetch('/api/brewstation/preco-padrao-insumos/' + encodeURIComponent(tipo), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ valor_padrao: valor, unidade: unidade }),
+    })
+      .then(function (r) { return r.json().then(function (data) { return { status: r.status, data: data }; }); })
+      .then(function (result) {
+        if (!result.data.success) {
+          erroEl.textContent = result.data.error || 'Erro ao salvar.';
+          erroEl.classList.remove('d-none');
+          return;
+        }
+        modal.hide();
+        loadCards();
+      })
+      .catch(function () {
+        erroEl.textContent = 'Erro de conexão ao salvar.';
+        erroEl.classList.remove('d-none');
+      });
+  });
+
+  document.querySelectorAll('#iwTabBar .nav-link').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('#iwTabBar .nav-link').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      document.querySelectorAll('[data-tab-frame]').forEach(function (frame) {
+        frame.style.display = frame.dataset.tabFrame === btn.dataset.tabKey ? '' : 'none';
+      });
+    });
+  });
+
+  loadCards();
+})();
+</script>
+{% endblock %}

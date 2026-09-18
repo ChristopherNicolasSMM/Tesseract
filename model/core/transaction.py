@@ -49,6 +49,12 @@ class Transaction(db.Model):
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     is_standard = db.Column(db.Boolean, default=True, nullable=False)  # False = contribuída por Addon/Plugin
 
+    # Destaque na home (fluxo consolidado / workspace) — não afeta
+    # menu lateral, permissão, ativação nem nenhum outro comportamento;
+    # só decide se o card aparece na faixa em destaque da home.
+    # Ver docs/skills — proposta de consolidação de telas.
+    is_workspace = db.Column(db.Boolean, default=False, nullable=False)
+
     source_module = db.Column(db.String(100), nullable=True)  # nome do Addon/Plugin de origem
 
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -78,6 +84,7 @@ class Transaction(db.Model):
             "permission_required": self.permission_required,
             "is_active": self.is_active,
             "is_standard": self.is_standard,
+            "is_workspace": self.is_workspace,
             "source_module": self.source_module,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

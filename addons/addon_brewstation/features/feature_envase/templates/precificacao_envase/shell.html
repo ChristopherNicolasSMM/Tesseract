@@ -1,0 +1,154 @@
+{% extends "core/base.html" %}
+{% block title %}Precificação de Envase{% endblock %}
+{% block content %}
+<div class="pagetitle">
+  <h1><i class="bi bi-calculator-fill"></i> Precificação de Envase</h1>
+  <p class="text-muted">Simule primeiro, calcule quando estiver satisfeito — só cria o Envase se você confirmar.</p>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">Lote (Sessão de Brassagem) <span class="text-danger">*</span></label>
+        <div class="weakref-combo" data-weakref-source="brew_sessions">
+          <input type="hidden" class="weakref-combo-value" id="pcLoteId">
+          <input type="text" class="form-control weakref-combo-search" placeholder="Buscar lote...">
+          <ul class="weakref-combo-results list-group"></ul>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Envase existente (opcional — só se já criado)</label>
+        <div class="weakref-combo" data-weakref-source="envases">
+          <input type="hidden" class="weakref-combo-value" id="pcEnvaseId">
+          <input type="text" class="form-control weakref-combo-search" placeholder="Buscar envase...">
+          <ul class="weakref-combo-results list-group"></ul>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">% Lucro</label>
+        <input type="number" step="0.01" min="0" class="form-control" id="pcLucro" value="30">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">% IPI</label>
+        <input type="number" step="0.01" min="0" class="form-control" id="pcIpi" value="0">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">% ICMS</label>
+        <input type="number" step="0.01" min="0" class="form-control" id="pcIcms" value="0">
+      </div>
+    </div>
+    <div class="mt-3 d-flex gap-2">
+      <button type="button" class="btn btn-outline-primary" id="pcSimular"><i class="bi bi-eye"></i> Simular</button>
+      <button type="button" class="btn btn-primary" id="pcCalcular" disabled><i class="bi bi-save"></i> Calcular e Salvar</button>
+    </div>
+    <div class="alert alert-danger d-none mt-3" id="pcErro"></div>
+  </div>
+</div>
+
+<div class="card d-none" id="pcResultadoCard">
+  <div class="card-body">
+    <h5 class="card-title">Resultado</h5>
+    <div class="row text-center mb-3">
+      <div class="col"><div class="small text-muted">Custo Ingredientes</div><div class="fs-5" id="pcResCustoIng">—</div></div>
+      <div class="col"><div class="small text-muted">Custo Embalagem</div><div class="fs-5" id="pcResCustoEmb">—</div></div>
+      <div class="col"><div class="small text-muted">Subtotal</div><div class="fs-5" id="pcResSubtotal">—</div></div>
+      <div class="col"><div class="small text-muted">Lucro</div><div class="fs-5" id="pcResLucro">—</div></div>
+      <div class="col"><div class="small text-muted">IPI</div><div class="fs-5" id="pcResIpi">—</div></div>
+      <div class="col"><div class="small text-muted">ICMS</div><div class="fs-5" id="pcResIcms">—</div></div>
+      <div class="col"><div class="small text-muted fw-bold">Valor Total</div><div class="fs-4 text-primary fw-bold" id="pcResTotal">—</div></div>
+    </div>
+    <table class="table table-sm">
+      <thead><tr><th>Material</th><th>Quantidade</th><th>Preço Unit.</th><th>Custo</th><th>Origem</th></tr></thead>
+      <tbody id="pcItensBody"></tbody>
+    </table>
+    <div class="alert alert-success d-none" id="pcSalvoMsg"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>
+<script>
+(function () {
+  const fmtR$ = function (v) { return 'R$ ' + Number(v || 0).toFixed(2); };
+  const origemLabel = { real: '<span class="badge bg-success">Real</span>', padrao: '<span class="badge bg-warning text-dark">Padrão</span>', sem_preco: '<span class="badge bg-secondary">Sem preço</span>' };
+
+  function payload() {
+    return {
+      lote_id: document.getElementById('pcLoteId').value,
+      envase_id: document.getElementById('pcEnvaseId').value || null,
+      percentual_lucro: document.getElementById('pcLucro').value,
+      percentual_ipi: document.getElementById('pcIpi').value,
+      percentual_icms: document.getElementById('pcIcms').value,
+    };
+  }
+
+  function mostrarErro(msg) {
+    const el = document.getElementById('pcErro');
+    el.textContent = msg;
+    el.classList.remove('d-none');
+  }
+
+  function renderResultado(r) {
+    document.getElementById('pcErro').classList.add('d-none');
+    document.getElementById('pcResultadoCard').classList.remove('d-none');
+    document.getElementById('pcResCustoIng').textContent = fmtR$(r.custo_ingredientes_total);
+    document.getElementById('pcResCustoEmb').textContent = fmtR$(r.custo_embalagem_total);
+    document.getElementById('pcResSubtotal').textContent = fmtR$(r.subtotal);
+    document.getElementById('pcResLucro').textContent = fmtR$(r.valor_lucro);
+    document.getElementById('pcResIpi').textContent = fmtR$(r.valor_ipi);
+    document.getElementById('pcResIcms').textContent = fmtR$(r.valor_icms);
+    document.getElementById('pcResTotal').textContent = fmtR$(r.valor_total);
+
+    const body = document.getElementById('pcItensBody');
+    body.innerHTML = '';
+    (r.itens || []).forEach(function (item) {
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>#' + item.material_id + '</td>' +
+        '<td>' + item.quantidade + '</td>' +
+        '<td>' + fmtR$(item.preco_unitario_usado) + '</td>' +
+        '<td>' + fmtR$(item.custo_total) + '</td>' +
+        '<td>' + (origemLabel[item.origem_preco] || item.origem_preco) + '</td>';
+      body.appendChild(tr);
+    });
+
+    document.getElementById('pcCalcular').disabled = false;
+    document.getElementById('pcSalvoMsg').classList.add('d-none');
+  }
+
+  document.getElementById('pcSimular').addEventListener('click', function () {
+    const body = payload();
+    if (!body.lote_id) { mostrarErro('Selecione um Lote.'); return; }
+    fetch('/api/brewstation/precificacao-envase/simular', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.success) { mostrarErro(data.error || 'Erro ao simular.'); return; }
+        renderResultado(data.resultado);
+      })
+      .catch(function () { mostrarErro('Erro de conexão ao simular.'); });
+  });
+
+  document.getElementById('pcCalcular').addEventListener('click', function () {
+    const body = payload();
+    if (!body.lote_id) { mostrarErro('Selecione um Lote.'); return; }
+    fetch('/api/brewstation/precificacao-envase/calcular', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.success) { mostrarErro(data.error || 'Erro ao calcular.'); return; }
+        renderResultado(data.resultado);
+        const msg = document.getElementById('pcSalvoMsg');
+        msg.textContent = 'Cálculo salvo (#' + data.resultado.id + ').' +
+          (body.envase_id ? '' : ' Nenhum Envase vinculado ainda — crie um e volte pra vincular.');
+        msg.classList.remove('d-none');
+      })
+      .catch(function () { mostrarErro('Erro de conexão ao calcular.'); });
+  });
+})();
+</script>
+{% endblock %}

@@ -10,8 +10,10 @@ class FeatureEnvase(FeatureBase):
     def register_models(self) -> list:
         from addons.addon_brewstation.features.feature_envase.model.envase import Envase
         from addons.addon_brewstation.features.feature_envase.model.item_envase import ItemEnvase
+        from addons.addon_brewstation.features.feature_envase.model.calculo_precificacao import CalculoPrecificacao
+        from addons.addon_brewstation.features.feature_envase.model.item_custo_ingrediente import ItemCustoIngrediente
 
-        return [Envase, ItemEnvase]
+        return [Envase, ItemEnvase, CalculoPrecificacao, ItemCustoIngrediente]
 
     def register_routes(self, app) -> None:
         names = ["envases", "item_envases"]
@@ -24,6 +26,13 @@ class FeatureEnvase(FeatureBase):
             routes_mod = importlib.import_module(f"{base_routes}.{name}_routes")
             app.register_blueprint(getattr(controller_mod, f"{name}_bp"))
             app.register_blueprint(getattr(routes_mod, f"{name}_api_bp"))
+
+        from addons.addon_brewstation.features.feature_envase.controller.precificacao import precificacao_bp
+        from addons.addon_brewstation.features.feature_envase.api.routes.precificacao_routes import (
+            precificacao_api_bp,
+        )
+        app.register_blueprint(precificacao_bp)
+        app.register_blueprint(precificacao_api_bp)
 
     def get_transactions(self) -> list:
         return [
@@ -51,5 +60,15 @@ class FeatureEnvase(FeatureBase):
                 "icon": "bi-list-check",
                 "route": "/brewstation/item-envases",
                 "permission_required": "item_envases.list",
+            },
+            {
+                "code": "TX_PRECIFICACAO_ENVASE",
+                "label": "Precificação de Envase",
+                "parent_code": "TX_GROUP_ENVASE",
+                "description": "Simula e calcula o preço de venda de um Lote — custo real de insumos e embalagem, IPI/ICMS e margem.",
+                "icon": "bi-calculator-fill",
+                "route": "/brewstation/precificacao-envase",
+                "permission_required": "envases.list",
+                "is_workspace": True,
             },
         ]

@@ -11,8 +11,9 @@ class FeatureIngredientes(FeatureBase):
         from addons.addon_brewstation.features.feature_ingredientes.model.malte import Malte
         from addons.addon_brewstation.features.feature_ingredientes.model.lupulo import Lupulo
         from addons.addon_brewstation.features.feature_ingredientes.model.levedura import Levedura
+        from addons.addon_brewstation.features.feature_ingredientes.model.preco_padrao_insumo import PrecoPadraoInsumo
 
-        return [Malte, Lupulo, Levedura]
+        return [Malte, Lupulo, Levedura, PrecoPadraoInsumo]
 
     def register_routes(self, app) -> None:
         names = ["maltes", "lupulos", "leveduras"]
@@ -25,6 +26,15 @@ class FeatureIngredientes(FeatureBase):
             routes_mod = importlib.import_module(f"{base_routes}.{name}_routes")
             app.register_blueprint(getattr(controller_mod, f"{name}_bp"))
             app.register_blueprint(getattr(routes_mod, f"{name}_api_bp"))
+
+        from addons.addon_brewstation.features.feature_ingredientes.controller.ingredientes_workspace import (
+            ingredientes_workspace_bp,
+        )
+        from addons.addon_brewstation.features.feature_ingredientes.api.routes.preco_padrao_routes import (
+            preco_padrao_api_bp,
+        )
+        app.register_blueprint(ingredientes_workspace_bp)
+        app.register_blueprint(preco_padrao_api_bp)
 
     def get_transactions(self) -> list:
         return [
@@ -61,5 +71,15 @@ class FeatureIngredientes(FeatureBase):
                 "icon": "bi-moisture",
                 "route": "/brewstation/leveduras",
                 "permission_required": "leveduras.list",
+            },
+            {
+                "code": "TX_INGREDIENTES_WORKSPACE",
+                "label": "Insumos (Malte / Lúpulo / Levedura)",
+                "parent_code": "TX_GROUP_INGREDIENTES",
+                "description": "Tela única com abas Malte/Lúpulo/Levedura e o preço padrão de cada tipo em destaque.",
+                "icon": "bi-grid-1x2-fill",
+                "route": "/brewstation/ingredientes-workspace",
+                "permission_required": "maltes.list",
+                "is_workspace": True,
             },
         ]

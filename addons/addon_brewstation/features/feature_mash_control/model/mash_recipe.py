@@ -18,7 +18,7 @@ deliberadamente descartado - decisao registrada no BACKLOG.md.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, choices, display_field
+from annotations import label, plural, required, choices, display_field, min_value
 
 
 ORIGENS_RECEITA = ("Manual", "BrewFather", "BeerSmith", "BeerXML")
@@ -30,6 +30,7 @@ ORIGENS_RECEITA = ("Manual", "BrewFather", "BeerSmith", "BeerXML")
 @choices("origem_receita", label="Origem")
 @required("name", message="Nome da receita é obrigatório")
 @required("origem_receita", message="Origem da receita é obrigatória")
+@min_value("volume_planejado_litros", 0, message="Volume planejado não pode ser negativo")
 class MashRecipe(db.Model):
     __tablename__ = "recipe"  # nome curto — CrudGen/ModuleManager aplicam o prefixo
     __table_args__ = (
@@ -45,6 +46,12 @@ class MashRecipe(db.Model):
 
     origem_receita = db.Column(db.String(20), nullable=False, default="Manual")  # Manual, BrewFather, BeerSmith, BeerXML
     origem_receita_id = db.Column(db.String(100), nullable=True)  # id externo, nulo se Manual
+
+    # Alvo da receita — skill "proposta-precificacao-envase": base pra
+    # comparar com BrewSession.volume_real_litros e pra calcular custo
+    # por litro na precificacao de Envase. Nenhum campo de volume
+    # existia antes disso na receita.
+    volume_planejado_litros = db.Column(db.Float, nullable=True)
 
     created_by = db.Column(db.Integer, db.ForeignKey("tesseract_user.id"), nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
@@ -69,6 +76,7 @@ class MashRecipe(db.Model):
             "equipment_mapping": self.equipment_mapping,
             "origem_receita": self.origem_receita,
             "origem_receita_id": self.origem_receita_id,
+            "volume_planejado_litros": self.volume_planejado_litros,
             "created_by": self.created_by,
             "is_active": self.is_active,
             "is_deleted": self.is_deleted,

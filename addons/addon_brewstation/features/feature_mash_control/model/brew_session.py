@@ -10,7 +10,7 @@ registrada no BACKLOG.md — Fase 6 é só CRUD).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, choices, enum_field, display_field, weak_ref
+from annotations import label, plural, required, choices, enum_field, display_field, weak_ref, min_value
 
 
 @label("Sessão de Brassagem")
@@ -19,6 +19,7 @@ from annotations import label, plural, required, choices, enum_field, display_fi
 @enum_field("status", options=["draft", "active", "paused", "completed", "aborted"])
 @choices("status", label="Status")
 @required("name", message="Nome da sessão é obrigatório")
+@min_value("volume_real_litros", 0, message="Volume real não pode ser negativo")
 @weak_ref("plant_id", resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_plant", options="brew_plants")
 @weak_ref("recipe_id", resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_recipe", options="mash_recipes")
 class BrewSession(db.Model):
@@ -55,6 +56,13 @@ class BrewSession(db.Model):
     # o estoque, não uma estimativa.
     custo_total_insumos = db.Column(db.Float, nullable=True)
 
+    # Volume real medido no dia da brassagem — compara com
+    # MashRecipe.volume_planejado_litros. Base pro custo-por-litro da
+    # precificação de Envase (feature_envase). Sem OG/FG por ora —
+    # depende de leitura de sensor via tesseract-device-bridge, que
+    # ainda não alimenta esse dado (proposta-precificacao-envase §6.6).
+    volume_real_litros = db.Column(db.Float, nullable=True)
+
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
 
@@ -81,6 +89,7 @@ class BrewSession(db.Model):
             "operator_id": self.operator_id,
             "insumos_baixados_em": self.insumos_baixados_em.isoformat() if self.insumos_baixados_em else None,
             "custo_total_insumos": self.custo_total_insumos,
+            "volume_real_litros": self.volume_real_litros,
             "is_deleted": self.is_deleted,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

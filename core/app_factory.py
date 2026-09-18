@@ -133,6 +133,15 @@ def create_app(env: str | None = None) -> Flask:
             from addons.addon_estoque.root.services.estoque_seed import ensure_default_estoque_lookups
             ensure_default_estoque_lookups()
 
+        # Preço padrão por tipo de insumo (malte/lupulo/levedura) —
+        # feature_envase cai neles quando não há preço real pago
+        # registrado pro Material (proposta-precificacao-envase.md).
+        if "brewstation" in app.module_manager.active_modules:
+            from addons.addon_brewstation.features.feature_ingredientes.services.preco_padrao_seed import (
+                ensure_default_precos_padrao_insumo,
+            )
+            ensure_default_precos_padrao_insumo()
+
     from api.routes.core.auth import auth_api_bp
     from api.routes.core.admin.users import users_api_bp
     from api.routes.core.admin.tasks import tasks_api_bp

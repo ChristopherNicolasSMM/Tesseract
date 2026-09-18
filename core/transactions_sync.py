@@ -46,6 +46,7 @@ def sync_transaction(tx_data: dict, *, source_module: str | None = None, is_stan
             order_index=tx_data.get("order_index", order_index),
             permission_required=tx_data.get("permission_required"),
             is_standard=is_standard,
+            is_workspace=tx_data.get("is_workspace", False),
             source_module=source_module,
         )
         db.session.add(tx)
@@ -60,6 +61,7 @@ def sync_transaction(tx_data: dict, *, source_module: str | None = None, is_stan
         existing.route_params = tx_data.get("route_params", existing.route_params)
         existing.order_index = tx_data.get("order_index", order_index)
         existing.permission_required = tx_data.get("permission_required", existing.permission_required)
+        existing.is_workspace = tx_data.get("is_workspace", existing.is_workspace)
 
 
 def resolve_transaction_parents(tx_data_list: list[dict]) -> None:
