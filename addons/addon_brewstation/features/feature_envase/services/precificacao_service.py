@@ -7,11 +7,21 @@ calcula -> cria Envase. Não depende de nenhum Envase existir ainda
 passado, soma também o custo de embalagem dos ItemEnvase dele.
 
 Resolução de custo por Material (mesma regra pra ingrediente e
-embalagem): 1) último preço real pago (ItemPedidoCompra, mais
-recente); 2) se não achar E o Material for malte/lupulo/levedura
+embalagem): 1) `Saldo.custo_medio` (já mantido pelo resto do
+addon_estoque sempre em unidade-base do Material, skill 23 — não
+ItemPedidoCompra direto, que é por unidade DE COMPRA, não de base);
+2) se não achar E o Material for malte/lupulo/levedura
 (feature_ingredientes), cai no preço padrão daquele tipo; 3) senão,
 0.0 com origem_preco="sem_preco" — nunca esconde do usuário que o
 custo está sem base real (decisão da conversa).
+
+CORREÇÃO (achado do Christopher, print de tela): preço é sempre por
+uma UNIDADE (unidade-base do Material pro real, `PrecoPadraoInsumo.
+unidade` pro padrão) e a quantidade do RecipeIngredient vem na
+unidade DA RECEITA (`unidade_medida`) — sem converter, lúpulo em
+gramas era multiplicado direto por um preço por quilo (1000x mais
+caro). `unidade_conversao.converter_quantidade()` resolve isso antes
+de multiplicar.
 """
 from __future__ import annotations
 
@@ -22,6 +32,7 @@ from addons.addon_brewstation.features.feature_envase.model.envase import Envase
 from addons.addon_brewstation.features.feature_envase.model.item_envase import ItemEnvase
 from addons.addon_brewstation.features.feature_envase.model.calculo_precificacao import CalculoPrecificacao
 from addons.addon_brewstation.features.feature_envase.model.item_custo_ingrediente import ItemCustoIngrediente
+from addons.addon_brewstation.features.feature_envase.services.unidade_conversao import converter_quantidade
 from addons.addon_brewstation.features.feature_ingredientes.model.malte import Malte
 from addons.addon_brewstation.features.feature_ingredientes.model.lupulo import Lupulo
 from addons.addon_brewstation.features.feature_ingredientes.model.levedura import Levedura
@@ -39,32 +50,41 @@ def _tipo_insumo_do_material(material_id: int) -> str | None:
     return None
 
 
-def _preco_real_mais_recente(material_id: int) -> float | None:
-    """Último ItemPedidoCompra.preco_unitario registrado pro Material — None se nunca comprado."""
-    from addons.addon_estoque.root.model.item_pedido_compra import ItemPedidoCompra
-    from addons.addon_estoque.root.model.pedido_compra import PedidoCompra
+def _custo_real_por_base(material_id: int) -> float | None:
+    """
+    `Saldo.custo_medio` — já mantido pelo resto de addon_estoque sempre
+    em unidade-base do Material (skill 23, `estoque_service.
+    receber_pedido_compra`). None se o Material nunca teve entrada.
+    """
+    from addons.addon_estoque.root.model.saldo import Saldo
 
-    item = (
-        ItemPedidoCompra.query
-        .join(PedidoCompra, ItemPedidoCompra.pedido_compra_id == PedidoCompra.id)
-        .filter(ItemPedidoCompra.material_id == material_id, ItemPedidoCompra.is_deleted.is_(False))
-        .order_by(PedidoCompra.data_pedido.desc(), ItemPedidoCompra.id.desc())
-        .first()
-    )
-    return item.preco_unitario if item else None
+    saldo = Saldo.query.filter_by(material_id=material_id, is_deleted=False).first()
+    return saldo.custo_medio if saldo else None
 
 
-def _resolver_custo_material(material_id: int) -> tuple[float, str]:
-    """Retorna (preco_unitario_usado, origem_preco)."""
-    preco_real = _preco_real_mais_recente(material_id)
+def _unidade_base_material(material_id: int) -> str | None:
+    from addons.addon_estoque.root.model.material import Material
+
+    material = Material.query.get(material_id)
+    return material.unidade_medida if material else None
+
+
+def _resolver_custo_material(material_id: int) -> tuple[float, str, str | None]:
+    """Retorna (preco_unitario, origem_preco, unidade_do_preco)."""
+    preco_real = _custo_real_por_base(material_id)
     if preco_real is not None:
-        return preco_real, "real"
+        return preco_real, "real", _unidade_base_material(material_id)
 
     tipo = _tipo_insumo_do_material(material_id)
     if tipo is not None:
-        return get_valor_padrao(tipo), "padrao"
+        from addons.addon_brewstation.features.feature_ingredientes.model.preco_padrao_insumo import (
+            PrecoPadraoInsumo,
+        )
+        row = PrecoPadraoInsumo.query.filter_by(tipo_insumo=tipo).first()
+        unidade_padrao = row.unidade if row else None
+        return get_valor_padrao(tipo), "padrao", unidade_padrao
 
-    return 0.0, "sem_preco"
+    return 0.0, "sem_preco", None
 
 
 def simular(lote_id: int, envase_id: int | None, percentual_lucro: float,
@@ -126,6 +146,13 @@ def vincular_envase(calculo_id: int, envase_id: int) -> dict | None:
     return calculo.to_dict()
 
 
+def _material_display(material_id: int) -> str:
+    from addons.addon_estoque.root.services.material_lookup import get_material
+
+    resolvido = get_material(material_id)
+    return resolvido["display"] if resolvido else f"Material #{material_id}"
+
+
 def _calcular(lote_id: int, envase_id: int | None, percentual_lucro: float,
               percentual_ipi: float, percentual_icms: float) -> dict:
     lote = BrewSession.query.get(lote_id)
@@ -142,12 +169,20 @@ def _calcular(lote_id: int, envase_id: int | None, percentual_lucro: float,
         for ing in ingredientes:
             if not ing.material_id or not ing.quantidade:
                 continue
-            preco_unitario, origem = _resolver_custo_material(ing.material_id)
-            custo_total = preco_unitario * ing.quantidade
+            preco_unitario, origem, unidade_preco = _resolver_custo_material(ing.material_id)
+            quantidade_convertida, conversao_ok = converter_quantidade(
+                ing.quantidade, ing.unidade_medida, unidade_preco, ing.material_id
+            )
+            custo_total = preco_unitario * quantidade_convertida
             custo_ingredientes_total += custo_total
             itens_resultado.append({
                 "material_id": ing.material_id,
+                "material_nome": _material_display(ing.material_id),
                 "quantidade": ing.quantidade,
+                "unidade_medida": ing.unidade_medida,
+                "quantidade_convertida": quantidade_convertida,
+                "unidade_preco": unidade_preco,
+                "conversao_confiavel": conversao_ok,
                 "preco_unitario_usado": preco_unitario,
                 "custo_total": custo_total,
                 "origem_preco": origem,
@@ -157,12 +192,20 @@ def _calcular(lote_id: int, envase_id: int | None, percentual_lucro: float,
     if envase_id:
         itens_envase = ItemEnvase.query.filter_by(envase_id=envase_id, is_deleted=False).all()
         for item in itens_envase:
-            preco_unitario, origem = _resolver_custo_material(item.material_id)
+            preco_unitario, origem, unidade_preco = _resolver_custo_material(item.material_id)
+            # ItemEnvase não guarda unidade própria — assume que já
+            # está na unidade-base do Material (mesma premissa de
+            # antes; sem dado de unidade de origem pra converter).
             custo_total = preco_unitario * item.quantidade
             custo_embalagem_total += custo_total
             itens_resultado.append({
                 "material_id": item.material_id,
+                "material_nome": _material_display(item.material_id),
                 "quantidade": item.quantidade,
+                "unidade_medida": None,
+                "quantidade_convertida": item.quantidade,
+                "unidade_preco": unidade_preco,
+                "conversao_confiavel": True,
                 "preco_unitario_usado": preco_unitario,
                 "custo_total": custo_total,
                 "origem_preco": origem,

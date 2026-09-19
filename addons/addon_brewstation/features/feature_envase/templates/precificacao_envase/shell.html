@@ -105,10 +105,14 @@
     body.innerHTML = '';
     (r.itens || []).forEach(function (item) {
       const tr = document.createElement('tr');
+      const qtdLabel = item.quantidade + (item.unidade_medida ? ' ' + item.unidade_medida : '');
+      const avisoConversao = item.conversao_confiavel === false
+        ? ' <i class="bi bi-exclamation-triangle-fill text-warning" title="Não consegui converter a unidade — confira manualmente"></i>'
+        : '';
       tr.innerHTML =
-        '<td>#' + item.material_id + '</td>' +
-        '<td>' + item.quantidade + '</td>' +
-        '<td>' + fmtR$(item.preco_unitario_usado) + '</td>' +
+        '<td>' + (item.material_nome || ('#' + item.material_id)) + '</td>' +
+        '<td>' + qtdLabel + avisoConversao + '</td>' +
+        '<td>' + fmtR$(item.preco_unitario_usado) + (item.unidade_preco ? '/' + item.unidade_preco : '') + '</td>' +
         '<td>' + fmtR$(item.custo_total) + '</td>' +
         '<td>' + (origemLabel[item.origem_preco] || item.origem_preco) + '</td>';
       body.appendChild(tr);
