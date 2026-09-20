@@ -49,7 +49,7 @@ reaproveitável para outros domínios.
 | `addon_brewstation` — `feature_mash_control` (18 entidades) | CRUD completo + motor de automação reativo via EventBus |
 | `addon_brewstation` — `feature_ingredientes`/`feature_envase`/`feature_brew_father` | Completo (CRUD) |
 | `addon_device_manager` (promovido de Feature, skill 05) | Completo — MQTT (LWT agregado), API `get_value`/`set_value`/`on_change` |
-| `addon_estoque` (Material/Composição/Movimentação/Saldo + lookups) | Completo |
+| `addon_estoque` (taxonomia, Material/Composição/Unidades, Fornecedores/Transportadoras, Compras, Cotação/RFQ, Movimentação/Saldo, ações em massa — skills 23-25) | Completo |
 | `screen_generator.py` (gerar tela do Designer inteira a partir de metadata OData) | Não iniciado — e agora improvável: sem canvas, "gerar a árvore de componentes" deixou de fazer sentido; o caminho atual é o dev escrever o HTML, com o freestyle como referência |
 | Fase F skill 05 (validação ponta a ponta com `tesseract-device-bridge` real) | Pendente — repositório separado |
 

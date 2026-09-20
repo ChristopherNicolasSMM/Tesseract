@@ -16,3 +16,22 @@ aconteceu, em vez de apagar o histórico.
 R: O saldo só é calculado a partir das Movimentações. Um material
 novo sem nenhuma entrada lançada ainda não tem saldo — cadastre a
 primeira entrada e ele aparece.
+
+**P: Existe um passo de "aprovação" separado no Pedido de Compra?**
+R: Não um passo dedicado com outra pessoa precisando aprovar. Quem
+tem permissão para editar o pedido também pode movê-lo entre as
+etapas (Rascunho → Enviado → Confirmado → Recebido) — o passo
+"Confirmar Pedido" funciona na prática como o sinal verde antes do
+recebimento, mas não exige uma segunda pessoa nem um usuário com
+papel diferente.
+
+**P: Posso receber só parte de um Pedido de Compra, e o resto depois?**
+R: Não hoje — o recebimento é sempre do pedido inteiro de uma vez. Se
+só uma parte da mercadoria chegou, aguarde o restante antes de
+registrar a entrada, ou trate como dois pedidos separados desde o
+início.
+
+**P: Preciso usar Cotação de Fornecedores toda vez que for comprar?**
+R: Não. Cotação (RFQ) é só para quando você quer comparar preço entre
+fornecedores antes de decidir. Se já sabe com quem vai comprar, criar
+o Pedido de Compra direto é mais rápido.

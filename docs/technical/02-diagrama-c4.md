@@ -51,7 +51,7 @@ C4Container
         Container(brewfather, "feature_brew_father", "1 entidade", "Sincronização com a API do BrewFather (Basic Auth)")
 
         Container(devicemanager, "addon_device_manager", "Python/Flask Blueprint — Addon independente", "Dispositivos IoT (sensores/atuadores), funções, emulação, cliente MQTT")
-        Container(estoque, "addon_estoque", "Python/Flask Blueprint", "Material/Composição/Movimentação/Saldo + lookups (Fabricante/Origem/TipoProduto/Categoria)")
+        Container(estoque, "addon_estoque", "Python/Flask Blueprint", "Taxonomia, Material/Composição/Unidades, Fornecedores/Transportadoras, Pedido de Compra, Cotação (RFQ), Movimentação/Saldo — ver addons/addon_estoque/docs/technical/02-diagrama-c4.md")
     }
 
     ContainerDb(db, "Banco de dados", "SQLite / PostgreSQL", "Todas as tabelas tesseract_*")

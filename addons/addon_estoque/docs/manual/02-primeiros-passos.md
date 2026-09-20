@@ -11,3 +11,6 @@
    Origem/Tipo de Produto/Categoria.
 5. Salve. O saldo do material começa zerado — ele só aparece na tela
    de Saldo depois da primeira Movimentação de entrada.
+6. Se for usar Pedido de Compra ou Cotação de Fornecedores, cadastre
+   antes ao menos um Fornecedor (em "Fornecedores") — é obrigatório
+   para os dois fluxos. Transportadora é opcional.
