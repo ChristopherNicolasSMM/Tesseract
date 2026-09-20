@@ -417,7 +417,7 @@ esquecimento:
   `TX_AUTO_<PLURAL>`/`TX_GROUP_AUTO_<MODULO>`, sem descrição, ícone
   genérico se `@menu_icon` não estiver presente, e **um grupo só por
   módulo** — perderia a hierarquia Addon>Feature (`TX_GROUP_BREWSTATION`,
-  skill 10) e mudaria os códigos `TX_` que 3 arquivos de teste
+  skill 07) e mudaria os códigos `TX_` que 3 arquivos de teste
   referenciam diretamente.
 - `addon_brewstation` (núcleo) não foi migrado — não tem model/rota
   própria pra economizar boilerplate nenhum, e seu `get_transactions()`

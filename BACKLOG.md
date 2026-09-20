@@ -1466,7 +1466,9 @@ sessão anterior — investigação no código real levou a resultado
 diferente do esperado, e os 3 achados novos foram implementados na
 sequência (mesma sessão, autorização explícita — ordem "5,4,2,1,3",
 item 4). Ver `docs/skills/10-menu-hierarquico.md`, seção 9, para o
-detalhe completo de cada item abaixo.
+detalhe completo de cada item abaixo *(nota de 2026-09: esse arquivo
+foi fundido em `docs/skills/07-menu-personalizacao-e-hierarquia.md`
+na consolidação de legibilidade — mesmo conteúdo, seção 10 lá)*.
 
 - [x] **Achado**: `parent_manually_set` está **obsoleto** — o problema
       que motivou a proposta já não existe na implementação real

@@ -376,7 +376,7 @@ OAuth2 com refresh token):
 migration pra tipo novo, só pra campo novo em `PlaygroundRequest` em
 si (isso sim exige `db migrate`).
 
-## Como o menu hierárquico resolve ordem/colapso/ícone (skill 10 + adenda)
+## Como o menu hierárquico resolve ordem/colapso/ícone (skill 07 + adenda)
 
 Três camadas, nessa ordem de prioridade: preferência pessoal
 (`tesseract_user_menu_preference`) → padrão global

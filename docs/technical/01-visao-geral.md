@@ -27,7 +27,7 @@ reaproveitável para outros domínios.
 | CrudGen + Anotações (smart-list completo: filtro tipado/colunas/export) | Pronto |
 | Referência fraca cross-Addon + `display_field` (skill 11) | Pronto |
 | Páginas HTML de Core (login, home, perfil, tema claro/escuro) | Pronto |
-| Catálogo de Transações + Menu **hierárquico** em árvore (skill 10) | Pronto |
+| Catálogo de Transações + Menu **hierárquico** em árvore (skill 07) | Pronto |
 | Gestão de Transações (`/admin/transactions/`) | Pronto |
 | Configurações de Menu (`/admin/menu-settings/`) — ordem/colapso/ícone por nível | Pronto |
 | Preferência pessoal de menu (`/perfil/menu-preferencias`) | Pronto |
@@ -76,7 +76,7 @@ Playground). Ver `requirements.txt` (UTF-16LE — ver skill 00/BACKLOG).
 - `core.versioning.snapshot_if_needed()` + `core.snapshot_service.py`
   — versionamento, diff e restauração.
 - `core.transactions_sync.py` — catálogo de transações navegáveis, em
-  **árvore** (skill 10) — `parent_id`/`order_index`/`is_folder`.
+  **árvore** (skill 07) — `parent_id`/`order_index`/`is_folder`.
 - `core.rules_catalog.py` + `static/js/rule_engine.js` — catálogo de
   regras de negócio e motor de validação client-side.
 - `core.odata.connection_manager.py` — conexão e descoberta de

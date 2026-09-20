@@ -97,7 +97,7 @@ C4Component
         Component(auth, "auth.py / permissions.py", "Flask-Login", "Autenticação e RBAC")
         Component(crudgen, "crudgen/", "Jinja2", "Gera Service/Controller/Routes/Templates — smart-list completo, referência fraca (skill 11)")
         Component(versioning, "versioning.py / snapshot_service.py", "Python", "CodeSnapshot, diff, restauração")
-        Component(transactions, "transactions_sync.py", "Python", "Catálogo de transações navegáveis, em árvore (skill 10)")
+        Component(transactions, "transactions_sync.py", "Python", "Catálogo de transações navegáveis, em árvore (skill 07)")
         Component(menuprefs, "menu_preference_service.py", "Python", "Overrides de ordem/colapso (global e por usuário) + profundidade de ícone")
         Component(rules, "rules_catalog.py", "Python", "Catálogo de regras (Validação/Visibilidade/Cálculo)")
         Component(odata, "odata/connection_manager.py", "urllib/json/xml stdlib", "Conexão e descoberta de metadata OData")

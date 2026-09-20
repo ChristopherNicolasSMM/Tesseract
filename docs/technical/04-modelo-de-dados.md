@@ -78,7 +78,7 @@ erDiagram
         string icon
         string route
         json route_params
-        int parent_id FK "árvore, skill 10"
+        int parent_id FK "árvore, skill 07"
         int order_index
         string permission_required
         bool is_active
@@ -248,7 +248,7 @@ erDiagram
 | `tesseract_user` | `theme` | `"light"`/`"dark"` — preferência de UI por usuário |
 | `tesseract_code_snapshot` | `is_current` | Só a versão marcada como atual aparece como "estado hoje" |
 | `tesseract_code_snapshot` | `generation_run_id` | Agrupa N arquivos escritos numa mesma execução de `generate()` |
-| `tesseract_transaction` | `parent_id`/`order_index` | Árvore de menu (skill 10) — substituiu o campo `group` (string) da skill 07 original |
+| `tesseract_transaction` | `parent_id`/`order_index` | Árvore de menu (skill 07) — substituiu o campo `group` (string) da skill 07 original |
 | `tesseract_transaction` | `is_standard` | `True` = catálogo de Core (`TX_*`); `False` = contribuída por Addon/Feature ou manual |
 | `tesseract_transaction` | `source_module` | `None`/`"manual"` (criada pela tela) ou nome do Addon (ex.: `"brewstation"`) — define se a tela de edição completa é segura (`source_module="manual"`) ou só `is_active`/posição na árvore (qualquer outro valor) |
 | `tesseract_user_list_preference` | `list_key` | String, não FK — Core não referencia tabela de domínio |

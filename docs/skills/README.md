@@ -27,8 +27,13 @@ Ordem de leitura recomendada:
 7. **06-model-builder-e-playground.md** — tela web de criação de Model/
    Addon/Feature (equivalente ao CrudGen via CLI, herdado do PyTeca) e
    API/SQL Playground.
-8. **07-menu-personalizacao.md** — ordem e colapso de grupos de menu,
-   com padrão global (admin) e override por usuário.
+8. **07-menu-personalizacao-e-hierarquia.md** — menu completo: ordem/
+   colapso por nó com padrão global (admin) e override por usuário, e
+   estrutura em árvore de profundidade arbitrária (`parent_id`/
+   `order_index` em `Transaction`, substitui o campo `group` plano).
+   Fusão dos antigos documentos 07 e 10 (consolidação 2026-09) — o
+   arquivo `10-menu-hierarquico.md` não existe mais, seu conteúdo vive
+   aqui; o número "10" fica vago (não reaproveitado, ver nota abaixo).
 9. **08-logging-observabilidade-e-administracao.md** — convenção de nome
    de logger, separação de camadas de log (rotina vs. erro grave) com
    enforcement técnico, formato de console, log global do Core (`logs/`
@@ -37,21 +42,18 @@ Ordem de leitura recomendada:
 10. **09-auto-descoberta-modulos.md** — descoberta automática de rotas/
     models/menu via `pkgutil.walk_packages`, escopada por Addon/Feature
     (adaptação do mecanismo real do PyTeca à arquitetura tri-nível).
-11. **10-menu-hierarquico.md** — menu em árvore de profundidade
-    arbitrária (`parent_id`/`order_index` em Transaction), substitui o
-    campo `group` plano; adendas nas skills 07 e 09.
-12. **11-referencia-fraca-e-display-field.md** — resolução de campo de
+11. **11-referencia-fraca-e-display-field.md** — resolução de campo de
     referência fraca (skill 02) em nome legível na tela gerada e em
     combo de busca, via `@display_field`/`@weak_ref` + geração
     automática pelo CrudGen + `/api/options/<table>`.
-13. **12-crudgen-referencia-completa.md** — referência completa do
+12. **12-crudgen-referencia-completa.md** — referência completa do
     CrudGen: pipeline model→CLI→arquivos, guia de uso de cada
     anotação (`@label`/`@plural`/`@choices`/`@required`/`@max_length`/
     `@min_length`/`@min_value`/`@display_field`/`@weak_ref`/
     `@menu_icon`/`@permission`), semântica de hooks/`--overwrite`/
     `--only templates`, e a migração de 3 módulos reais pro caminho
     de auto-descoberta (skill 09).
-14. **13-crudgen-guia-operacional.md** — companheiro da skill 12:
+13. **13-crudgen-guia-operacional.md** — companheiro da skill 12:
     fluxo de objetos completo (request→controller→service→model→DB,
     Web e API, com a assimetria real de `manage()` não passar pelo
     `Service.list()`), os únicos 2 pontos reais de hook de lifecycle
@@ -59,25 +61,25 @@ Ordem de leitura recomendada:
     existe em trash/restore/delete_permanent nem em controller/rotas),
     checklist completo de "como adicionar um campo", e cookbook de
     manutenções comuns.
-15. **14-eventbus-convencao.md** — convenção de nome de evento e
+14. **14-eventbus-convencao.md** — convenção de nome de evento e
     contrato de payload do EventBus (`core/event_bus.py`), catálogo
     real dos 2 eventos em uso hoje, e 2 achados de manutenção (nome de
     evento duplicado como string literal em publisher/subscriber;
     docstring desatualizada em `register_example_listener()`).
-16. **15-popups-e-dialogos-padrao.md** — padrão de diálogo de
+15. **15-popups-e-dialogos-padrao.md** — padrão de diálogo de
     confirmação e toast/alert (Core), substituindo `confirm()`/
     `alert()` nativos e o `flash()` duplicado por template; primeiro
     uso real do motor de resolução de i18n (adendo da skill 00),
     delegação de evento obrigatória para sobreviver a fragmento AJAX
     (Plant Workspace/Dashboard).
-17. **16-designer-acoes-e-dados.md** — Ações do Designer (catálogo em
+16. **16-designer-acoes-e-dados.md** — Ações do Designer (catálogo em
     duas camadas: código + `DesignerDataAction`, sempre server-side
     quando toca dado), Provedor OData local (`@odata_expose`,
     atalho em processo), Tier 1/2 de componente (16 tipos), e
     substituição de tela do CrudGen no menu (`replace_in_menu`).
     **Atenção**: as seções sobre o construtor visual são histórico — ele
     foi removido na Fase 12; ver o cabeçalho do próprio arquivo.
-18. **17-paginas-customizadas-fluxo-de-dados.md** — como uma página
+17. **17-paginas-customizadas-fluxo-de-dados.md** — como uma página
     customizada consome dado: os três caminhos (API REST do CrudGen,
     Ação de Dado, `/api/options/`), contratos, permissão (401 vs 403),
     segurança (SSTI, XSS no dado da API, nota sobre CSRF) e erros
@@ -85,12 +87,12 @@ Ordem de leitura recomendada:
     `controller/core/freestyle_model.py`); modelos estáticos em
     `static/modelo_paginas_nice_admin/_modelo-pagina-{basico,completo}.html`
     também existem, decisão de consolidação em aberto (BACKLOG, Fase 13).
-19. **18-freestyle-modelos-de-referencia.md** — estrutura e convenção do
+18. **18-freestyle-modelos-de-referencia.md** — estrutura e convenção do
     `/freestyle/` (Fase 13): onde controller/template/JS moram, por que
     `templates/` não é servível, convenção de nome `model_X-*.js` vs.
     `freestyle-*.js` compartilhado, e passo a passo pra criar um modelo
     novo.
-20. **19-proposta-reestruturacao-yeast-bank-container.md** — nova
+19. **19-proposta-reestruturacao-yeast-bank-container.md** — nova
     entidade `YeastContainer` entre Dispositivo e Item do banco
     (Dispositivo 1:N Container 1:N Item), remoção de
     `YeastBankItem.storage_device_id` em favor de `container_id`,
@@ -98,12 +100,12 @@ Ordem de leitura recomendada:
     drill-down proposta para a futura tela integrada (BACKLOG, Fase
     14). Model, CrudGen e as 6 migrations já implementados; falta só
     a tela integrada de navegação.
-21. **20-proposta-crudgen-tipo-sqlalchemy-html.md** — `_FIELD_HTML_VALIDATIONS`
+20. **20-proposta-crudgen-tipo-sqlalchemy-html.md** — `_FIELD_HTML_VALIDATIONS`
     (skill 12) ganhou `html_type` via introspecção real de
     `db.Date`/`DateTime`/`Time`/`Integer`/`Float`/`Numeric`/`Boolean`/
     `Text`, mantendo `@enum_field`/`@weak_ref` com prioridade. Sem
     `@calendar` nova. **Executada.**
-22. **21-tela-integrada-navegacao-unificacao-evento-starter-contagem.md** —
+21. **21-tela-integrada-navegacao-unificacao-evento-starter-contagem.md** —
     `YeastBankEvent` vira ponto de entrada único (Starter/Contagem de
     Células criam registro especializado automaticamente e
     redirecionam); `YeastStorageReading` removida;
@@ -112,7 +114,7 @@ Ordem de leitura recomendada:
     (`block_create`/`post_create_redirect`) ficaram reais pela
     primeira vez. **Executada por completo** (BACKLOG Fases 20 e 22
     — schema/fluxo e a tela integrada em si).
-23. **22-fusao-starter-bankevent-neubauer.md** — `YeastStarterLog`
+22. **22-fusao-starter-bankevent-neubauer.md** — `YeastStarterLog`
     removida, fundida direto em `YeastBankEvent` (decisão do
     Christopher: opção B, fusão total, entre as duas apresentadas);
     `YeastCellCountHistory` ganha `bank_event_id` (rastreio de
@@ -121,28 +123,28 @@ Ordem de leitura recomendada:
     `viable_cells_per_ml`). **Executada** (BACKLOG Fase 26) —
     3 migrations com migração real de dado existente (starter_log →
     bank_event antes de dropar a tabela).
-24. **23-proposta-expansao-addon-estoque.md** — taxonomia (Origem/
+23. **23-proposta-expansao-addon-estoque.md** — taxonomia (Origem/
     TipoProduto/Categoria), fracionamento (`MaterialUnidade`/
     `fator_para_base`), cadastro de Fornecedor/Transportadora/Endereço
     (referência fraca, sem dono fixo) e Pedido de Compra com Entrada
     de Mercadoria. 4 fases entregues.
-25. **24-proposta-sistema-cotacao-rfq.md** — sistema de cotação
+24. **24-proposta-sistema-cotacao-rfq.md** — sistema de cotação
     (RFQ) inspirado em SAP MM: `ItemProcessoCotacao` (item pedido uma
     vez por processo) + `Cotacao`/`ItemCotacao` (resposta por
     fornecedor), seleção de vencedor, geração de Pedido de Compra a
     partir da cotação. 3 fases (6.1/6.2/6.3) entregues.
-26. **25-proposta-acoes-em-massa-padrao-crudgen.md** — apagar/
+25. **25-proposta-acoes-em-massa-padrao-crudgen.md** — apagar/
     inativar em massa vira padrão gerado pelo CrudGen; novo mecanismo
     de "hook de template" (`_acoes_em_massa_extra.html`/
     `_detail_extra.html`); aplicação em Malte/Lúpulo/Levedura/
     MashRecipe/Material, estendida depois a Fornecedor/Transportadora.
-27. **26-proposta-envase-consumo-insumo-custo-industrializacao.md** —
+26. **26-proposta-envase-consumo-insumo-custo-industrializacao.md** —
     `Envase` passa a referenciar o Material resultante (produto
     acabado) em vez de `ItemEnvase` digitado à mão (resolvido via
     Composição); consumo de insumo da receita na brassagem (botão
     "Confirmar Ingredientes", idempotente); custo real de
     industrialização.
-28. **27-proposta-sincronizacao-seletiva-brewfather.md** — tela de
+27. **27-proposta-sincronizacao-seletiva-brewfather.md** — tela de
     seleção prévia (checkbox) antes de importar receitas do
     BrewFather, já que a API não suporta filtro por tag/pasta no
     servidor; sinalização de status (nova/já importada/apagada
@@ -167,10 +169,9 @@ isso aqui é só o resumo:
 |---|---|---|
 | 05 — Device Manager / MQTT vs. EventBus | Sim | Fases F/G (validação com hardware real, docs finais) ficam fora do repositório principal |
 | 06 — Model Builder / Playground | Sim | — |
-| 07 — Personalização de Menu | Sim | Cabeçalho corrigido nesta auditoria (dizia "fase de decisão") |
+| 07 — Menu: Personalização e Hierarquia | Sim | Fusão dos antigos documentos 07 (ordem/colapso) e 10 (árvore N-níveis) na consolidação de 2026-09 — número "10" vago, não reaproveitado |
 | 08 — Logging/Observabilidade | Sim | Com revisões registradas no próprio arquivo |
 | 09 — Auto-Descoberta de Módulos | Sim | Cabeçalho corrigido nesta auditoria (dizia "fase de decisão") |
-| 10 — Menu Hierárquico | Sim | — |
 | 11 — Referência Fraca / `@display_field` | Sim | — |
 | 12 — CrudGen Referência Completa | Referência viva | Seção 3 corrigida nesta auditoria (dizia "8 artefatos", são 10 desde a skill 25) |
 | 13 — CrudGen Guia Operacional | Referência viva | Companheira da 12, sem sobreposição de conteúdo (12 = o que existe, 13 = como trabalhar) |
@@ -194,6 +195,27 @@ pontual pra marcar — são documentos descritivos do que já existe,
 atualizados conforme o próprio mecanismo evolui (ex.: skill 12 seção 3
 mudou de 8 pra 10 artefatos quando a skill 25 acrescentou os hooks de
 template).
+
+### Consolidação de legibilidade (Fase 1, 2026-09)
+
+Auditoria pedida por Christopher para reduzir repetição e melhorar a
+leitura das skills 00–18 (convenção geral), **sem alterar nenhuma
+regra** — só reorganização/fusão de documentos que cobriam a mesma
+superfície em momentos diferentes. Skills 05 e 19–27 (propostas de
+iniciativa, com histórico de decisão citável em commits/BACKLOG) ficam
+de fora da fusão — só recebem limpeza de legibilidade interna, nunca
+troca de nome de arquivo.
+
+Números de arquivo fundidos **não são reaproveitados** — evita
+referência cruzada antiga (código, commit, BACKLOG) apontar para um
+conteúdo diferente do que apontava originalmente.
+
+| Fusão | Status |
+|---|---|
+| 07 (menu personalização) + 10 (menu hierárquico) → `07-menu-personalizacao-e-hierarquia.md` | **Feita** |
+| 12 (CrudGen referência) + 13 (CrudGen guia operacional) → `12-crudgen-referencia-e-operacao.md` | Planejada, próximo patch |
+| 16 (Designer) + 17 (páginas customizadas) + 18 (Freestyle) → `16-designer-paginas-customizadas.md` | Planejada, próximo patch |
+| 00–06, 08, 09, 11, 14, 15 | Sem fusão — só limpeza interna (Opção A), a confirmar arquivo por arquivo durante a auditoria |
 
 ### Peças ainda sem skill própria
 
