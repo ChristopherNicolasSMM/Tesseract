@@ -193,7 +193,7 @@ só enriquece o que já é o último `elif`.
   else 'text'` por `fv.get('html_type', 'text')`; `checkbox`/
   `textarea` precisam de HTML diferente de `<input>` (branches novos
   dentro do mesmo `else`).
-- `docs/skills/12-crudgen-referencia-completa.md` — documentar o
+- `docs/skills/12-crudgen-referencia-e-operacao.md` — documentar o
   `html_type` novo, igual foi feito pra `@field_labels` na skill 15.
 - JS pequeno (arquivo a definir — provavelmente
   `static/core/js/...`, não criado ainda) — normalização de vírgula→
@@ -318,7 +318,7 @@ com login real). Casos mínimos, um por linha do mapeamento (seção I):
    só depois do HTML5 `type="number"` já estar no ar, pra confirmar
    que o navegador já bloqueia a maior parte do problema sozinho
    antes de decidir se o JS extra é realmente necessário.
-5. Documentar em `docs/skills/12-crudgen-referencia-completa.md`.
+5. Documentar em `docs/skills/12-crudgen-referencia-e-operacao.md`.
 6. Rodar suíte completa (skill 15/16 como baseline) + `--only
    templates` numa entidade já existente fora do `feature_yeast_bank`,
    pra confirmar que o mecanismo generaliza (não é um efeito colateral

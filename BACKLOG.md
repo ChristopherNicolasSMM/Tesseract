@@ -1773,7 +1773,9 @@ quando já estavam implementados há sessões. Corrigido nesta rodada
 
 Retomada da conversa sobre anotações/referência fraca/combobox — 3
 decisões fechadas e implementadas na mesma sessão. Detalhe completo em
-`docs/skills/12-crudgen-referencia-completa.md`.
+`docs/skills/12-crudgen-referencia-completa.md` *(nota de 2026-09:
+fundido em `docs/skills/12-crudgen-referencia-e-operacao.md` na
+consolidação de legibilidade — mesmo conteúdo, seções 1–7)*.
 
 - [x] `@required`/`@max_length`/`@min_length`/`@min_value` ligadas a
       algo real: HTML5 nativo (`required`/`maxlength`/`minlength`/
@@ -1794,7 +1796,8 @@ decisões fechadas e implementadas na mesma sessão. Detalhe completo em
       `register_routes()` além de registrar Blueprint (EventBus,
       TASK_REGISTRY) — preservados explicitamente, só o loop mecânico
       de registro de Blueprint foi trocado por `discover_blueprints()`.
-- [x] `docs/skills/12-crudgen-referencia-completa.md`: catálogo de
+- [x] `docs/skills/12-crudgen-referencia-completa.md` (hoje fundido em
+      `12-crudgen-referencia-e-operacao.md`): catálogo de
       anotações atualizado (validações deixaram de ser vestigiais),
       guia de uso detalhado de cada anotação com exemplo, argumentos
       de geração completos (`--only` incluso).
@@ -1813,8 +1816,9 @@ inválido) + 2 em `tests/test_crudgen_cli_generate_relationship_bug.py`
 
 ## Documentação de excelência do CrudGen (skill 13) — CONCLUÍDA
 
-`docs/skills/13-crudgen-guia-operacional.md` — companheiro prático da
-skill 12. Cobre exatamente os 4 pontos pedidos: fluxo de objetos,
+`docs/skills/13-crudgen-guia-operacional.md` *(nota de 2026-09: fundido
+em `docs/skills/12-crudgen-referencia-e-operacao.md`, seções 8–12, na
+consolidação de legibilidade)* — companheiro prático da skill 12. Cobre exatamente os 4 pontos pedidos: fluxo de objetos,
 hooks antes/depois, pontos de manutenção, como incluir campos.
 
 **Achado central, investigado a fundo no código real antes de
