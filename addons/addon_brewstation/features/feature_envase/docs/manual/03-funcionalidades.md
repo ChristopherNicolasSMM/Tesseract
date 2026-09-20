@@ -32,3 +32,26 @@ um, em "Itens de Envase". Essa tabela continua existindo só como
 histórico do que já foi registrado antes — novos Envases não criam
 mais itens aqui, o componente vem da Composição do Material
 resultante (ver acima).
+
+## Precificação
+
+Tela separada (Precificação) para simular quanto uma cerveja deveria
+custar para vender, a partir do custo real dos ingredientes:
+
+1. Escolha o Lote e informe a margem de lucro e os percentuais de
+   IPI/ICMS desejados.
+2. Clique em **Simular** — o sistema mostra o custo de cada
+   ingrediente da receita, de onde veio esse preço (compra real já
+   registrada, um valor padrão configurado, ou "sem preço" quando
+   nenhum dos dois existe), e o valor final sugerido.
+3. Ajuste os percentuais e simule de novo quantas vezes quiser — nada
+   é gravado ainda nessa etapa.
+4. Quando estiver satisfeito, clique em **Confirmar** para gravar esse
+   cálculo. Se já existir um Envase para esse lote, é possível
+   vincular o cálculo a ele.
+
+Quando um ingrediente aparece como "sem preço", é porque ele nunca foi
+comprado (sem histórico no Estoque) e não é malte, lúpulo nem levedura
+(que têm um valor padrão configurável — veja "Preço Padrão de Insumo"
+em Ingredientes). Vale cadastrar uma compra real ou um preço padrão
+para esse item antes de confiar no valor final.

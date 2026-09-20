@@ -26,11 +26,11 @@ materiais).
 
 | Feature | Entidades | Docs |
 |---|---|---|
-| `feature_yeast_bank` | 8 | `features/feature_yeast_bank/docs/technical/01-visao-geral.md` |
+| `feature_yeast_bank` | 7 | `features/feature_yeast_bank/docs/technical/01-visao-geral.md` |
 | `feature_mash_control` | 18 | `features/feature_mash_control/docs/technical/01-visao-geral.md` |
-| `feature_brew_father` | 0 tabela própria (sync service + log) | `features/feature_brew_father/docs/technical/01-visao-geral.md` (a criar) |
-| `feature_ingredientes` | 3 (Malte/Lúpulo/Levedura) | `features/feature_ingredientes/docs/technical/01-visao-geral.md` |
-| `feature_envase` | 2 (Envase/ItemEnvase) | `features/feature_envase/docs/technical/01-visao-geral.md` |
+| `feature_brew_father` | 0 tabela própria (sync service + log) | `features/feature_brew_father/docs/technical/01-visao-geral.md` |
+| `feature_ingredientes` | 4 (Malte/Lúpulo/Levedura/PrecoPadraoInsumo) | `features/feature_ingredientes/docs/technical/01-visao-geral.md` |
+| `feature_envase` | 4 (Envase/ItemEnvase/CalculoPrecificacao/ItemCustoIngrediente) | `features/feature_envase/docs/technical/01-visao-geral.md` |
 
 **Correção desta rodada**: `feature_device_manager` **não existe mais**
 como Feature deste Addon — foi promovida a `addon_device_manager`
@@ -52,12 +52,17 @@ FK cross-Feature existente hoje (mesmo Addon, permitida pela skill 02):
 - `feature_ingredientes` → `addon_estoque` (`material_id` de
   Malte/Lúpulo/Levedura)
 - `feature_envase` → `addon_estoque` (`material_id` de `ItemEnvase`,
-  baixa síncrona de estoque)
+  baixa síncrona de estoque; `precificacao_service` também lê
+  `Saldo`/`Material` direto para resolver custo — ver
+  `features/feature_envase/docs/technical/04-modelo-de-dados.md`)
 
 ## Fora de escopo
 
 Domínio de Dispositivos do legado `plugin_integ_bFather`
 (BrewStation original, pré-Tesseract) — eliminado, coberto por
-`addon_device_manager`. Domínio de Cálculo/precificação
-(base de custo, base dedutiva, impostos cadastrados) — parked, sessão
-dedicada futura.
+`addon_device_manager`. Domínio de Cálculo/precificação de venda
+(margem de lucro, IPI, ICMS sobre o custo de industrialização) —
+**implementado**, não é mais "fora de escopo" (nota desatualizada
+corrigida nesta auditoria); ver
+`features/feature_envase/docs/technical/03-fluxos.md`, seção
+"Precificação de venda".

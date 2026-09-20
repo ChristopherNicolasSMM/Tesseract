@@ -35,3 +35,20 @@ Tabelas reais: `tesseract_brewstation_ingr_malte`,
 
 `material_id` em cada uma resolve, sem FK, para
 `addon_estoque.tesseract_estoque_material.id`, via `material_lookup`.
+
+```mermaid
+erDiagram
+    PRECO_PADRAO_INSUMO {
+        int id PK
+        string tipo_insumo UK "malte | lupulo | levedura"
+        float valor_padrao
+        string unidade "kg, un, ... — mesma unidade em que o preço se aplica"
+        datetime updated_at
+    }
+```
+
+Tabela real: `tesseract_brewstation_ingr_preco_padrao_insumo`. Não
+referencia `Malte`/`Lupulo`/`Levedura` nem `Material` — é indexada só
+pelo `tipo_insumo` (string, `UniqueConstraint`), resolvida em runtime
+por `feature_envase/services/precificacao_service._tipo_insumo_do_material()`
+checando em qual das 3 tabelas o `material_id` aparece.

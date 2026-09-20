@@ -43,3 +43,63 @@ localmente nesta Feature.
 
 Decisão de remover a tabela/FK por completo fica em aberto — ver
 `06-manutencao-e-expansao.md`.
+
+```mermaid
+erDiagram
+    CALCULO_PRECIFICACAO {
+        int id PK
+        int lote_id FK "-> feature_mash_control.session.id, FK real cross-Feature"
+        int envase_id FK "nullable — simulação existe sem Envase criado ainda"
+        float custo_ingredientes_total
+        float custo_embalagem_total
+        float subtotal
+        float percentual_lucro
+        float valor_lucro
+        float percentual_ipi
+        float valor_ipi
+        float percentual_icms
+        float valor_icms
+        float valor_total
+        datetime created_at
+    }
+    ITEM_CUSTO_INGREDIENTE {
+        int id PK
+        int calculo_id FK
+        int material_id "SEM FK - addon_estoque"
+        float quantidade
+        float preco_unitario_usado
+        float custo_total
+        string origem_preco "real | padrao | sem_preco"
+    }
+    CALCULO_PRECIFICACAO ||--o{ ITEM_CUSTO_INGREDIENTE : "tem N itens"
+```
+
+Tabelas reais: `tesseract_brewstation_env_calculo_precificacao`,
+`tesseract_brewstation_env_item_custo_ingrediente`.
+
+## `CalculoPrecificacao`/`ItemCustoIngrediente` — o que cada campo significa
+
+- **`envase_id` nullable de propósito**: o fluxo é
+  simula (nada persiste) → calcula-e-salva (persiste
+  `CalculoPrecificacao` + `ItemCustoIngrediente`, `envase_id` ainda
+  `None`) → vincula ao Envase (`vincular_envase()`, preenche
+  `envase_id` depois que o usuário decide seguir com aquele número).
+  Um `CalculoPrecificacao` pode existir para sempre sem nunca ganhar
+  um `envase_id` — é uma simulação descartada, não lixo a limpar.
+- **`origem_preco` em `ItemCustoIngrediente`** — `"real"` (veio de
+  `Saldo.custo_medio`, ou seja, já teve compra registrada em
+  `addon_estoque`), `"padrao"` (caiu em `PrecoPadraoInsumo`,
+  `feature_ingredientes`, por ser malte/lúpulo/levedura sem `Saldo`
+  ainda), ou `"sem_preco"` (nenhum dos dois — Material não é insumo
+  reconhecido e nunca foi comprado; custo entra como `0.0`, **nunca
+  escondido do usuário** — decisão explícita, ver
+  `03-fluxos.md`).
+- **Conversão de unidade** (achado real, corrigido na última sessão):
+  `RecipeIngredient.quantidade` está na unidade da **receita**
+  (`unidade_medida`, ex. gramas), mas o preço resolvido está na
+  unidade-**base** do Material ou na unidade de `PrecoPadraoInsumo`
+  (ex. quilo) — sem converter antes de multiplicar, lúpulo em gramas
+  virava 1000× mais caro (achado do Christopher, por print de tela).
+  `unidade_conversao.converter_quantidade()` resolve isso antes de
+  multiplicar; `ItemCustoIngrediente` não guarda a unidade original,
+  só o resultado já convertido.

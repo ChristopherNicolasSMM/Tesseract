@@ -27,3 +27,12 @@ Marque várias linhas (checkbox) pra apagar ou inativar de uma vez.
 **Inativar** aqui não desliga nada na própria especificação — inativa
 o Material do Estoque vinculado (é ele quem controla se um item está
 ativo ou não).
+
+## Preço Padrão de Insumo
+
+Um valor de referência por tipo (malte, lúpulo, levedura), usado
+quando a tela de Precificação (Envase) precisa custar um ingrediente
+que ainda não teve nenhuma compra registrada no Estoque. Vem com um
+valor inicial em cada tipo — ajuste quando o custo real da sua região
+mudar, para as próximas simulações usarem um número mais próximo da
+realidade.

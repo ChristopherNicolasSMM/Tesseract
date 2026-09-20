@@ -64,3 +64,73 @@ Este cálculo não grava nada — pode ser chamado quantas vezes quiser,
 a qualquer momento depois do Envase existir (mesmo raciocínio de
 "cálculo separado de commit" já usado em
 `ingredient_consumption_service.calcular_custo_insumos_receita()`).
+
+## Precificação de venda: simula → calcula-e-salva → vincula (mecanismo separado)
+
+> Ver `01-visao-geral.md`, seção "Dois mecanismos de custo", para a
+> diferença em relação ao cálculo de industrialização acima — este
+> fluxo tem tela própria (`controller/precificacao.py`) e persiste
+> resultado; o de industrialização não.
+
+```mermaid
+sequenceDiagram
+    actor User as Usuário
+    participant UI as Tela Precificação
+    participant Svc as precificacao_service
+    participant MC as RecipeIngredient (feature_mash_control)
+    participant Saldo as addon_estoque.Saldo
+    participant Padrao as PrecoPadraoInsumo (feature_ingredientes)
+    participant DB as CalculoPrecificacao / ItemCustoIngrediente
+
+    User->>UI: Escolhe Lote + % lucro + % IPI + % ICMS ("Simular")
+    UI->>Svc: simular(lote_id, envase_id=None, ...)
+    loop cada RecipeIngredient da receita do Lote
+        Svc->>Saldo: custo_medio do material_id?
+        alt tem Saldo real
+            Saldo-->>Svc: preco_unitario (origem_preco="real")
+        else Material é malte/lúpulo/levedura
+            Svc->>Padrao: valor_padrao do tipo_insumo
+            Padrao-->>Svc: preco_unitario (origem_preco="padrao")
+        else
+            Svc-->>Svc: preco_unitario=0.0 (origem_preco="sem_preco" — nunca escondido)
+        end
+        Svc->>Svc: converter_quantidade(quantidade da receita -> unidade do preço)
+        Svc->>Svc: custo_total += preco_unitario * quantidade_convertida
+    end
+    Svc->>Svc: aplica % lucro sobre subtotal, depois % IPI/ICMS sobre (subtotal + lucro)
+    Svc-->>UI: resultado completo (não persistido)
+
+    User->>UI: "Confirmar" (decide seguir com este número)
+    UI->>Svc: calcular_e_salvar(lote_id, envase_id, ...) — recalcula do zero, não reaproveita a simulação
+    Svc->>DB: INSERT CalculoPrecificacao + N ItemCustoIngrediente
+    DB-->>Svc: calculo.id
+
+    opt Envase já existe
+        User->>Svc: vincular_envase(calculo_id, envase_id)
+        Svc->>DB: UPDATE CalculoPrecificacao.envase_id
+    end
+```
+
+**Achados reais deste fluxo:**
+
+- **`simular()` e `calcular_e_salvar()` recalculam do zero, cada um**
+  — `simular()` não retorna um id reaproveitável; confirmar depois de
+  simular dispara a mesma conta de novo, não só grava o que já foi
+  calculado. Se o preço de algum insumo mudar entre o clique em
+  "Simular" e o clique em "Confirmar", o valor salvo pode diferir do
+  que foi mostrado na simulação.
+- **Custo de embalagem depende de `envase_id` ser passado** — sem
+  Envase ainda (simulação antes de decidir embalar), `custo_embalagem_total`
+  é sempre `0.0`, não por falta de preço, mas porque não há
+  `ItemEnvase` para somar. Ver o achado sobre `ItemEnvase` estar
+  congelado desde a skill 26, na seção acima (`01-visao-geral.md`).
+- **Ordem de aplicação dos percentuais**: lucro incide sobre
+  `subtotal` (ingredientes + embalagem); IPI e ICMS incidem sobre
+  `subtotal + lucro` — nunca em cascata um sobre o outro (`valor_ipi`
+  e `valor_icms` são calculados separadamente, ambos sobre a mesma
+  base, depois somados).
+- **`_material_display()` resolve nome, nunca id** — correção da
+  última sessão real antes desta auditoria (commit
+  "mostra nome do Material (não id)"); a tela de resultado usa
+  `material_lookup.get_material()` para mostrar o nome do insumo, não
+  o `material_id` cru.

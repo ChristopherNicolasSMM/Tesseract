@@ -52,3 +52,24 @@
   componentes de embalagem (via Composição × custo médio de cada um)
 - **Observação**: não é uma tela própria ainda — hoje é só a função de
   service, sem UI dedicada (ver pendência em `01-visao-geral.md`)
+
+## UC04 — Simular e confirmar Precificação de venda de um Lote
+
+- **Ator**: usuário com acesso à tela de Precificação
+- **Pré-condição**: Lote (`BrewSession`) com receita vinculada
+- **Fluxo principal**: acessa Precificação → escolhe o Lote,
+  percentuais de lucro/IPI/ICMS → "Simular" (vê o detalhamento por
+  ingrediente, com a origem de cada preço) → ajusta os percentuais se
+  quiser → "Confirmar" → sistema grava `CalculoPrecificacao` +
+  `ItemCustoIngrediente`
+- **Fluxo alternativo**: já existe um Envase para o Lote → informar o
+  `envase_id` na simulação/confirmação para incluir custo de
+  embalagem (sujeito ao achado sobre `ItemEnvase` congelado, ver
+  `01-visao-geral.md`)
+- **Fluxo alternativo**: Material da receita nunca foi comprado e não
+  é malte/lúpulo/levedura → entra com custo `0.0`,
+  `origem_preco="sem_preco"` — visível na tela, nunca escondido
+- **Permissão RBAC**: `envases.list` (visualizar tela e simular),
+  `envases.create` (confirmar cálculo e vincular a um Envase) —
+  reaproveita as permissões de `Envase` já existentes, não criou
+  `precificacao.*` própria

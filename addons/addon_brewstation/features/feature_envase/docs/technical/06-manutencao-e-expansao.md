@@ -51,6 +51,31 @@ seção 3.2.
 - FK real pra `BrewSession` (`feature_mash_control`) já existe
   (`lote_id`) — cross-Feature dentro do mesmo Addon é permitido pela
   skill 02, então isso não precisa de referência fraca.
-- Camada de precificação de venda (% lucro/margem/impostos em cima do
-  custo de industrialização) é extensão futura registrada, fora de
-  escopo — ver skill 26, seção 4.
+- **Camada de precificação de venda — implementada**: a skill 26,
+  seção 4, registrava isso como extensão futura fora de escopo; foi
+  implementada numa sessão posterior (`precificacao_service.py`,
+  `CalculoPrecificacao`/`ItemCustoIngrediente`, ver `04-modelo-de-dados.md`
+  e `03-fluxos.md`) — nota desatualizada nesta auditoria de
+  documentação.
+
+## Pendência real encontrada nesta auditoria: `ItemEnvase` congelado afeta o custo de embalagem da Precificação
+
+`precificacao_service._calcular()` soma o custo de embalagem a partir
+de `ItemEnvase.query.filter_by(envase_id=...)` — mas
+`envase_estoque_service.registrar_envase()` **parou de inserir** nessa
+tabela desde a skill 26 (ver seção acima, "`ItemEnvase` — decisão de
+remoção física"). Resultado prático: para qualquer Envase criado
+depois da skill 26, `custo_embalagem_total` calculado pela
+Precificação vem sempre `0.0`, mesmo que o Material resultante tenha
+Composição completa e custo real em `Saldo`. Duas correções possíveis,
+nenhuma decidida ainda:
+
+1. `precificacao_service` passa a ler a Composição do Material
+   resultante do Envase (mesma fonte que
+   `calcular_custo_industrializacao_envase()` já usa), em vez de
+   `ItemEnvase`.
+2. `ItemEnvase` volta a ser populado (reverteria parte da decisão da
+   skill 26).
+
+Registrado aqui como achado de auditoria — nenhuma das duas foi
+aplicada nesta sessão (é mudança de código, não de documentação).

@@ -26,9 +26,22 @@ entre elas nesta rodada — é uma pendência observada, não resolvida.
 
 ## Tabelas
 
-3 tabelas: `Malte`, `Lupulo`, `Levedura`. `IngredienteReceita` (linha
-de ingrediente de uma receita) **não mora aqui** — mora em
-`feature_mash_control`, junto de `MashRecipe` (decisão desta rodada).
+4 tabelas: `Malte`, `Lupulo`, `Levedura`, `PrecoPadraoInsumo`.
+`IngredienteReceita` (linha de ingrediente de uma receita) **não mora
+aqui** — mora em `feature_mash_control`, junto de `MashRecipe`
+(decisão desta rodada).
+
+## `PrecoPadraoInsumo` — preço de referência quando não há compra real
+
+Uma linha por tipo de insumo (`malte`/`lupulo`/`levedura` — não por
+`Material` individual, nem genérico o bastante para cobrir qualquer
+`Categoria`/`TipoProduto` de `addon_estoque`; decisão de escopo
+propositalmente estreita). Consumido por
+`feature_envase/services/precificacao_service.py` quando um Material
+usado numa receita nunca teve entrada real registrada (`Saldo` vazio)
+— cai nesse valor padrão em vez de custar `0.0` silenciosamente. Ver
+`feature_envase/docs/technical/03-fluxos.md` para o fluxo completo de
+resolução de preço.
 
 ## Pendências
 
