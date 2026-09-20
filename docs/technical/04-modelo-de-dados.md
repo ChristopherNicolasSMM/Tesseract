@@ -2,13 +2,13 @@
 
 > Cobre as tabelas de **Core**. O ER completo de cada domínio vive no
 > próprio Addon/Feature:
-> - `addons/addon_brewstation/features/feature_yeast_bank/docs/technical/04-modelo-de-dados.md` (8 tabelas)
+> - `addons/addon_brewstation/features/feature_yeast_bank/docs/technical/04-modelo-de-dados.md` (7 tabelas)
 > - `addons/addon_brewstation/features/feature_mash_control/docs/technical/04-modelo-de-dados.md` (18 tabelas)
-> - `addons/addon_brewstation/features/feature_ingredientes/docs/technical/04-modelo-de-dados.md` (3 tabelas)
-> - `addons/addon_brewstation/features/feature_envase/docs/technical/04-modelo-de-dados.md` (2 tabelas)
+> - `addons/addon_brewstation/features/feature_ingredientes/docs/technical/04-modelo-de-dados.md` (4 tabelas)
+> - `addons/addon_brewstation/features/feature_envase/docs/technical/04-modelo-de-dados.md` (4 tabelas)
 > - `addons/addon_brewstation/features/feature_brew_father/docs/technical/04-modelo-de-dados.md` (1 tabela)
 > - `addons/addon_device_manager/docs/technical/04-modelo-de-dados.md` (4 tabelas — Addon independente, skill 05)
-> - `addons/addon_estoque/docs/technical/04-modelo-de-dados.md` (8 tabelas)
+> - `addons/addon_estoque/docs/technical/04-modelo-de-dados.md` (20 tabelas — taxonomia, cadastro, parceiros, compra, cotação/RFQ, ledger, skills 23-25)
 
 ```mermaid
 erDiagram

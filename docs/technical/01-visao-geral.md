@@ -45,7 +45,7 @@ reaproveitável para outros domínios.
 | Logging/Observabilidade admin (`/admin/logs/`) — skill 08 | Pronto |
 | Sistema de Tasks/Jobs agendados (`/admin/tasks/`) | Pronto |
 | EventBus (`core/event_bus.py`) — único canal de comunicação cross-Addon (skill 14) | Pronto |
-| `addon_brewstation` — `feature_yeast_bank` (8 entidades) | Completo, com motor de viabilidade |
+| `addon_brewstation` — `feature_yeast_bank` (7 entidades) | Completo, com motor de viabilidade |
 | `addon_brewstation` — `feature_mash_control` (18 entidades) | CRUD completo + motor de automação reativo via EventBus |
 | `addon_brewstation` — `feature_ingredientes`/`feature_envase`/`feature_brew_father` | Completo (CRUD) |
 | `addon_device_manager` (promovido de Feature, skill 05) | Completo — MQTT (LWT agregado), API `get_value`/`set_value`/`on_change` |

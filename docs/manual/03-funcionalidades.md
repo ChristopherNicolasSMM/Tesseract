@@ -30,7 +30,14 @@ visíveis e editáveis junto com a receita/sessão.
 Cadastre materiais (com fabricante, origem, tipo e categoria),
 registre composições (um material feito a partir de outros), lance
 movimentações de entrada/saída, e acompanhe o saldo atualizado
-automaticamente a cada movimentação.
+automaticamente a cada movimentação. Para comprar, cadastre
+Fornecedores (e Transportadoras, se quiser) e crie um Pedido de
+Compra — ao registrar a entrada da mercadoria, o estoque é atualizado
+sozinho. Se quiser comparar preço entre fornecedores antes de decidir,
+use Cotação de Fornecedores: monte a lista do que precisa, convide os
+fornecedores, compare as respostas e gere o(s) Pedido(s) de Compra
+direto dos vencedores escolhidos. Veja o manual do Estoque para o
+passo a passo completo.
 
 ## Meu Perfil
 

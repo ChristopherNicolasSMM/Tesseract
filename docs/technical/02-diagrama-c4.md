@@ -44,10 +44,10 @@ C4Container
         Container(odataprovider, "Provedor OData Local", "core/odata_provider/", "Expõe entidades @odata_expose do próprio Tesseract (Fase 10) — HTTP real ou atalho em processo, mesmo contrato do consumidor da Fase 8")
 
         Container(brewstation, "addon_brewstation", "Python/Flask Blueprint", "Domínio: cervejaria caseira")
-        Container(yeastbank, "feature_yeast_bank", "8 entidades", "Cepas, itens do banco, starters, motor de viabilidade")
+        Container(yeastbank, "feature_yeast_bank", "7 entidades", "Cepas, itens do banco, starters, motor de viabilidade")
         Container(mashcontrol, "feature_mash_control", "18 entidades", "Receitas, plantas, sessões, dashboards, motor de automação reativo")
-        Container(ingredientes, "feature_ingredientes", "3 entidades", "Malte, Lúpulo, Levedura — catálogo de ingredientes")
-        Container(envase, "feature_envase", "2 entidades", "Envase e itens de envase")
+        Container(ingredientes, "feature_ingredientes", "4 entidades", "Malte, Lúpulo, Levedura, Preço Padrão de Insumo")
+        Container(envase, "feature_envase", "4 entidades", "Envase, itens de envase, Cálculo de Precificação e itens de custo")
         Container(brewfather, "feature_brew_father", "1 entidade", "Sincronização com a API do BrewFather (Basic Auth)")
 
         Container(devicemanager, "addon_device_manager", "Python/Flask Blueprint — Addon independente", "Dispositivos IoT (sensores/atuadores), funções, emulação, cliente MQTT")

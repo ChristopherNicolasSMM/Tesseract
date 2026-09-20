@@ -16,10 +16,13 @@ Funcionando hoje:
   um motor de automação que reage sozinho a leituras dos dispositivos
   (por exemplo: desligar a resistência quando a temperatura alvo é
   atingida).
-- **Ingredientes** (Malte/Lúpulo/Levedura) e **Envase** — catálogo e
-  controle do que foi engarrafado/envasado.
+- **Ingredientes** (Malte/Lúpulo/Levedura) e **Envase** — catálogo,
+  controle do que foi engarrafado/envasado, e simulação de
+  precificação de venda (custo real + margem + impostos).
 - **Estoque** — materiais, composições, movimentações (entrada/saída)
-  e saldo, com fabricante/origem/tipo/categoria como filtros.
+  e saldo, com fabricante/origem/tipo/categoria como filtros, além de
+  Fornecedores/Transportadoras, Pedido de Compra e Cotação de
+  Fornecedores (RFQ) para comparar preço antes de comprar.
 - Ferramentas de administrador: Usuários/Papéis, Versionamento,
   Menu, Regras de Campo, Conexões OData, Model Builder, Playground de
   API/SQL, Logs e Tarefas Agendadas.
