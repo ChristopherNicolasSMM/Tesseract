@@ -301,7 +301,7 @@ própria (controller de UI, templates e transação de menu removidos de
 vez) — a API REST continua, é o que as telas novas consomem.
 
 - **Detalhe de Fornecedor/Transportadora**: grid "Endereços" desenhado
-  à mão (`Simple DataTables`, já carregado pelo layout — skill 18,
+  à mão (`Simple DataTables`, já carregado pelo layout — skill 16,
   seção 5), populado via `GET /api/estoque/fornecedor-enderecos/
   ?fornecedor_id=<id>` (filtro novo, API antes trazia a tabela
   inteira). Adicionar/editar em modal, reaproveitando o combo de

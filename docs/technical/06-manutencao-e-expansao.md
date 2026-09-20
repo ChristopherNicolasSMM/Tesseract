@@ -181,7 +181,7 @@ construtor visual foi removido (skill 16, cabeçalho, tem o porquê).
 Útil para dashboards e telas que não mapeiam 1:1 pra uma entidade de
 banco.
 
-Ponto de partida: `/freestyle/` (Fase 13, skill 18) — telas de
+Ponto de partida: `/freestyle/` (Fase 13, skill 16) — telas de
 referência **vivas**, testadas, cobrindo esqueleto mínimo, abas,
 consumo de dado e galeria de componentes do NiceAdmin. Copie o HTML de
 lá; não comece do zero.
@@ -204,7 +204,7 @@ TesseractData`) encapsula isso — `TesseractData.acaoDeDado(id, corpo)`
 — junto dos outros dois caminhos de dado (API REST do CrudGen,
 `/api/options/`) e do `esc()` contra XSS. Copie o arquivo em vez de
 reescrever `fetch`/tratamento de erro do zero. Contratos completos e
-os 7 erros comuns estão na skill 17.
+os 7 erros comuns estão na skill 16 (seção 14).
 
 **Regra de ouro desta peça**: toda Ação que toca dado/API roda
 *sempre* no servidor (`POST /admin/designer/data-action/<id>/execute`)
@@ -274,7 +274,7 @@ metadata — `screen_generator.py` (DEVStationFlask) foi cogitado
 enquanto o Designer tinha canvas (Fase 7c-11), mas a Fase 12 removeu o
 canvas e a ideia de "gerar a árvore de componentes automaticamente"
 deixou de fazer sentido sem árvore. O caminho hoje é o dev escrever a
-tela à mão, com `/freestyle/consumption` (Fase 13, skill 18) como
+tela à mão, com `/freestyle/consumption` (Fase 13, skill 16) como
 referência do consumo — não portar o `screen_generator.py`.
 
 O Tesseract também é, desde a Fase 10, **provedor** OData da própria

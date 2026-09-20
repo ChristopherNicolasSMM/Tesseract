@@ -72,27 +72,26 @@ Ordem de leitura recomendada:
     uso real do motor de resolução de i18n (adendo da skill 00),
     delegação de evento obrigatória para sobreviver a fragmento AJAX
     (Plant Workspace/Dashboard).
-15. **16-designer-acoes-e-dados.md** — Ações do Designer (catálogo em
-    duas camadas: código + `DesignerDataAction`, sempre server-side
-    quando toca dado), Provedor OData local (`@odata_expose`,
-    atalho em processo), Tier 1/2 de componente (16 tipos), e
-    substituição de tela do CrudGen no menu (`replace_in_menu`).
-    **Atenção**: as seções sobre o construtor visual são histórico — ele
-    foi removido na Fase 12; ver o cabeçalho do próprio arquivo.
-16. **17-paginas-customizadas-fluxo-de-dados.md** — como uma página
-    customizada consome dado: os três caminhos (API REST do CrudGen,
+15. **16-designer-paginas-customizadas.md** — três documentos fundidos
+    (consolidação 2026-09): (a) o que resta do Designer visual — Ações
+    (catálogo em duas camadas: código + `DesignerDataAction`, sempre
+    server-side quando toca dado), Provedor OData local
+    (`@odata_expose`, atalho em processo), Tier 1/2 de componente
+    (histórico — construtor removido na Fase 12) e substituição de
+    tela do CrudGen no menu (`replace_in_menu`); (b) como uma página
+    customizada consome dado — os três caminhos (API REST do CrudGen,
     Ação de Dado, `/api/options/`), contratos, permissão (401 vs 403),
-    segurança (SSTI, XSS no dado da API, nota sobre CSRF) e erros
-    comuns. Referência viva em `/freestyle/` (Fase 13, controller
-    `controller/core/freestyle_model.py`); modelos estáticos em
+    segurança (SSTI, XSS, CSRF) e erros comuns; (c) estrutura/convenção
+    dos modelos `/freestyle/` (Fase 13) — onde controller/template/JS
+    moram, por que `templates/` não é servível, convenção de nome
+    `model_X-*.js` vs. `freestyle-*.js`, passo a passo para criar um
+    modelo novo. Modelos estáticos em
     `static/modelo_paginas_nice_admin/_modelo-pagina-{basico,completo}.html`
-    também existem, decisão de consolidação em aberto (BACKLOG, Fase 13).
-17. **18-freestyle-modelos-de-referencia.md** — estrutura e convenção do
-    `/freestyle/` (Fase 13): onde controller/template/JS moram, por que
-    `templates/` não é servível, convenção de nome `model_X-*.js` vs.
-    `freestyle-*.js` compartilhado, e passo a passo pra criar um modelo
-    novo.
-18. **19-proposta-reestruturacao-yeast-bank-container.md** — nova
+    também existem, decisão de consolidação com `/freestyle/` em
+    aberto (BACKLOG, Fase 13). Os arquivos `17-paginas-customizadas-
+    fluxo-de-dados.md` e `18-freestyle-modelos-de-referencia.md` não
+    existem mais; números "17" e "18" ficam vagos.
+16. **19-proposta-reestruturacao-yeast-bank-container.md** — nova
     entidade `YeastContainer` entre Dispositivo e Item do banco
     (Dispositivo 1:N Container 1:N Item), remoção de
     `YeastBankItem.storage_device_id` em favor de `container_id`,
@@ -100,12 +99,12 @@ Ordem de leitura recomendada:
     drill-down proposta para a futura tela integrada (BACKLOG, Fase
     14). Model, CrudGen e as 6 migrations já implementados; falta só
     a tela integrada de navegação.
-19. **20-proposta-crudgen-tipo-sqlalchemy-html.md** — `_FIELD_HTML_VALIDATIONS`
+17. **20-proposta-crudgen-tipo-sqlalchemy-html.md** — `_FIELD_HTML_VALIDATIONS`
     (skill 12) ganhou `html_type` via introspecção real de
     `db.Date`/`DateTime`/`Time`/`Integer`/`Float`/`Numeric`/`Boolean`/
     `Text`, mantendo `@enum_field`/`@weak_ref` com prioridade. Sem
     `@calendar` nova. **Executada.**
-20. **21-tela-integrada-navegacao-unificacao-evento-starter-contagem.md** —
+18. **21-tela-integrada-navegacao-unificacao-evento-starter-contagem.md** —
     `YeastBankEvent` vira ponto de entrada único (Starter/Contagem de
     Células criam registro especializado automaticamente e
     redirecionam); `YeastStorageReading` removida;
@@ -114,7 +113,7 @@ Ordem de leitura recomendada:
     (`block_create`/`post_create_redirect`) ficaram reais pela
     primeira vez. **Executada por completo** (BACKLOG Fases 20 e 22
     — schema/fluxo e a tela integrada em si).
-21. **22-fusao-starter-bankevent-neubauer.md** — `YeastStarterLog`
+19. **22-fusao-starter-bankevent-neubauer.md** — `YeastStarterLog`
     removida, fundida direto em `YeastBankEvent` (decisão do
     Christopher: opção B, fusão total, entre as duas apresentadas);
     `YeastCellCountHistory` ganha `bank_event_id` (rastreio de
@@ -123,28 +122,28 @@ Ordem de leitura recomendada:
     `viable_cells_per_ml`). **Executada** (BACKLOG Fase 26) —
     3 migrations com migração real de dado existente (starter_log →
     bank_event antes de dropar a tabela).
-22. **23-proposta-expansao-addon-estoque.md** — taxonomia (Origem/
+20. **23-proposta-expansao-addon-estoque.md** — taxonomia (Origem/
     TipoProduto/Categoria), fracionamento (`MaterialUnidade`/
     `fator_para_base`), cadastro de Fornecedor/Transportadora/Endereço
     (referência fraca, sem dono fixo) e Pedido de Compra com Entrada
     de Mercadoria. 4 fases entregues.
-23. **24-proposta-sistema-cotacao-rfq.md** — sistema de cotação
+21. **24-proposta-sistema-cotacao-rfq.md** — sistema de cotação
     (RFQ) inspirado em SAP MM: `ItemProcessoCotacao` (item pedido uma
     vez por processo) + `Cotacao`/`ItemCotacao` (resposta por
     fornecedor), seleção de vencedor, geração de Pedido de Compra a
     partir da cotação. 3 fases (6.1/6.2/6.3) entregues.
-24. **25-proposta-acoes-em-massa-padrao-crudgen.md** — apagar/
+22. **25-proposta-acoes-em-massa-padrao-crudgen.md** — apagar/
     inativar em massa vira padrão gerado pelo CrudGen; novo mecanismo
     de "hook de template" (`_acoes_em_massa_extra.html`/
     `_detail_extra.html`); aplicação em Malte/Lúpulo/Levedura/
     MashRecipe/Material, estendida depois a Fornecedor/Transportadora.
-25. **26-proposta-envase-consumo-insumo-custo-industrializacao.md** —
+23. **26-proposta-envase-consumo-insumo-custo-industrializacao.md** —
     `Envase` passa a referenciar o Material resultante (produto
     acabado) em vez de `ItemEnvase` digitado à mão (resolvido via
     Composição); consumo de insumo da receita na brassagem (botão
     "Confirmar Ingredientes", idempotente); custo real de
     industrialização.
-26. **27-proposta-sincronizacao-seletiva-brewfather.md** — tela de
+24. **27-proposta-sincronizacao-seletiva-brewfather.md** — tela de
     seleção prévia (checkbox) antes de importar receitas do
     BrewFather, já que a API não suporta filtro por tag/pasta no
     servidor; sinalização de status (nova/já importada/apagada
@@ -176,9 +175,7 @@ isso aqui é só o resumo:
 | 12 — CrudGen Referência e Operação | Referência viva | Fusão dos antigos documentos 12 (o que existe — seção 3 corrigida nesta auditoria, dizia "8 artefatos", são 10 desde a skill 25) e 13 (como trabalhar), consolidação 2026-09 — número "13" vago, não reaproveitado |
 | 14 — EventBus Convenção | Referência viva | — |
 | 15 — Pop-ups e Diálogos | Sim | Cabeçalho corrigido nesta auditoria (dizia "execução pendente") |
-| 16 — Designer: Ações/Dados | Sim | Construtor visual removido na Fase 12 — ver nota no próprio arquivo |
-| 17 — Páginas Customizadas | Sim | — |
-| 18 — Freestyle | Sim | — |
+| 16 — Designer, Páginas Customizadas e Freestyle | Sim | Fusão dos antigos documentos 16 (Designer — construtor visual removido na Fase 12, ver nota no próprio arquivo), 17 (páginas customizadas) e 18 (Freestyle), consolidação 2026-09 — números "17"/"18" vagos |
 | 19 — Yeast Bank Container | Sim | Tela integrada (item que faltava) fechada pelas skills 21/22 |
 | 20 — CrudGen tipo SQLAlchemy | Sim | — |
 | 21 — Tela Integrada Yeast Bank | Sim | Seção 1 parcialmente superada pela skill 22 (mesmo dia) — ver nota no próprio arquivo |
@@ -213,7 +210,7 @@ conteúdo diferente do que apontava originalmente.
 |---|---|
 | 07 (menu personalização) + 10 (menu hierárquico) → `07-menu-personalizacao-e-hierarquia.md` | **Feita** |
 | 12 (CrudGen referência) + 13 (CrudGen guia operacional) → `12-crudgen-referencia-e-operacao.md` | **Feita** |
-| 16 (Designer) + 17 (páginas customizadas) + 18 (Freestyle) → `16-designer-paginas-customizadas.md` | Planejada, próximo patch |
+| 16 (Designer) + 17 (páginas customizadas) + 18 (Freestyle) → `16-designer-paginas-customizadas.md` | **Feita** |
 | 00–06, 08, 09, 11, 14, 15 | Sem fusão — só limpeza interna (Opção A), a confirmar arquivo por arquivo durante a auditoria |
 
 ### Peças ainda sem skill própria
@@ -235,7 +232,7 @@ Não construídas, ou com pouca regra formal além do próprio código:
   própria ainda.
 - **Modelos estáticos legados** (`static/modelo_paginas_nice_admin/
   _modelo-pagina-{basico,completo}.html`) — decisão de consolidação
-  com `/freestyle/` (skill 17/18) ainda em aberto (BACKLOG, Fase 13).
+  com `/freestyle/` (skill 16) ainda em aberto (BACKLOG, Fase 13).
 
 Cada novo documento deve seguir o mesmo padrão: sem código de
 implementação, só regra, schema e exemplo — pronto para ser citado por

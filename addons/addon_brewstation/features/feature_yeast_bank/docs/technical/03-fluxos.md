@@ -173,7 +173,7 @@ própria tela, os dois caminhos sempre funcionaram em paralelo.
 
 ## Painel integrado — carregamento e drill-down (skill 21, seção 0/3)
 
-Página customizada (skill 17/18) — dado 100% client-side via API REST
+Página customizada (skill 16) — dado 100% client-side via API REST
 já existente, nenhuma rota nova de dado.
 
 ```mermaid

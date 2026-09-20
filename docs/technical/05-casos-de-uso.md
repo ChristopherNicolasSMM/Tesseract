@@ -232,7 +232,7 @@ flowchart TD
 - **Fluxo principal**: escreve um botão em HTML com `onclick` (ou
   listener via `addEventListener`) chamando `TesseractData.
   acaoDeDado(id, corpo)` (`static/js/freestyle/freestyle-tesseract-
-  data.js`, skill 18) → o navegador dispara `POST /admin/designer/
+  data.js`, skill 16) → o navegador dispara `POST /admin/designer/
   data-action/<id>/execute` (server-side, nunca expõe credencial de
   conexão) → resultado tratado no `.then()`
 - **Fluxo alternativo**: usuário sem a `permission_required` da Ação

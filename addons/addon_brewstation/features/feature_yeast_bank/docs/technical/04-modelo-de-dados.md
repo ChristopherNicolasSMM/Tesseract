@@ -265,7 +265,7 @@ ficam desatualizados, mas custam 1 query extra por item exibido
 | `..._bank_item` | `estimated_viability_pct` | Viabilidade **estimada do item físico** — diferente dos parâmetros de modelo da cepa; é o valor calculado ao longo do tempo |
 | `..._bank_item` | `label_text` | Renomeado de `label` (BrewStation original) para não colidir com o decorator `@label` das anotações |
 | `..._cell_count_history` | `bank_item_id` | Obrigatório desde a skill 21 — `strain_id`/`starter_id` removidos (redundantes, resolvidos via `bank_item`) |
-| `..._bank_config` | `storage_type` | Único por linha **ativa** — índice parcial (`WHERE is_deleted = 0`), não `Column(unique=True)` puro (skill 18/redesign 2026-08-21: uma constraint cheia colidiria até com linha na lixeira, incompatível com soft-delete) |
+| `..._bank_config` | `storage_type` | Único por linha **ativa** — índice parcial (`WHERE is_deleted = 0`), não `Column(unique=True)` puro (skill 16/redesign 2026-08-21: uma constraint cheia colidiria até com linha na lixeira, incompatível com soft-delete) |
 
 ## Regra de soft-delete
 

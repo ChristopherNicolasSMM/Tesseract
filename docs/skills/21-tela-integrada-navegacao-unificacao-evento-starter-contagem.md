@@ -22,7 +22,7 @@
 > controller reais) está implementada e testada (BACKLOG, Fase 20). A
 > tela integrada em si (seção 0/3 — 2 abas + botões de atalho) também
 > está implementada (BACKLOG, Fase 22): `/brewstation/yeast-bank/painel`,
-> página customizada (skill 17/18), dado 100% via API REST já
+> página customizada (skill 16), dado 100% via API REST já
 > existente. **Ressalva honesta**: interação de clique-em-linha não é
 > testável via pytest (sem navegador neste ambiente) — validado o
 > shape de dado que o JS consome e a página carregando, mas a

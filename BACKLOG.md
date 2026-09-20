@@ -3756,6 +3756,9 @@ orçamento de tempo de uma chamada só) — tudo passou.
 ## Fase 10 — Designer: Ações, Ação de Dado, Provedor OData Local, Substituição de Tela (concluída)
 
 Planejamento e detalhe completo em `docs/skills/16-designer-acoes-e-dados.md`
+*(nota de 2026-09: fundido, junto com as skills 17 e 18, em
+`docs/skills/16-designer-paginas-customizadas.md` na consolidação
+de legibilidade — mesmo conteúdo, seções 1–7)*
 (mapeamento de componente em `mapeamento_niceadmin_designer.md`).
 Pedido original: dar ao Designer (`/admin/designer/`, Fase 7c) ações/
 eventos, consumo de dado com regras claras, e a capacidade de
@@ -3826,7 +3829,8 @@ substituir uma tela do CrudGen quando configurado pra isso.
       painel "Configurações da página" criados. 10 testes novos, usando
       `TX_YEAST_BANK` (`yeast_strains`) como entidade real de prova.
 - [x] **Patch 7 — Documentação.** Skill 16 formalizada
-      (`docs/skills/16-designer-acoes-e-dados.md`), `docs/technical/`
+      (`docs/skills/16-designer-acoes-e-dados.md`, hoje fundida em
+      `docs/skills/16-designer-paginas-customizadas.md`), `docs/technical/`
       (visão geral, C4, fluxos, modelo de dados, casos de uso UC20–22,
       manutenção/expansão) e `docs/manual/03-funcionalidades.md`
       (seção Designer Visual expandida em linguagem não-técnica)
@@ -3931,7 +3935,9 @@ Jinja vindo do banco.
       com `<script>` seria XSS. O modelo completo traz `esc()` e o usa
       em toda interpolação, com teste garantindo que nenhuma
       interpolação de dado da API escape disso.
-- [x] `docs/skills/17-paginas-customizadas-fluxo-de-dados.md` — os três
+- [x] `docs/skills/17-paginas-customizadas-fluxo-de-dados.md`
+      *(nota de 2026-09: fundido em `docs/skills/16-designer-paginas-customizadas.md`,
+      seções 8–16, na consolidação de legibilidade)* — os três
       caminhos com tabela de escolha, diagrama de sequência (incluindo o
       desvio em processo quando a conexão é local), contratos de
       request/response, permissão, segurança (SSTI, XSS, e a nota de que

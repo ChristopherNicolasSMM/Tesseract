@@ -94,7 +94,7 @@ Playground). Ver `requirements.txt` (UTF-16LE — ver skill 00/BACKLOG).
   (`actions_catalog.py`/`actions_engine.js`, Fase 10) foi removido
   junto do canvas na Fase 12 — o endpoint sobrevive porque uma página
   customizada ou freestyle chama ele direto via JS
-  (`TesseractData.acaoDeDado()`, skill 18), sem depender de componente.
+  (`TesseractData.acaoDeDado()`, skill 16), sem depender de componente.
 - `core.designer_menu_override.py` — resolve o checkbox
   `DesignerPage.replace_in_menu`, trocando o item de menu de uma tela
   do CrudGen pela DesignerPage publicada (Fase 10) — nunca a rota em
