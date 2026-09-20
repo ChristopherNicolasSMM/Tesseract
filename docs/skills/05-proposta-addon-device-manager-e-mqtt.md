@@ -10,9 +10,10 @@
 > skills 00–04: qualquer divergência deve ajustar esta skill antes de
 > violar a convenção (regra de ouro, skill 00).
 >
-> Pendente apenas: Fases F (validação ponta a ponta com
-> `tesseract-device-bridge`) e G (restante de docs — agora em
-> andamento neste commit). Seções históricas de decisão (2–5, 8)
+> Pendente apenas: Fase F (validação ponta a ponta com
+> `tesseract-device-bridge`) — Fase G (docs) foi concluída e conferida
+> contra o código real numa auditoria de documentação posterior
+> (2026-09; ver seção 9). Seções históricas de decisão (2–5, 8)
 > ficam como registro do raciocínio que levou à convenção final
 > (seção 6) — não precisam ser relidas para aplicar a skill no dia a
 > dia, só a seção 6 e o schema da seção 4.
@@ -548,24 +549,28 @@ qualquer migration nova.
 
 ---
 
-## 9. Status consolidado (atualizado em 2026-06-29)
+## 9. Status consolidado (atualizado nesta auditoria de documentação, 2026-09)
 
-**Executado:** Fases **A, B, C, D (completa) e E** — promoção
+**Executado:** Fases **A, B, C, D (completa), E e G** — promoção
 estrutural completa, extensão de schema em `DeviceActor`,
 `device_service.py` + `mqtt_client_service.py` implementados (com
 correção do LWT agregado, validação de faixa e log de integração
 local em 3 camadas), sistema de Tasks portado do PyTeca como
-infraestrutura geral do Core, motor de automação reativo
-(`AutomationRule` → `device_service`), 269 testes passando.
+infraestrutura geral do Core (inclusive uma task de reconexão manual
+de MQTT, `device_manager.mqtt_reconnect` — não prevista quando este
+documento foi escrito, ver `addons/addon_device_manager/docs/technical/03-fluxos.md`,
+Fluxo 5), motor de automação reativo (`AutomationRule` →
+`device_service`), 269 testes passando. `docs/technical/` e
+`docs/manual/` do próprio Addon (Fase G) foram conferidos nesta
+auditoria contra o código real — já estavam completos e corretos,
+inclusive documentando o Fluxo 5 que este documento não previa.
 **Pendente:**
 
 1. **Fase F** — validação ponta a ponta com `tesseract-device-bridge`
    (spec já escrita, repositório separado — **atenção**: a spec do
    bridge precisa ser atualizada com a correção do LWT agregado, já
    que ela assumia o desenho original "LWT por atuador").
-2. **Fase G** — docs técnicos/manual do Addon (skill 04), formalização
-   da skill 05 (seção 6 deste documento).
 
-Não há mais nada pendente nas Fases A–E — a partir daqui, qualquer
+Não há mais nada pendente nas Fases A–E e G — a partir daqui, qualquer
 trabalho novo já depende de algo fora do controle só deste
 repositório (hardware real/simulado para a Fase F).

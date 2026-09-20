@@ -41,9 +41,10 @@ C4Component
   `root/model/*` deste Addon — só `device_service`/
   `device_function_lookup`, e sempre recebendo `string`/valor
   primitivo, nunca o objeto ORM (`DeviceActor`) em si. Essa regra foi
-  corrigida durante a implementação da Fase E (o callback de
-  o mecanismo original (substituído pelo EventBus do Core na Fase G) vazava o objeto `DeviceActor` —
-  corrigido para entregar só `function_name: str`).
+  corrigida durante a implementação da Fase E: o mecanismo original de
+  callback (substituído pelo EventBus do Core na Fase G, ver skill 05
+  seção 6) vazava o objeto `DeviceActor` inteiro — corrigido para
+  entregar só `function_name: str` e o valor primitivo.
 - `addon_device_manager` nunca importa nada de `feature_mash_control`
   — a dependência só existe na direção `mash_control → device_manager`
   (declarada em `feature_mash_control/feature.json: requires`).
