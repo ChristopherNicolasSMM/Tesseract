@@ -46,8 +46,10 @@ def _volume_real_litros(material: dict) -> float:
         raise VolumeRealNaoConfiguradoError("O produto acabado precisa ter volume real positivo.")
     if unidade in ("l", "lt", "litro", "litros"):
         return volume
-    if unidade in ("ml", "mililitro", "mililitros"):
+    if unidade in ("ml", "mililitro", "mililitros", "cm3"):
         return volume / 1000
+    if unidade == "m3":
+        return volume * 1000
     raise VolumeRealNaoConfiguradoError(f"Unidade do volume real não suportada: {unidade}")
 
 

@@ -113,6 +113,8 @@ dado (serviço de compra/movimentação), nunca no ledger em si. Isso
 preserva a regra já existente de `Movimentacao` como ledger imutável e
 sem ambiguidade de unidade entre linhas.
 
+**Campos de volume do Material:** `unidade_medida_volume_calculado` e `unidade_medida_volume_real` são seleções fechadas com `@enum_field` no model, seguindo o formulário padrão do CrudGen. Aceitam `ML`, `L`, `CM3` e `M3`, todos de dimensão volume; não consultam o catálogo indiscriminadamente, que inclui comprimento, área e embalagem. `Peso`, `volume_calculado` e `volume_real` são campos numéricos, sem sugestões de valores anteriores do navegador (`autocomplete="off"` no template gerador). Alterações na anotação devem manter o template gerado e o gerador coerentes.
+
 **Conteúdo da embalagem por material:** o catálogo registra `PCT` (pacote), sem peso ou volume embutido. Em `MaterialUnidade`, o fator determina a equivalência daquele material: para Calcium Chloride com base `KG`, `1 PCT = 1 KG` significa `fator_para_base = 1`; outro material pode ter `1 PCT = 0,5 KG` ou `1 PCT = 2 L`, conforme sua unidade-base. Para consumir em gramas, cadastre também `G` com fator `0,001` quando a base for `KG`. A lista de unidades é pesquisada pelo combo padrão do CrudGen, declarado no model por `@weak_ref` com `value_field="codigo"`. Não crie códigos como `PCT de 1 kg`.
 
 `Material.unidade_medida` (string livre já existente) **não é

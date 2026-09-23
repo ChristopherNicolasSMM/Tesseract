@@ -62,7 +62,7 @@
                  {% if fv.get('minlength') %}minlength="{{ fv['minlength'] }}"{% endif %}
                  {% if fv.get('min_value') is not none %}min="{{ fv['min_value'] }}"{% endif %}
                  {% if fv.get('step') %}step="{{ fv['step'] }}"{% endif %}
-                 {% if fv.get('html_type') == 'number' %}inputmode="decimal"{% endif %}
+                 {% if fv.get('html_type') == 'number' %}inputmode="decimal" autocomplete="off"{% endif %}
                  {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
           {% endif %}
         </div>
