@@ -27,28 +27,37 @@ UNITS = [
 
 
 def upgrade():
-    op.create_table(
-        TABLE,
-        sa.Column('id', sa.Integer, primary_key=True),
-        sa.Column('codigo', sa.String(20), nullable=False, unique=True),
-        sa.Column('descricao', sa.String(100), nullable=False),
-        sa.Column('dimensao', sa.String(20), nullable=False),
-        sa.Column('fator_referencia', sa.Float, nullable=True),
-        sa.Column('is_deleted', sa.Boolean, nullable=False, server_default=sa.false()),
-    )
+    bind = op.get_bind()
+    if not sa.inspect(bind).has_table(TABLE):
+        op.create_table(
+            TABLE,
+            sa.Column('id', sa.Integer, primary_key=True),
+            sa.Column('codigo', sa.String(20), nullable=False, unique=True),
+            sa.Column('descricao', sa.String(100), nullable=False),
+            sa.Column('dimensao', sa.String(20), nullable=False),
+            sa.Column('fator_referencia', sa.Float, nullable=True),
+            sa.Column('is_deleted', sa.Boolean, nullable=False, server_default=sa.false()),
+        )
     catalogo = sa.table(TABLE, sa.column('codigo', sa.String),
                         sa.column('descricao', sa.String), sa.column('dimensao', sa.String),
                         sa.column('fator_referencia', sa.Float), sa.column('is_deleted', sa.Boolean))
-    op.bulk_insert(catalogo, [dict(codigo=code, descricao=name, dimensao=dimension,
-                                  fator_referencia=factor, is_deleted=False)
-                              for code, name, dimension, factor in UNITS])
-    with op.batch_alter_table('material_unidade') as batch:
-        batch.alter_column('unidade', existing_type=sa.String(20), type_=sa.String(60),
-                           existing_nullable=False)
+    existentes = set(bind.execute(sa.text(f'SELECT codigo FROM {TABLE}')).scalars())
+    faltantes = [dict(codigo=code, descricao=name, dimensao=dimension,
+                     fator_referencia=factor, is_deleted=False)
+                 for code, name, dimension, factor in UNITS if code not in existentes]
+    if faltantes:
+        op.bulk_insert(catalogo, faltantes)
+    # SQLite não impõe limite de VARCHAR; evita recriar tabela com FKs e
+    # índice parcial. Outros bancos precisam aumentar o tamanho da coluna.
+    if bind.dialect.name != 'sqlite':
+        with op.batch_alter_table('tesseract_estoque_material_unidade') as batch:
+            batch.alter_column('unidade', existing_type=sa.String(20), type_=sa.String(60),
+                               existing_nullable=False)
 
 
 def downgrade():
-    with op.batch_alter_table('material_unidade') as batch:
-        batch.alter_column('unidade', existing_type=sa.String(60), type_=sa.String(20),
-                           existing_nullable=False)
+    if op.get_bind().dialect.name != 'sqlite':
+        with op.batch_alter_table('tesseract_estoque_material_unidade') as batch:
+            batch.alter_column('unidade', existing_type=sa.String(60), type_=sa.String(20),
+                               existing_nullable=False)
     op.drop_table(TABLE)
