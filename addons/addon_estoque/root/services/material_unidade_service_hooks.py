@@ -11,6 +11,9 @@ Hooks disponíveis (todos opcionais):
 
 
 def pai_apply_fields(obj, data):
+    from addons.addon_estoque.root.model.unidade_catalogo import UnidadeCatalogo
+    if not UnidadeCatalogo.query.filter_by(codigo=obj.unidade, is_deleted=False).first():
+        raise ValueError("Selecione uma unidade cadastrada no catálogo de unidades.")
     if obj.fator_para_base is None or obj.fator_para_base <= 0:
         raise ValueError("O fator para a unidade-base deve ser maior que zero.")
     if obj.is_unidade_base and obj.fator_para_base != 1:

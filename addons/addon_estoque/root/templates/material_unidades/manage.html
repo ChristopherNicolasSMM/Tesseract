@@ -33,7 +33,7 @@
                  {% if weak_ref_value_fields.get(field) %}data-weakref-value-field="{{ weak_ref_value_fields[field] }}"{% endif %}>
               <input type="hidden" name="{{ field }}" class="weakref-combo-value" value="{{ submitted_data.get(field, '') if submitted_data else '' }}">
               <input type="text" class="form-control weakref-combo-search" autocomplete="off"
-                     {% if fv.get('required') %}required{% endif %} placeholder="Buscar...">
+                   {% if fv.get('required') %}required{% endif %} placeholder="Buscar...">
               <ul class="list-group weakref-combo-results"></ul>
             </div>
             {% if submitted_data and submitted_data.get(field) %}<small class="text-muted">Valor anterior mantido (id {{ submitted_data.get(field) }}) — busque de novo se quiser trocar.</small>{% endif %}
@@ -45,14 +45,13 @@
             </div>
             {% elif fv.get('html_type') == 'textarea' %}
             <textarea name="{{ field }}" class="form-control" rows="3"
-                      {% if fv.get('required') %}required{% endif %}
+                    {% if fv.get('required') %}required{% endif %}
                       {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
                       {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>{{ submitted_data.get(field, '') if submitted_data else '' }}</textarea>
             {% else %}
             <input type="{{ fv.get('html_type', 'text') }}" name="{{ field }}"
                    class="form-control{% if fv.get('html_type') == 'number' %} crudgen-decimal-input{% endif %}"
                    value="{{ submitted_data.get(field, '') if submitted_data else '' }}"
-                   {% if field == 'unidade' %}list="estoque-unidades-padrao" placeholder="Ex.: KG, UN, saco25kg…"{% endif %}
                    {% if fv.get('required') %}required{% endif %}
                    {% if fv.get('maxlength') %}maxlength="{{ fv['maxlength'] }}"{% endif %}
                    {% if fv.get('minlength') %}minlength="{{ fv['minlength'] }}"{% endif %}
@@ -69,22 +68,7 @@
         </form>
       </div>
 
-      {#- Valores padrão de unidade (correção pós skill 24) — o campo
-          continua livre (unidades atípicas por Material existem, ver
-          skill 23 seção 3), mas sugere os mais comuns via datalist
-          nativo do HTML5, sem travar em lista fechada. -#}
-      <datalist id="estoque-unidades-padrao">
-        <option value="UN">Unidade</option>
-        <option value="PCT">Pacote</option>
-        <option value="CX">Caixa</option>
-        <option value="KG">Quilograma</option>
-        <option value="G">Grama</option>
-        <option value="L">Litro</option>
-        <option value="ML">Mililitro</option>
-        <option value="SC">Saco</option>
-        <option value="FD">Fardo</option>
-        <option value="M">Metro</option>
-      </datalist>
+
 
 
       <form method="get" class="row g-2 mb-3 align-items-end">

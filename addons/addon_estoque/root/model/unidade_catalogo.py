@@ -1,4 +1,4 @@
-"""Unidades usuais; embalagens específicas continuam livres em MaterialUnidade."""
+"""Códigos de unidade; conteúdo das embalagens é definido por material."""
 from core.db import db
 from annotations import label, plural, display_field
 

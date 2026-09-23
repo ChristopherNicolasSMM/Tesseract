@@ -100,7 +100,7 @@ unidades por Material, com fator de conversão para uma unidade-base
 |---|---|---|---|
 | `id` | Integer, PK | Sim | |
 | `material_id` | Integer, FK → `material.id` (CASCADE) | Sim | |
-| `unidade` | String(20) | Sim | Ex.: `kg`, `saco25kg`, `caixa12un`, `un`. Livre por enquanto — não é lookup (baixo volume de valores distintos por Material, não justifica tabela própria nesta fase). |
+| `unidade` | String(20) | Sim | Código do catálogo de unidades, como `KG`, `G`, `L`, `PCT` ou `CX`, selecionado por `@weak_ref` no formulário gerado. O tamanho da embalagem não integra o código. |
 | `fator_para_base` | Float | Sim | Quantas unidades-base equivalem a 1 desta unidade. A unidade-base tem `fator_para_base = 1.0` por definição. |
 | `is_unidade_base` | Boolean, default `false` | Sim | Exatamente **um** `true` por `material_id` — índice único parcial `WHERE is_unidade_base = true`, mesmo padrão já usado em `YeastBankConfig` (skill 21). |
 | `tipo_uso` | String, `@choices` (`compra` / `consumo` / `ambos`) | Sim, default `ambos` | Filtra qual unidade aparece em qual tela (form de compra vs. form de movimentação manual). |
@@ -112,6 +112,8 @@ nunca a unidade de compra. A conversão acontece uma vez, na entrada do
 dado (serviço de compra/movimentação), nunca no ledger em si. Isso
 preserva a regra já existente de `Movimentacao` como ledger imutável e
 sem ambiguidade de unidade entre linhas.
+
+**Conteúdo da embalagem por material:** o catálogo registra `PCT` (pacote), sem peso ou volume embutido. Em `MaterialUnidade`, o fator determina a equivalência daquele material: para Calcium Chloride com base `KG`, `1 PCT = 1 KG` significa `fator_para_base = 1`; outro material pode ter `1 PCT = 0,5 KG` ou `1 PCT = 2 L`, conforme sua unidade-base. Para consumir em gramas, cadastre também `G` com fator `0,001` quando a base for `KG`. A lista de unidades é pesquisada pelo combo padrão do CrudGen, declarado no model por `@weak_ref` com `value_field="codigo"`. Não crie códigos como `PCT de 1 kg`.
 
 `Material.unidade_medida` (string livre já existente) **não é
 removido** — passa a ser preenchido/sincronizado a partir da unidade
@@ -256,7 +258,7 @@ nova).
 | `id` | Integer, PK | Sim | |
 | `pedido_compra_id` | Integer, FK → `pedido_compra.id` (CASCADE) | Sim | |
 | `material_id` | Integer, FK → `material.id` (RESTRICT) | Sim | |
-| `material_unidade_id` | Integer, FK → `material_unidade.id` (RESTRICT) | Sim | Unidade de compra escolhida (ex.: `saco25kg`). |
+| `material_unidade_id` | Integer, FK → `material_unidade.id` (RESTRICT) | Sim | Unidade de compra escolhida (ex.: `PCT`). |
 | `quantidade` | Float | Sim | Na unidade de compra, não na base. |
 | `fator_conversao_aplicado` | Float | Sim | Snapshot de `MaterialUnidade.fator_para_base` no momento do pedido — se o fator mudar depois, histórico não é reescrito. |
 | `quantidade_convertida_base` | Float | Sim | `quantidade × fator_conversao_aplicado`, calculado no save. |
@@ -270,7 +272,7 @@ nova).
 |---|---|---|---|
 | `Movimentacao` | `fornecedor_id` | Não | FK → `fornecedor.id`, RESTRICT. |
 | `Movimentacao` | `pedido_compra_item_id` | Não | FK → `item_pedido_compra.id`, RESTRICT. Rastreabilidade completa: de qual item de qual pedido essa entrada veio. |
-| `Movimentacao` | `unidade_original` | Não | String — a unidade em que a compra foi de fato feita (ex.: `saco25kg`), mesmo depois de convertida. |
+| `Movimentacao` | `unidade_original` | Não | String — a unidade em que a compra foi de fato feita (ex.: `PCT`), mesmo depois de convertida. |
 | `Movimentacao` | `quantidade_original` | Não | Float — quantidade na unidade original, antes da conversão. |
 | `Movimentacao` | `fator_conversao_aplicado` | Não | Float — snapshot igual ao de `ItemPedidoCompra`, para auditoria mesmo em movimentações manuais (não só as vindas de `PedidoCompra`). |
 | `Saldo` | `ultimo_preco_compra` | Não | Float — cache, atualizado a cada recebimento. |

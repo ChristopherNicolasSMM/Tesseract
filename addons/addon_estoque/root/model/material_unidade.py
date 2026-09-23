@@ -3,7 +3,8 @@ addons/addon_estoque/root/model/material_unidade.py
 
 Fase 2 (skill 23) — permite múltiplas unidades por Material, com fator
 de conversão para uma unidade-base única (ex.: Material "Malte Pilsen"
-comprado em `saco25kg`, consumido/movimentado em `kg`).
+comprado em `PCT`, consumido/movimentado em `KG`; o fator do material
+informa quantos KG há em cada PCT).
 
 `Saldo.quantidade_atual` e `Movimentacao.quantidade` continuam SEMPRE
 na unidade-base do Material — a conversão acontece uma única vez, na
@@ -30,6 +31,7 @@ from annotations import label, plural, required, enum_field, field_labels, displ
 @required("material_id", message="Material é obrigatório")
 @required("unidade", message="Unidade é obrigatória")
 @required("fator_para_base", message="Fator de conversão para a unidade-base é obrigatório")
+@weak_ref("unidade", resolver="addons.addon_estoque.root.services.unidade_catalogo_lookup.get_unidade", options="unidades_catalogo", value_field="codigo")
 @weak_ref("material_id",
           resolver="addons.addon_estoque.root.services.material_lookup.get_material",
           options="materials")
@@ -59,9 +61,8 @@ class MaterialUnidade(db.Model):
     material_id = db.Column(db.Integer, db.ForeignKey("material.id", ondelete="CASCADE"), nullable=False, index=True)
     material = db.relationship("Material", backref=db.backref("unidades", lazy=True))
 
-    # Livre por enquanto (não é lookup) — baixo volume de valores
-    # distintos por Material, não justifica tabela própria nesta fase
-    # (ver skill 23, seção 3). Ex.: "kg", "saco25kg", "caixa12un".
+    # Código do catálogo (KG, PCT, CX etc.). O conteúdo de uma embalagem
+    # pertence ao fator deste Material, nunca ao nome da unidade.
     unidade = db.Column(db.String(60), nullable=False)
 
     # Quantas unidades-base equivalem a 1 desta unidade. A
