@@ -26,12 +26,17 @@ calculo de saldo.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, choices, min_value, weak_ref
+from annotations import label, plural, required, choices, min_value, weak_ref, field_labels
 
 
 @label("Movimentação de Estoque")
 @plural("movimentacaos")
 @choices("tipo_movimentacao", label="Tipo")
+@field_labels({
+    "quantidade": "Quantidade (unidade-base)",
+    "custo_unitario": "Custo Unitário (R$ / unidade-base)",
+    "custo_total": "Custo Total (R$)",
+})
 @required("material_id", message="Material é obrigatório")
 @required("tipo_movimentacao", message="Tipo da movimentação é obrigatório")
 @min_value("quantidade", 0, message="Quantidade não pode ser negativa")

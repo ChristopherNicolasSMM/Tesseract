@@ -59,6 +59,7 @@ def registrar_movimentacao(
     unidade_original: str | None = None,
     quantidade_original: float | None = None,
     fator_conversao_aplicado: float | None = None,
+    commit: bool = True,
 ) -> dict:
     """
     Registra uma Movimentacao (ledger, imutável) e atualiza o Saldo
@@ -132,7 +133,10 @@ def registrar_movimentacao(
         saldo.ultimo_fornecedor_id = fornecedor_id
         saldo.data_ultima_compra = datetime.now(timezone.utc).date()
 
-    db.session.commit()
+    if commit:
+        db.session.commit()
+    else:
+        db.session.flush()
 
     return {
         "movimentacao": movimentacao.to_dict(),

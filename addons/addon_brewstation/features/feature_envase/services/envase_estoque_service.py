@@ -39,6 +39,18 @@ class VolumeRealNaoConfiguradoError(Exception):
     pass
 
 
+def _volume_real_litros(material: dict) -> float:
+    volume = material.get("volume_real")
+    unidade = (material.get("unidade_medida_volume_real") or "L").strip().lower()
+    if not volume or volume <= 0:
+        raise VolumeRealNaoConfiguradoError("O produto acabado precisa ter volume real positivo.")
+    if unidade in ("l", "lt", "litro", "litros"):
+        return volume
+    if unidade in ("ml", "mililitro", "mililitros"):
+        return volume / 1000
+    raise VolumeRealNaoConfiguradoError(f"Unidade do volume real não suportada: {unidade}")
+
+
 def registrar_envase(
     lote_id: int,
     material_resultante_id: int,
@@ -75,13 +87,7 @@ def registrar_envase(
     if material_resultante is None:
         raise MaterialNaoEncontradoError(f"Material id={material_resultante_id} não encontrado em addon_estoque")
 
-    volume_real = material_resultante.get("volume_real")
-    if not volume_real or volume_real <= 0:
-        raise VolumeRealNaoConfiguradoError(
-            f"Material '{material_resultante.get('display')}' (id={material_resultante_id}) "
-            "não tem volume_real configurado — sem isso não é possível calcular quantas "
-            "unidades este Envase gera."
-        )
+    volume_real = _volume_real_litros(material_resultante)
 
     if lote.insumos_baixados_em is None:
         ingredient_consumption_service.confirmar_consumo_ingredientes(lote_id)
@@ -146,7 +152,7 @@ def calcular_custo_industrializacao_envase(envase_id: int) -> dict:
     detalhe_componentes = []
     if envase.material_resultante_id:
         material_resultante = material_lookup.get_material(envase.material_resultante_id)
-        volume_real = (material_resultante or {}).get("volume_real") or 0
+        volume_real = _volume_real_litros(material_resultante) if material_resultante and material_resultante.get("volume_real") else 0
         unidades_geradas = (envase.quantidade_litros / volume_real) if volume_real else 0
         for componente in material_lookup.get_composicao(envase.material_resultante_id):
             saldo = material_lookup.get_saldo(componente["material_componente_id"])

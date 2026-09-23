@@ -27,7 +27,7 @@
           <i class="bi bi-plus-lg"></i> Adicionar Unidade
         </button>
       </div>
-      <p class="text-muted small">Marque uma como "Unidade-Base" — é nela que o Saldo de Estoque é sempre calculado (skill 23, Fase 2).</p>
+      <p class="text-muted small">O saldo e o custo médio usam a unidade-base. Exemplo: base KG, pacote de 1 kg com fator 1; grama com fator 0,001.</p>
 
       <table class="table table-hover align-middle" data-datatable>
         <thead>
@@ -60,11 +60,12 @@
         <div class="mb-3">
           <label class="form-label">Unidade <span class="text-danger">*</span></label>
           <input type="text" class="form-control" data-campo="unidade" list="estoque-unidades-padrao" placeholder="Ex.: KG, UN, saco25kg…">
+          <div class="form-text">Escolha uma sugestão ou informe uma embalagem específica, como PCT. Cadastre KG como base antes de PCT e G.</div>
         </div>
         <div class="mb-3">
           <label class="form-label">Fator para Unidade-Base <span class="text-danger">*</span></label>
           <input type="number" step="0.0001" min="0" class="form-control" data-campo="fator_para_base" value="1">
-          <div class="form-text">Quantas unidades-base equivalem a 1 desta unidade (a própria unidade-base usa 1).</div>
+          <div class="form-text">Quantas unidades-base equivalem a 1 desta unidade. Se a base é KG: PCT de 1 kg = 1; G = 0,001. Este fator afeta quantidade e custo unitário no recebimento.</div>
         </div>
         <div class="row">
           <div class="col-6 mb-3">

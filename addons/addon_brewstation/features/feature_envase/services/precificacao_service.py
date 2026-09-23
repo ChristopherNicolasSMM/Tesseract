@@ -64,7 +64,13 @@ def _custo_real_por_base(material_id: int) -> float | None:
 
 def _unidade_base_material(material_id: int) -> str | None:
     from addons.addon_estoque.root.model.material import Material
+    from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
 
+    base = MaterialUnidade.query.filter_by(
+        material_id=material_id, is_unidade_base=True, is_deleted=False,
+    ).first()
+    if base:
+        return base.unidade
     material = Material.query.get(material_id)
     return material.unidade_medida if material else None
 

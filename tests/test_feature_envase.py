@@ -19,6 +19,7 @@ from addons.addon_estoque.root.model.categoria import Categoria
 from addons.addon_estoque.root.model.origem import Origem, SEED_NOME_A_DEFINIR
 from addons.addon_estoque.root.model.tipo_produto import TipoProduto, SEED_NOME_INSUMO
 from addons.addon_estoque.root.model.composicao import Composicao
+from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
 from addons.addon_estoque.root.services import estoque_service as material_movement_service
 from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
@@ -260,8 +261,71 @@ def test_confirmar_consumo_ingredientes_e_idempotente(app):
 
         segundo = ingredient_consumption_service.confirmar_consumo_ingredientes(lote.id)
         assert segundo["ja_confirmado"] is True
-        # Saldo não muda na segunda chamada
         assert material_movement_service.consultar_saldo(malte.id)["quantidade_atual"] == 95
+
+
+def test_ingrediente_em_gramas_e_baixado_em_quilos(app):
+    with app.app_context():
+        material = _criar_material_com_estoque(
+            nome="Cloreto Conversao", quantidade_inicial=1, custo_unitario=25,
+        )
+        material.unidade_medida = "KG"
+        db.session.add(MaterialUnidade(material_id=material.id, unidade="KG", fator_para_base=1, is_unidade_base=True))
+        lote = _criar_lote(com_ingrediente=(material, 10))
+        ingrediente = RecipeIngredient.query.filter_by(recipe_id=lote.recipe_id).first()
+        ingrediente.unidade_medida = "G"
+        db.session.commit()
+
+        previa = ingredient_consumption_service.calcular_custo_insumos_receita(lote.recipe_id)
+        assert previa["custo_total_estimado"] == pytest.approx(0.25)
+        assert previa["detalhes"][0]["quantidade_base"] == pytest.approx(0.01)
+        ingredient_consumption_service.confirmar_consumo_ingredientes(lote.id)
+        assert material_movement_service.consultar_saldo(material.id)["quantidade_atual"] == pytest.approx(0.99)
+
+
+def test_unidade_desconhecida_nao_faz_baixa(app):
+    with app.app_context():
+        material = _criar_material_com_estoque(
+            nome="Cloreto Unidade Incerta", quantidade_inicial=1, custo_unitario=25,
+        )
+        material.unidade_medida = "KG"
+        lote = _criar_lote(com_ingrediente=(material, 10))
+        ingrediente = RecipeIngredient.query.filter_by(recipe_id=lote.recipe_id).first()
+        ingrediente.unidade_medida = "PCT"
+        db.session.commit()
+
+        with pytest.raises(ValueError, match="Não foi possível converter"):
+            ingredient_consumption_service.confirmar_consumo_ingredientes(lote.id)
+        assert material_movement_service.consultar_saldo(material.id)["quantidade_atual"] == 1
+        assert lote.insumos_baixados_em is None
+
+
+def test_falha_na_segunda_baixa_desfaz_primeira(app, monkeypatch):
+    with app.app_context():
+        material = _criar_material_com_estoque(
+            nome="Malte Transacao", quantidade_inicial=10, custo_unitario=5,
+        )
+        lote = _criar_lote(com_ingrediente=(material, 1))
+        db.session.add(RecipeIngredient(
+            recipe_id=lote.recipe_id, descricao_origem="Segunda linha",
+            material_id=material.id, quantidade=1, status_resolucao="resolvido",
+        ))
+        db.session.commit()
+        original = material_movement_service.registrar_movimentacao
+        chamadas = 0
+
+        def falhar_na_segunda(*args, **kwargs):
+            nonlocal chamadas
+            chamadas += 1
+            if chamadas == 2:
+                raise RuntimeError("falha simulada")
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(material_movement_service, "registrar_movimentacao", falhar_na_segunda)
+        with pytest.raises(RuntimeError, match="falha simulada"):
+            ingredient_consumption_service.confirmar_consumo_ingredientes(lote.id)
+        assert material_movement_service.consultar_saldo(material.id)["quantidade_atual"] == 10
+        assert db.session.get(BrewSession, lote.id).insumos_baixados_em is None
 
 
 def test_confirmar_consumo_lote_inexistente_levanta_erro(app):

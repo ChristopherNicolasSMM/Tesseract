@@ -8,3 +8,10 @@ Hooks disponíveis (todos opcionais):
     pbo_apply_fields(obj, data) -> dict | None   # antes de aplicar campos
     pai_apply_fields(obj, data) -> None          # depois de aplicar campos
 """
+
+
+def pai_apply_fields(obj, data):
+    if obj.fator_para_base is None or obj.fator_para_base <= 0:
+        raise ValueError("O fator para a unidade-base deve ser maior que zero.")
+    if obj.is_unidade_base and obj.fator_para_base != 1:
+        raise ValueError("A unidade-base deve ter fator igual a 1.")

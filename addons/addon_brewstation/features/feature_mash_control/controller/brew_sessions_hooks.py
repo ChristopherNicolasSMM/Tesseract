@@ -29,6 +29,9 @@ def confirmar_ingredientes(id: int):
     except ingredient_consumption_service.ReceitaNaoVinculadaError:
         flash("Esta sessão não tem receita vinculada — não há insumo pra confirmar.", "error")
         return redirect(url_for("brew_sessions.detail", id=id))
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("brew_sessions.detail", id=id))
 
     if resultado["ja_confirmado"]:
         flash("Ingredientes já tinham sido confirmados pra este lote.", "warning")

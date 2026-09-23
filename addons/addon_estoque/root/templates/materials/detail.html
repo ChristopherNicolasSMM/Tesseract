@@ -26,6 +26,20 @@
             <option value="{{ opt.value }}" {{ 'selected' if data.get(field) == opt.value else '' }}>{{ opt.label }}</option>
             {% endfor %}
           </select>
+          {% elif field in ['unidade_medida', 'unidade_medida_volume_calculado', 'unidade_medida_volume_real', 'formato_fisico'] %}
+          <input name="{{ field }}" class="form-control" list="{{ field }}-opcoes"
+                 value="{{ data.get(field) or '' }}" autocomplete="off">
+          <datalist id="{{ field }}-opcoes">
+            {% if field == 'unidade_medida' %}
+              {% for opt in ['KG', 'G', 'L', 'ML', 'UN'] %}<option value="{{ opt }}">{% endfor %}
+            {% elif field == 'formato_fisico' %}
+              {% for opt in ['Pó', 'Grão', 'Líquido', 'Garrafa', 'Lata', 'Barril'] %}<option value="{{ opt }}">{% endfor %}
+            {% else %}
+              {% for opt in ['L', 'ML'] %}<option value="{{ opt }}">{% endfor %}
+            {% endif %}
+          </datalist>
+          {% if field == 'unidade_medida' %}<div class="form-text">Unidade-base do saldo e do custo médio. Cadastre a mesma unidade como base na seção Unidades abaixo.</div>{% endif %}
+          {% if field == 'unidade_medida_volume_real' %}<div class="form-text">Para envase, informe L ou ML; o volume real determina quantas unidades são produzidas.</div>{% endif %}
           {% elif field in weak_ref_fields and weak_ref_options.get(field) %}
           <div class="weakref-combo" data-weakref-source="{{ weak_ref_options[field] }}"
                {% if weak_ref_value_fields.get(field) %}data-weakref-value-field="{{ weak_ref_value_fields[field] }}"{% endif %}>
@@ -64,6 +78,8 @@
                  {% if fv.get('step') %}step="{{ fv['step'] }}"{% endif %}
                  {% if fv.get('html_type') == 'number' %}inputmode="decimal"{% endif %}
                  {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
+          {% if field == 'vida_util' %}<div class="form-text">Em dias, a partir da referência de validade do material.</div>{% endif %}
+          {% if field == 'volume_real' %}<div class="form-text">Volume de uma unidade do produto acabado. Ex.: 0,5 L por garrafa de 500 ml.</div>{% endif %}
           {% endif %}
         </div>
         {% endfor %}

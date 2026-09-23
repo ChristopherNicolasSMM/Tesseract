@@ -75,6 +75,8 @@
           const u = unidadePorId[item.material_unidade_id];
           item.material_nome = m ? m.nome : null;
           item.unidade_nome = u ? u.unidade : null;
+          item.unidade_base_nome = (u && u.is_unidade_base) ? u.unidade :
+            (m ? m.unidade_medida : null);
         });
 
         if (datatableInstancia) {
@@ -268,11 +270,17 @@
     }
 
     function linhaHtml(item) {
+      const fator = Number(item.fator_conversao_aplicado);
+      const base = item.unidade_base_nome || "unidade-base";
+      const entradaBase = Number(item.quantidade_convertida_base);
+      const custoBase = fator > 0 ? Number(item.preco_unitario) / fator : null;
       return (
         "<tr data-item-id=\"" + item.id + "\">" +
         "<td>" + TesseractData.esc(item.material_nome || ("Material #" + item.material_id)) + "</td>" +
-        "<td>" + fmt(item.quantidade) + "</td>" +
-        "<td>" + TesseractData.esc(item.unidade_nome || "") + "</td>" +
+        "<td>" + fmt(item.quantidade) + " " + TesseractData.esc(item.unidade_nome || "") + "</td>" +
+        "<td>" + (Number.isFinite(entradaBase) ? fmt(entradaBase) : "—") + " " + TesseractData.esc(base) +
+          " <small class=\"text-muted\">(fator " + (Number.isFinite(fator) ? fmt(fator) : "—") + ")</small></td>" +
+        "<td>" + (custoBase === null ? "—" : "R$ " + fmt(custoBase)) + "/" + TesseractData.esc(base) + "</td>" +
         "<td><input type=\"text\" class=\"form-control form-control-sm\" data-campo-linha=\"lote\" placeholder=\"opcional\"></td>" +
         "<td><input type=\"date\" class=\"form-control form-control-sm\" data-campo-linha=\"validade\"></td>" +
         "</tr>"
@@ -284,7 +292,7 @@
       const itens = obterCache();
       tbody.innerHTML = itens.length
         ? itens.map(linhaHtml).join("")
-        : '<tr><td colspan="5" class="text-muted">Este pedido não tem itens.</td></tr>';
+        : '<tr><td colspan="6" class="text-muted">Este pedido não tem itens.</td></tr>';
       modal && modal.show();
     });
 
