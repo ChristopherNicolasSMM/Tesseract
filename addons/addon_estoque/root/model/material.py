@@ -31,12 +31,15 @@ sempre editavel depois.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length, display_field, weak_ref
+from annotations import label, plural, required, max_length, display_field, weak_ref, readonly_fields
 
 
 @label("Material")
 @plural("materials")
 @display_field("nome")
+@readonly_fields(["unidade_medida"])
+@weak_ref("unidade_medida_volume_calculado", resolver="addons.addon_estoque.root.services.unidade_catalogo_lookup.get_unidade", options="unidades_catalogo", value_field="codigo")
+@weak_ref("unidade_medida_volume_real", resolver="addons.addon_estoque.root.services.unidade_catalogo_lookup.get_unidade", options="unidades_catalogo", value_field="codigo")
 @required("nome", message="Nome do material é obrigatório")
 @required("sku", message="SKU do material é obrigatório")
 @required("origem_id", message="Origem é obrigatória")

@@ -85,6 +85,17 @@ def material_exists(material_id: int | None) -> bool:
     )
 
 
+def get_unidade_base(material_id: int | None) -> dict | None:
+    """Consulta pública da unidade-base; consumidores não acessam a tabela do estoque."""
+    if not material_id:
+        return None
+    from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
+    unidade = MaterialUnidade.query.filter_by(
+        material_id=material_id, is_unidade_base=True, is_deleted=False, ativo=True,
+    ).first()
+    return unidade.to_dict() if unidade else None
+
+
 def get_saldo(material_id: int | None) -> dict | None:
     """Saldo atual de um Material — leitura, nunca escrita (escrita é
     sempre via estoque_service.registrar_movimentacao)."""

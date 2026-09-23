@@ -62,7 +62,7 @@ class MaterialUnidade(db.Model):
     # Livre por enquanto (não é lookup) — baixo volume de valores
     # distintos por Material, não justifica tabela própria nesta fase
     # (ver skill 23, seção 3). Ex.: "kg", "saco25kg", "caixa12un".
-    unidade = db.Column(db.String(20), nullable=False)
+    unidade = db.Column(db.String(60), nullable=False)
 
     # Quantas unidades-base equivalem a 1 desta unidade. A
     # unidade-base tem fator_para_base = 1.0 por definição.

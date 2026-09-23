@@ -13,6 +13,7 @@ from core.addon_base import AddonBase
 
 class AddonEstoque(AddonBase):
     def register_models(self) -> list:
+        from addons.addon_estoque.root.model.unidade_catalogo import UnidadeCatalogo
         from addons.addon_estoque.root.model.material import Material
         from addons.addon_estoque.root.model.composicao import Composicao
         from addons.addon_estoque.root.model.movimentacao import Movimentacao
@@ -48,7 +49,7 @@ class AddonEstoque(AddonBase):
         # ItemProcessoCotacao (correcao pos-Fase 6.3): o item pedido
         # vive no processo, ItemCotacao so responde preco pra ele.
         return [
-            Fabricante, Origem, TipoProduto, Categoria, Material, Composicao, Movimentacao, Saldo,
+            UnidadeCatalogo, Fabricante, Origem, TipoProduto, Categoria, Material, Composicao, Movimentacao, Saldo,
             MaterialUnidade, Fornecedor, Transportadora, Endereco, FornecedorEndereco, TransportadoraEndereco,
             PedidoCompra, ItemPedidoCompra, ProcessoCotacao, ItemProcessoCotacao, Cotacao, ItemCotacao,
         ]

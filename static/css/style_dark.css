@@ -28,6 +28,11 @@ body.dark .text-muted, body[data-theme="dark"] .text-muted {
   color: var(--dark-muted) !important;
 }
 
+html[data-theme="dark"] .form-text,
+body.dark .form-text, body[data-theme="dark"] .form-text {
+  color: var(--dark-muted);
+}
+
 html[data-theme="dark"] small,
 body.dark small, body[data-theme="dark"] small {
   color: var(--dark-muted);

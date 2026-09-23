@@ -15,3 +15,9 @@ def pai_apply_fields(obj, data):
         raise ValueError("O fator para a unidade-base deve ser maior que zero.")
     if obj.is_unidade_base and obj.fator_para_base != 1:
         raise ValueError("A unidade-base deve ter fator igual a 1.")
+    if obj.is_unidade_base:
+        from core.db import db
+        from addons.addon_estoque.root.model.material import Material
+        material = db.session.get(Material, obj.material_id)
+        if material is not None:
+            material.unidade_medida = obj.unidade

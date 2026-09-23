@@ -76,7 +76,11 @@ class MaterialUnidadeService:
 
     def create(self, data: dict) -> ServiceResult:
         obj = MaterialUnidade()
-        self._apply_fields(obj, data)
+        try:
+            self._apply_fields(obj, data)
+        except ValueError as e:
+            db.session.rollback()
+            return ServiceResult(success=False, error=str(e), code=422)
         db.session.add(obj)
         try:
             db.session.commit()
@@ -92,7 +96,11 @@ class MaterialUnidadeService:
             return ServiceResult(success=False, error="Registro não encontrado.", code=404)
         if obj.is_deleted:
             return ServiceResult(success=False, error="Não é possível editar um registro na lixeira.", code=400)
-        self._apply_fields(obj, data)
+        try:
+            self._apply_fields(obj, data)
+        except ValueError as e:
+            db.session.rollback()
+            return ServiceResult(success=False, error=str(e), code=422)
         try:
             db.session.commit()
         except Exception as e:

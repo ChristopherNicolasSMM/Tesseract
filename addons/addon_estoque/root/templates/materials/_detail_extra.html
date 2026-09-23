@@ -60,7 +60,7 @@
         <div class="mb-3">
           <label class="form-label">Unidade <span class="text-danger">*</span></label>
           <input type="text" class="form-control" data-campo="unidade" list="estoque-unidades-padrao" placeholder="Ex.: KG, UN, saco25kg…">
-          <div class="form-text">Escolha uma sugestão ou informe uma embalagem específica, como PCT. Cadastre KG como base antes de PCT e G.</div>
+          <div class="form-text">Escolha uma unidade usual ou informe uma embalagem específica, como PCT de 1 kg. Cadastre a unidade-base primeiro.</div>
         </div>
         <div class="mb-3">
           <label class="form-label">Fator para Unidade-Base <span class="text-danger">*</span></label>
@@ -97,18 +97,7 @@
   </div>
 </div>
 
-<datalist id="estoque-unidades-padrao">
-  <option value="UN">Unidade</option>
-  <option value="PCT">Pacote</option>
-  <option value="CX">Caixa</option>
-  <option value="KG">Quilograma</option>
-  <option value="G">Grama</option>
-  <option value="L">Litro</option>
-  <option value="ML">Mililitro</option>
-  <option value="SC">Saco</option>
-  <option value="FD">Fardo</option>
-  <option value="M">Metro</option>
-</datalist>
+<datalist id="estoque-unidades-padrao"></datalist>
 
 <script src="{{ url_for('static', filename='js/freestyle/freestyle-tesseract-data.js') }}"></script>
 <script src="{{ url_for('static', filename='js/estoque/material-unidades-embutido.js') }}"></script>

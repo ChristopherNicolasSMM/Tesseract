@@ -22,7 +22,6 @@ from addons.addon_brewstation.features.feature_mash_control.model.brew_session i
 from addons.addon_brewstation.features.feature_mash_control.model.recipe_ingredient import RecipeIngredient
 from addons.addon_estoque.root.services import estoque_service, material_lookup
 from addons.addon_brewstation.features.feature_envase.services.unidade_conversao import converter_quantidade
-from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
 
 
 class LoteNaoEncontradoError(Exception):
@@ -44,13 +43,11 @@ def _ingredientes_com_material(recipe_id: int) -> list[RecipeIngredient]:
 
 def _quantidade_base(ing: RecipeIngredient) -> tuple[float, str | None]:
     """Converte a unidade da receita para a mesma base usada pelo Saldo."""
-    base = MaterialUnidade.query.filter_by(
-        material_id=ing.material_id, is_unidade_base=True, is_deleted=False,
-    ).first()
+    base = material_lookup.get_unidade_base(ing.material_id)
     material = material_lookup.get_material(ing.material_id)
     if material is None:
         raise ValueError(f"Material #{ing.material_id} não está disponível")
-    unidade_base = base.unidade if base else material.get("unidade_medida")
+    unidade_base = base["unidade"] if base else material.get("unidade_medida")
     if ing.unidade_medida and not unidade_base:
         raise ValueError(f"Material #{ing.material_id} não tem unidade-base cadastrada")
     quantidade, confiavel = converter_quantidade(

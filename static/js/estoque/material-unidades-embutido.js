@@ -20,6 +20,14 @@
     const configEl = document.getElementById("estoque-material-unidades-config");
     if (!configEl) return;
     const config = TesseractData.config("estoque-material-unidades-config");
+    TesseractData.opcoes('unidades_catalogo', '').then(function (data) {
+      const lista = document.getElementById('estoque-unidades-padrao');
+      (data.results || []).forEach(function (opcao) {
+        const item = document.createElement('option');
+        item.value = opcao.text;
+        lista.appendChild(item);
+      });
+    }).catch(function () { /* A unidade livre continua disponível. */ });
 
     const tabelaEl = document.querySelector("table[data-datatable]");
     const tbody = document.querySelector("[data-alvo='tabela-unidades']");
