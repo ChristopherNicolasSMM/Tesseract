@@ -14,7 +14,7 @@ _MATERIAL_RESOLVER = "addons.addon_estoque.root.services.material_lookup.get_mat
 
 @label("Envase")
 @plural("envases")
-@readonly_fields(["componentes_snapshot"])
+@readonly_fields(["componentes_snapshot", "estorno_snapshot", "cancelado_em", "motivo_cancelamento", "cancelado_por_id"])
 @enum_field("status", options=["registrado", "cancelado"])
 @choices("status", label="Status")
 @required("lote_id", message="Lote é obrigatório")
@@ -42,6 +42,10 @@ class Envase(db.Model):
     quantidade_litros = db.Column(db.Float, nullable=True)
     # Fotografia dos componentes e custos na confirmação; nulo em envases antigos.
     componentes_snapshot = db.Column(db.JSON, nullable=True)
+    estorno_snapshot = db.Column(db.JSON, nullable=True)
+    cancelado_em = db.Column(db.DateTime, nullable=True)
+    motivo_cancelamento = db.Column(db.Text, nullable=True)
+    cancelado_por_id = db.Column(db.Integer, nullable=True)
     data_envase = db.Column(db.Date, nullable=True)
     tipo_envase = db.Column(db.String(30), nullable=True)  # garrafa, barril, lata, ...
     status = db.Column(db.String(20), nullable=False, default="registrado")  # registrado, cancelado
@@ -58,6 +62,10 @@ class Envase(db.Model):
             "material_resultante_id": self.material_resultante_id,
             "quantidade_litros": self.quantidade_litros,
             "componentes_snapshot": self.componentes_snapshot,
+            "estorno_snapshot": self.estorno_snapshot,
+            "cancelado_em": self.cancelado_em.isoformat() if self.cancelado_em else None,
+            "motivo_cancelamento": self.motivo_cancelamento,
+            "cancelado_por_id": self.cancelado_por_id,
             "data_envase": self.data_envase.isoformat() if self.data_envase else None,
             "tipo_envase": self.tipo_envase,
             "status": self.status,

@@ -142,3 +142,7 @@ sequenceDiagram
 ## Fotografia de custo por componente
 
 `Envase.componentes_snapshot` (JSON, nullable) é preenchido na mesma transação da baixa: guarda `material_componente_id`, `quantidade_por_unidade`, `quantidade_total`, `custo_medio`, `custo_linha` e `movimentacao_id`. A saída do ledger recebe `custo_unitario` do saldo anterior à baixa. Para novos envases, `calcular_custo_industrializacao_envase` usa o snapshot, inclusive `[]` para embalagem sem componentes; para registros anteriores à migração (`NULL`), mantém o cálculo legado baseado na composição e custo atuais, com `componentes_historicos=False`. O custo da cerveja ainda usa rateio pelo volume total de envases não excluídos do lote e não constitui uma fotografia histórica.
+
+## Estorno atômico de envase
+
+`estornar_envase` exige status `registrado`, motivo preenchido e `componentes_snapshot` não nulo. Verifica cada saída original e registra uma entrada pela regra `estoque_service.registrar_movimentacao(commit=False)` com quantidade e custo unitário originais; atualiza `Envase.status=cancelado`, `cancelado_em`, `cancelado_por_id`, `motivo_cancelamento` e `estorno_snapshot` com pares `saida_id/entrada_id` na mesma transação. Falha em qualquer componente reverte todas as entradas e mantém o envase registrado. O consumo de ingredientes do lote não é revertido. Envases legados sem snapshot não podem ser estornados automaticamente. O detalhe usa um hook de controller com permissão `envases.update`; o blueprint precisa existir antes da importação do hook.

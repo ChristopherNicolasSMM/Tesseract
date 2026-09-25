@@ -63,3 +63,7 @@ O formulário de Envases usa os combos de busca do CrudGen para Lote e Material 
 ## Custos históricos de embalagem
 
 A partir desta versão, cada novo envase guarda a composição usada, a quantidade consumida, o custo médio de cada componente e o identificador da movimentação. A tela de detalhe apresenta cada componente, a quantidade, o custo e a movimentação correspondente. Consultas futuras preservam esses valores mesmo que você altere a composição ou receba novas embalagens com outro preço. Envases antigos, sem essa fotografia, continuam consultando o cadastro atual e são identificados como históricos indisponíveis no retorno técnico. A parcela de cerveja ainda é rateada pelo total de litros envasados no lote e pode mudar se forem registrados envases adicionais.
+
+## Estornar envase
+
+No detalhe de um envase confirmado após o registro de custos históricos, informe o motivo e clique **Estornar envase e devolver embalagens**. O sistema cria entradas no Estoque correspondentes a cada saída original e registra os dois IDs, a data e o usuário no envase cancelado. Não é possível estornar duas vezes. Os insumos de brassagem continuam consumidos no lote, pois não pertencem a um envase específico. Envases antigos sem fotografia das saídas exigem reconciliação manual. Envases cancelados não entram no rateio de custo dos envases ativos.

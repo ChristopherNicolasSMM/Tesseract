@@ -10,7 +10,7 @@
       <p class="form-text mt-3">Envase confirmado. Correções exigem um estorno rastreável.</p>
       <dl class="row">
         {% for key, value in item.to_dict().items() %}
-        {% if key != 'componentes_snapshot' %}
+        {% if key not in ('componentes_snapshot', 'estorno_snapshot') %}
         <dt class="col-sm-4">{{ field_labels.get(key, key.replace('_', ' ').title()) }}</dt>
         <dd class="col-sm-8">{{ value if value is not none else '—' }}</dd>
         {% endif %}
@@ -38,6 +38,18 @@
           </tbody>
         </table>
       </div>
+      {% endif %}
+      {% if item.estorno_snapshot is not none %}
+      <h2 class="h5">Devoluções ao estoque</h2>
+      {% if item.estorno_snapshot %}
+      <ul>{% for par in item.estorno_snapshot %}<li>Saída #{{ par.saida_id }} → entrada #{{ par.entrada_id }}</li>{% endfor %}</ul>
+      {% else %}<p class="text-muted">Este envase não tinha componentes para devolver.</p>{% endif %}
+      {% elif item.status == 'registrado' and item.componentes_snapshot is not none %}
+      <form method="post" action="{{ url_for('envases.estornar', id=item.id) }}">
+        <label for="motivoEstorno" class="form-label">Motivo do estorno</label>
+        <textarea id="motivoEstorno" name="motivo" class="form-control mb-2" required maxlength="1000"></textarea>
+        <button class="btn btn-outline-danger" type="submit">Estornar envase e devolver embalagens</button>
+      </form>
       {% endif %}
     </div>
   </div>

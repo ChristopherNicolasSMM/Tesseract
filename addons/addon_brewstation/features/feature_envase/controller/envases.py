@@ -21,6 +21,8 @@ from addons.addon_brewstation.features.feature_envase.model.envase import Envase
 
 logger = logging.getLogger(__name__)
 
+envases_bp = Blueprint("envases", __name__, url_prefix="/brewstation/envases")
+
 # Hooks de controller — achado real (skill 21): controller.py.j2 nunca
 # importava/chamava envases_hooks.py de verdade, só tinha o
 # docstring aspiracional acima. Mesmo padrão seguro já usado em
@@ -41,9 +43,6 @@ def _hook(name):
     return getattr(_hooks, name, _noop) if _hooks else _noop
 
 
-envases_bp = Blueprint(
-    "envases", __name__, url_prefix="/brewstation/envases"
-)
 _service = EnvaseService()
 
 # Campos editáveis via formulário — calculado por introspecção das

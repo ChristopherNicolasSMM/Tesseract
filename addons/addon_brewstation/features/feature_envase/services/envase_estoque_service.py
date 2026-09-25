@@ -21,6 +21,7 @@ mesma pasta services/.
 from __future__ import annotations
 
 from math import isfinite
+from datetime import datetime, timezone
 
 from core.db import db
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
@@ -38,6 +39,10 @@ class MaterialNaoEncontradoError(Exception):
 
 
 class VolumeRealNaoConfiguradoError(Exception):
+    pass
+
+
+class EnvaseNaoEstornavelError(ValueError):
     pass
 
 
@@ -151,6 +156,59 @@ def registrar_envase(
     }
 
 
+def estornar_envase(envase_id: int, motivo: str, *, usuario_id: int | None = None) -> dict:
+    """Devolve embalagens pela mesma regra de estoque e cancela o envase atomicamente.
+
+    Ingredientes são consumo do lote, não deste envase, e não são estornados.
+    Envases antigos sem fotografia de movimentos exigem reconciliação manual.
+    """
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+
+    envase = db.session.get(Envase, envase_id)
+    if envase is None or envase.is_deleted:
+        raise EnvaseNaoEstornavelError("Envase não encontrado.")
+    if envase.status != "registrado":
+        raise EnvaseNaoEstornavelError("Este envase já foi cancelado.")
+    if envase.componentes_snapshot is None:
+        raise EnvaseNaoEstornavelError("Envase antigo sem movimentos identificados: requer reconciliação manual.")
+    if not isinstance(motivo, str) or not motivo.strip():
+        raise EnvaseNaoEstornavelError("Informe o motivo do estorno.")
+
+    try:
+        # Reserva o cancelamento na mesma transação: uma segunda tentativa
+        # concorrente não pode devolver as mesmas saídas novamente.
+        claimed = Envase.query.filter_by(id=envase_id, status="registrado").update(
+            {"status": "cancelado"}, synchronize_session="fetch",
+        )
+        if claimed != 1:
+            raise EnvaseNaoEstornavelError("Este envase já foi cancelado.")
+        devolucoes = []
+        for componente in envase.componentes_snapshot:
+            original = db.session.get(Movimentacao, componente["movimentacao_id"])
+            if (original is None or original.is_deleted or original.tipo_movimentacao != "saida"
+                    or original.material_id != componente["material_componente_id"]
+                    or original.quantidade != componente["quantidade_total"]):
+                raise EnvaseNaoEstornavelError("A saída original não corresponde ao registro do envase.")
+            resultado = estoque_service.registrar_movimentacao(
+                original.material_id, "entrada", original.quantidade,
+                custo_unitario=original.custo_unitario,
+                usuario_id=usuario_id,
+                observacoes=f"Estorno Envase #{envase.id}, saída #{original.id}: {motivo.strip()}",
+                commit=False,
+            )
+            devolucoes.append({"saida_id": original.id,
+                               "entrada_id": resultado["movimentacao"]["id"]})
+        envase.cancelado_em = datetime.now(timezone.utc)
+        envase.motivo_cancelamento = motivo.strip()
+        envase.cancelado_por_id = usuario_id
+        envase.estorno_snapshot = devolucoes
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return {"envase": envase.to_dict(), "devolucoes": devolucoes}
+
+
 def calcular_custo_industrializacao_envase(envase_id: int) -> dict:
     """
     Custo real de industrialização de um Envase (seção 3.3 da skill
@@ -165,11 +223,13 @@ def calcular_custo_industrializacao_envase(envase_id: int) -> dict:
     envase = db.session.get(Envase, envase_id)
     if envase is None or envase.is_deleted:
         raise LoteNaoEncontradoError(f"Envase id={envase_id} não encontrado ou removido")
+    if envase.status == "cancelado":
+        raise EnvaseNaoEstornavelError("Envase cancelado não compõe o custo de produção.")
 
     lote = envase.lote
     litros_produzidos_do_lote = db.session.query(
         db.func.coalesce(db.func.sum(Envase.quantidade_litros), 0.0)
-    ).filter(Envase.lote_id == envase.lote_id, Envase.is_deleted.is_(False)).scalar()
+    ).filter(Envase.lote_id == envase.lote_id, Envase.is_deleted.is_(False), Envase.status == "registrado").scalar()
 
     custo_cerveja = 0.0
     if lote.custo_total_insumos and litros_produzidos_do_lote:

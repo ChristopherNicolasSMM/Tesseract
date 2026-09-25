@@ -20,6 +20,7 @@ from addons.addon_estoque.root.model.origem import Origem, SEED_NOME_A_DEFINIR
 from addons.addon_estoque.root.model.tipo_produto import TipoProduto, SEED_NOME_INSUMO
 from addons.addon_estoque.root.model.composicao import Composicao
 from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
+from addons.addon_estoque.root.model.movimentacao import Movimentacao
 from addons.addon_estoque.root.services import estoque_service as material_movement_service
 from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
@@ -323,6 +324,71 @@ def test_envase_legado_sem_snapshot_usa_composicao_atual(app):
         assert custo["custo_componentes"] == 0.5
 
 
+def test_estorno_devolve_embalagens_sem_apagar_ledger_ou_insumos(app):
+    with app.app_context():
+        malte = _criar_material_com_estoque("Malte estorno", quantidade_inicial=10)
+        tampa = _criar_material_com_estoque("Tampa estorno", quantidade_inicial=10, custo_unitario=0.5)
+        lote = _criar_lote(com_ingrediente=(malte, 2))
+        resultante = _criar_material_resultante("Produto estorno", componentes=[(tampa, 1)])
+        envase_id = svc.registrar_envase(lote.id, resultante.id, 3)["envase"]["id"]
+        assert material_movement_service.consultar_saldo(tampa.id)["quantidade_atual"] == 7
+        saida_id = db.session.get(Envase, envase_id).componentes_snapshot[0]["movimentacao_id"]
+
+        resultado = svc.estornar_envase(envase_id, "Tampas defeituosas")
+        assert resultado["envase"]["status"] == "cancelado"
+        assert resultado["envase"]["motivo_cancelamento"] == "Tampas defeituosas"
+        assert resultado["devolucoes"][0]["saida_id"] == saida_id
+        entrada = db.session.get(Movimentacao, resultado["devolucoes"][0]["entrada_id"])
+        assert entrada.tipo_movimentacao == "entrada"
+        assert entrada.custo_unitario == 0.5
+        assert material_movement_service.consultar_saldo(tampa.id)["quantidade_atual"] == 10
+        assert material_movement_service.consultar_saldo(malte.id)["quantidade_atual"] == 8
+        assert db.session.get(Movimentacao, saida_id).is_deleted is False
+        with pytest.raises(svc.EnvaseNaoEstornavelError, match="já foi cancelado"):
+            svc.estornar_envase(envase_id, "Outra tentativa")
+        with pytest.raises(svc.EnvaseNaoEstornavelError, match="cancelado"):
+            svc.calcular_custo_industrializacao_envase(envase_id)
+
+
+def test_estorno_falha_parcial_e_desfeito_inteiro(app, monkeypatch):
+    with app.app_context():
+        tampa = _criar_material_com_estoque("Tampa parcial", quantidade_inicial=10)
+        rotulo = _criar_material_com_estoque("Rotulo parcial", quantidade_inicial=10)
+        lote = _criar_lote("Lote parcial")
+        resultante = _criar_material_resultante("Produto parcial", componentes=[(tampa, 1), (rotulo, 1)])
+        envase_id = svc.registrar_envase(lote.id, resultante.id, 2)["envase"]["id"]
+        movimentos_antes = Movimentacao.query.count()
+        original = material_movement_service.registrar_movimentacao
+        chamadas = 0
+
+        def falhar_na_segunda(*args, **kwargs):
+            nonlocal chamadas
+            chamadas += 1
+            if chamadas == 2:
+                raise RuntimeError("Falha no segundo estorno")
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(material_movement_service, "registrar_movimentacao", falhar_na_segunda)
+        with pytest.raises(RuntimeError, match="Falha no segundo"):
+            svc.estornar_envase(envase_id, "Teste de rollback")
+        envase = db.session.get(Envase, envase_id)
+        assert envase.status == "registrado"
+        assert envase.estorno_snapshot is None
+        assert Movimentacao.query.count() == movimentos_antes
+        assert material_movement_service.consultar_saldo(tampa.id)["quantidade_atual"] == 8
+        assert material_movement_service.consultar_saldo(rotulo.id)["quantidade_atual"] == 8
+
+
+def test_envase_antigo_sem_snapshot_nao_pode_ser_estornado(app):
+    with app.app_context():
+        lote = _criar_lote("Lote legado estorno")
+        legado = Envase(lote_id=lote.id, quantidade_litros=1, status="registrado")
+        db.session.add(legado)
+        db.session.commit()
+        with pytest.raises(svc.EnvaseNaoEstornavelError, match="reconciliação manual"):
+            svc.estornar_envase(legado.id, "Não sei os componentes")
+
+
 # ── ingredient_consumption_service (skill 26) ──
 
 def test_calcular_custo_insumos_receita_e_puro(app):
@@ -526,6 +592,26 @@ def test_tela_lote_mostra_pendencia_e_desabilita_confirmacao(app, client):
     assert b"Malte pendente" in resp.data
     assert b"Pendente" in resp.data
     assert b"disabled" in resp.data
+
+
+def test_estorno_pela_tela_mostra_vinculo_das_movimentacoes(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        tampa = _criar_material_com_estoque("Tampa estorno web", quantidade_inicial=10)
+        lote = _criar_lote("Lote estorno web")
+        resultante = _criar_material_resultante("Produto estorno web", componentes=[(tampa, 1)])
+        envase_id = svc.registrar_envase(lote.id, resultante.id, 2)["envase"]["id"]
+
+    resp = client.get(f"/brewstation/envases/{envase_id}")
+    assert resp.status_code == 200
+    assert b"Estornar envase e devolver embalagens" in resp.data
+    resp = client.post(f"/brewstation/envases/{envase_id}/estornar",
+                       data={"motivo": "Erro de embalagem"}, follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Devolu" in resp.data
+    with app.app_context():
+        assert db.session.get(Envase, envase_id).status == "cancelado"
+        assert material_movement_service.consultar_saldo(tampa.id)["quantidade_atual"] == 10
 
 
 @pytest.mark.parametrize("rota", [
