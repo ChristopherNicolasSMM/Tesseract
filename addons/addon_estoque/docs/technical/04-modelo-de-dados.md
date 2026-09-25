@@ -116,7 +116,7 @@ erDiagram
     MATERIAL_UNIDADE {
         int id PK
         int material_id FK
-        string unidade "livre — ex.: kg, saco25kg, caixa12un"
+        string unidade "código do catálogo — ex.: KG, PCT, CX"
         float fator_para_base "1.0 na unidade-base; > 0 nas demais"
         boolean is_unidade_base "exatamente 1 true por material — índice único parcial"
         string tipo_uso "compra | consumo | ambos"
@@ -341,8 +341,8 @@ erDiagram
 | `tesseract_estoque_origem` | Lookup simples (nacional/importado/etc.). Ganha o registro seed `"A definir"` no boot — usado quando a origem real não é conhecida (ex.: autocreate do BrewFather). |
 | `tesseract_estoque_tipo_produto` | Eixo de **natureza** do Material — 5 seeds fixos (Insumo/Embalagem/Produto Acabado/Peça/Uso e Consumo), criados idempotentemente no boot. |
 | `tesseract_estoque_categoria` | Classificação **fina** dentro de um `TipoProduto` (`tipo_produto_id` nullable — cadastros antigos ficam sem essa relação até revisão manual, nunca bloqueados). Substituiu o antigo campo `Material.categoria` (string livre). |
-| `tesseract_estoque_material` | Identidade de qualquer coisa estocável. `sku` é o identificador de negócio (único, sempre presente). `origem_id`/`tipo_produto_id`/`categoria_id` são obrigatórios; `fabricante_id` é opcional. `volume_calculado` = teórico; `volume_real` = medido/declarado. |
-| `tesseract_estoque_material_unidade` | Múltiplas unidades por Material (compra × consumo), com `fator_para_base` de conversão. `quantidade_atual`/`quantidade` em `Movimentacao`/`Saldo` estão SEMPRE na unidade-base — a conversão acontece uma vez, na entrada do dado. |
+| `tesseract_estoque_material` | Identidade de qualquer coisa estocável. `sku` é o identificador de negócio (único, sempre presente). `origem_id`/`tipo_produto_id`/`categoria_id` são obrigatórios; `fabricante_id` é opcional. `volume_calculado` = teórico; `volume_real` = medido/declarado. As unidades desses dois volumes são enums limitados a `ML`, `L`, `CM3` e `M3`; os campos numéricos de peso e volume usam `autocomplete="off"` no formulário gerado. |
+| `tesseract_estoque_material_unidade` | Múltiplas unidades por Material (compra × consumo), com código selecionado do catálogo via `@weak_ref(value_field="codigo")`. Embalagens usam códigos como `PCT` e `CX`, sem tamanho no código: `fator_para_base` registra quanto contém cada embalagem deste Material (por exemplo, base `KG` e `PCT` com fator `25`). `quantidade_atual`/`quantidade` em `Movimentacao`/`Saldo` estão SEMPRE na unidade-base — a conversão acontece uma vez, na entrada do dado. |
 | `tesseract_estoque_composicao` | Auto-relacionamento (BOM). FK real, mesmo Addon (skill 02). |
 | `tesseract_estoque_fornecedor` | Cadastro de fornecedor. Vive dentro do próprio `addon_estoque` (decisão raiz da skill 23) — permite FK real com `PedidoCompra`/`Movimentacao` por serem do mesmo Addon. |
 | `tesseract_estoque_transportadora` | Cadastro de transportadora — mesmo raciocínio de escopo do Fornecedor. |

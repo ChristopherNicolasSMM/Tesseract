@@ -36,8 +36,8 @@ usada como referência, sem mexer no estoque automaticamente.
 ## Unidades de Material (compra × consumo)
 
 Um material pode ser comprado numa unidade e usado/movimentado em
-outra — o exemplo mais comum é comprar um saco de 25kg de um insumo,
-mas consumir esse insumo em frações de 1kg. Para isso, cada Material
+outra — por exemplo, comprar um pacote de 25 kg de um insumo,
+mas consumir esse insumo em frações de 1 kg. Para isso, cada Material
 pode ter mais de uma "Unidade" cadastrada (na tela de detalhe do
 próprio Material, seção "Unidades").
 
@@ -50,20 +50,26 @@ estou cadastrando?":
 - Em qualquer outra unidade do mesmo Material, o fator é quantas
   unidades-base cabem dentro dela.
 
-Exemplo — Material "Malte Pilsen" com unidade-base em **kg**:
+Exemplo — Material "Malte Pilsen" com unidade-base em **KG**:
 
 | Unidade cadastrada | É Unidade-Base? | Fator para Unidade-Base |
 |---|---|---|
-| `kg` | Sim | `1` |
-| `saco25kg` | Não | `25` (1 saco = 25 kg) |
-| `g` | Não | `0.001` (1 grama = 0,001 kg) |
+| `KG` | Sim | `1` |
+| `PCT` | Não | `25` (1 pacote deste material = 25 kg) |
+| `G` | Não | `0,001` (1 grama = 0,001 kg) |
+
+Selecione o código da unidade no catálogo. O código `PCT` significa
+apenas **pacote**; registre o conteúdo de cada pacote no fator do
+Material, sem criar códigos como `PCT de 1 kg` ou `saco25kg`. Para outro
+material, `PCT` pode ter um fator diferente. Os campos de volume
+calculado e real do Material aceitam somente `ML`, `L`, `CM3` e `M3`.
 
 Só pode existir **uma** unidade marcada como base por Material — o
 sistema recusa se você tentar marcar uma segunda. Se precisar trocar
 qual é a base, desmarque a antiga primeiro.
 
 O Saldo de Estoque é sempre calculado na unidade-base — comprar em
-"sacos" e consumir em "kg" não gera inconsistência, a conversão
+`PCT` e consumir em `KG` não gera inconsistência, a conversão
 acontece automaticamente ao registrar a compra ou o consumo.
 
 ## Ações em Massa na Lista de Materiais

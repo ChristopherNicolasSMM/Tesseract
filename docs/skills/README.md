@@ -211,7 +211,7 @@ conteúdo diferente do que apontava originalmente.
 | 07 (menu personalização) + 10 (menu hierárquico) → `07-menu-personalizacao-e-hierarquia.md` | **Feita** |
 | 12 (CrudGen referência) + 13 (CrudGen guia operacional) → `12-crudgen-referencia-e-operacao.md` | **Feita** |
 | 16 (Designer) + 17 (páginas customizadas) + 18 (Freestyle) → `16-designer-paginas-customizadas.md` | **Feita** |
-| 00–06, 08, 09, 11, 14, 15 | Sem fusão — só limpeza interna (Opção A), a confirmar arquivo por arquivo durante a auditoria |
+| 00–06, 08, 09, 11, 14, 15 | **Feita** — sem fusão (Opção A). Achados reais corrigidos: skill 00 (adendo da skill 09 ainda falava em `group`, pré-árvore de menu), skill 01 (nota de `menu_config.json` citando "skill 07, Model Builder" por engano — Model Builder é a skill 06), skill 03 (seção de CLI descrevia um executável `tesseract` que nunca existiu — real é `python run.py <comando>`, e os comandos `module create-*`/`list`/`enable`/`disable` nunca foram implementados), skill 09 (3 referências desatualizadas: `group`→`parent_code`, Patch B do Model Builder já implementado, e a compatibilidade dos 8 módulos não mencionava que 3 já foram migrados pro caminho automático — skill 12 §7). 02, 04, 06, 08, 11, 14, 15 já estavam corretos, sem necessidade de edição. |
 
 ### Peças ainda sem skill própria
 

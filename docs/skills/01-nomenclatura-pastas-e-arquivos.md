@@ -123,7 +123,7 @@ addons/addon_[nome]/
 > `logging.integration_log_path` no manifesto, não fixo nesta skill.
 >
 > **Arquivo `menu_config.json` na raiz do Addon (adenda — skill 07,
-> Model Builder/Personalização de Menu)**: opcional. Antes desta
+> Menu: Personalização e Hierarquia)**: opcional. Antes desta
 > adenda, `menu_config.json` só existia por Feature; passa a existir
 > também na raiz do Addon e na raiz do Plugin (ver estrutura de Plugin
 > abaixo), com o mesmo papel: declarar o **valor de autoria** do grupo

@@ -96,8 +96,10 @@ preservada 100%, esta skill não mexe nisso).
 `get_transactions()` default aplica o mesmo truque do PyTeca sobre os
 models descobertos no passo 2.2: lê `get_model_metadata()`, monta
 `{plural}.list`, confirma que a rota existe, gera a entrada. Convenção
-de `group`/`code`/`@menu_icon` — ver skill 00, adendo correspondente
-(evita duplicar a mesma regra em duas skills).
+de `parent_code`/`code`/`@menu_icon` — ver skill 00, adendo
+correspondente, e skill 07 (menu em árvore), seção 7, para o desenho
+completo do nó-pasta auto-gerado (evita duplicar a mesma regra em três
+skills).
 
 ### 2.4 [ABERTO — detalhe de implementação, não de arquitetura]
 
@@ -110,7 +112,7 @@ Resolvido na hora do código — não bloqueia esta decisão.
 ## 3. Impacto na skill 06 (Model Builder)
 
 **[DECIDIDO]** Com esta skill em vigor, o Patch B do Model Builder
-(scaffold de Addon/Feature novo do zero — skill 06, ainda não
+(scaffold de Addon/Feature novo do zero — skill 06, seção 3.3,
 implementado) fica mais simples: o `addon.py`/`feature.py` gerado não
 precisa mais escrever `register_models()`/`register_routes()`/
 `get_transactions()` nenhum — só a declaração `__module__` e a classe
@@ -125,12 +127,19 @@ sem precisar do trecho manual que a skill 06 previa colar em
 
 ## 4. Compatibilidade com os módulos já existentes
 
-**[DECIDIDO]** Nenhuma migração obrigatória agora. Os 8 `addon.py`/
-`feature.py` reais (`addon_brewstation`, `addon_device_manager`,
-features de `yeast_bank`/`mash_control`/`brew_father`, etc.) continuam
-com override manual — herança Python garante que isso funciona sem
-qualquer ajuste neles. Migrá-los para remover o boilerplate manual
-fica registrado como trabalho futuro opcional.
+**[DECIDIDO, parcialmente executado]** Nenhuma migração é obrigatória.
+Dos 8 `addon.py`/`feature.py` reais, 3 já foram migrados para o
+caminho automático de `register_models()`/`register_routes()` —
+`feature_yeast_bank`, `feature_mash_control` e `addon_device_manager`
+(ver skill 12, seção 7, para o detalhe completo, inclusive o cuidado
+necessário com efeito colateral customizado nos dois últimos).
+`get_transactions()` continua manual **nos 8**, sem exceção — decisão
+explícita, não pendência (mesma seção da skill 12). Os 5 módulos
+restantes (`addon_brewstation` núcleo, `addon_estoque`,
+`feature_envase`, `feature_ingredientes`, `feature_brew_father`)
+continuam com override manual dos três métodos — herança Python
+garante que isso funciona sem qualquer ajuste neles. Migrar os
+restantes fica registrado como trabalho futuro opcional.
 
 ---
 

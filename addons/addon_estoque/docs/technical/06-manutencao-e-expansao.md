@@ -61,8 +61,8 @@ entre `Fornecedor`/`PedidoCompra`/`Movimentacao` só é permitida
   `estoque_service.registrar_movimentacao()`.
 - **Evento no EventBus** para mudança de saldo/recebimento de pedido —
   nenhum publicado hoje (ver `03-fluxos.md`, seção final).
-- **Multi-protocolo de conversão de unidade** — hoje `MaterialUnidade`
-  é livre (string), não lookup. Se o volume de unidades distintas
-  crescer a ponto de justificar padronização, vira uma tabela de
-  lookup própria (mesmo raciocínio que motivou `Categoria`/
-  `TipoProduto` virarem tabela em vez de string).
+- **Conversões de unidade mais complexas** — hoje `MaterialUnidade`
+  guarda o código selecionado do catálogo via `@weak_ref`; o conteúdo
+  da embalagem é representado pelo fator específico do Material.
+  Conversões que dependam de condições além desse fator exigiriam
+  modelagem própria e revisão dos serviços de compra e movimentação.

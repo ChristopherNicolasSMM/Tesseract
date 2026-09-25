@@ -19,7 +19,7 @@
 - **Fluxo principal**: na tela de detalhe do Material, seção
   "Unidades", cadastra a unidade-base (`is_unidade_base=true`,
   `fator_para_base=1`) e, se necessário, unidades adicionais de compra
-  (ex.: `saco25kg`, fator `25`)
+  (ex.: `PCT`, fator `25` quando o pacote deste Material contém 25 KG)
 - **Fluxo alternativo**: tentar marcar uma segunda unidade como base →
   rejeitado (índice único parcial); é preciso desmarcar a antiga
   primeiro

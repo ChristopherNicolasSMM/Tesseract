@@ -208,9 +208,17 @@ campos, como já era):
   de `@label`/`@plural` (autoria direta na classe do model, sem passar
   por `translation_key` — ícone não é texto visível traduzível).
   Opcional; sem ela, a Transação auto-gerada usa `bi-app` genérico.
-- **`group`** da Transação auto-gerada é sempre `module.label` (label
-  do Addon/Feature dono do model) — nunca inventa um grupo novo.
-- **`code`** da Transação auto-gerada segue `TX_AUTO_<PLURAL_MAIUSCULO>`
-  — prefixo `TX_AUTO_` reservado exclusivamente para esse caminho,
-  nunca usado em Transação escrita à mão (que usa `TX_<algo>` livre,
-  ver exemplos já existentes como `TX_DEVICE_FUNCTIONS`).
+- **`parent_code`** da Transação auto-gerada aponta para um nó-pasta
+  próprio do módulo (`TX_GROUP_AUTO_<ADDON_OU_FEATURE_MAIÚSCULO>`,
+  criado com `label=module.label` na primeira vez que algum model
+  daquele módulo é descoberto) — nunca aponta direto para um grupo
+  curado à mão. *(Nota de 2026-09: esta linha dizia `group` antes da
+  árvore de menu existir — corrigido para `parent_code` depois da
+  fusão das skills 07+10 em `07-menu-personalizacao-e-hierarquia.md`,
+  seção 7, que é a referência normativa completa deste mecanismo.)*
+- **`code`** da Transação auto-gerada (a entrada de menu em si, não o
+  grupo) segue `TX_AUTO_<PLURAL_MAIUSCULO>` — prefixo `TX_AUTO_`
+  reservado exclusivamente para esse caminho, nunca usado em Transação
+  escrita à mão (que usa `TX_<algo>` livre, ver exemplos já existentes
+  como `TX_DEVICE_FUNCTIONS`). Namespace distinto do prefixo do grupo
+  (`TX_GROUP_AUTO_`) — um é a folha, o outro é a pasta.

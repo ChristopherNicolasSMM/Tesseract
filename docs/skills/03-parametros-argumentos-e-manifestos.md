@@ -132,8 +132,32 @@ salvaguarda automática da regra "Plugin não tem tabela".
 
 ## 4. Argumentos da CLI do CrudGen
 
+> **Correção nesta auditoria**: esta seção descrevia um executável
+> `tesseract` que nunca existiu — o Core usa comandos Flask CLI
+> registrados em `core/cli.py` (`@app.cli.command(...)`), invocados via
+> `python run.py <comando>` (`run.py` usa `flask.cli.FlaskGroup`, sem
+> exigir o executável `flask` global — ver `run.py`). O comando
+> `generate` é real e usado (mesmo comando documentado na skill 12); os
+> comandos `module create-addon`/`create-feature`/`create-plugin`/
+> `list`/`enable`/`disable` abaixo **nunca foram implementados** —
+> ficam registrados como desenho ainda não construído, não como CLI
+> existente.
+
 ```
-tesseract generate --model <Caminho> [--overwrite] [--addon <nome>] [--feature <nome>]
+python run.py generate --model <Caminho> --addon <nome> [--feature <nome>] [--overwrite] [--only templates]
+```
+
+| Argumento | Regra |
+|---|---|
+| `--model` | Caminho relativo ao model anotado. Obrigatório. |
+| `--overwrite` | Sem essa flag, o CrudGen nunca sobrescreve arquivo já gerado — só cria os que faltam. Arquivos `_hooks.py` **nunca** são sobrescritos, mesmo com a flag. |
+| `--addon` | Obrigatório — não há inferência automática a partir do caminho do model. |
+| `--feature` | Opcional — se omitido, o model é tratado como núcleo do Addon (sem Feature). |
+| `--only templates` | Restringe a regeneração aos artefatos de template — ver skill 12, seção 3, para o detalhe completo (inclui o risco real já testado de rodar sem antes regenerar o controller pelo menos uma vez). |
+
+### [ABERTO] Comandos de gestão de módulo — desenhados, não implementados
+
+```
 tesseract module create-addon <nome>
 tesseract module create-feature <addon> <nome>
 tesseract module create-plugin <nome>
@@ -142,13 +166,11 @@ tesseract module enable <nome>
 tesseract module disable <nome>
 ```
 
-| Argumento | Regra |
-|---|---|
-| `--model` | Caminho relativo ao model anotado. Obrigatório. |
-| `--overwrite` | Sem essa flag, o CrudGen nunca sobrescreve arquivo já gerado — só cria os que faltam. Arquivos `_hooks.py` **nunca** são sobrescritos, mesmo com a flag. |
-| `--addon` | Obrigatório quando o model não está dentro de uma pasta de Addon já identificável pelo caminho. |
-| `--feature` | Opcional — se omitido, o model é tratado como núcleo do Addon (sem Feature). |
-| `module create-plugin` | Nunca aceita `--model` — não existe geração de model para Plugin. |
+Nenhum destes existe em `core/cli.py` hoje — criar um Addon/Feature/
+Plugin novo continua sendo manual (pasta + manifesto + classe, seguindo
+as skills 00/01/03). Se algum dia forem implementados, entram como
+comandos Flask CLI reais (`python run.py module create-addon ...`,
+mesmo padrão de `generate`), não como executável `tesseract` à parte.
 
 ## 5. Parâmetros de runtime (`system_config`)
 
