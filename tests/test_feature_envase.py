@@ -479,11 +479,13 @@ def test_botao_confirmar_ingredientes_aparece_e_funciona(app, client):
 def test_tela_lote_mostra_pendencia_e_desabilita_confirmacao(app, client):
     _login_admin(app, client)
     with app.app_context():
+        from addons.addon_brewstation.features.feature_mash_control.controller import brew_sessions
         lote = _criar_lote("Lote com pendencia visual")
         db.session.add(RecipeIngredient(recipe_id=lote.recipe_id, descricao_origem="Malte pendente",
                                         quantidade=1, status_resolucao="pendente_depara"))
         db.session.commit()
         lote_id = lote.id
+        assert brew_sessions._hook("detail_context_extra")(lote)["conferencia_ingredientes"]["pendencias"]
     resp = client.get(f"/brewstation/brew-sessions/{lote_id}")
     assert resp.status_code == 200
     assert b"Malte pendente" in resp.data

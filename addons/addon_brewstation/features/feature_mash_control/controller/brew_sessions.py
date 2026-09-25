@@ -21,6 +21,10 @@ from addons.addon_brewstation.features.feature_mash_control.model.brew_session i
 
 logger = logging.getLogger(__name__)
 
+brew_sessions_bp = Blueprint(
+    "brew_sessions", __name__, url_prefix="/brewstation/brew-sessions"
+)
+
 # Hooks de controller — achado real (skill 21): controller.py.j2 nunca
 # importava/chamava brew_sessions_hooks.py de verdade, só tinha o
 # docstring aspiracional acima. Mesmo padrão seguro já usado em
@@ -41,9 +45,6 @@ def _hook(name):
     return getattr(_hooks, name, _noop) if _hooks else _noop
 
 
-brew_sessions_bp = Blueprint(
-    "brew_sessions", __name__, url_prefix="/brewstation/brew-sessions"
-)
 _service = BrewSessionService()
 
 # Campos editáveis via formulário — calculado por introspecção das
