@@ -218,3 +218,7 @@ sequenceDiagram
     UI->>Hist: INSERT snapshot_data (JSON completo da nova versão + ingredientes)
     Hist-->>UI: registro de histórico disponível pra comparação
 ```
+
+## Prévia e decisão de consumo (2026-09-25)
+
+`conferir_ingredientes(recipe_id)` lê as linhas da receita sem gravar nada; classifica como `pronto` somente com `status_resolucao=resolvido`, Material vinculado, quantidade positiva e conversão confiável. `status_resolucao=ignorado` registra a escolha explícita de não consumir. Qualquer `pendente` impede `confirmar_consumo_ingredientes`, inclusive durante o fallback transacional do envase. O controller gerado oferece `detail_context_extra` para que o hook de BrewSession apresente a prévia no detalhe do lote sem alterar a lógica de outros modelos. A confirmação mantém custo e baixa idempotentes.

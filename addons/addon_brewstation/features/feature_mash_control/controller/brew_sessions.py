@@ -400,7 +400,7 @@ def export_xlsx():
 def _detail_context(item, submitted_data: dict | None = None, form_error: str | None = None) -> dict:
     """Compartilhado entre detail() (GET) e update() (POST, quando
     falha) — mesmo raciocínio do _manage_context() acima."""
-    return dict(
+    context = dict(
         item=item, label="Sessão de Brassagem", fields=_EDITABLE_FIELDS,
         field_rules=_get_field_rules(),
         weak_ref_fields=_WEAK_REF_FIELDS,
@@ -413,6 +413,8 @@ def _detail_context(item, submitted_data: dict | None = None, form_error: str | 
         submitted_data=submitted_data,
         form_error=form_error,
     )
+    context.update(_hook("detail_context_extra")(item) or {})
+    return context
 
 
 @brew_sessions_bp.route("/<int:id>", methods=["GET"])

@@ -36,8 +36,36 @@
       </p>
       {% else %}
       <p class="text-muted">Ainda não confirmado — o estoque dos insumos da receita ainda não foi baixado pra este lote.</p>
+      {% if not item.recipe_id %}<p class="text-danger">Associe uma receita ao lote antes de confirmar.</p>{% endif %}
+      {% if conferencia_ingredientes %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Ingrediente</th><th>Estado</th><th>Quantidade da receita</th><th>Custo estimado</th><th>Orientação</th></tr></thead>
+          <tbody>
+          {% for linha in conferencia_ingredientes.itens %}
+            <tr>
+              <td><a href="{{ url_for('recipe_ingredients.detail', id=linha.id) }}">{{ linha.descricao }}</a></td>
+              <td>
+                {% if linha.estado == 'pronto' %}<span class="badge bg-success">Pronto</span>
+                {% elif linha.estado == 'ignorado' %}<span class="badge bg-secondary">Não consumir</span>
+                {% else %}<span class="badge bg-warning text-dark">Pendente</span>{% endif %}
+              </td>
+              <td>{{ linha.quantidade if linha.quantidade is not none else '—' }} {{ linha.unidade or '' }}</td>
+              <td>{% if linha.estado == 'pronto' %}{{ 'R$ %.2f'|format(linha.custo_estimado) if linha.custo_estimado is not none else 'Sem custo médio' }}{% else %}—{% endif %}</td>
+              <td>{{ linha.motivo or ('Consumo: ' ~ linha.quantidade_base ~ ' ' ~ (linha.unidade_base or '')) }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5" class="text-muted">A receita não possui ingredientes para consumo.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if conferencia_ingredientes.pendencias %}
+      <p class="text-danger">Resolva {{ conferencia_ingredientes.pendencias|length }} pendência(s) antes da confirmação. Abra a linha para vincular o material, corrigir a unidade ou escolher “Não consumir do estoque”.</p>
+      {% endif %}
+      {% endif %}
       <form method="post" action="{{ url_for('brew_sessions.confirmar_ingredientes', id=item.id) }}" data-confirm-key="brewstation_mashctrl.brew_session.confirm_confirmar_ingredientes">
-        <button type="submit" class="btn btn-primary">
+        <button type="submit" class="btn btn-primary" {% if not item.recipe_id or (conferencia_ingredientes and conferencia_ingredientes.pendencias) %}disabled{% endif %}>
           <i class="bi bi-clipboard-check"></i> Confirmar Ingredientes
         </button>
       </form>

@@ -112,3 +112,7 @@ botão **"Ressincronizar com a sessão"** — use-o depois de mudar algo
 ali pra essas mudanças aparecerem na brassagem que já está em
 andamento (etapa já concluída ou em andamento nunca é alterada por
 esse botão, só as que ainda não começaram).
+
+## Conferência de ingredientes do lote
+
+Na tela da sessão, a tabela **Insumos da Receita** mostra cada linha como Pronto, Pendente ou Não consumir. Abra a linha do ingrediente para vincular o Material de Estoque e ajustar quantidade/unidade. Para água ou outros itens deliberadamente fora do estoque, selecione o status **Não consumir do estoque** no ingrediente; essa decisão fica registrada na receita e a linha não gera baixa. Quantidades inválidas, material ausente ou unidade sem conversão deixam a confirmação bloqueada e mostram a causa. O mesmo bloqueio vale se o envase tentar confirmar ingredientes automaticamente. Para receitas sem ingredientes cadastrados, o comportamento anterior de confirmação sem baixas é preservado.

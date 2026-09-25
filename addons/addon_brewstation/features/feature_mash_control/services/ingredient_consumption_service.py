@@ -16,6 +16,7 @@ outra, ver seção 2.4 da skill):
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from math import isfinite
 
 from core.db import db
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
@@ -32,13 +33,42 @@ class ReceitaNaoVinculadaError(Exception):
     pass
 
 
-def _ingredientes_com_material(recipe_id: int) -> list[RecipeIngredient]:
-    """Só os que têm material_id resolvido e quantidade preenchida —
-    linhas sem material vinculado (ex.: água, ainda pendente de
-    de-para) são informativas, não erro, e ficam de fora do cálculo/
-    consumo por definição, não por falha."""
-    todos = RecipeIngredient.query.filter_by(recipe_id=recipe_id, is_deleted=False).all()
-    return [i for i in todos if i.material_id and i.quantidade]
+class IngredientesPendentesError(ValueError):
+    pass
+
+
+def conferir_ingredientes(recipe_id: int) -> dict:
+    """Prévia sem efeitos colaterais para a confirmação e a tela do lote."""
+    itens = []
+    for ing in RecipeIngredient.query.filter_by(recipe_id=recipe_id, is_deleted=False).order_by(RecipeIngredient.id).all():
+        linha = {"id": ing.id, "descricao": ing.descricao_origem,
+                 "material_id": ing.material_id, "quantidade": ing.quantidade,
+                 "unidade": ing.unidade_medida, "estado": "pronto", "motivo": None,
+                 "quantidade_base": None, "unidade_base": None, "custo_estimado": None}
+        if ing.status_resolucao == "ignorado":
+            linha["estado"] = "ignorado"
+            linha["motivo"] = "Excluído do consumo por decisão registrada na receita."
+        elif not ing.material_id or ing.status_resolucao != "resolvido":
+            linha["estado"] = "pendente"
+            linha["motivo"] = "Vincule um material ou marque Não consumir do estoque."
+        elif ing.quantidade is None or not isfinite(ing.quantidade) or ing.quantidade <= 0:
+            linha["estado"] = "pendente"
+            linha["motivo"] = "Informe uma quantidade positiva para consumo."
+        else:
+            try:
+                linha["quantidade_base"], linha["unidade_base"] = _quantidade_base(ing)
+            except ValueError as exc:
+                linha["estado"] = "pendente"
+                linha["motivo"] = str(exc)
+            else:
+                saldo = material_lookup.get_saldo(ing.material_id)
+                custo = saldo.get("custo_medio") if saldo else None
+                if custo is not None:
+                    linha["custo_estimado"] = linha["quantidade_base"] * custo
+        itens.append(linha)
+    return {"itens": itens, "pendencias": [i for i in itens if i["estado"] == "pendente"],
+            "prontos": [i for i in itens if i["estado"] == "pronto"],
+            "ignorados": [i for i in itens if i["estado"] == "ignorado"]}
 
 
 def _quantidade_base(ing: RecipeIngredient) -> tuple[float, str | None]:
@@ -58,6 +88,8 @@ def _quantidade_base(ing: RecipeIngredient) -> tuple[float, str | None]:
             f"Não foi possível converter {ing.unidade_medida} para {unidade_base} "
             f"no ingrediente {ing.descricao_origem}"
         )
+    if not isfinite(quantidade) or quantidade <= 0:
+        raise ValueError(f"Quantidade convertida inválida no ingrediente {ing.descricao_origem}")
     return quantidade, unidade_base
 
 
@@ -78,6 +110,13 @@ def calcular_custo_insumos_receita(recipe_id: int) -> dict:
     avisos = []
 
     for ing in ingredientes:
+        if ing.status_resolucao == "ignorado":
+            continue
+        if ing.status_resolucao != "resolvido":
+            avisos.append(f"{ing.descricao_origem}: vínculo pendente")
+            if not ing.material_id:
+                sem_material_vinculado.append(ing.descricao_origem)
+            continue
         if not ing.material_id or not ing.quantidade:
             if not ing.material_id:
                 sem_material_vinculado.append(ing.descricao_origem)
@@ -142,8 +181,15 @@ def confirmar_consumo_ingredientes(brew_session_id: int, *, commit: bool = True)
     if not lote.recipe_id:
         raise ReceitaNaoVinculadaError(f"BrewSession id={brew_session_id} não tem receita vinculada")
 
-    ingredientes = _ingredientes_com_material(lote.recipe_id)
-    preparados = [(ing, _quantidade_base(ing)[0]) for ing in ingredientes]
+    conferencia = conferir_ingredientes(lote.recipe_id)
+    if conferencia["pendencias"]:
+        nomes = ", ".join(f"{linha['descricao']} ({linha['motivo']})"
+                          for linha in conferencia["pendencias"][:3])
+        raise IngredientesPendentesError(
+            f"Resolva {len(conferencia['pendencias'])} ingrediente(s) antes de confirmar: {nomes}."
+        )
+    preparados = [(db.session.get(RecipeIngredient, linha["id"]), linha["quantidade_base"])
+                 for linha in conferencia["prontos"]]
     resultados = []
     custo_total = 0.0
     try:

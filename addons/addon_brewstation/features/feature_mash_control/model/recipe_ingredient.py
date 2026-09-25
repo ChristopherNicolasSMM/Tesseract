@@ -25,7 +25,7 @@ _MATERIAL_RESOLVER = "addons.addon_estoque.root.services.material_lookup.get_mat
 @label("Ingrediente de Receita")
 @plural("recipe_ingredients")
 @display_field("descricao_origem")
-@enum_field("status_resolucao", options=[("pendente_depara", "Pendente de vínculo"), ("resolvido", "Resolvido")])
+@enum_field("status_resolucao", options=[("pendente_depara", "Pendente de vínculo"), ("resolvido", "Resolvido"), ("ignorado", "Não consumir do estoque")])
 @choices("etapa", label="Etapa")
 @choices("tipo_ingrediente", label="Tipo")
 @choices("status_resolucao", label="Status")
@@ -59,7 +59,7 @@ class RecipeIngredient(db.Model):
     alpha_acidos = db.Column(db.Float, nullable=True)
     atenuacao = db.Column(db.Float, nullable=True)
 
-    status_resolucao = db.Column(db.String(20), nullable=False, default="pendente_depara")  # resolvido, pendente_depara
+    status_resolucao = db.Column(db.String(20), nullable=False, default="pendente_depara")  # resolvido, pendente_depara, ignorado
 
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)

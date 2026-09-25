@@ -320,6 +320,45 @@ def test_confirmar_consumo_ingredientes_e_idempotente(app):
         assert material_movement_service.consultar_saldo(malte.id)["quantidade_atual"] == 95
 
 
+def test_pendencia_exige_decisao_explicitada_na_receita(app):
+    with app.app_context():
+        malte = _criar_material_com_estoque("Malte conferencia", quantidade_inicial=10)
+        lote = _criar_lote(com_ingrediente=(malte, 2))
+        agua = RecipeIngredient(recipe_id=lote.recipe_id, descricao_origem="Água da receita",
+                                quantidade=10, unidade_medida="L", status_resolucao="pendente_depara")
+        db.session.add(agua)
+        db.session.commit()
+
+        conferencia = ingredient_consumption_service.conferir_ingredientes(lote.recipe_id)
+        assert len(conferencia["prontos"]) == 1
+        assert len(conferencia["pendencias"]) == 1
+        with pytest.raises(ingredient_consumption_service.IngredientesPendentesError, match="Água da receita"):
+            ingredient_consumption_service.confirmar_consumo_ingredientes(lote.id)
+        assert material_movement_service.consultar_saldo(malte.id)["quantidade_atual"] == 10
+        assert db.session.get(BrewSession, lote.id).insumos_baixados_em is None
+
+        agua.status_resolucao = "ignorado"
+        db.session.commit()
+        conferencia = ingredient_consumption_service.conferir_ingredientes(lote.recipe_id)
+        assert len(conferencia["ignorados"]) == 1
+        assert not conferencia["pendencias"]
+        ingredient_consumption_service.confirmar_consumo_ingredientes(lote.id)
+        assert material_movement_service.consultar_saldo(malte.id)["quantidade_atual"] == 8
+
+
+def test_envase_fallback_respeita_pendencias_da_receita(app):
+    with app.app_context():
+        lote = _criar_lote("Lote pendente envase")
+        resultante = _criar_material_resultante("Produto pendente envase")
+        db.session.add(RecipeIngredient(recipe_id=lote.recipe_id, descricao_origem="Lúpulo não mapeado",
+                                        quantidade=1, status_resolucao="pendente_depara"))
+        db.session.commit()
+        with pytest.raises(ingredient_consumption_service.IngredientesPendentesError):
+            svc.registrar_envase(lote.id, resultante.id, 1)
+        assert Envase.query.count() == 0
+        assert db.session.get(BrewSession, lote.id).insumos_baixados_em is None
+
+
 def test_ingrediente_em_gramas_e_baixado_em_quilos(app):
     with app.app_context():
         material = _criar_material_com_estoque(
@@ -435,6 +474,21 @@ def test_botao_confirmar_ingredientes_aparece_e_funciona(app, client):
 
     resp = client.get(f"/brewstation/brew-sessions/{lote_id}", follow_redirects=True)
     assert b"Confirmado em" in resp.data
+
+
+def test_tela_lote_mostra_pendencia_e_desabilita_confirmacao(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        lote = _criar_lote("Lote com pendencia visual")
+        db.session.add(RecipeIngredient(recipe_id=lote.recipe_id, descricao_origem="Malte pendente",
+                                        quantidade=1, status_resolucao="pendente_depara"))
+        db.session.commit()
+        lote_id = lote.id
+    resp = client.get(f"/brewstation/brew-sessions/{lote_id}")
+    assert resp.status_code == 200
+    assert b"Malte pendente" in resp.data
+    assert b"Pendente" in resp.data
+    assert b"disabled" in resp.data
 
 
 @pytest.mark.parametrize("rota", [

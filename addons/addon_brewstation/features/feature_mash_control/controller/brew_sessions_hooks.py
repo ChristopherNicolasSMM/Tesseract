@@ -11,6 +11,13 @@ from addons.addon_brewstation.features.feature_mash_control.controller.brew_sess
 from addons.addon_brewstation.features.feature_mash_control.services import ingredient_consumption_service
 
 
+def detail_context_extra(item):
+    return {"conferencia_ingredientes": (
+        ingredient_consumption_service.conferir_ingredientes(item.recipe_id)
+        if item.recipe_id and item.insumos_baixados_em is None else None
+    )}
+
+
 @brew_sessions_bp.route("/<int:id>/confirmar-ingredientes", methods=["POST"])
 @login_required
 @permission_required("brew_sessions.update")
