@@ -22,9 +22,15 @@ sequenceDiagram
     Estoque-->>UI: {movimentacao, saldo}
 ```
 
-Esta é a via manual — sem passar por `PedidoCompra`. `fornecedor_id`/
-`pedido_compra_item_id` ficam nulos nessa movimentação; o rastro de
-compra (fluxo 2) só existe quando a entrada vem de um pedido recebido.
+Esta é a via manual — sem passar por `PedidoCompra`. `fornecedor_id`
+pode ser informado, mas `pedido_compra_item_id` fica nulo; o rastro do
+pedido (fluxo 2) só existe quando a entrada vem do recebimento.
+
+A entrada manual usa `MovimentacaoService.create_override`, hook
+preservado pelo CrudGen, que chama
+`estoque_service.registrar_movimentacao()`. O ledger e o saldo são
+confirmados juntos. Lançamentos registrados só podem ser corrigidos
+por novo ajuste.
 
 ---
 
@@ -71,6 +77,7 @@ sequenceDiagram
         Mov->>DB: INSERT movimentacao + UPDATE saldo
     end
     Svc->>Svc: pedido.status = "recebido"
+    Svc->>DB: COMMIT unico (pedido, movimentacoes e saldos)
     Svc-->>Ctrl: {pedido_compra, movimentacoes}
     Ctrl-->>UI: {success: true}
 ```

@@ -64,6 +64,9 @@ class MovimentacaoService:
         return db.session.get(Movimentacao, id)
 
     def create(self, data: dict) -> ServiceResult:
+        override = _hook("create_override")(data)
+        if override is not None:
+            return override
         obj = Movimentacao()
         self._apply_fields(obj, data)
         db.session.add(obj)
@@ -76,6 +79,9 @@ class MovimentacaoService:
         return ServiceResult(success=True, data=obj, code=201)
 
     def update(self, id: int, data: dict) -> ServiceResult:
+        override = _hook("update_override")(id, data)
+        if override is not None:
+            return override
         obj = self.get_by_id(id)
         if not obj:
             return ServiceResult(success=False, error="Registro não encontrado.", code=404)
@@ -91,6 +97,9 @@ class MovimentacaoService:
         return ServiceResult(success=True, data=obj)
 
     def trash(self, id: int) -> ServiceResult:
+        override = _hook("trash_override")(id)
+        if override is not None:
+            return override
         obj = self.get_by_id(id)
         if not obj:
             return ServiceResult(success=False, error="Não encontrado.", code=404)
@@ -102,6 +111,9 @@ class MovimentacaoService:
         return ServiceResult(success=True, data=obj)
 
     def restore(self, id: int) -> ServiceResult:
+        override = _hook("restore_override")(id)
+        if override is not None:
+            return override
         obj = self.get_by_id(id)
         if not obj:
             return ServiceResult(success=False, error="Não encontrado.", code=404)
@@ -113,6 +125,9 @@ class MovimentacaoService:
         return ServiceResult(success=True, data=obj)
 
     def delete_permanent(self, id: int) -> ServiceResult:
+        override = _hook("delete_permanent_override")(id)
+        if override is not None:
+            return override
         obj = self.get_by_id(id)
         if not obj:
             return ServiceResult(success=False, error="Não encontrado.", code=404)

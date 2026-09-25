@@ -11,6 +11,15 @@
       {% if form_error %}
       <div class="alert alert-danger" role="alert">{{ form_error }}</div>
       {% endif %}
+      {% if item.__crudgen_immutable__|default(false) %}
+      <p class="form-text">Este lançamento é permanente. Para corrigir uma quantidade, registre uma nova movimentação do tipo Ajuste.</p>
+      <dl class="row">
+        {% for key, value in item.to_dict().items() %}
+        <dt class="col-sm-4">{{ field_labels.get(key, key.replace('_', ' ').title()) }}</dt>
+        <dd class="col-sm-8">{{ value if value is not none else '—' }}</dd>
+        {% endfor %}
+      </dl>
+      {% else %}
       <form method="post" action="{{ url_for('@@plural@@.update', id=item.id) }}" class="row g-3" id="editForm">
         {% set data = submitted_data if submitted_data else item.to_dict() %}
         {% for field in fields %}
@@ -74,6 +83,7 @@
 
       <hr>
 
+      {% if not item.__crudgen_no_delete__|default(false) %}
       <div class="d-flex gap-2">
         {% if not data.get('is_deleted') %}
         <form method="post" action="{{ url_for('@@plural@@.trash', id=item.id) }}" data-confirm-key="core.confirm.trash_generic">
@@ -88,6 +98,8 @@
         </form>
         {% endif %}
       </div>
+      {% endif %}
+      {% endif %}
     </div>
   </div>
 </section>
@@ -96,7 +108,7 @@
 <script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>
 <script src="{{ url_for('static', filename='js/decimal_input_normalizer.js') }}"></script>
 <script>
-  document.getElementById('editForm').addEventListener('submit', function (e) {
+  document.getElementById('editForm')?.addEventListener('submit', function (e) {
     if (!RuleEngine.validateForm(this)) {
       e.preventDefault();
     }

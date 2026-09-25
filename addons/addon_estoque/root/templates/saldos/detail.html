@@ -74,6 +74,7 @@
 
       <hr>
 
+      {% if not item.__crudgen_no_delete__|default(false) %}
       <div class="d-flex gap-2">
         {% if not data.get('is_deleted') %}
         <form method="post" action="{{ url_for('saldos.trash', id=item.id) }}" data-confirm-key="core.confirm.trash_generic">
@@ -88,6 +89,7 @@
         </form>
         {% endif %}
       </div>
+      {% endif %}
     </div>
   </div>
 </section>

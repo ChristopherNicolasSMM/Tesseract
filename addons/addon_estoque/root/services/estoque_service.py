@@ -15,6 +15,7 @@ mesma operação.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from math import isfinite
 
 from core.db import db
 from addons.addon_estoque.root.model.material import Material
@@ -84,6 +85,16 @@ def registrar_movimentacao(
             f"tipo_movimentacao deve ser um de {TIPOS_VALIDOS}, recebido: {tipo_movimentacao!r}"
         )
 
+    if isinstance(quantidade, bool) or not isinstance(quantidade, (int, float)) or not isfinite(quantidade):
+        raise ValueError("quantidade deve ser um número finito")
+    if quantidade == 0:
+        raise ValueError("quantidade deve ser diferente de zero")
+    if custo_unitario is not None and (
+        isinstance(custo_unitario, bool) or not isinstance(custo_unitario, (int, float))
+        or not isfinite(custo_unitario) or custo_unitario < 0
+    ):
+        raise ValueError("custo_unitario deve ser um número finito não negativo")
+
     material = Material.query.filter_by(id=material_id, is_deleted=False).first()
     if material is None:
         raise MaterialNaoEncontradoError(f"Material id={material_id} não encontrado ou removido")
@@ -133,10 +144,14 @@ def registrar_movimentacao(
         saldo.ultimo_fornecedor_id = fornecedor_id
         saldo.data_ultima_compra = datetime.now(timezone.utc).date()
 
-    if commit:
-        db.session.commit()
-    else:
-        db.session.flush()
+    try:
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
+    except Exception:
+        db.session.rollback()
+        raise
 
     return {
         "movimentacao": movimentacao.to_dict(),
@@ -221,31 +236,36 @@ def receber_pedido_compra(
     dados_por_item = dados_por_item or {}
 
     movimentacoes = []
-    for item in itens:
-        fator = item.fator_conversao_aplicado or 1.0
-        custo_unitario_base = item.preco_unitario / fator if fator else item.preco_unitario
-        extra = dados_por_item.get(item.id, {})
+    try:
+        for item in itens:
+            fator = item.fator_conversao_aplicado or 1.0
+            custo_unitario_base = item.preco_unitario / fator if fator else item.preco_unitario
+            extra = dados_por_item.get(item.id, {})
 
-        resultado = registrar_movimentacao(
-            item.material_id,
-            "entrada",
-            item.quantidade_convertida_base or (item.quantidade * fator),
-            custo_unitario=custo_unitario_base,
-            usuario_id=usuario_id,
-            observacoes=f"Recebimento do pedido de compra {pedido.numero}",
-            fornecedor_id=pedido.fornecedor_id,
-            pedido_compra_item_id=item.id,
-            unidade_original=item.material_unidade.unidade if item.material_unidade else None,
-            quantidade_original=item.quantidade,
-            fator_conversao_aplicado=fator,
-            lote_fornecedor=extra.get("lote_fornecedor") or None,
-            data_validade=extra.get("data_validade") or None,
-        )
-        movimentacoes.append(resultado["movimentacao"])
+            resultado = registrar_movimentacao(
+                item.material_id,
+                "entrada",
+                item.quantidade_convertida_base or (item.quantidade * fator),
+                custo_unitario=custo_unitario_base,
+                usuario_id=usuario_id,
+                observacoes=f"Recebimento do pedido de compra {pedido.numero}",
+                fornecedor_id=pedido.fornecedor_id,
+                pedido_compra_item_id=item.id,
+                unidade_original=item.material_unidade.unidade if item.material_unidade else None,
+                quantidade_original=item.quantidade,
+                fator_conversao_aplicado=fator,
+                lote_fornecedor=extra.get("lote_fornecedor") or None,
+                data_validade=extra.get("data_validade") or None,
+                commit=False,
+            )
+            movimentacoes.append(resultado["movimentacao"])
 
-    pedido.status = "recebido"
-    pedido.updated_at = datetime.now(timezone.utc)
-    db.session.commit()
+        pedido.status = "recebido"
+        pedido.updated_at = datetime.now(timezone.utc)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
 
     return {
         "pedido_compra": pedido.to_dict(),

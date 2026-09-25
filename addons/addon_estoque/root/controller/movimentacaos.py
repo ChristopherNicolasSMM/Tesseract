@@ -23,7 +23,7 @@ from flask_login import login_required, current_user
 
 from core.db import db
 from core.permissions import permission_required
-from annotations import get_choices_fields, get_weak_refs, get_enum_fields, get_model_metadata, get_field_labels
+from annotations import get_choices_fields, get_weak_refs, get_enum_fields, get_model_metadata, get_field_labels, get_readonly_fields
 from core.crudgen.field_types import html_types_for_model
 from addons.addon_estoque.root.services.movimentacao_service import MovimentacaoService
 from addons.addon_estoque.root.model.movimentacao import Movimentacao
@@ -36,7 +36,7 @@ _service = MovimentacaoService()
 # Campos editáveis via formulário — introspecção das colunas do model,
 # EXCETO usuario_id/pedido_compra_item_id (nunca escolhidos à mão —
 # ver docstring do módulo).
-_READONLY_FIELDS = {"id", "created_at", "updated_at", "is_deleted", "deleted_at", "usuario_id", "pedido_compra_item_id"}
+_READONLY_FIELDS = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"} | get_readonly_fields(Movimentacao)
 _EDITABLE_FIELDS = [c.name for c in Movimentacao.__table__.columns if c.name not in _READONLY_FIELDS]
 
 _SUMMARY_FIELD_PRIORITY = ("name", "label_text", "title", "username")

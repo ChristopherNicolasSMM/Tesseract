@@ -35,12 +35,18 @@
   sistema alerta, mas não bloqueia (**decisão ainda em aberto**)
 - **Permissão RBAC**: `movimentacaos.create`
 
+Um lançamento gravado não pode ser editado ou excluído pela interface
+nem pela API. Correções exigem uma nova movimentação de `ajuste`.
+
 ### UC-04 — Consultar Saldo de Estoque
 - **Pré-condição**: permissão `saldos.list`
 - **Fluxo principal**: acessa Saldo → filtra por Material/categoria →
   visualiza quantidade_atual, custo_medio, valor_total, status
   (abaixo do mínimo / acima do máximo / normal / sem referência)
 - **Permissão RBAC**: `saldos.list`
+
+O saldo é criado pela primeira movimentação. Sua ficha aceita editar
+os limites mínimo/máximo, mas não a quantidade nem o custo calculado.
 
 ## Ator: Comprador
 

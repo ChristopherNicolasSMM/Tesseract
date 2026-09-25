@@ -5,15 +5,9 @@ Ledger de movimentacao de estoque - imutavel na pratica (correcao de
 lancamento errado e sempre um NOVO registro, tipo_movimentacao="ajuste",
 nunca UPDATE de quantidade/custo de um lancamento existente).
 
-CORRECAO (pos-bug real, ver commit): ganhou is_deleted/deleted_at
-seguindo a skill 02 ("padrao para qualquer entidade gerada pelo
-CrudGen") - a omissao original quebrava a tela de listagem (CrudGen
-gera .filter(Model.is_deleted...) incondicionalmente). A trash/restore
-gerada pelo CrudGen fica disponivel na UI, mas o uso pretendido
-continua sendo so para esconder um lancamento claramente errado da
-listagem - nunca para "consertar" um valor errado (isso e sempre um
-novo lancamento de ajuste). Se isso for um problema na pratica,
-avaliar esconder as acoes trash/restore via hook do controller.
+Mantém is_deleted/deleted_at porque o CrudGen os usa nas consultas,
+mas os hooks de service proíbem edição, lixeira, restauração e exclusão
+do ledger. Correções são novas movimentações de ajuste.
 
 AMPLIACAO (skill 23, Fase 4): rastro de compra - todas as colunas
 novas sao nullable, movimentacoes manuais (ajuste, ou entrada sem
@@ -26,12 +20,15 @@ calculo de saldo.
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, choices, min_value, weak_ref, field_labels
+from annotations import label, plural, required, choices, weak_ref, field_labels, readonly_fields, enum_field
 
 
 @label("Movimentação de Estoque")
 @plural("movimentacaos")
+@readonly_fields(["custo_total", "data_movimentacao", "usuario_id", "pedido_compra_item_id",
+                  "unidade_original", "quantidade_original", "fator_conversao_aplicado"])
 @choices("tipo_movimentacao", label="Tipo")
+@enum_field("tipo_movimentacao", options=[("entrada", "Entrada"), ("saida", "Saída"), ("ajuste", "Ajuste")])
 @field_labels({
     "quantidade": "Quantidade (unidade-base)",
     "custo_unitario": "Custo Unitário (R$ / unidade-base)",
@@ -39,7 +36,6 @@ from annotations import label, plural, required, choices, min_value, weak_ref, f
 })
 @required("material_id", message="Material é obrigatório")
 @required("tipo_movimentacao", message="Tipo da movimentação é obrigatório")
-@min_value("quantidade", 0, message="Quantidade não pode ser negativa")
 @weak_ref("material_id",
           resolver="addons.addon_estoque.root.services.material_lookup.get_material",
           options="materials")
@@ -47,6 +43,8 @@ from annotations import label, plural, required, choices, min_value, weak_ref, f
           resolver="addons.addon_estoque.root.services.fornecedor_lookup.get_fornecedor",
           options="fornecedores")
 class Movimentacao(db.Model):
+    __crudgen_immutable__ = True
+    __crudgen_no_delete__ = True
     __tablename__ = "movimentacao"
 
     id = db.Column(db.Integer, primary_key=True)

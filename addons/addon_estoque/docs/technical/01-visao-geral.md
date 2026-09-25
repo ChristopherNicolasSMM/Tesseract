@@ -44,6 +44,13 @@ direta — skill 02). `addon_brewstation` é o consumidor real hoje
 | **Cotação (RFQ)** | `ProcessoCotacao`, `Cotacao`, `ItemProcessoCotacao`, `ItemCotacao` | Comparação de preço entre fornecedores antes de fechar um `PedidoCompra`; "Gerar Pedido" converte vencedores em pedido |
 | **Ledger** | `Movimentacao`, `Saldo` | Registro imutável de entrada/saída/ajuste + cache materializado do saldo atual |
 
+Entradas manuais da tela e da API passam pelo hook do CrudGen que chama
+`estoque_service.registrar_movimentacao()`. O serviço grava o ledger e
+atualiza o saldo na mesma transação. Lançamentos existentes são somente
+leitura: correções usam outra movimentação `ajuste`. O CRUD do Saldo
+permite alterar apenas os limites mínimo e máximo; quantidade e custos
+são calculados pelos lançamentos.
+
 Ver `03-fluxos.md` para como esses blocos se encadeiam na prática, e
 `04-modelo-de-dados.md` para o schema completo das 15 tabelas.
 

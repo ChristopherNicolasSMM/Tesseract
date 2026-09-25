@@ -317,6 +317,8 @@ def _manage_context(submitted_data: dict | None = None, form_error: str | None =
         submitted_data=submitted_data,
         form_error=form_error,
         pode_inativar_em_massa=_PODE_INATIVAR_EM_MASSA,
+        allow_create=False,
+        allow_delete=False,
     )
 
 

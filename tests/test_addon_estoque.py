@@ -2094,12 +2094,100 @@ def test_saldo_novo_nasce_com_valor_total_e_estoque_minimo_zero(app):
         assert saldo["estoque_minimo"] == 0.0
 
 
-def test_form_criacao_saldo_mostra_combo_material_e_fornecedor(app, client):
+def test_saldo_nao_permite_criacao_manual(app, client):
     _login_admin(app, client)
     resp = client.get("/estoque/saldos", follow_redirects=True)
     assert resp.status_code == 200
-    assert b'data-weakref-source="materials"' in resp.data
-    assert b'data-weakref-source="fornecedores"' in resp.data
+    assert b'Novo registro' not in resp.data
+    assert b'data-crudgen-acao-massa="apagar"' not in resp.data
+
+
+def test_movimentacao_web_atualiza_saldo_e_nao_aceita_edicao(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        material_id = _criar_material(nome="Ledger Web Central").id
+
+    response = client.post("/estoque/movimentacaos/", data={
+        "material_id": str(material_id), "tipo_movimentacao": "entrada",
+        "quantidade": "10", "custo_unitario": "25",
+        "custo_total": "999999",  # campo calculado, nunca aceito da tela
+    })
+    assert response.status_code == 302
+    with app.app_context():
+        movement = Movimentacao.query.filter_by(material_id=material_id).one()
+        movement_id = movement.id
+        assert movement.custo_total == 250
+        assert estoque_service.consultar_saldo(material_id)["quantidade_atual"] == 10
+
+    response = client.put(f"/api/estoque/movimentacaos/{movement_id}", json={"quantidade": 99})
+    assert response.status_code == 409
+    response = client.post(f"/api/estoque/movimentacaos/{movement_id}/trash")
+    assert response.status_code == 409
+    with app.app_context():
+        assert db.session.get(Movimentacao, movement_id).quantidade == 10
+        assert estoque_service.consultar_saldo(material_id)["quantidade_atual"] == 10
+
+
+def test_saldo_aceita_limites_sem_permitir_alterar_quantidade(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        material = _criar_material(nome="Saldo Protegido")
+        material_id = material.id
+        saldo_id = estoque_service.registrar_movimentacao(material_id, "entrada", 7)["saldo"]["id"]
+
+    response = client.put(f"/api/estoque/saldos/{saldo_id}", json={"quantidade_atual": 100})
+    assert response.status_code == 422
+    response = client.put(f"/api/estoque/saldos/{saldo_id}", json={"estoque_minimo": 2})
+    assert response.status_code == 200
+    with app.app_context():
+        assert estoque_service.consultar_saldo(material_id)["quantidade_atual"] == 7
+        assert db.session.get(Saldo, saldo_id).estoque_minimo == 2
+
+
+def test_ajuste_negativo_pela_tela_cria_novo_lancamento(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        material_id = _criar_material(nome="Ajuste Web Imutavel").id
+        estoque_service.registrar_movimentacao(material_id, "entrada", 10)
+
+    response = client.post("/estoque/movimentacaos/", data={
+        "material_id": str(material_id), "tipo_movimentacao": "ajuste",
+        "quantidade": "-3", "observacoes": "Correção por inventário",
+    })
+    assert response.status_code == 302
+    with app.app_context():
+        assert Movimentacao.query.filter_by(material_id=material_id).count() == 2
+        assert estoque_service.consultar_saldo(material_id)["quantidade_atual"] == 7
+
+
+def test_recebimento_multiplos_itens_desfaz_tudo_se_segundo_falhar(app, monkeypatch):
+    with app.app_context():
+        primeiro = _criar_material(nome="Recebimento Atomic 1")
+        segundo = _criar_material(nome="Recebimento Atomic 2")
+        unidade_a = MaterialUnidade(material_id=primeiro.id, unidade="KG", fator_para_base=1, is_unidade_base=True)
+        unidade_b = MaterialUnidade(material_id=segundo.id, unidade="KG", fator_para_base=1, is_unidade_base=True)
+        db.session.add_all([unidade_a, unidade_b])
+        db.session.commit()
+        pedido = _criar_pedido_compra(status="confirmado")
+        _criar_item_pedido_compra(pedido, primeiro, unidade_a, quantidade=2, preco_unitario=10)
+        _criar_item_pedido_compra(pedido, segundo, unidade_b, quantidade=3, preco_unitario=20)
+        original = estoque_service.registrar_movimentacao
+        calls = 0
+
+        def falhar_no_segundo(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise RuntimeError("Falha simulada após a primeira entrada")
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(estoque_service, "registrar_movimentacao", falhar_no_segundo)
+        with pytest.raises(RuntimeError):
+            estoque_service.receber_pedido_compra(pedido.id)
+        assert db.session.get(type(pedido), pedido.id).status == "confirmado"
+        assert Movimentacao.query.filter_by(pedido_compra_item_id=None).count() == 0
+        assert Movimentacao.query.count() == 0
+        assert Saldo.query.filter(Saldo.material_id.in_([primeiro.id, segundo.id])).count() == 0
 
 
 def test_detalhe_saldo_mostra_nome_do_material(app, client):

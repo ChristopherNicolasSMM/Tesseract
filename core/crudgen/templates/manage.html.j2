@@ -7,6 +7,7 @@
 <section class="section">
   <div class="card">
     <div class="card-body">
+      {% if allow_create|default(true) %}
       <button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#novoRegistroForm">
         <i class="bi bi-plus-lg"></i> Novo registro
       </button>
@@ -67,6 +68,8 @@
           </div>
         </form>
       </div>
+
+      {% endif %}
 
       <form method="get" class="row g-2 mb-3 align-items-end">
         <div class="col-md-3">
@@ -159,10 +162,12 @@
             <i class="bi bi-slash-circle"></i> Inativar
           </button>
           {% endif %}
+          {% if allow_delete|default(true) %}
           <button type="button" class="btn btn-sm btn-outline-danger" data-crudgen-acao-massa="apagar"
                   data-confirm-key="core.confirm.bulk_trash" data-confirm-param-count="0">
             <i class="bi bi-trash"></i> Apagar
           </button>
+          {% endif %}
           {% include "@@plural@@/_acoes_em_massa_extra.html" ignore missing %}
         </div>
       </div>
@@ -185,10 +190,14 @@
               <td>{{ item.id }}</td>
               {% for col in visible_columns %}<td>{% if col in weak_ref_fields %}{{ weak_ref_display.get(item.id, {}).get(col) or data.get(col) }}{% else %}{{ data.get(col) }}{% endif %}</td>{% endfor %}
               <td>
-                <a href="{{ url_for('@@plural@@.detail', id=item.id) }}" class="btn btn-sm btn-outline-primary">Ver / Editar</a>
+                <a href="{{ url_for('@@plural@@.detail', id=item.id) }}" class="btn btn-sm btn-outline-primary">{{ "Ver" if item.__crudgen_immutable__|default(false) else "Ver / Editar" }}</a>
+                {% if not item.__crudgen_immutable__|default(false) %}
+                {% if allow_delete|default(true) and not item.__crudgen_no_delete__|default(false) %}
                 <form method="post" action="{{ url_for('@@plural@@.trash', id=item.id) }}" class="d-inline" data-confirm-key="core.confirm.trash_generic">
                   <button type="submit" class="btn btn-sm btn-outline-danger">Lixeira</button>
                 </form>
+                {% endif %}
+                {% endif %}
               </td>
             </tr>
             {% else %}
@@ -217,7 +226,7 @@
 <script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>
 <script src="{{ url_for('static', filename='js/decimal_input_normalizer.js') }}"></script>
 <script>
-  document.getElementById('createForm').addEventListener('submit', function (e) {
+  document.getElementById('createForm')?.addEventListener('submit', function (e) {
     if (!RuleEngine.validateForm(this)) {
       e.preventDefault();
     }

@@ -14,15 +14,19 @@ CORRECAO: ganhou is_deleted/deleted_at seguindo a skill 02 ("padrao
 para qualquer entidade gerada pelo CrudGen") - a omissao original
 quebrava a tela de listagem gerada (CrudGen filtra por is_deleted
 incondicionalmente).
+O hook do service impede criar/apagar saldos pelo CRUD e restringe
+edição manual aos limites mínimo e máximo.
 """
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, weak_ref
+from annotations import label, plural, required, weak_ref, readonly_fields
 
 
 @label("Saldo de Estoque")
 @plural("saldos")
+@readonly_fields(["material_id", "quantidade_atual", "custo_medio", "valor_total_estoque",
+                  "ultimo_preco_compra", "ultimo_fornecedor_id", "data_ultima_compra", "ultima_atualizacao"])
 @required("material_id", message="Material é obrigatório")
 @weak_ref("material_id",
           resolver="addons.addon_estoque.root.services.material_lookup.get_material",
@@ -31,6 +35,8 @@ from annotations import label, plural, required, weak_ref
           resolver="addons.addon_estoque.root.services.fornecedor_lookup.get_fornecedor",
           options="fornecedores")
 class Saldo(db.Model):
+    __crudgen_no_create__ = True
+    __crudgen_no_delete__ = True
     __tablename__ = "saldo"
 
     id = db.Column(db.Integer, primary_key=True)

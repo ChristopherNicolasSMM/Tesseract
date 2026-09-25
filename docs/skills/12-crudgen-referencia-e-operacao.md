@@ -271,6 +271,8 @@ _FILES_TO_GENERATE = [
 ]
 ```
 
+**Override de ciclo de vida (2026-09, ledger de estoque):** o service gerado consulta opcionalmente `create_override(data)`, `update_override(id, data)`, `trash_override(id)`, `restore_override(id)` e `delete_permanent_override(id)` no hook antes do CRUD padrão. Cada função devolve `ServiceResult` para assumir a operação, ou `None` para deixar o padrão rodar. O hook pode importar `ServiceResult` tardiamente para evitar importação circular. O ledger usa `create_override` para delegar ao serviço central de estoque e bloqueia mutações dos lançamentos. O Saldo usa o mesmo mecanismo para permitir apenas limites operacionais. Anotações de exibição `__crudgen_immutable__`, `__crudgen_no_create__` e `__crudgen_no_delete__` controlam a tela gerada; a proteção efetiva é feita no service.
+
 **Hooks nunca são sobrescritos — comprovado empiricamente** (marcador
 manual inserido num hook existente sobreviveu a `generate --overwrite`
 real; log confirma "N hook(s) preservado(s)"). A checagem de hook roda
