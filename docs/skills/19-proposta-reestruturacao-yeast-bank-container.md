@@ -15,7 +15,8 @@
 > validados ponta a ponta com dados reais, incluindo o caso de item
 > legado sem dispositivo (a trava de segurança do passo 5 recusou
 > avançar até a resolução manual, como projetado). Pendente apenas a
-> tela integrada de navegação (seção 5), fase própria e futura.
+> navegação integrada entre container e amostras (seção 5) em execução
+> incremental.
 
 ---
 
@@ -102,7 +103,7 @@ Cada passo é uma migration Alembic própria — nunca uma migration única
 fazendo os 6 passos juntos, para permitir rollback intermediário se o
 backfill do passo 4 encontrar inconsistência.
 
-## 5. Navegação (fora do escopo de schema, registrado aqui pra não se perder)
+## 5. Navegação (fora do escopo de schema)
 
 Fluxo de drill-down combinado nesta mesma rodada de planejamento —
 **tela integrada**, não CrudGen padrão, fase própria e futura (ver
@@ -117,6 +118,18 @@ Risco já conhecido do projeto (mesma lição da remoção do Designer v2,
 BACKLOG Fase 12): interação de navegador complexa não é pega por teste
 unitário — quando essa fase entrar, planejar teste em navegador
 (Playwright ou equivalente) antes de escrever o JS, não depois.
+
+**[EXECUTADO]** O detalhe de Container agora mostra as amostras não
+excluídas nele, com posição, identificação, cepa, método de conservação,
+status e link para o detalhe de cada item. A extensão usa
+`yeast_containers/_detail_extra.html`, hook preservado pelo CrudGen, sem
+alterar o controller gerado. Há teste de rota HTML para container vazio,
+pertencimento e exclusão lógica. Essa lista não presume formato fixo de
+posições: `storage_slot` continua texto livre dentro do container.
+
+**[ABERTO]** Tela integrada com navegação e filtros próprios, incluindo
+teste em navegador para interações futuras. O bloco atual é HTML
+renderizado no servidor e não contém interação JavaScript nova.
 
 ## 6. Decisões descartadas / histórico do raciocínio
 
@@ -135,8 +148,8 @@ unitário — quando essa fase entrar, planejar teste em navegador
 
 - **[EXECUTADO]** Implementação do model/migration/CrudGen desta
   proposta — ver BACKLOG.md, Fase 14.
-- Tela integrada de navegação (seção 5) — fase própria, só depois do
-  schema aplicado e usado por um tempo.
+- Tela integrada com filtros e navegação próprios (seção 5); a primeira
+  etapa de listagem de amostras no detalhe do container já está executada.
 - Se `feature_yeast_bank` continua abrigando Container/Item ou se vira
   Feature própria — não decidido, não é bloqueante para o schema acima.
 - Campo `status`/capacidade em `YeastContainer` (ex.: "cheio") — não

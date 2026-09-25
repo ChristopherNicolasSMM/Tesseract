@@ -111,6 +111,71 @@ def test_listagem_de_itens_permite_filtrar_por_container(app, client):
     assert item_id in ids
 
 
+def test_detalhe_container_lista_somente_amostras_nao_excluidas_do_proprio_container(app, client):
+    _login_admin(app, client)
+
+    strain_id = client.post(
+        "/api/brewstation/yeast-strains/", json={"name": "Cepa do container"},
+    ).get_json()["item"]["id"]
+    device_id = client.post(
+        "/api/brewstation/yeast-storage-devices/", json={"name": "Geladeira de teste"},
+    ).get_json()["item"]["id"]
+
+    def container(name):
+        response = client.post(
+            "/api/brewstation/yeast-containers/",
+            json={"name": name, "device_id": device_id},
+        )
+        assert response.status_code == 201
+        return response.get_json()["item"]["id"]
+
+    principal_id = container("Caixa principal")
+    vizinho_id = container("Caixa vizinha")
+
+    def amostra(container_id, slot):
+        response = client.post(
+            "/api/brewstation/yeast-bank-items/",
+            json={"strain_id": strain_id, "storage_type": "Agar Inclinado",
+                  "container_id": container_id, "storage_slot": slot},
+        )
+        assert response.status_code == 201
+        return response.get_json()["item"]["id"]
+
+    visivel_id = amostra(principal_id, "A1")
+    excluida_id = amostra(principal_id, "B2")
+    amostra(vizinho_id, "C3")
+
+    from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_bank_item import YeastBankItem
+    with app.app_context():
+        db.session.get(YeastBankItem, excluida_id).is_deleted = True
+        db.session.commit()
+
+    response = client.get(f"/brewstation/yeast-containers/{principal_id}")
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert "Amostras em Caixa principal" in html
+    assert "Cepa do container" in html
+    assert "A1" in html
+    assert f'/brewstation/yeast-bank-items/{visivel_id}' in html
+    assert "B2" not in html
+    assert "C3" not in html
+
+
+def test_detalhe_container_vazio_mostra_estado_sem_amostras(app, client):
+    _login_admin(app, client)
+    device_id = client.post(
+        "/api/brewstation/yeast-storage-devices/", json={"name": "Freezer vazio"},
+    ).get_json()["item"]["id"]
+    container_id = client.post(
+        "/api/brewstation/yeast-containers/",
+        json={"name": "Caixa vazia", "device_id": device_id},
+    ).get_json()["item"]["id"]
+
+    response = client.get(f"/brewstation/yeast-containers/{container_id}")
+    assert response.status_code == 200
+    assert b"Nenhuma amostra cadastrada neste container" in response.data
+
+
 # ── Fase 15: preservação de dados do formulário em caso de erro ────────────
 # Achado real (BACKLOG.md): antes desta fase, create()/update() faziam
 # redirect() em qualquer erro de validação, descartando o formulário

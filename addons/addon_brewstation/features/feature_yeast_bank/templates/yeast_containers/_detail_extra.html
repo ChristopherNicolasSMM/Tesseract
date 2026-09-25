@@ -1,20 +1,44 @@
-{#-
-  templates/yeast_containers/_detail_extra.html
-
-  Hook de TEMPLATE (skill 25, extensão) — criado UMA ÚNICA VEZ pelo
-  CrudGen, nunca sobrescrito, mesmo com --overwrite.
-
-  Use este arquivo pra anexar seções inteiras de conteúdo extra depois
-  do card de edição de "Container" (ex.: grid de Unidades de Materiais,
-  bloco de endereços de Fornecedor) — diferente de
-  _acoes_em_massa_extra.html (que é só pra botões avulsos dentro da
-  barra de ações em massa de manage.html), este arquivo é incluído no
-  FIM de detail.html, fora de qualquer <section> já existente, então
-  pode conter seu(s) próprio(s) <section>, <script type="application/json">
-  de config e <script src="..."> — igual a como já era feito antes de
-  existir este hook.
-
-  Vazio por padrão — "ignore missing" faz o Jinja não reclamar mesmo
-  se o arquivo for removido, e um arquivo vazio (como este) também não
-  renderiza nada extra na tela.
--#}
+{# Extensão do detalhe CrudGen: navegação física Container → Item do Banco. #}
+{% set amostras = item.bank_items | rejectattr('is_deleted') | sort(attribute='id') | list %}
+<section class="section" aria-labelledby="amostras-container-titulo">
+  <div class="card">
+    <div class="card-body">
+      <h2 class="card-title" id="amostras-container-titulo">Amostras em {{ item.name }} <span class="badge bg-secondary">{{ amostras | length }}</span></h2>
+      {% if amostras %}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th scope="col">Posição</th>
+              <th scope="col">Amostra</th>
+              <th scope="col">Cepa</th>
+              <th scope="col">Conservação</th>
+              <th scope="col">Status</th>
+              <th scope="col">Detalhe</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for amostra in amostras %}
+            <tr>
+              <td>{{ amostra.storage_slot or 'Sem posição' }}</td>
+              <td>{{ amostra.identification or amostra.label_text or ('Amostra #' ~ amostra.id) }}</td>
+              <td>{{ amostra.strain.name if amostra.strain else '—' }}</td>
+              <td>{{ amostra.storage_type }}</td>
+              <td>
+                {% if amostra.status == 'active' %}<span class="badge bg-success">Ativo</span>
+                {% elif amostra.status == 'discarded' %}<span class="badge bg-secondary">Descartado</span>
+                {% elif amostra.status == 'contaminated' %}<span class="badge bg-danger">Contaminado</span>
+                {% else %}{{ amostra.status }}{% endif %}
+              </td>
+              <td><a href="{{ url_for('yeast_bank_items.detail', id=amostra.id) }}" aria-label="Abrir amostra {{ amostra.id }}">Abrir</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted mb-0">Nenhuma amostra cadastrada neste container.</p>
+      {% endif %}
+    </div>
+  </div>
+</section>
