@@ -10,10 +10,35 @@
       <p class="form-text mt-3">Envase confirmado. Correções exigem um estorno rastreável.</p>
       <dl class="row">
         {% for key, value in item.to_dict().items() %}
+        {% if key != 'componentes_snapshot' %}
         <dt class="col-sm-4">{{ field_labels.get(key, key.replace('_', ' ').title()) }}</dt>
         <dd class="col-sm-8">{{ value if value is not none else '—' }}</dd>
+        {% endif %}
         {% endfor %}
       </dl>
+      <h2 class="h5">Embalagens consumidas</h2>
+      {% if item.componentes_snapshot is none %}
+      <p class="text-muted">Envase anterior ao registro de custos históricos. A composição e os preços atuais podem diferir dos usados no dia.</p>
+      {% elif not item.componentes_snapshot %}
+      <p class="text-muted">Nenhum componente de embalagem registrado neste envase.</p>
+      {% else %}
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead><tr><th>Material</th><th>Quantidade</th><th>Custo unitário</th><th>Custo da linha</th><th>Movimentação</th></tr></thead>
+          <tbody>
+          {% for componente in item.componentes_snapshot %}
+          <tr>
+            <td>#{{ componente.material_componente_id }}</td>
+            <td>{{ componente.quantidade_total }}</td>
+            <td>{{ 'R$ %.2f'|format(componente.custo_medio) if componente.custo_medio is not none else 'Sem custo' }}</td>
+            <td>{{ 'R$ %.2f'|format(componente.custo_linha) if componente.custo_linha is not none else 'Sem custo' }}</td>
+            <td>#{{ componente.movimentacao_id }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
     </div>
   </div>
 </section>

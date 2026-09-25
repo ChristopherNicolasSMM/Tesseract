@@ -138,3 +138,7 @@ sequenceDiagram
 ## Transação de confirmação (2026-09-25)
 
 `EnvaseService.create_override` delega a `envase_estoque_service.registrar_envase`. A função chama `confirmar_consumo_ingredientes(commit=False)` quando necessário, grava o Envase com `flush`, chama `registrar_movimentacao(commit=False)` para cada componente e só então executa um `commit`. Qualquer erro reverte todo o conjunto. O CRUD gerado usa hooks de serviço para impedir update/trash/restore/delete e a tela de detalhe apenas consulta o registro; a API compartilha os mesmos hooks. O fluxo de estorno permanece pendente e deve escrever movimentações compensatórias, sem alterar as originais.
+
+## Fotografia de custo por componente
+
+`Envase.componentes_snapshot` (JSON, nullable) é preenchido na mesma transação da baixa: guarda `material_componente_id`, `quantidade_por_unidade`, `quantidade_total`, `custo_medio`, `custo_linha` e `movimentacao_id`. A saída do ledger recebe `custo_unitario` do saldo anterior à baixa. Para novos envases, `calcular_custo_industrializacao_envase` usa o snapshot, inclusive `[]` para embalagem sem componentes; para registros anteriores à migração (`NULL`), mantém o cálculo legado baseado na composição e custo atuais, com `componentes_historicos=False`. O custo da cerveja ainda usa rateio pelo volume total de envases não excluídos do lote e não constitui uma fotografia histórica.

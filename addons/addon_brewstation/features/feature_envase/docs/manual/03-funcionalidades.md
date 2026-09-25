@@ -59,3 +59,7 @@ para esse item antes de confiar no valor final.
 ## Confirmação de envase e correções
 
 O formulário de Envases usa os combos de busca do CrudGen para Lote e Material resultante. Ao criar, valida volume positivo, confirma ingredientes pendentes e registra o envase junto com todas as baixas de embalagem em uma única transação. Uma falha cancela tudo, inclusive a baixa de ingredientes disparada automaticamente. O status informado no formulário não altera o status inicial `registrado`. Envases confirmados são exibidos em modo de consulta; edição, lixeira e exclusão direta não são permitidas. A correção de um envase exige um fluxo de estorno rastreável (a implementar).
+
+## Custos históricos de embalagem
+
+A partir desta versão, cada novo envase guarda a composição usada, a quantidade consumida, o custo médio de cada componente e o identificador da movimentação. A tela de detalhe apresenta cada componente, a quantidade, o custo e a movimentação correspondente. Consultas futuras preservam esses valores mesmo que você altere a composição ou receba novas embalagens com outro preço. Envases antigos, sem essa fotografia, continuam consultando o cadastro atual e são identificados como históricos indisponíveis no retorno técnico. A parcela de cerveja ainda é rateada pelo total de litros envasados no lote e pode mudar se forem registrados envases adicionais.

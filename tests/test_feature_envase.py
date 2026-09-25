@@ -288,6 +288,41 @@ def test_calcular_custo_industrializacao_envase(app):
         assert custo["custo_total_industrializacao"] == 110.0
 
 
+def test_custo_de_embalagem_preserva_composicao_e_preco_do_envase(app):
+    with app.app_context():
+        tampa = _criar_material_com_estoque("Tampa custo historico", quantidade_inicial=100, custo_unitario=0.5)
+        lote = _criar_lote("Lote custo historico")
+        resultante = _criar_material_resultante("Produto custo historico", componentes=[(tampa, 2)])
+        resultado = svc.registrar_envase(lote.id, resultante.id, 3)
+        envase = db.session.get(Envase, resultado["envase"]["id"])
+        custo_antes = svc.calcular_custo_industrializacao_envase(envase.id)
+        assert custo_antes["componentes_historicos"] is True
+        assert custo_antes["custo_componentes"] == 3.0
+        assert envase.componentes_snapshot[0]["movimentacao_id"]
+
+        composicao = Composicao.query.filter_by(material_pai_id=resultante.id).first()
+        composicao.quantidade = 4
+        db.session.commit()
+        material_movement_service.registrar_movimentacao(tampa.id, "entrada", 100, custo_unitario=5)
+
+        custo_depois = svc.calcular_custo_industrializacao_envase(envase.id)
+        assert custo_depois["custo_componentes"] == 3.0
+        assert custo_depois["detalhe_componentes"] == custo_antes["detalhe_componentes"]
+
+
+def test_envase_legado_sem_snapshot_usa_composicao_atual(app):
+    with app.app_context():
+        tampa = _criar_material_com_estoque("Tampa custo legado", quantidade_inicial=10, custo_unitario=0.5)
+        lote = _criar_lote("Lote custo legado")
+        resultante = _criar_material_resultante("Produto custo legado", componentes=[(tampa, 1)])
+        legado = Envase(lote_id=lote.id, material_resultante_id=resultante.id, quantidade_litros=1)
+        db.session.add(legado)
+        db.session.commit()
+        custo = svc.calcular_custo_industrializacao_envase(legado.id)
+        assert custo["componentes_historicos"] is False
+        assert custo["custo_componentes"] == 0.5
+
+
 # ── ingredient_consumption_service (skill 26) ──
 
 def test_calcular_custo_insumos_receita_e_puro(app):

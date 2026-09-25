@@ -7,13 +7,14 @@ Evento de empacotamento de um Lote (BrewSession, feature_mash_control).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, choices, min_value, enum_field, weak_ref
+from annotations import label, plural, required, choices, min_value, enum_field, weak_ref, readonly_fields
 
 _MATERIAL_RESOLVER = "addons.addon_estoque.root.services.material_lookup.get_material"
 
 
 @label("Envase")
 @plural("envases")
+@readonly_fields(["componentes_snapshot"])
 @enum_field("status", options=["registrado", "cancelado"])
 @choices("status", label="Status")
 @required("lote_id", message="Lote é obrigatório")
@@ -39,6 +40,8 @@ class Envase(db.Model):
     material_resultante_id = db.Column(db.Integer, nullable=True, index=True)
 
     quantidade_litros = db.Column(db.Float, nullable=True)
+    # Fotografia dos componentes e custos na confirmação; nulo em envases antigos.
+    componentes_snapshot = db.Column(db.JSON, nullable=True)
     data_envase = db.Column(db.Date, nullable=True)
     tipo_envase = db.Column(db.String(30), nullable=True)  # garrafa, barril, lata, ...
     status = db.Column(db.String(20), nullable=False, default="registrado")  # registrado, cancelado
@@ -54,6 +57,7 @@ class Envase(db.Model):
             "lote_id": self.lote_id,
             "material_resultante_id": self.material_resultante_id,
             "quantidade_litros": self.quantidade_litros,
+            "componentes_snapshot": self.componentes_snapshot,
             "data_envase": self.data_envase.isoformat() if self.data_envase else None,
             "tipo_envase": self.tipo_envase,
             "status": self.status,

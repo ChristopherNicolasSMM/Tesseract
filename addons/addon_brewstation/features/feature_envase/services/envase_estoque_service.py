@@ -109,21 +109,35 @@ def registrar_envase(
             data_envase=data_envase,
             tipo_envase=tipo_envase,
             status="registrado",
+            componentes_snapshot=[],
         )
         db.session.add(envase)
         db.session.flush()
 
         movimentacoes = []
+        snapshot = []
         for componente in componentes:
             quantidade_total = componente["quantidade"] * unidades_geradas
             if not isfinite(quantidade_total) or quantidade_total <= 0:
                 raise ValueError("Composição do produto acabado contém quantidade inválida.")
+            saldo = material_lookup.get_saldo(componente["material_componente_id"])
+            custo_medio = saldo.get("custo_medio") if saldo else None
             resultado = estoque_service.registrar_movimentacao(
                 componente["material_componente_id"], "saida", quantidade_total,
+                custo_unitario=custo_medio,
                 observacoes=f"Baixa de componente de embalagem — Envase #{envase.id} (lote #{lote_id}).",
                 commit=False,
             )
             movimentacoes.append(resultado)
+            snapshot.append({
+                "material_componente_id": componente["material_componente_id"],
+                "quantidade_por_unidade": componente["quantidade"],
+                "quantidade_total": quantidade_total,
+                "custo_medio": custo_medio,
+                "custo_linha": resultado["movimentacao"].get("custo_total"),
+                "movimentacao_id": resultado["movimentacao"]["id"],
+            })
+        envase.componentes_snapshot = snapshot
         db.session.commit()
     except Exception:
         db.session.rollback()
@@ -164,7 +178,13 @@ def calcular_custo_industrializacao_envase(envase_id: int) -> dict:
 
     custo_componentes = 0.0
     detalhe_componentes = []
-    if envase.material_resultante_id:
+    if envase.componentes_snapshot is not None:
+        detalhe_componentes = envase.componentes_snapshot
+        custo_componentes = sum(
+            componente["custo_linha"] for componente in detalhe_componentes
+            if componente.get("custo_linha") is not None
+        )
+    elif envase.material_resultante_id:
         material_resultante = material_lookup.get_material(envase.material_resultante_id)
         volume_real = _volume_real_litros(material_resultante) if material_resultante and material_resultante.get("volume_real") else 0
         unidades_geradas = (envase.quantidade_litros / volume_real) if volume_real else 0
@@ -184,6 +204,7 @@ def calcular_custo_industrializacao_envase(envase_id: int) -> dict:
 
     return {
         "envase_id": envase_id,
+        "componentes_historicos": envase.componentes_snapshot is not None,
         "custo_cerveja": custo_cerveja,
         "custo_componentes": custo_componentes,
         "custo_total_industrializacao": custo_cerveja + custo_componentes,
