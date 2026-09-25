@@ -176,6 +176,56 @@ def test_detalhe_container_vazio_mostra_estado_sem_amostras(app, client):
     assert b"Nenhuma amostra cadastrada neste container" in response.data
 
 
+def test_detalhe_dispositivo_lista_apenas_seus_containers_nao_excluidos(app, client):
+    _login_admin(app, client)
+
+    def device(name):
+        response = client.post(
+            "/api/brewstation/yeast-storage-devices/", json={"name": name},
+        )
+        assert response.status_code == 201
+        return response.get_json()["item"]["id"]
+
+    def container(name, device_id):
+        response = client.post(
+            "/api/brewstation/yeast-containers/",
+            json={"name": name, "device_id": device_id},
+        )
+        assert response.status_code == 201
+        return response.get_json()["item"]["id"]
+
+    device_id = device("Freezer principal")
+    vizinho_id = device("Outro freezer")
+    visivel_id = container("Caixa visível", device_id)
+    excluido_id = container("Caixa excluída", device_id)
+    container("Caixa de outro freezer", vizinho_id)
+
+    from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_container import YeastContainer
+    with app.app_context():
+        db.session.get(YeastContainer, excluido_id).is_deleted = True
+        db.session.commit()
+
+    response = client.get(f"/brewstation/yeast-storage-devices/{device_id}")
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert "Containers em Freezer principal" in html
+    assert "Caixa visível" in html
+    assert f'/brewstation/yeast-containers/{visivel_id}' in html
+    assert "Caixa excluída" not in html
+    assert "Caixa de outro freezer" not in html
+
+
+def test_detalhe_dispositivo_vazio_mostra_estado_sem_containers(app, client):
+    _login_admin(app, client)
+    device_id = client.post(
+        "/api/brewstation/yeast-storage-devices/", json={"name": "Freezer vazio"},
+    ).get_json()["item"]["id"]
+
+    response = client.get(f"/brewstation/yeast-storage-devices/{device_id}")
+    assert response.status_code == 200
+    assert b"Nenhum container cadastrado neste dispositivo" in response.data
+
+
 # ── Fase 15: preservação de dados do formulário em caso de erro ────────────
 # Achado real (BACKLOG.md): antes desta fase, create()/update() faziam
 # redirect() em qualquer erro de validação, descartando o formulário

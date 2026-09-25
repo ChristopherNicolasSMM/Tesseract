@@ -127,6 +127,13 @@ alterar o controller gerado. Há teste de rota HTML para container vazio,
 pertencimento e exclusão lógica. Essa lista não presume formato fixo de
 posições: `storage_slot` continua texto livre dentro do container.
 
+**[EXECUTADO]** O detalhe do Dispositivo mostra os containers não
+excluídos vinculados a ele, com nome, tipo, descrição e link para o
+detalhe de cada container. A implementação usa o hook
+`yeast_storage_devices/_detail_extra.html` e tem testes de rota HTML
+para dispositivo vazio, pertencimento e exclusão lógica. O caminho
+Dispositivo → Container → Amostra já pode ser percorrido na interface.
+
 **[ABERTO]** Tela integrada com navegação e filtros próprios, incluindo
 teste em navegador para interações futuras. O bloco atual é HTML
 renderizado no servidor e não contém interação JavaScript nova.
@@ -148,8 +155,8 @@ renderizado no servidor e não contém interação JavaScript nova.
 
 - **[EXECUTADO]** Implementação do model/migration/CrudGen desta
   proposta — ver BACKLOG.md, Fase 14.
-- Tela integrada com filtros e navegação próprios (seção 5); a primeira
-  etapa de listagem de amostras no detalhe do container já está executada.
+- Tela integrada com filtros e navegação próprios (seção 5); os detalhes
+  do dispositivo e container já permitem navegar pela hierarquia física.
 - Se `feature_yeast_bank` continua abrigando Container/Item ou se vira
   Feature própria — não decidido, não é bloqueante para o schema acima.
 - Campo `status`/capacidade em `YeastContainer` (ex.: "cheio") — não

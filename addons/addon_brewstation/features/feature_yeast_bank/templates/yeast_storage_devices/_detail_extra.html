@@ -1,20 +1,35 @@
-{#-
-  templates/yeast_storage_devices/_detail_extra.html
-
-  Hook de TEMPLATE (skill 25, extensão) — criado UMA ÚNICA VEZ pelo
-  CrudGen, nunca sobrescrito, mesmo com --overwrite.
-
-  Use este arquivo pra anexar seções inteiras de conteúdo extra depois
-  do card de edição de "Dispositivo de Armazenamento" (ex.: grid de Unidades de Materiais,
-  bloco de endereços de Fornecedor) — diferente de
-  _acoes_em_massa_extra.html (que é só pra botões avulsos dentro da
-  barra de ações em massa de manage.html), este arquivo é incluído no
-  FIM de detail.html, fora de qualquer <section> já existente, então
-  pode conter seu(s) próprio(s) <section>, <script type="application/json">
-  de config e <script src="..."> — igual a como já era feito antes de
-  existir este hook.
-
-  Vazio por padrão — "ignore missing" faz o Jinja não reclamar mesmo
-  se o arquivo for removido, e um arquivo vazio (como este) também não
-  renderiza nada extra na tela.
--#}
+{# Extensão do detalhe CrudGen: navegação física Dispositivo → Container. #}
+{% set containers = item.containers | rejectattr('is_deleted') | sort(attribute='id') | list %}
+<section class="section" aria-labelledby="containers-dispositivo-titulo">
+  <div class="card">
+    <div class="card-body">
+      <h2 class="card-title" id="containers-dispositivo-titulo">Containers em {{ item.name }} <span class="badge bg-secondary">{{ containers | length }}</span></h2>
+      {% if containers %}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th scope="col">Container</th>
+              <th scope="col">Tipo</th>
+              <th scope="col">Descrição</th>
+              <th scope="col">Detalhe</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for container in containers %}
+            <tr>
+              <td>{{ container.name }}</td>
+              <td>{{ container.container_type }}</td>
+              <td>{{ container.description or '—' }}</td>
+              <td><a href="{{ url_for('yeast_containers.detail', id=container.id) }}" aria-label="Abrir container {{ container.name }}">Abrir</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted mb-0">Nenhum container cadastrado neste dispositivo.</p>
+      {% endif %}
+    </div>
+  </div>
+</section>
