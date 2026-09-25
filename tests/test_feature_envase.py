@@ -598,6 +598,7 @@ def test_estorno_pela_tela_mostra_vinculo_das_movimentacoes(app, client):
     _login_admin(app, client)
     with app.app_context():
         tampa = _criar_material_com_estoque("Tampa estorno web", quantidade_inicial=10)
+        tampa_id = tampa.id
         lote = _criar_lote("Lote estorno web")
         resultante = _criar_material_resultante("Produto estorno web", componentes=[(tampa, 1)])
         envase_id = svc.registrar_envase(lote.id, resultante.id, 2)["envase"]["id"]
@@ -611,7 +612,7 @@ def test_estorno_pela_tela_mostra_vinculo_das_movimentacoes(app, client):
     assert b"Devolu" in resp.data
     with app.app_context():
         assert db.session.get(Envase, envase_id).status == "cancelado"
-        assert material_movement_service.consultar_saldo(tampa.id)["quantidade_atual"] == 10
+        assert material_movement_service.consultar_saldo(tampa_id)["quantidade_atual"] == 10
 
 
 @pytest.mark.parametrize("rota", [
