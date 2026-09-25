@@ -23,6 +23,8 @@ _MATERIAL_RESOLVER = "addons.addon_estoque.root.services.material_lookup.get_mat
           resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_session",
           options="brew_sessions")
 class Envase(db.Model):
+    __crudgen_immutable__ = True
+    __crudgen_no_delete__ = True
     __tablename__ = "envase"
 
     id = db.Column(db.Integer, primary_key=True)

@@ -55,3 +55,7 @@ comprado (sem histórico no Estoque) e não é malte, lúpulo nem levedura
 (que têm um valor padrão configurável — veja "Preço Padrão de Insumo"
 em Ingredientes). Vale cadastrar uma compra real ou um preço padrão
 para esse item antes de confiar no valor final.
+
+## Confirmação de envase e correções
+
+O formulário de Envases usa os combos de busca do CrudGen para Lote e Material resultante. Ao criar, valida volume positivo, confirma ingredientes pendentes e registra o envase junto com todas as baixas de embalagem em uma única transação. Uma falha cancela tudo, inclusive a baixa de ingredientes disparada automaticamente. O status informado no formulário não altera o status inicial `registrado`. Envases confirmados são exibidos em modo de consulta; edição, lixeira e exclusão direta não são permitidas. A correção de um envase exige um fluxo de estorno rastreável (a implementar).

@@ -118,7 +118,7 @@ def calcular_custo_insumos_receita(recipe_id: int) -> dict:
     }
 
 
-def confirmar_consumo_ingredientes(brew_session_id: int) -> dict:
+def confirmar_consumo_ingredientes(brew_session_id: int, *, commit: bool = True) -> dict:
     """
     Baixa real de estoque dos insumos da receita vinculada ao lote —
     idempotente via `BrewSession.insumos_baixados_em` (chamar de novo
@@ -165,7 +165,10 @@ def confirmar_consumo_ingredientes(brew_session_id: int) -> dict:
             })
         lote.insumos_baixados_em = datetime.now(timezone.utc)
         lote.custo_total_insumos = custo_total
-        db.session.commit()
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
     except Exception:
         db.session.rollback()
         raise

@@ -27,6 +27,7 @@ from addons.addon_brewstation.features.feature_mash_control.model.recipe_ingredi
 from addons.addon_brewstation.features.feature_envase.model.envase import Envase
 from addons.addon_brewstation.features.feature_envase.model.item_envase import ItemEnvase
 from addons.addon_brewstation.features.feature_envase.services import envase_estoque_service as svc
+from addons.addon_brewstation.features.feature_envase.services.envase_service import EnvaseService
 from addons.addon_brewstation.features.feature_mash_control.services import ingredient_consumption_service
 
 
@@ -148,6 +149,61 @@ def test_registrar_envase_multiplos_componentes(app):
         assert resultado["componentes_baixados"] == 2
         assert material_movement_service.consultar_saldo(tampinha.id)["quantidade_atual"] == 45
         assert material_movement_service.consultar_saldo(rotulo.id)["quantidade_atual"] == 45
+
+
+def test_falha_em_componente_desfaz_envase_ingredientes_e_saldos(app, monkeypatch):
+    with app.app_context():
+        malte = _criar_material_com_estoque("Malte rollback envase", quantidade_inicial=10)
+        primeira = _criar_material_com_estoque("Tampa rollback envase", quantidade_inicial=10)
+        segunda = _criar_material_com_estoque("Rotulo rollback envase", quantidade_inicial=10)
+        lote = _criar_lote(com_ingrediente=(malte, 2))
+        resultante = _criar_material_resultante("Produto rollback envase", componentes=[(primeira, 1), (segunda, 1)])
+        original = material_movement_service.registrar_movimentacao
+        chamadas = 0
+
+        def falhar_na_terceira(*args, **kwargs):
+            nonlocal chamadas
+            chamadas += 1
+            if chamadas == 3:  # ingrediente e primeira embalagem já passaram pelo flush
+                raise RuntimeError("Falha simulada na embalagem")
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(material_movement_service, "registrar_movimentacao", falhar_na_terceira)
+        with pytest.raises(RuntimeError, match="Falha simulada"):
+            svc.registrar_envase(lote.id, resultante.id, 2)
+
+        assert Envase.query.count() == 0
+        assert db.session.get(BrewSession, lote.id).insumos_baixados_em is None
+        for material in (malte, primeira, segunda):
+            assert material_movement_service.consultar_saldo(material.id)["quantidade_atual"] == 10
+
+
+def test_crud_envase_confirma_pela_regra_unica_e_bloqueia_mutacoes(app):
+    with app.app_context():
+        tampa = _criar_material_com_estoque("Tampa CRUD envase", quantidade_inicial=10)
+        lote = _criar_lote("Lote CRUD envase")
+        resultante = _criar_material_resultante("Produto CRUD envase", componentes=[(tampa, 1)])
+        service = EnvaseService()
+        criado = service.create({"lote_id": str(lote.id), "material_resultante_id": str(resultante.id),
+                                "quantidade_litros": "2", "status": "cancelado"})
+        assert criado.success
+        assert criado.data.status == "registrado"
+        assert material_movement_service.consultar_saldo(tampa.id)["quantidade_atual"] == 8
+        assert not service.update(criado.data.id, {"quantidade_litros": 5}).success
+        assert not service.trash(criado.data.id).success
+        assert not service.delete_permanent(criado.data.id).success
+        assert Envase.query.count() == 1
+
+
+def test_envase_rejeita_volume_invalido_sem_confirmar_insumos(app):
+    with app.app_context():
+        malte = _criar_material_com_estoque("Malte volume invalido", quantidade_inicial=10)
+        lote = _criar_lote(com_ingrediente=(malte, 2))
+        resultante = _criar_material_resultante("Produto volume invalido")
+        with pytest.raises(ValueError, match="positivo"):
+            svc.registrar_envase(lote.id, resultante.id, float("nan"))
+        assert db.session.get(BrewSession, lote.id).insumos_baixados_em is None
+        assert Envase.query.count() == 0
 
 
 # ── validações ──

@@ -134,3 +134,7 @@ sequenceDiagram
   "mostra nome do Material (não id)"); a tela de resultado usa
   `material_lookup.get_material()` para mostrar o nome do insumo, não
   o `material_id` cru.
+
+## Transação de confirmação (2026-09-25)
+
+`EnvaseService.create_override` delega a `envase_estoque_service.registrar_envase`. A função chama `confirmar_consumo_ingredientes(commit=False)` quando necessário, grava o Envase com `flush`, chama `registrar_movimentacao(commit=False)` para cada componente e só então executa um `commit`. Qualquer erro reverte todo o conjunto. O CRUD gerado usa hooks de serviço para impedir update/trash/restore/delete e a tela de detalhe apenas consulta o registro; a API compartilha os mesmos hooks. O fluxo de estorno permanece pendente e deve escrever movimentações compensatórias, sem alterar as originais.

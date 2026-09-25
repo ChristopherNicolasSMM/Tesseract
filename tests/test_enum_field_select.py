@@ -171,7 +171,7 @@ def test_recipe_ingredients_detail_renderiza_select_com_label_customizado(app, c
     assert '>Pendente de vínculo<' in html  # label customizado, não o valor cru "pendente_depara"
 
 
-def test_envases_detail_renderiza_select_status(app, client):
+def test_envases_detail_exibe_status_sem_edicao(app, client):
     _login_admin(app, client)
     with app.app_context():
         session = BrewSession(name="Sessão Enum Envase", status="completed")
@@ -184,9 +184,9 @@ def test_envases_detail_renderiza_select_status(app, client):
 
     resp = client.get(f"/brewstation/envases/{envase_id}")
     html = resp.data.decode("utf-8")
-    assert '<select name="status"' in html
-    assert 'value="registrado" selected' in html
-    assert 'value="cancelado"' in html
+    assert 'registrado' in html
+    assert '<select name="status"' not in html
+    assert 'id="editForm"' not in html
 
 
 def test_brewfather_syncs_detail_renderiza_select_status(app, client):

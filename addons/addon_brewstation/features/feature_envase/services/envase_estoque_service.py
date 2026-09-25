@@ -20,6 +20,8 @@ mesma pasta services/.
 """
 from __future__ import annotations
 
+from math import isfinite
+
 from core.db import db
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
 from addons.addon_brewstation.features.feature_envase.model.envase import Envase
@@ -42,7 +44,7 @@ class VolumeRealNaoConfiguradoError(Exception):
 def _volume_real_litros(material: dict) -> float:
     volume = material.get("volume_real")
     unidade = (material.get("unidade_medida_volume_real") or "L").strip().lower()
-    if not volume or volume <= 0:
+    if isinstance(volume, bool) or not isinstance(volume, (int, float)) or not isfinite(volume) or volume <= 0:
         raise VolumeRealNaoConfiguradoError("O produto acabado precisa ter volume real positivo.")
     if unidade in ("l", "lt", "litro", "litros"):
         return volume
@@ -90,32 +92,42 @@ def registrar_envase(
         raise MaterialNaoEncontradoError(f"Material id={material_resultante_id} não encontrado em addon_estoque")
 
     volume_real = _volume_real_litros(material_resultante)
-
-    if lote.insumos_baixados_em is None:
-        ingredient_consumption_service.confirmar_consumo_ingredientes(lote_id)
-
-    envase = Envase(
-        lote_id=lote_id,
-        material_resultante_id=material_resultante_id,
-        quantidade_litros=quantidade_litros,
-        data_envase=data_envase,
-        tipo_envase=tipo_envase,
-        status="registrado",
-    )
-    db.session.add(envase)
-    db.session.commit()
+    if isinstance(quantidade_litros, bool) or not isinstance(quantidade_litros, (int, float)) or not isfinite(quantidade_litros) or quantidade_litros <= 0:
+        raise ValueError("A quantidade de envase deve ser um número positivo e finito em litros.")
 
     unidades_geradas = quantidade_litros / volume_real
     componentes = material_lookup.get_composicao(material_resultante_id)
 
-    movimentacoes = []
-    for componente in componentes:
-        quantidade_total = componente["quantidade"] * unidades_geradas
-        resultado = estoque_service.registrar_movimentacao(
-            componente["material_componente_id"], "saida", quantidade_total,
-            observacoes=f"Baixa de componente de embalagem — Envase #{envase.id} (lote #{lote_id}).",
+    try:
+        if lote.insumos_baixados_em is None:
+            ingredient_consumption_service.confirmar_consumo_ingredientes(lote_id, commit=False)
+
+        envase = Envase(
+            lote_id=lote_id,
+            material_resultante_id=material_resultante_id,
+            quantidade_litros=quantidade_litros,
+            data_envase=data_envase,
+            tipo_envase=tipo_envase,
+            status="registrado",
         )
-        movimentacoes.append(resultado)
+        db.session.add(envase)
+        db.session.flush()
+
+        movimentacoes = []
+        for componente in componentes:
+            quantidade_total = componente["quantidade"] * unidades_geradas
+            if not isfinite(quantidade_total) or quantidade_total <= 0:
+                raise ValueError("Composição do produto acabado contém quantidade inválida.")
+            resultado = estoque_service.registrar_movimentacao(
+                componente["material_componente_id"], "saida", quantidade_total,
+                observacoes=f"Baixa de componente de embalagem — Envase #{envase.id} (lote #{lote_id}).",
+                commit=False,
+            )
+            movimentacoes.append(resultado)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
 
     return {
         "envase": envase.to_dict(),
