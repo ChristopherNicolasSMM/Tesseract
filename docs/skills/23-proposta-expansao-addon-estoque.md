@@ -359,3 +359,5 @@ sessões seguintes, patches separados, cada uma com autorização própria
 - `addons/addon_estoque/docs/technical/06-manutencao-e-expansao.md`:
   referenciar este documento como o desenho vigente, substituindo os
   3 bullets antigos.
+
+**Exibição do saldo e seleção da unidade:** o detalhe de Saldo mostra o nome do Material com link, em seção de leitura no hook `_detail_extra.html`; `material_id` permanece fora do formulário de edição. No formulário de Unidade de Material, `@weak_ref("unidade", options="unidades_catalogo")` gera o combo de busca do catálogo; o antigo `datalist` não é usado. O conteúdo do pacote continua no fator de conversão do Material.

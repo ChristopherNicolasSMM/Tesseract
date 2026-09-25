@@ -1504,7 +1504,8 @@ def test_form_criacao_material_unidade_mostra_combo_de_material(app, client):
     resp = client.get("/estoque/material-unidades", follow_redirects=True)
     assert resp.status_code == 200
     assert b'data-weakref-source="materials"' in resp.data
-    assert b"estoque-unidades-padrao" in resp.data  # datalist de valores padrao
+    assert b'data-weakref-source="unidades_catalogo"' in resp.data
+    assert b"estoque-unidades-padrao" not in resp.data
 
 
 def test_detalhe_material_mostra_grid_de_unidades(app, client):
@@ -2200,6 +2201,7 @@ def test_detalhe_saldo_mostra_nome_do_material(app, client):
     resp = client.get(f"/estoque/saldos/{saldo_id}", follow_redirects=True)
     assert resp.status_code == 200
     assert b"Malte Detalhe Saldo Nome" in resp.data
+    assert b'name="material_id"' not in resp.data
 
 
 # ── Material: Modificação em Massa ampliada (achado do Christopher) ──
