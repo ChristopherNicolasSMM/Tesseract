@@ -66,6 +66,7 @@ def sync_recipes() -> dict:
             _importar_receita(receita_externa)
             processadas += 1
         except Exception as exc:  # noqa: BLE001
+            db.session.rollback()
             erros += 1
             log.mensagem_erro = f"{receita_externa.get('id')}: {exc}"
 
@@ -94,33 +95,56 @@ def listar_receitas_disponiveis() -> list[dict]:
     """
     receitas = brewfather_client.list_recipes_basico()
 
-    resultado = []
-    for r in receitas:
-        origem_id = r.get("_id", "")
-        ativa = MashRecipe.query.filter_by(
-            origem_receita="BrewFather", origem_receita_id=origem_id, is_deleted=False,
-        ).first()
-        apagada = None
-        if not ativa:
-            apagada = MashRecipe.query.filter_by(
-                origem_receita="BrewFather", origem_receita_id=origem_id, is_deleted=True,
-            ).first()
+    return _classificar_receitas(receitas)
 
-        if ativa:
-            status = "ja_importada"
-        elif apagada:
-            status = "apagada_pendente_reimportar"
-        else:
-            status = "nova"
 
-        resultado.append({
-            "id": origem_id,
-            "name": r.get("name", ""),
-            "style": (r.get("style") or {}).get("name") if isinstance(r.get("style"), dict) else r.get("style"),
-            "type": r.get("type"),
-            "status": status,
-        })
-    return resultado
+def _classificar_receitas(receitas: list[dict]) -> list[dict]:
+    ids = [r.get("_id") for r in receitas if r.get("_id")]
+    estados: dict[str, str] = {}
+    if ids:
+        existentes = MashRecipe.query.filter(
+            MashRecipe.origem_receita == "BrewFather",
+            MashRecipe.origem_receita_id.in_(ids),
+        ).all()
+        for existente in existentes:
+            origem_id = existente.origem_receita_id
+            if not origem_id:
+                continue
+            if not existente.is_deleted:
+                estados[origem_id] = "ja_importada"
+            elif estados.get(origem_id) != "ja_importada":
+                estados[origem_id] = "apagada_pendente_reimportar"
+
+    return [{
+        "id": r["_id"],
+        "name": r.get("name") or "Sem nome",
+        "style": (r.get("style") or {}).get("name") if isinstance(r.get("style"), dict) else r.get("style"),
+        "type": r.get("type"),
+        "status": estados.get(r["_id"], "nova"),
+    } for r in receitas if r.get("_id")]
+
+
+def listar_portal_receitas(filtros: dict[str, str], *, atualizar: bool = False) -> dict:
+    """Lista as páginas disponíveis e aplica filtros locais antes da seleção."""
+    raw, limitado = brewfather_client.list_recipes_portal_cached(force=atualizar)
+    todas = _classificar_receitas(raw)
+    q = (filtros.get("q") or "").strip().casefold()
+    estilo = filtros.get("estilo") or ""
+    tipo = filtros.get("tipo") or ""
+    status = filtros.get("status") or ""
+    filtradas = [r for r in todas if (
+        (not q or q in r["name"].casefold())
+        and (not estilo or r["style"] == estilo)
+        and (not tipo or r["type"] == tipo)
+        and (not status or r["status"] == status)
+    )]
+    return {
+        "receitas": filtradas,
+        "total": len(todas),
+        "limitado": limitado,
+        "estilos": sorted({r["style"] for r in todas if r["style"]}),
+        "tipos": sorted({r["type"] for r in todas if r["type"]}),
+    }
 
 
 def sincronizar_selecionadas(origem_ids: list[str]) -> dict:
@@ -131,6 +155,10 @@ def sincronizar_selecionadas(origem_ids: list[str]) -> dict:
     inteira. Mesmo formato de log (`BrewFatherSync`) de `sync_recipes()`,
     pra aparecer no mesmo histórico.
     """
+    origem_ids = list(dict.fromkeys(id.strip() for id in origem_ids if id.strip()))
+    if not origem_ids or len(origem_ids) > 50:
+        raise ValueError("Selecione de 1 a 50 receitas por sincronização.")
+
     log = BrewFatherSync(tipo_sync="recipes", status="em_andamento")
     db.session.add(log)
     db.session.commit()
@@ -146,6 +174,7 @@ def sincronizar_selecionadas(origem_ids: list[str]) -> dict:
             _importar_receita(receita_externa)
             processadas += 1
         except Exception as exc:  # noqa: BLE001
+            db.session.rollback()
             erros += 1
             log.mensagem_erro = f"{origem_id}: {exc}"
 
@@ -195,7 +224,7 @@ def _importar_receita(receita_externa: dict) -> MashRecipe:
         origem_receita_id=origem_id,
     )
     db.session.add(receita)
-    db.session.commit()
+    db.session.flush()
 
     # Ingredientes
     for ingrediente in receita_externa.get("ingredients", []):
@@ -217,6 +246,7 @@ def _importar_receita(receita_externa: dict) -> MashRecipe:
             rendimento=ingrediente.get("rendimento"),
             alpha_acidos=ingrediente.get("alpha_acidos"),
             atenuacao=ingrediente.get("atenuacao"),
+            commit=False,
         )
 
     # Passos de mostura

@@ -1,0 +1,98 @@
+{% extends "core/base.html" %}
+{% block content %}
+<div class="pagetitle">
+  <h1>Portal Brewfather</h1>
+  <p class="text-muted">Consulte, filtre e escolha as receitas que entram no BrewStation.</p>
+</div>
+
+<section class="section">
+  <div class="d-flex flex-wrap gap-2 mb-3">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('brewfather_syncs.manage') }}">Histórico de sincronizações</a>
+    <a class="btn btn-outline-warning btn-sm" href="{{ url_for('brewfather_syncs.pendentes') }}">Ingredientes pendentes</a>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <h2 class="card-title">Receitas</h2>
+      <p class="small text-muted">A lista é consultada no Brewfather; os filtros são aplicados aqui. Receitas já importadas são preservadas e não são atualizadas por esta ação.</p>
+      {% if erro %}
+      <div class="alert alert-danger" role="alert">{{ erro }}</div>
+      {% else %}
+      {% if limitado %}<div class="alert alert-warning" role="status">Foram consultadas até 500 receitas. Pode haver outras; os filtros abaixo abrangem somente as receitas carregadas.</div>{% endif %}
+      <form method="get" action="{{ url_for('brewfather_syncs.portal') }}" class="row g-2 align-items-end mb-3">
+        <div class="col-md-4">
+          <label class="form-label" for="bf-q">Nome</label>
+          <input id="bf-q" name="q" class="form-control" value="{{ filtros.q }}" placeholder="Buscar receita">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label" for="bf-estilo">Estilo</label>
+          <select id="bf-estilo" name="estilo" class="form-select">
+            <option value="">Todos</option>
+            {% for estilo in estilos %}<option value="{{ estilo }}" {% if filtros.estilo == estilo %}selected{% endif %}>{{ estilo }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label" for="bf-tipo">Tipo</label>
+          <select id="bf-tipo" name="tipo" class="form-select">
+            <option value="">Todos</option>
+            {% for tipo in tipos %}<option value="{{ tipo }}" {% if filtros.tipo == tipo %}selected{% endif %}>{{ tipo }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label" for="bf-status">Situação</label>
+          <select id="bf-status" name="status" class="form-select">
+            <option value="">Todas</option>
+            <option value="nova" {% if filtros.status == 'nova' %}selected{% endif %}>Nova</option>
+            <option value="ja_importada" {% if filtros.status == 'ja_importada' %}selected{% endif %}>Já importada</option>
+            <option value="apagada_pendente_reimportar" {% if filtros.status == 'apagada_pendente_reimportar' %}selected{% endif %}>Apagada</option>
+          </select>
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+          <button class="btn btn-primary" type="submit">Filtrar</button>
+          <a class="btn btn-outline-secondary" href="{{ url_for('brewfather_syncs.portal') }}" aria-label="Limpar filtros">Limpar</a>
+        </div>
+      </form>
+
+      <a href="{{ url_for('brewfather_syncs.portal', refresh=1) }}" class="btn btn-outline-secondary btn-sm mb-3">Atualizar lista do Brewfather</a>
+
+      <p class="small text-muted" role="status">{{ receitas|length }} exibida(s) de {{ total }} carregada(s)</p>
+      {% if receitas %}
+      <form method="post" action="{{ url_for('brewfather_syncs.sincronizar_selecionadas') }}" id="bf-selecao-form">
+        <div class="d-flex flex-wrap gap-3 align-items-center mb-2">
+          <div class="form-check">
+            <input id="bf-todas" class="form-check-input" type="checkbox">
+            <label for="bf-todas" class="form-check-label">Selecionar disponíveis exibidas</label>
+          </div>
+          <span id="bf-contador" class="small text-muted" aria-live="polite">0 selecionadas</span>
+          <button class="btn btn-primary btn-sm ms-auto" type="submit" id="bf-sincronizar" disabled>Sincronizar selecionadas</button>
+        </div>
+        <p class="small text-muted">Até 50 receitas por operação. Aquelas já importadas ficam no BrewStation sem alteração.</p>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead><tr><th scope="col">Selecionar</th><th scope="col">Nome</th><th scope="col">Estilo</th><th scope="col">Tipo</th><th scope="col">Situação</th></tr></thead>
+            <tbody>
+              {% for receita in receitas %}
+              <tr>
+                <td>{% if receita.status != 'ja_importada' %}<input class="form-check-input bf-item" type="checkbox" name="origem_ids" value="{{ receita.id }}" aria-label="Selecionar {{ receita.name }}">{% else %}—{% endif %}</td>
+                <td>{{ receita.name }}</td>
+                <td>{{ receita.style or '—' }}</td>
+                <td>{{ receita.type or '—' }}</td>
+                <td>
+                  {% if receita.status == 'ja_importada' %}<span class="badge bg-success">Já importada</span>
+                  {% elif receita.status == 'apagada_pendente_reimportar' %}<span class="badge bg-warning text-dark">Apagada — reimportável</span>
+                  {% else %}<span class="badge bg-secondary">Nova</span>{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </form>
+      {% else %}<p class="text-muted">Nenhuma receita corresponde aos filtros.</p>{% endif %}
+      {% endif %}
+    </div>
+  </div>
+  <p class="text-muted small">Lotes e inventário terão fluxos próprios de revisão. O estoque local mantém seus saldos pelo ledger; esta tela não altera quantidades.</p>
+</section>
+<script src="{{ url_for('static', filename='js/brewfather_portal.js') }}" defer></script>
+{% endblock %}

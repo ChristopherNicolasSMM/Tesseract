@@ -55,6 +55,7 @@ def resolver_ingrediente(
     rendimento: float | None = None,
     alpha_acidos: float | None = None,
     atenuacao: float | None = None,
+    commit: bool = True,
 ) -> dict:
     """
     Cria um RecipeIngredient para a receita, tentando resolver contra
@@ -96,7 +97,10 @@ def resolver_ingrediente(
         status_resolucao=status,
     )
     db.session.add(ingrediente)
-    db.session.commit()
+    if commit:
+        db.session.commit()
+    else:
+        db.session.flush()
 
     return ingrediente.to_dict()
 

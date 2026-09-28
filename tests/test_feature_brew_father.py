@@ -595,6 +595,7 @@ def mock_client_basico(monkeypatch):
     """Mock separado pra skill 27 — list_recipes_basico/get_recipe_normalizado,
     não o get_recipes() de tudo-de-uma-vez."""
     monkeypatch.setattr(brewfather_client, "list_recipes_basico", lambda limit=50: MOCK_RECIPES_BASICO)
+    monkeypatch.setattr(brewfather_client, "list_recipes_portal", lambda: (MOCK_RECIPES_BASICO, False))
 
     def _get_normalizado(recipe_id):
         nomes = {r["_id"]: r["name"] for r in MOCK_RECIPES_BASICO}
@@ -677,6 +678,92 @@ def test_manage_brewfather_syncs_tem_links_pra_disponiveis_e_pendentes(app, clie
     _login_admin(app, client)
     resp = client.get("/brewstation/brewfather-syncs", follow_redirects=True)
     assert resp.status_code == 200
-    assert b"Selecionar Receitas pra Sincronizar" in resp.data
-    assert b"Sincronizar Tudo" in resp.data
+    assert b"Portal Brewfather" in resp.data
+    assert b"brewfather_portal.js" in resp.data
+    assert b"Sincronizar Tudo" not in resp.data
     assert b"Pendentes de Resolu" in resp.data
+
+
+def test_portal_filtra_receitas_sem_importar_e_bloqueia_ja_importadas(app, client, mock_client_basico, monkeypatch):
+    _login_admin(app, client)
+    monkeypatch.setattr(brewfather_client, "list_recipes_portal", lambda: (MOCK_RECIPES_BASICO, False))
+    with app.app_context():
+        sync_service.sincronizar_selecionadas(["bf-sel-001"])
+
+    response = client.get("/brewstation/brewfather-syncs/portal?estilo=Stout&status=nova")
+    assert response.status_code == 200
+    assert b"Stout Encorpada" in response.data
+    assert b"Weiss Bavara" not in response.data
+    assert b'0 selecionadas' in response.data
+
+    response = client.get("/brewstation/brewfather-syncs/portal?status=ja_importada")
+    assert b"Weiss Bavara" in response.data
+    assert b'name="origem_ids"' not in response.data
+    with app.app_context():
+        assert MashRecipe.query.filter_by(origem_receita="BrewFather").count() == 1
+
+
+def test_portal_paginas_api_usam_cursor_e_nao_perdem_receita_da_segunda_pagina(monkeypatch):
+    chamadas = []
+
+    def fake_list(limit=50, start_after=None):
+        chamadas.append((limit, start_after))
+        if start_after is None:
+            return [{"_id": f"rec-{i}"} for i in range(50)]
+        return [{"_id": "rec-50"}]
+
+    monkeypatch.setattr(brewfather_client, "list_recipes_basico", fake_list)
+    receitas, limitado = brewfather_client.list_recipes_portal()
+    assert len(receitas) == 51
+    assert receitas[-1]["_id"] == "rec-50"
+    assert chamadas == [(50, None), (50, "rec-49")]
+    assert limitado is False
+
+
+def test_portal_reutiliza_lista_ao_filtrar_e_permite_atualizar(monkeypatch):
+    consultas = []
+    brewfather_client._portal_cache.clear()
+    monkeypatch.setattr(brewfather_client, "_is_testing", lambda: False)
+    monkeypatch.setattr(brewfather_client, "list_recipes_portal", lambda: (consultas.append(1) or [], False))
+    brewfather_client.list_recipes_portal_cached()
+    brewfather_client.list_recipes_portal_cached()
+    brewfather_client.list_recipes_portal_cached(force=True)
+    assert len(consultas) == 2
+    brewfather_client._portal_cache.clear()
+
+
+def test_detalhe_falhou_nao_importa_receita_vazia(app, mock_client_basico, monkeypatch):
+    def falha(_id):
+        raise brewfather_client.BrewFatherAPIError("Detalhe indisponível")
+
+    monkeypatch.setattr(brewfather_client, "get_recipe_normalizado", falha)
+    with app.app_context():
+        resultado = sync_service.sincronizar_selecionadas(["bf-sel-001"])
+        assert resultado["status"] == "erro"
+        assert resultado["quantidade_erro"] == 1
+        assert MashRecipe.query.filter_by(origem_receita_id="bf-sel-001").count() == 0
+
+
+def test_detalhe_incompleto_da_api_nao_e_tratado_como_receita_valida(monkeypatch):
+    monkeypatch.setattr(brewfather_client, "_is_testing", lambda: False)
+    monkeypatch.setattr(brewfather_client, "_is_enabled", lambda: True)
+    monkeypatch.setattr(brewfather_client, "_get_recipe_detail", lambda _id: {})
+    with pytest.raises(brewfather_client.BrewFatherAPIError):
+        brewfather_client.get_recipe_normalizado("sem-detalhe")
+
+
+def test_falha_no_meio_da_receita_desfaz_ingredientes_e_cabecalho(app, monkeypatch):
+    dados = {
+        "id": "bf-parcial", "name": "Receita interrompida",
+        "ingredients": [
+            {"name": "Malte válido", "amount": 2, "unit": "kg"},
+            {"amount": 1, "unit": "g"},  # item sem nome: falha após o primeiro
+        ],
+        "mash_steps": [], "fermentation_steps": [], "water_profiles": [],
+    }
+    monkeypatch.setattr(brewfather_client, "get_recipe_normalizado", lambda _id: dados)
+    with app.app_context():
+        resultado = sync_service.sincronizar_selecionadas(["bf-parcial"])
+        assert resultado["status"] == "erro"
+        assert MashRecipe.query.filter_by(origem_receita_id="bf-parcial").count() == 0
+        assert RecipeIngredient.query.filter_by(descricao_origem="Malte válido").count() == 0

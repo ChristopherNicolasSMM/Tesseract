@@ -44,9 +44,10 @@ def sincronizar():
 
 
 @brewfather_syncs_bp.route("/disponiveis", methods=["GET"])
+@brewfather_syncs_bp.route("/portal", methods=["GET"])
 @login_required
 @permission_required("brewfather_syncs.list")
-def disponiveis():
+def portal():
     """
     Skill 27 — tela de seleção prévia: lista enxuta do BrewFather
     (sem gastar chamada de detalhe por receita) com status de cada
@@ -54,13 +55,14 @@ def disponiveis():
     sincronizar em vez de tudo de uma vez.
     """
     try:
-        receitas = sync_service.listar_receitas_disponiveis()
+        filtros = {key: request.args.get(key, "").strip() for key in ("q", "estilo", "tipo", "status")}
+        dados = sync_service.listar_portal_receitas(filtros, atualizar=request.args.get("refresh") == "1")
         erro = None
     except (brewfather_client.BrewFatherDisabledError, brewfather_client.BrewFatherAPIError) as exc:
-        receitas = []
+        dados = {"receitas": [], "total": 0, "limitado": False, "estilos": [], "tipos": []}
         erro = str(exc)
 
-    return render_template("brewfather_syncs/disponiveis.html", receitas=receitas, erro=erro)
+    return render_template("brewfather_syncs/portal.html", **dados, filtros=filtros, erro=erro)
 
 
 @brewfather_syncs_bp.route("/disponiveis/sincronizar", methods=["POST"])
@@ -71,9 +73,13 @@ def sincronizar_selecionadas():
     origem_ids = request.form.getlist("origem_ids")
     if not origem_ids:
         flash("Selecione ao menos uma receita.", "error")
-        return redirect(url_for("brewfather_syncs.disponiveis"))
+        return redirect(url_for("brewfather_syncs.portal"))
 
-    resultado = sync_service.sincronizar_selecionadas(origem_ids)
+    try:
+        resultado = sync_service.sincronizar_selecionadas(origem_ids)
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("brewfather_syncs.portal"))
     status = resultado.get("status", "?")
     processadas = resultado.get("quantidade_processada", 0)
     erros = resultado.get("quantidade_erro", 0)

@@ -16,11 +16,16 @@ from __future__ import annotations
 import base64
 import json
 import os
+import threading
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 _BASE_URL = "https://api.brewfather.app/v2"
 _DEFAULT_LIMIT = 50
+_portal_cache: dict = {}
+_portal_cache_lock = threading.Lock()
 
 
 class BrewFatherAPIError(Exception):
@@ -57,7 +62,7 @@ def _auth_header() -> str:
 def _get(path: str, params: dict | None = None) -> dict | list:
     url = f"{_BASE_URL}{path}"
     if params:
-        qs = "&".join(f"{k}={v}" for k, v in params.items())
+        qs = urllib.parse.urlencode(params)
         url = f"{url}?{qs}"
     req = urllib.request.Request(url, headers={
         "Authorization": _auth_header(),
@@ -67,6 +72,10 @@ def _get(path: str, params: dict | None = None) -> dict | list:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
+        if exc.code == 429:
+            retry_after = exc.headers.get("Retry-After") if exc.headers else None
+            extra = f" Tente novamente em {retry_after} segundo(s)." if retry_after and retry_after.isdigit() else " Tente novamente mais tarde."
+            raise BrewFatherAPIError("Limite de chamadas do Brewfather atingido." + extra) from exc
         raise BrewFatherAPIError(f"BrewFather API HTTP {exc.code}: {exc.reason}") from exc
     except urllib.error.URLError as exc:
         raise BrewFatherAPIError(f"BrewFather API connection error: {exc.reason}") from exc
@@ -258,20 +267,16 @@ def _normalizar_fermentation_steps(recipe_raw: dict) -> list[dict]:
 
 
 def _get_recipe_detail(recipe_id: str) -> dict:
-    """Busca detalhe completo de uma receita (mash steps, fermentation, specs).
-    Retorna {} se falhar, sem interromper a sincronização das demais."""
-    try:
-        return _get(f"/recipes/{recipe_id}")
-    except BrewFatherAPIError:
-        return {}
+    """Falha explicitamente: jamais importar uma receita sem seus ingredientes."""
+    return _get(f"/recipes/{urllib.parse.quote(recipe_id, safe='')}")
 
 
-def list_recipes_basico(limit: int = _DEFAULT_LIMIT) -> list[dict]:
+def list_recipes_basico(limit: int = _DEFAULT_LIMIT, start_after: str | None = None) -> list[dict]:
     """
     Skill 27 — listagem ENXUTA (`GET /recipes`, sem detalhe por
     receita), pra alimentar a tela de seleção prévia antes de
     sincronizar. Não gasta as chamadas mais caras de detalhe (a API
-    tem limite de 150/hora) — só quando o usuário efetivamente marcar
+    tem limite de chamadas) — só quando o usuário efetivamente marcar
     uma receita é que `get_recipe_normalizado()` é chamado pra ela.
 
     Retorna os campos crus da API (`_id`, `name`, `style`, `type`,
@@ -284,10 +289,53 @@ def list_recipes_basico(limit: int = _DEFAULT_LIMIT) -> list[dict]:
         raise BrewFatherDisabledError(
             "Integração BrewFather desabilitada — defina BREWFATHER_ENABLED=True no .env"
         )
-    raw_list = _get("/recipes", params={"limit": limit})
+    params = {"limit": max(1, min(int(limit), 50))}
+    if start_after:
+        params["start_after"] = start_after
+    raw_list = _get("/recipes", params=params)
     if not isinstance(raw_list, list):
         raise BrewFatherAPIError(f"Resposta inesperada da API (esperado lista): {type(raw_list)}")
     return raw_list
+
+
+def list_recipes_portal(max_items: int = 500) -> tuple[list[dict], bool]:
+    """Percorre as páginas da API v2; limita o volume e avisa quando atinge o teto."""
+    recipes: list[dict] = []
+    cursor = None
+    seen: set[str] = set()
+    max_items = max(1, min(max_items, 500))
+    while len(recipes) < max_items:
+        page_size = min(50, max_items - len(recipes))
+        page = (list_recipes_basico(limit=page_size, start_after=cursor)
+                if cursor else list_recipes_basico(limit=page_size))
+        if not page:
+            return recipes, False
+        last_id = page[-1].get("_id")
+        if not last_id or last_id == cursor:
+            raise BrewFatherAPIError("Paginação da API retornou uma página sem cursor válido.")
+        for recipe in page:
+            recipe_id = recipe.get("_id")
+            if recipe_id and recipe_id not in seen:
+                recipes.append(recipe)
+                seen.add(recipe_id)
+        cursor = last_id
+        if len(page) < page_size:
+            return recipes, False
+    return recipes, True
+
+
+def list_recipes_portal_cached(force: bool = False) -> tuple[list[dict], bool]:
+    """Reutiliza a lista por 90 s ao filtrar; atualização manual força nova consulta."""
+    if _is_testing():
+        return list_recipes_portal()
+    with _portal_cache_lock:
+        if (not force and _portal_cache.get("user") == os.environ.get("BREWFATHER_USER_ID")
+                and time.monotonic() < _portal_cache.get("until", 0)):
+            return _portal_cache["recipes"], _portal_cache["limited"]
+        recipes, limited = list_recipes_portal()
+        _portal_cache.update(user=os.environ.get("BREWFATHER_USER_ID"), recipes=recipes,
+                             limited=limited, until=time.monotonic() + 90)
+        return recipes, limited
 
 
 def get_recipe_normalizado(recipe_id: str) -> dict:
@@ -303,8 +351,9 @@ def get_recipe_normalizado(recipe_id: str) -> dict:
         raise BrewFatherDisabledError(
             "Integração BrewFather desabilitada — defina BREWFATHER_ENABLED=True no .env"
         )
-    detail = _get_recipe_detail(recipe_id)
-    r_full = detail if detail else {}
+    r_full = _get_recipe_detail(recipe_id)
+    if not isinstance(r_full, dict) or not r_full.get("name"):
+        raise BrewFatherAPIError(f"Detalhe da receita {recipe_id} incompleto na API.")
     return {
         "id": recipe_id,
         "name": r_full.get("name", ""),

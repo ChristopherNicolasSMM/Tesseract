@@ -48,6 +48,16 @@ de uma receita, já normalizado) — `get_recipes()` (usado por
 `sync_recipes()`) hoje é só a composição dos dois, não duplica mais a
 lógica de normalização.
 
+## Portal de sincronização (skill 28)
+
+`/brewstation/brewfather-syncs/portal` é a entrada operacional para
+consultar até 500 receitas paginadas, filtrar por nome, estilo, tipo ou
+situação e importar até 50 selecionadas por operação. O histórico
+gerado pelo CrudGen continua em `/brewstation/brewfather-syncs`;
+o atalho da barra leva ao portal. Lotes e inventário ainda não são
+importados. A regra de saldo do estoque exige conciliação via ledger
+antes de qualquer sincronização de quantidade externa.
+
 ## Pendências reais
 
 - Item (c) do `BACKLOG.md` — adjuntos (`miscs[]`) e água (`water`) da

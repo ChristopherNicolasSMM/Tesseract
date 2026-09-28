@@ -5,7 +5,8 @@
 > novos (get_recipes() refatorado pra compor os dois, sem duplicar
 > lógica de normalização), `sync_service.listar_receitas_disponiveis()`/
 > `sincronizar_selecionadas()`, tela nova
-> `brewfather_syncs/disponiveis.html`. 8 testes novos, suíte completa
+> `brewfather_syncs/disponiveis.html` (posteriormente substituído pelo
+> portal descrito na skill 28). 8 testes novos, suíte completa
 > sem regressão.
 >
 > **Achado real ao implementar, fora do escopo original desta skill
@@ -58,8 +59,8 @@ virar dois passos:
 
 Nova função `listar_receitas_disponiveis()`, chamando `/recipes` com
 `complete=false` — retorno enxuto (nome/autor/estilo/tipo), sem gastar
-as chamadas mais caras de detalhe por receita (a API tem limite de 150
-chamadas/hora por chave, `docs.brewfather.app/api/v1`). Essa lista
+as chamadas mais caras de detalhe por receita (a documentação atual da
+API v2 informa 500 chamadas/hora por chave). Essa lista
 alimenta uma tela nova, **não** a importação direta.
 
 ### 1.2 Passo 2 — seleção, reaproveitando o padrão da skill 25
@@ -102,3 +103,9 @@ real necessidade de reimportar.
   futuros (BeerSmith/BeerXML, citados em `MashRecipe.origem_receita`)
   não foi discutida — quando esses importadores existirem, reavaliar
   se cabe o mesmo fluxo de duas etapas.
+
+## Evolução posterior
+
+O portal de sincronização, sua paginação e seus filtros estão descritos
+na skill 28. Esta seção registra a implementação original da seleção
+de receitas, que consultava somente a primeira página da API.

@@ -35,14 +35,10 @@
     /disponiveis (esta última nova) já existiam ou foram criadas mas
     não tinham nenhum link na UI — só acessíveis por URL direta. Este
     hook nunca tinha sido preenchido antes de agora. -#}
-<a href="{{ url_for('brewfather_syncs.disponiveis') }}" class="btn btn-sm btn-outline-primary">
-  <i class="bi bi-ui-checks"></i> Selecionar Receitas pra Sincronizar
+<a id="bf-portal-link" href="{{ url_for('brewfather_syncs.portal') }}" class="btn btn-sm btn-outline-primary">
+  <i class="bi bi-ui-checks"></i> Portal Brewfather — selecionar receitas
 </a>
-<form method="post" action="{{ url_for('brewfather_syncs.sincronizar') }}" class="d-inline" data-confirm-key="brewstation_bf.syncs.confirm_sincronizar_tudo">
-  <button type="submit" class="btn btn-sm btn-outline-secondary">
-    <i class="bi bi-cloud-download"></i> Sincronizar Tudo
-  </button>
-</form>
 <a href="{{ url_for('brewfather_syncs.pendentes') }}" class="btn btn-sm btn-outline-warning">
   <i class="bi bi-exclamation-triangle"></i> Pendentes de Resolução
 </a>
+<script src="{{ url_for('static', filename='js/brewfather_portal.js') }}" defer></script>
