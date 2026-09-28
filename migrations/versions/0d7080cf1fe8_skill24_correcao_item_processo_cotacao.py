@@ -29,6 +29,12 @@ depends_on = None
 
 
 def upgrade():
+    # Banco novo ja recebeu todas as tabelas de db.create_all().
+    # O verificador exige que TODOS os models tenham as colunas atuais.
+    from migrations.schema_compat import current_model_schema
+    if current_model_schema():
+        return
+
     bind = op.get_bind()
 
     # 1. Tabela nova - ItemProcessoCotacao (o item pedido, uma vez por processo)

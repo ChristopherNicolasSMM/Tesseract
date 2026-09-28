@@ -13,6 +13,12 @@ depends_on = None
 
 
 def upgrade():
+    # Banco novo ja recebeu todas as tabelas de db.create_all().
+    # O verificador exige que TODOS os models tenham as colunas atuais.
+    from migrations.schema_compat import current_model_schema
+    if current_model_schema():
+        return
+
     # Os registros anteriores mantêm NULL e continuam usando a leitura
     # dinâmica de composição e custo até uma reconciliação explícita.
     with op.batch_alter_table("tesseract_brewstation_env_envase") as batch_op:

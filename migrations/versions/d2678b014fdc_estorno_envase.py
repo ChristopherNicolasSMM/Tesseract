@@ -13,6 +13,12 @@ depends_on = None
 
 
 def upgrade():
+    # Banco novo ja recebeu todas as tabelas de db.create_all().
+    # O verificador exige que TODOS os models tenham as colunas atuais.
+    from migrations.schema_compat import current_model_schema
+    if current_model_schema():
+        return
+
     with op.batch_alter_table("tesseract_brewstation_env_envase") as batch_op:
         batch_op.add_column(sa.Column("estorno_snapshot", sa.JSON(), nullable=True))
         batch_op.add_column(sa.Column("cancelado_em", sa.DateTime(), nullable=True))
