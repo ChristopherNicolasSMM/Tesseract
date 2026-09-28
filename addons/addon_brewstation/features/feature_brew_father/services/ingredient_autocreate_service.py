@@ -19,8 +19,9 @@ API do BrewFather nao fornece essa informacao. Resolvido assim:
 - origem_id -> sempre o seed "A definir" (esse sim e desconhecido de
   verdade - BrewFather nao informa nacional/importado).
 - categoria_id -> mantém o mesmo mapeamento tipo_ingrediente->categoria
-  que já existia para o antigo campo string, agora resolvido para um
-  registro real em Categoria (get_or_create, nome = valor antigo).
+  que já existia para o antigo campo string, resolvido por
+  Categoria.descricao; novas categorias recebem codigo e natureza
+  "Insumo". Uma categoria na lixeira exige revisão antes do autocadastro.
 - sku -> "{TIPO_INGREDIENTE}-{10 primeiros caracteres do nome}",
   maiusculo, sem acento (ex.: "MALTE-PILSEN"), com sufixo numerico
   sequencial em caso de colisao (skill de unicidade do campo).
@@ -86,12 +87,19 @@ def _gerar_sku(nome: str, tipo_ingrediente: str) -> str:
 
 
 def _get_ou_criar_categoria(nome: str) -> Categoria:
-    """Reaproveita por nome (unique) ou cria - substitui o antigo
-    campo Material.categoria (string livre) por FK real (skill 02)."""
-    existente = Categoria.query.filter_by(nome=nome, is_deleted=False).first()
+    """Resolve a categoria pelo campo atual do estoque e preserva vínculos existentes."""
+    existente = Categoria.query.filter_by(descricao=nome).first()
     if existente:
+        if existente.is_deleted:
+            raise AutoCadastroError(
+                f"Categoria {nome!r} está na lixeira; restaure-a antes de cadastrar ingredientes."
+            )
         return existente
-    nova = Categoria(nome=nome)
+    nova = Categoria(
+        descricao=nome,
+        codigo=nome.upper().replace(" ", "_")[:20],
+        tipo_produto_id=get_or_create_tipo_produto_insumo().id,
+    )
     db.session.add(nova)
     db.session.flush()
     return nova

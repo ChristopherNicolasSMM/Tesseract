@@ -116,10 +116,14 @@ def _criar_material_de_estoque(nome: str, categoria_nome: str = "materia_prima")
     core/app_factory.py); categoria_id é get_or_create por nome.
     """
     origem = Origem.query.filter_by(nome=SEED_NOME_A_DEFINIR).first()
-    tipo_produto = TipoProduto.query.filter_by(nome=SEED_NOME_INSUMO).first()
-    categoria = Categoria.query.filter_by(nome=categoria_nome).first()
+    tipo_produto = TipoProduto.query.filter_by(descricao=SEED_NOME_INSUMO).first()
+    categoria = Categoria.query.filter_by(descricao=categoria_nome).first()
     if not categoria:
-        categoria = Categoria(nome=categoria_nome)
+        categoria = Categoria(
+            descricao=categoria_nome,
+            codigo=categoria_nome.upper().replace(" ", "_")[:20],
+            tipo_produto_id=tipo_produto.id,
+        )
         db.session.add(categoria)
         db.session.flush()
 
@@ -369,6 +373,8 @@ def test_resolver_pendente_cria_mapeamento(app, client, mock_client):
                        follow_redirects=True)
     assert resp.status_code == 200
     assert "resolvido" in resp.data.decode("utf-8").lower()
+    with app.app_context():
+        assert RecipeIngredient.query.filter_by(descricao_origem=descricao).first().status_resolucao == "resolvido"
 
 
 def test_busca_materiais_api_retorna_resultados(app, client):
@@ -420,7 +426,9 @@ def test_cadastrar_todos_pendentes_resolve_campos_obrigatorios_novos(app):
         assert malte.sku == "MALTE-PALEMALT2R"
         assert malte.pendente_revisao is True
         assert malte.origem.nome == SEED_NOME_A_DEFINIR
-        assert malte.tipo_produto.nome == SEED_NOME_INSUMO
+        assert malte.tipo_produto.descricao == SEED_NOME_INSUMO
+        assert malte.categoria.descricao == "materia_prima"
+        assert malte.categoria.codigo == "MATERIA_PRIMA"
 
         lupulo = Material.query.filter_by(nome="Cascade").first()
         assert lupulo.sku == "LUPULO-CASCADE"

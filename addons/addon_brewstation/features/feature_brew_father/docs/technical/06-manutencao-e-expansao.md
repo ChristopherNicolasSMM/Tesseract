@@ -82,7 +82,7 @@ fornece:
 |---|---|
 | `tipo_produto_id` | Sempre o seed `TipoProduto("Insumo")` — `estoque_seed.get_or_create_tipo_produto_insumo()` |
 | `origem_id` | Sempre o seed `Origem("A definir")` — `estoque_seed.get_or_create_origem_a_definir()` |
-| `categoria_id` | `get_or_create` por nome (`_get_ou_criar_categoria`), reaproveitando o mapeamento `tipo_ingrediente → categoria` |
+| `categoria_id` | `get_or_create` por `Categoria.descricao` (`_get_ou_criar_categoria`), reaproveitando o mapeamento `tipo_ingrediente → categoria`; novas categorias recebem `codigo` e `tipo_produto_id=Insumo`. Categoria na lixeira exige restauração manual. |
 | `sku` | `_gerar_sku(nome, tipo_ingrediente)` — `{TIPO}-{10 primeiros caracteres do nome}`, maiúsculo sem acento, sufixo numérico em colisão. `{TIPO}` vem de `_TIPO_PARA_SKU_PREFIXO` (`MALTE`/`LUPULO`/`LEVEDURA`), fallback `INSUMO` pra tipo não mapeado (ex.: `adjunto`/`agua_agente` — ver item (c) do BACKLOG, ainda não implementado) |
 | `pendente_revisao` | Sempre `True` nesse fluxo — sinaliza na tela de-para, nunca bloqueia `Movimentacao`/`Saldo` |
 

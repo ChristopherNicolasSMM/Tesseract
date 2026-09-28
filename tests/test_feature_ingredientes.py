@@ -32,10 +32,13 @@ def client(app):
 
 def _criar_material(nome="Malte Pilsen"):
     origem = Origem.query.filter_by(nome=SEED_NOME_A_DEFINIR).first()
-    tipo_produto = TipoProduto.query.filter_by(nome=SEED_NOME_INSUMO).first()
-    categoria = Categoria.query.filter_by(nome="materia_prima").first()
+    tipo_produto = TipoProduto.query.filter_by(descricao=SEED_NOME_INSUMO).first()
+    categoria = Categoria.query.filter_by(descricao="materia_prima").first()
     if not categoria:
-        categoria = Categoria(nome="materia_prima")
+        categoria = Categoria(
+            descricao="materia_prima", codigo="MATERIA_PRIMA",
+            tipo_produto_id=tipo_produto.id,
+        )
         db.session.add(categoria)
         db.session.flush()
 
