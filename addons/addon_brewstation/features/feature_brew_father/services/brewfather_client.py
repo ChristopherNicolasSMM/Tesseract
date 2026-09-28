@@ -289,7 +289,8 @@ def list_recipes_basico(limit: int = _DEFAULT_LIMIT, start_after: str | None = N
         raise BrewFatherDisabledError(
             "Integração BrewFather desabilitada — defina BREWFATHER_ENABLED=True no .env"
         )
-    params = {"limit": max(1, min(int(limit), 50))}
+    # A listagem resumida não traz a organização da receita por padrão.
+    params = {"limit": max(1, min(int(limit), 50)), "include": "path,tags"}
     if start_after:
         params["start_after"] = start_after
     raw_list = _get("/recipes", params=params)

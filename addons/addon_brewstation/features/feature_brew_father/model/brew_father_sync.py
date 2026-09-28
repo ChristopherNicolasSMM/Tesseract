@@ -15,6 +15,8 @@ from annotations import label, plural, required, choices, enum_field
 @label("Sincronização BrewFather")
 @plural("brewfather_syncs")
 @enum_field("status", options=["em_andamento", "sucesso", "erro", "parcial"])
+@enum_field("tipo_sync", options=[("recipes", "Receitas"), ("batches", "Lotes"),
+                                  ("inventory", "Inventário"), ("all", "Tudo")])
 @choices("tipo_sync", label="Tipo")
 @choices("status", label="Status")
 @required("tipo_sync", message="Tipo de sincronização é obrigatório")

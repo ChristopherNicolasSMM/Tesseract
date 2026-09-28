@@ -17,13 +17,29 @@ de status em cada uma —
 - **Apagada — pendente de reimportar**: já existiu, foi apagada, e uma
   nova sincronização vai trazê-la de volta como uma nova versão.
 
-Marque as que quiser e clique em "Sincronizar selecionadas" — só o
-detalhe completo das marcadas é buscado, o resto fica de fora.
+Filtre por pasta (incluindo suas subpastas) ou tag, além de nome, estilo,
+tipo e situação. As pastas e tags são lidas do Brewfather e filtradas
+no portal; caso haja mais de 500 receitas, os filtros abrangem apenas
+as receitas carregadas. Escolha a ação e marque até 50 receitas:
+
+- **Sincronizar novas** importa as receitas ainda não presentes.
+- **Ressincronizar importadas** busca novamente o detalhe e cria outra
+  versão no BrewStation. Lotes existentes continuam ligados à versão anterior.
+- **Mover importadas para lixeira** oculta as receitas locais escolhidas;
+  não exclui os lotes nem altera a conta Brewfather.
+
+Os botões de ações gerais operam sobre **todas as receitas importadas**
+no Tesseract, mesmo fora da página exibida. A ressincronização geral
+aceita até 500 receitas por operação por causa do limite da API; para
+volumes maiores, selecione grupos menores. A remoção geral usa a
+lixeira, portanto é reversível pelo fluxo de restauração de receitas.
 
 ## Sincronizações (histórico)
 
 Lista de cada sincronização já feita — quando rodou, quantas receitas
-processou, e se deu algum erro.
+processou, e se deu algum erro. O campo Tipo é uma lista de opções
+fixas, conforme as anotações do CrudGen; atualmente só receitas são
+importadas, enquanto lotes e inventário permanecem para consulta.
 
 ## Resolver Ingredientes Pendentes (De-Para)
 

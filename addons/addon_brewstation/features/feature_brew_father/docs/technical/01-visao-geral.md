@@ -51,8 +51,13 @@ lógica de normalização.
 ## Portal de sincronização (skill 28)
 
 `/brewstation/brewfather-syncs/portal` é a entrada operacional para
-consultar até 500 receitas paginadas, filtrar por nome, estilo, tipo ou
-situação e importar até 50 selecionadas por operação. O histórico
+consultar até 500 receitas paginadas, solicitar `include=path,tags`,
+filtrar localmente por nome, estilo, tipo, situação, pasta ou tag e
+importar ou ressincronizar até 50 selecionadas por operação. A ação
+geral de ressincronização usa os IDs de todas as receitas importadas
+ativas e cria versões novas (até 500 por operação); a ação de remoção
+move todas as receitas de origem Brewfather para a lixeira local,
+preservando lotes e histórico. O histórico
 gerado pelo CrudGen continua em `/brewstation/brewfather-syncs`;
 o atalho da barra leva ao portal. Abas de lotes e inventário permitem
 consulta e filtros com escopos `batches.read` e `inventory.read`,

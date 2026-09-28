@@ -29,4 +29,7 @@ Tabela real: `tesseract_brewstation_brewfather_sync`.
 `tipo_sync="recipes"` igual a `sync_recipes()` — aparecem juntas no
 mesmo histórico, sem distinção de "foi tudo de uma vez ou seletiva"
 no schema (só o `raw_data` de cada log mostra quantas receitas
-entraram naquela chamada).
+entraram naquela chamada). `tipo_sync` tem `@enum_field` com opções
+fixas receitas, lotes, inventário e tudo; só a sincronização de
+receitas cria logs operacionais hoje. As ações em massa sobre receitas
+não excluem logs.

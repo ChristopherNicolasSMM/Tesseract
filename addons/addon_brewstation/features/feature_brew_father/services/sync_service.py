@@ -37,7 +37,7 @@ _USE_PARA_ETAPA = {
 }
 
 
-def sync_recipes() -> dict:
+def sync_recipes(*, ressincronizar: bool = False) -> dict:
     log = BrewFatherSync(tipo_sync="recipes", status="em_andamento")
     db.session.add(log)
     db.session.commit()
@@ -64,7 +64,7 @@ def sync_recipes() -> dict:
     for receita_externa in receitas_externas:
         raw_capturado.append(receita_externa)
         try:
-            _importar_receita(receita_externa)
+            _importar_receita(receita_externa, ressincronizar=ressincronizar)
             processadas += 1
         except Exception as exc:  # noqa: BLE001
             db.session.rollback()
@@ -116,11 +116,20 @@ def _classificar_receitas(receitas: list[dict]) -> list[dict]:
             elif estados.get(origem_id) != "ja_importada":
                 estados[origem_id] = "apagada_pendente_reimportar"
 
+    def tags_da_receita(raw):
+        tags = raw.get("tags") or []
+        if not isinstance(tags, list):
+            return []
+        return [tag.get("display") or tag.get("value") if isinstance(tag, dict) else tag
+                for tag in tags if isinstance(tag, (dict, str))]
+
     return [{
         "id": r["_id"],
         "name": r.get("name") or "Sem nome",
         "style": (r.get("style") or {}).get("name") if isinstance(r.get("style"), dict) else r.get("style"),
         "type": r.get("type"),
+        "path": r.get("path") if isinstance(r.get("path"), str) and r["path"] else "/",
+        "tags": [tag for tag in tags_da_receita(r) if isinstance(tag, str) and tag],
         "status": estados.get(r["_id"], "nova"),
     } for r in receitas if r.get("_id")]
 
@@ -133,11 +142,16 @@ def listar_portal_receitas(filtros: dict[str, str], *, atualizar: bool = False) 
     estilo = filtros.get("estilo") or ""
     tipo = filtros.get("tipo") or ""
     status = filtros.get("status") or ""
+    pasta = filtros.get("pasta") or ""
+    tag = filtros.get("tag") or ""
     filtradas = [r for r in todas if (
         (not q or q in r["name"].casefold())
         and (not estilo or r["style"] == estilo)
         and (not tipo or r["type"] == tipo)
         and (not status or r["status"] == status)
+        and (not pasta or r["path"] == pasta or
+             (pasta != "/" and r["path"].startswith(pasta.rstrip("/") + "/")))
+        and (not tag or tag in r["tags"])
     )]
     return {
         "receitas": filtradas,
@@ -145,6 +159,8 @@ def listar_portal_receitas(filtros: dict[str, str], *, atualizar: bool = False) 
         "limitado": limitado,
         "estilos": sorted({r["style"] for r in todas if r["style"]}),
         "tipos": sorted({r["type"] for r in todas if r["type"]}),
+        "pastas": sorted({r["path"] for r in todas}),
+        "tags": sorted({tag for r in todas for tag in r["tags"]}),
     }
 
 
@@ -200,7 +216,8 @@ def listar_portal_inventario(categoria: str, filtros: dict[str, str], *, atualiz
                            "yeasts": "Leveduras", "miscs": "Outros ingredientes"}}
 
 
-def sincronizar_selecionadas(origem_ids: list[str]) -> dict:
+def sincronizar_selecionadas(origem_ids: list[str], *, ressincronizar: bool = False,
+                            limite: int = 50) -> dict:
     """
     Skill 27 — importa só as receitas cujo `id` (do BrewFather) foi
     marcado na tela de seleção. Busca o detalhe completo só delas
@@ -209,8 +226,15 @@ def sincronizar_selecionadas(origem_ids: list[str]) -> dict:
     pra aparecer no mesmo histórico.
     """
     origem_ids = list(dict.fromkeys(id.strip() for id in origem_ids if id.strip()))
-    if not origem_ids or len(origem_ids) > 50:
-        raise ValueError("Selecione de 1 a 50 receitas por sincronização.")
+    if not origem_ids or len(origem_ids) > limite:
+        raise ValueError(f"Selecione de 1 a {limite} receitas por sincronização.")
+    if ressincronizar:
+        existentes = {row[0] for row in db.session.query(MashRecipe.origem_receita_id).filter(
+            MashRecipe.origem_receita == "BrewFather", MashRecipe.is_deleted.is_(False),
+            MashRecipe.origem_receita_id.in_(origem_ids),
+        ).all()}
+        if set(origem_ids) != existentes:
+            raise ValueError("Ressincronize somente receitas já importadas e ativas.")
 
     log = BrewFatherSync(tipo_sync="recipes", status="em_andamento")
     db.session.add(log)
@@ -223,8 +247,10 @@ def sincronizar_selecionadas(origem_ids: list[str]) -> dict:
     for origem_id in origem_ids:
         try:
             receita_externa = brewfather_client.get_recipe_normalizado(origem_id)
+            if receita_externa.get("id") != origem_id:
+                raise ValueError("O detalhe retornado não corresponde à receita solicitada.")
             raw_capturado.append(receita_externa)
-            _importar_receita(receita_externa)
+            _importar_receita(receita_externa, ressincronizar=ressincronizar)
             processadas += 1
         except Exception as exc:  # noqa: BLE001
             db.session.rollback()
@@ -241,7 +267,36 @@ def sincronizar_selecionadas(origem_ids: list[str]) -> dict:
     return log.to_dict()
 
 
-def _importar_receita(receita_externa: dict) -> MashRecipe:
+def ressincronizar_todas_importadas() -> dict:
+    """Atualiza todas as receitas ativas locais, sem importar receitas novas."""
+    ids = [row[0] for row in db.session.query(MashRecipe.origem_receita_id).filter_by(
+        origem_receita="BrewFather", is_deleted=False,
+    ).distinct().all() if row[0]]
+    if not ids:
+        raise ValueError("Não há receitas importadas para ressincronizar.")
+    if len(ids) > 500:
+        raise ValueError("Há mais de 500 receitas importadas. Selecione grupos menores para respeitar o limite da API.")
+    return sincronizar_selecionadas(ids, ressincronizar=True, limite=500)
+
+
+def apagar_receitas_importadas(origem_ids: list[str] | None = None) -> int:
+    """Move somente receitas Brewfather para a lixeira, sem tocar nos lotes."""
+    query = MashRecipe.query.filter_by(origem_receita="BrewFather", is_deleted=False)
+    if origem_ids is not None:
+        ids = list(dict.fromkeys(i.strip() for i in origem_ids if i.strip()))
+        if not ids:
+            raise ValueError("Selecione ao menos uma receita importada.")
+        query = query.filter(MashRecipe.origem_receita_id.in_(ids))
+    receitas = query.all()
+    agora = datetime.now(timezone.utc)
+    for receita in receitas:
+        receita.is_deleted = True
+        receita.deleted_at = agora
+    db.session.commit()
+    return len(receitas)
+
+
+def _importar_receita(receita_externa: dict, *, ressincronizar: bool = False) -> MashRecipe:
     origem_id = receita_externa["id"]
 
     # Correção (skill 25, seção 3.1): sem is_deleted=False aqui, uma
@@ -249,11 +304,21 @@ def _importar_receita(receita_externa: dict) -> MashRecipe:
     # sendo encontrada como "já existe" e a sync nunca a reimportava —
     # "apagar pra forçar re-sync" não tinha efeito nenhum antes desta
     # correção.
-    ja_existe = MashRecipe.query.filter_by(
+    versoes_ativas = MashRecipe.query.filter_by(
         origem_receita="BrewFather", origem_receita_id=origem_id, is_deleted=False,
-    ).first()
-    if ja_existe is not None:
+    ).all()
+    ja_existe = versoes_ativas[0] if versoes_ativas else None
+    if ja_existe is not None and not ressincronizar:
         return ja_existe
+
+    # A versão antiga e os seus vínculos permanecem consultáveis.
+    # A troca é feita na mesma transação que cria a nova versão; uma
+    # falha na importação reverte a marcação de lixeira.
+    if versoes_ativas:
+        agora = datetime.now(timezone.utc)
+        for versao in versoes_ativas:
+            versao.is_deleted = True
+            versao.deleted_at = agora
 
     # Correção adicional (skill 25 — achado ao testar a correção
     # acima): MashRecipe tem UniqueConstraint(name, versao) — uma

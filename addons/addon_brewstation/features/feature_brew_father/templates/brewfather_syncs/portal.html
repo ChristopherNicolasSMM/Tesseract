@@ -16,7 +16,7 @@
   <div class="card">
     <div class="card-body">
       <h2 class="card-title">Receitas</h2>
-      <p class="small text-muted">A lista é consultada no Brewfather; os filtros são aplicados aqui. Receitas já importadas são preservadas e não são atualizadas por esta ação.</p>
+      <p class="small text-muted">A lista é consultada no Brewfather; os filtros são aplicados às receitas carregadas. A importação preserva receitas já existentes; use Ressincronizar para criar uma nova versão.</p>
       {% if erro %}
       <div class="alert alert-danger" role="alert">{{ erro }}</div>
       {% else %}
@@ -49,6 +49,20 @@
             <option value="apagada_pendente_reimportar" {% if filtros.status == 'apagada_pendente_reimportar' %}selected{% endif %}>Apagada</option>
           </select>
         </div>
+        <div class="col-md-3">
+          <label class="form-label" for="bf-pasta">Pasta</label>
+          <select id="bf-pasta" name="pasta" class="form-select">
+            <option value="">Todas</option>
+            {% for pasta in pastas %}<option value="{{ pasta }}" {% if filtros.pasta == pasta %}selected{% endif %}>{{ 'Padrão (sem pasta)' if pasta == '/' else pasta }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="bf-tag">Tag</label>
+          <select id="bf-tag" name="tag" class="form-select">
+            <option value="">Todas</option>
+            {% for tag in tags %}<option value="{{ tag }}" {% if filtros.tag == tag %}selected{% endif %}>{{ tag }}</option>{% endfor %}
+          </select>
+        </div>
         <div class="col-md-2 d-flex gap-2">
           <button class="btn btn-primary" type="submit">Filtrar</button>
           <a class="btn btn-outline-secondary" href="{{ url_for('brewfather_syncs.portal') }}" aria-label="Limpar filtros">Limpar</a>
@@ -58,25 +72,43 @@
       <a href="{{ url_for('brewfather_syncs.portal', refresh=1) }}" class="btn btn-outline-secondary btn-sm mb-3">Atualizar lista do Brewfather</a>
 
       <p class="small text-muted" role="status">{{ receitas|length }} exibida(s) de {{ total }} carregada(s)</p>
+      <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+        <form method="post" action="{{ url_for('brewfather_syncs.receitas_em_massa') }}" data-confirm-message="Ressincronizar todas as receitas importadas? Será criada uma nova versão para cada receita atualizada.">
+          <input type="hidden" name="acao" value="ressincronizar_todas">
+          <button class="btn btn-outline-primary btn-sm" type="submit">Ressincronizar todas as importadas</button>
+        </form>
+        {% if current_user.has_permission('mash_recipes.trash') %}<form method="post" action="{{ url_for('brewfather_syncs.receitas_em_massa') }}" data-confirm-message="Mover TODAS as receitas importadas do Brewfather para a lixeira do Tesseract? Os lotes e o Brewfather permanecem intactos.">
+          <input type="hidden" name="acao" value="apagar_todas">
+          <button class="btn btn-outline-danger btn-sm" type="submit">Mover todas as importadas para lixeira</button>
+        </form>{% endif %}
+      </div>
       {% if receitas %}
       <form method="post" action="{{ url_for('brewfather_syncs.sincronizar_selecionadas') }}" id="bf-selecao-form">
         <div class="d-flex flex-wrap gap-3 align-items-center mb-2">
           <div class="form-check">
             <input id="bf-todas" class="form-check-input" type="checkbox">
-            <label for="bf-todas" class="form-check-label">Selecionar disponíveis exibidas</label>
+            <label for="bf-todas" class="form-check-label">Selecionar receitas exibidas disponíveis para a ação</label>
           </div>
           <span id="bf-contador" class="small text-muted" aria-live="polite">0 selecionadas</span>
-          <button class="btn btn-primary btn-sm ms-auto" type="submit" id="bf-sincronizar" disabled>Sincronizar selecionadas</button>
+          <label for="bf-acao" class="form-label mb-0 ms-auto">Ação</label>
+          <select id="bf-acao" name="acao" class="form-select form-select-sm w-auto">
+            <option value="sincronizar">Sincronizar novas</option>
+            <option value="ressincronizar">Ressincronizar importadas</option>
+            {% if current_user.has_permission('mash_recipes.trash') %}<option value="apagar">Mover importadas para lixeira</option>{% endif %}
+          </select>
+          <button class="btn btn-primary btn-sm" type="submit" id="bf-sincronizar" disabled>Executar selecionadas</button>
         </div>
-        <p class="small text-muted">Até 50 receitas por operação. Aquelas já importadas ficam no BrewStation sem alteração.</p>
+        <p class="small text-muted">Até 50 receitas por seleção. Pastas e tags são filtros locais; selecione a ação antes de marcar as receitas.</p>
         <div class="table-responsive">
           <table class="table table-hover align-middle">
-            <thead><tr><th scope="col">Selecionar</th><th scope="col">Nome</th><th scope="col">Estilo</th><th scope="col">Tipo</th><th scope="col">Situação</th></tr></thead>
+            <thead><tr><th scope="col">Selecionar</th><th scope="col">Nome</th><th scope="col">Pasta</th><th scope="col">Tags</th><th scope="col">Estilo</th><th scope="col">Tipo</th><th scope="col">Situação</th></tr></thead>
             <tbody>
               {% for receita in receitas %}
               <tr>
-                <td>{% if receita.status != 'ja_importada' %}<input class="form-check-input bf-item" type="checkbox" name="origem_ids" value="{{ receita.id }}" aria-label="Selecionar {{ receita.name }}">{% else %}—{% endif %}</td>
+                <td><input class="form-check-input bf-item" type="checkbox" name="origem_ids" value="{{ receita.id }}" data-status="{{ receita.status }}" aria-label="Selecionar {{ receita.name }}"></td>
                 <td>{{ receita.name }}</td>
+                <td>{{ 'Padrão' if receita.path == '/' else receita.path }}</td>
+                <td>{{ receita.tags|join(', ') if receita.tags else '—' }}</td>
                 <td>{{ receita.style or '—' }}</td>
                 <td>{{ receita.type or '—' }}</td>
                 <td>

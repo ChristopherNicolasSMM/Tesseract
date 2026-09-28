@@ -55,11 +55,11 @@ def portal():
     sincronizar em vez de tudo de uma vez.
     """
     try:
-        filtros = {key: request.args.get(key, "").strip() for key in ("q", "estilo", "tipo", "status")}
+        filtros = {key: request.args.get(key, "").strip() for key in ("q", "estilo", "tipo", "status", "pasta", "tag")}
         dados = sync_service.listar_portal_receitas(filtros, atualizar=request.args.get("refresh") == "1")
         erro = None
     except (brewfather_client.BrewFatherDisabledError, brewfather_client.BrewFatherAPIError) as exc:
-        dados = {"receitas": [], "total": 0, "limitado": False, "estilos": [], "tipos": []}
+        dados = {"receitas": [], "total": 0, "limitado": False, "estilos": [], "tipos": [], "pastas": [], "tags": []}
         erro = str(exc)
 
     return render_template("brewfather_syncs/portal.html", **dados, filtros=filtros, erro=erro)
@@ -113,7 +113,18 @@ def sincronizar_selecionadas():
         return redirect(url_for("brewfather_syncs.portal"))
 
     try:
-        resultado = sync_service.sincronizar_selecionadas(origem_ids)
+        acao = request.form.get("acao", "sincronizar")
+        if acao not in ("sincronizar", "ressincronizar", "apagar"):
+            abort(400)
+        if acao == "apagar":
+            if not current_user.has_permission("mash_recipes.trash"):
+                abort(403)
+            quantidade = sync_service.apagar_receitas_importadas(origem_ids)
+            flash(f"{quantidade} receita(s) importada(s) movida(s) para a lixeira.", "success")
+            return redirect(url_for("brewfather_syncs.portal"))
+        resultado = sync_service.sincronizar_selecionadas(
+            origem_ids, ressincronizar=acao == "ressincronizar"
+        )
     except ValueError as exc:
         flash(str(exc), "error")
         return redirect(url_for("brewfather_syncs.portal"))
@@ -129,6 +140,28 @@ def sincronizar_selecionadas():
         flash(f"Erro ao sincronizar: {resultado.get('mensagem_erro') or 'veja o log.'}", "error")
 
     return redirect(url_for("brewfather_syncs.manage"))
+
+
+@brewfather_syncs_bp.route("/portal/receitas/em-massa", methods=["POST"])
+@login_required
+@permission_required("brewfather_syncs.create")
+def receitas_em_massa():
+    acao = request.form.get("acao")
+    try:
+        if acao == "ressincronizar_todas":
+            resultado = sync_service.ressincronizar_todas_importadas()
+            flash(f"{resultado['quantidade_processada']} receita(s) atualizada(s); "
+                  f"{resultado['quantidade_erro']} erro(s).", "success" if not resultado["quantidade_erro"] else "warning")
+        elif acao == "apagar_todas":
+            if not current_user.has_permission("mash_recipes.trash"):
+                abort(403)
+            quantidade = sync_service.apagar_receitas_importadas()
+            flash(f"{quantidade} receita(s) importada(s) movida(s) para a lixeira.", "success")
+        else:
+            abort(400)
+    except ValueError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("brewfather_syncs.portal"))
 
 
 @brewfather_syncs_bp.route("/pendentes", methods=["GET"])

@@ -706,7 +706,7 @@ def test_portal_filtra_receitas_sem_importar_e_bloqueia_ja_importadas(app, clien
 
     response = client.get("/brewstation/brewfather-syncs/portal?status=ja_importada")
     assert b"Weiss Bavara" in response.data
-    assert b'name="origem_ids"' not in response.data
+    assert b'data-status="ja_importada"' in response.data
     with app.app_context():
         assert MashRecipe.query.filter_by(origem_receita="BrewFather").count() == 1
 
@@ -726,6 +726,82 @@ def test_portal_paginas_api_usam_cursor_e_nao_perdem_receita_da_segunda_pagina(m
     assert receitas[-1]["_id"] == "rec-50"
     assert chamadas == [(50, None), (50, "rec-49")]
     assert limitado is False
+
+
+def test_portal_solicita_pasta_e_tags_na_listagem(monkeypatch):
+    monkeypatch.setattr(brewfather_client, "_is_testing", lambda: False)
+    monkeypatch.setattr(brewfather_client, "_is_enabled", lambda: True)
+    chamadas = []
+    monkeypatch.setattr(brewfather_client, "_get", lambda path, params: chamadas.append((path, params)) or [])
+    brewfather_client.list_recipes_basico()
+    assert chamadas[0] == ("/recipes", {"limit": 50, "include": "path,tags"})
+
+
+def test_portal_filtra_pasta_e_tag_do_brewfather(app, client, monkeypatch):
+    _login_admin(app, client)
+    monkeypatch.setattr(brewfather_client, "list_recipes_portal", lambda: ([
+        {"_id": "p1", "name": "IPA Verão", "path": "/IPAs/Verão", "tags": [{"display": "Preferidas", "value": "pref"}]},
+        {"_id": "p2", "name": "Stout", "path": "/Escuras", "tags": []},
+    ], False))
+    resposta = client.get("/brewstation/brewfather-syncs/portal?pasta=/IPAs/Ver%C3%A3o&tag=Preferidas")
+    assert resposta.status_code == 200
+    assert b"IPA Ver" in resposta.data
+    assert b"Stout" not in resposta.data
+    assert b"/IPAs/Ver" in resposta.data
+
+
+def test_ressincronizar_em_massa_cria_versao_e_preserva_lote(app, client, mock_client_basico):
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
+    _login_admin(app, client)
+    with app.app_context():
+        sync_service.sincronizar_selecionadas(["bf-sel-001"])
+        anterior = MashRecipe.query.filter_by(origem_receita_id="bf-sel-001").first()
+        anterior_id = anterior.id
+        lote = BrewSession(name="Lote preservado", recipe_id=anterior_id)
+        db.session.add(lote)
+        db.session.commit()
+        lote_id = lote.id
+
+    resposta = client.post("/brewstation/brewfather-syncs/portal/receitas/em-massa",
+                           data={"acao": "ressincronizar_todas"}, follow_redirects=True)
+    assert resposta.status_code == 200
+    with app.app_context():
+        anteriores = MashRecipe.query.filter_by(id=anterior_id).one()
+        atual = MashRecipe.query.filter_by(origem_receita_id="bf-sel-001", is_deleted=False).one()
+        assert anteriores.is_deleted is True
+        assert atual.id != anterior_id
+        assert atual.versao > anteriores.versao
+        assert db.session.get(BrewSession, lote_id).recipe_id == anterior_id
+
+
+def test_apagar_todas_nao_afeta_receita_manual_ou_lote(app, client, mock_client_basico):
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
+    _login_admin(app, client)
+    with app.app_context():
+        sync_service.sincronizar_selecionadas(["bf-sel-001", "bf-sel-002"])
+        manual = MashRecipe(name="Receita manual preservada", origem_receita="Manual", versao=1)
+        bf = MashRecipe.query.filter_by(origem_receita_id="bf-sel-001").first()
+        db.session.add_all([manual, BrewSession(name="Lote preservado", recipe_id=bf.id)])
+        db.session.commit()
+
+    resposta = client.post("/brewstation/brewfather-syncs/portal/receitas/em-massa",
+                           data={"acao": "apagar_todas"}, follow_redirects=True)
+    assert resposta.status_code == 200
+    with app.app_context():
+        assert MashRecipe.query.filter_by(origem_receita="BrewFather", is_deleted=False).count() == 0
+        assert MashRecipe.query.filter_by(origem_receita="Manual", is_deleted=False).count() == 1
+        assert BrewSession.query.count() == 1
+
+
+def test_falha_ressincronizacao_preserva_versao_ativa(app, mock_client_basico, monkeypatch):
+    with app.app_context():
+        sync_service.sincronizar_selecionadas(["bf-sel-001"])
+        def falha(_id):
+            raise brewfather_client.BrewFatherAPIError("Indisponível")
+        monkeypatch.setattr(brewfather_client, "get_recipe_normalizado", falha)
+        resultado = sync_service.sincronizar_selecionadas(["bf-sel-001"], ressincronizar=True)
+        assert resultado["quantidade_erro"] == 1
+        assert MashRecipe.query.filter_by(origem_receita_id="bf-sel-001", is_deleted=False).count() == 1
 
 
 def test_portal_reutiliza_lista_ao_filtrar_e_permite_atualizar(monkeypatch):
