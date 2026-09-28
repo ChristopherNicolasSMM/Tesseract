@@ -41,7 +41,9 @@ debugar.
    - `material_id` de um Material já existente (busca via
      `GET /api/brewstation/brewfather-syncs/buscar-materiais` —
      `material_lookup.buscar_material_por_termo`, combo de busca na
-     tela).
+     tela). A `feature.py` importa `brewfather_syncs_routes_hooks.py`
+     antes de registrar o blueprint da API; sem essa importação, a
+     rota de busca retorna 404.
    - `novo_material_nome` — cadastra um Material novo em
      `addon_estoque` na hora, resolvendo os campos obrigatórios
      (`sku`/`origem_id`/`tipo_produto_id`/`categoria_id`) pelo mesmo

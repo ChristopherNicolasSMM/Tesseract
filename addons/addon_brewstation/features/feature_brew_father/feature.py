@@ -21,6 +21,10 @@ class FeatureBrewFather(FeatureBase):
         for name in names:
             controller_mod = importlib.import_module(f"{base_controller}.{name}")
             routes_mod = importlib.import_module(f"{base_routes}.{name}_routes")
+            # As rotas extras são declaradas no módulo de hooks, que não é
+            # importado automaticamente pelo arquivo de API gerado pelo CrudGen.
+            # Carregar antes de registrar o blueprint torna essas rotas visíveis.
+            importlib.import_module(f"{base_routes}.{name}_routes_hooks")
             app.register_blueprint(getattr(controller_mod, f"{name}_bp"))
             app.register_blueprint(getattr(routes_mod, f"{name}_api_bp"))
 
