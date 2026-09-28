@@ -34,6 +34,19 @@ aceita até 500 receitas por operação por causa do limite da API; para
 volumes maiores, selecione grupos menores. A remoção geral usa a
 lixeira, portanto é reversível pelo fluxo de restauração de receitas.
 
+## Conferir inventário com o Estoque
+
+Nas abas **Fermentáveis** e **Lúpulos**, use **Vincular** para escolher
+um Material do Tesseract. O de-para de receitas pode sugerir um Material
+com nome igual, mas a escolha precisa ser confirmada. O portal mostra
+o saldo local, o saldo no Brewfather e a diferença, após conversão de
+kg e g. Material sem unidade base, sem saldo ou com unidade incompatível
+mostra o motivo do bloqueio. Materiais pendentes de revisão também são
+sinalizados. Nesta etapa, nenhum dado é enviado e nenhum saldo é alterado.
+
+O vínculo é persistente por ID do item Brewfather. É preciso rodar
+`flask db upgrade` após aplicar o patch para criar a tabela correspondente.
+
 ## Sincronizações (histórico)
 
 Lista de cada sincronização já feita — quando rodou, quantas receitas

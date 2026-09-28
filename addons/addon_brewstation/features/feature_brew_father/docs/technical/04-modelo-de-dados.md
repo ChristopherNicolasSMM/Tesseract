@@ -1,10 +1,8 @@
 # 04 — Modelo de Dados (Feature Brew Father)
 
-Sem tabela de domínio própria de receita/lote. Única tabela real desta
-Feature é o log de sincronização — **já implementado** (esta seção
-dizia "ainda não implementado" numa versão anterior; corrigido nesta
-rodada, ver `docs/technical/06-manutencao-e-expansao.md` pra como é
-usado na prática):
+Sem tabela própria de receita/lote. Esta Feature guarda o log de
+sincronização e o vínculo confirmado entre inventário Brewfather e
+Material do Estoque:
 
 ```mermaid
 erDiagram
@@ -23,7 +21,11 @@ erDiagram
     }
 ```
 
-Tabela real: `tesseract_brewstation_brewfather_sync`.
+Tabelas reais: `tesseract_brewstation_brewfather_sync` e
+`tesseract_brewstation_brewfather_inventory_link`. O vínculo contém
+`categoria`, `remote_id` e `material_id` (referência fraca ao Estoque),
+com unicidade por item remoto e por Material em cada categoria. Ele é
+independente de `IngredientMapping`, que relaciona descrições de receitas.
 
 `sincronizar_selecionadas()` (skill 27) grava nesta mesma tabela, com
 `tipo_sync="recipes"` igual a `sync_recipes()` — aparecem juntas no

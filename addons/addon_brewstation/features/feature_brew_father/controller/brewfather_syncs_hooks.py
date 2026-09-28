@@ -10,6 +10,7 @@ from core.permissions import permission_required
 from addons.addon_brewstation.features.feature_brew_father.controller.brewfather_syncs import brewfather_syncs_bp
 from addons.addon_brewstation.features.feature_brew_father.services import sync_service
 from addons.addon_brewstation.features.feature_brew_father.services import brewfather_client
+from addons.addon_brewstation.features.feature_brew_father.services import inventory_reconciliation_service as reconciliation
 
 
 @brewfather_syncs_bp.route("/sincronizar", methods=["POST"])
@@ -98,8 +99,40 @@ def portal_inventario(categoria: str):
                  "categorias": {"fermentables": "Fermentáveis", "hops": "Lúpulos",
                                 "yeasts": "Leveduras", "miscs": "Outros ingredientes"}}
         erro = str(exc)
+    if categoria in reconciliation.CATEGORIAS and not erro:
+        vinculos = reconciliation.listar_vinculos(categoria)
+        for item in dados["itens"]:
+            vinculo = vinculos.get(item["id"])
+            item["conciliacao"] = reconciliation.visualizar_item(categoria, item, vinculo)
+            item["vinculado"] = bool(vinculo)
     return render_template("brewfather_syncs/portal_inventario.html", **dados,
                            categoria=categoria, filtros=filtros, erro=erro)
+
+
+@brewfather_syncs_bp.route("/portal/inventario/<categoria>/vincular/<remote_id>", methods=["GET", "POST"])
+@login_required
+@permission_required("brewfather_syncs.create")
+def vincular_inventario(categoria: str, remote_id: str):
+    if categoria not in reconciliation.CATEGORIAS:
+        abort(404)
+    try:
+        remoto = brewfather_client.get_inventory_item(categoria, remote_id)
+    except (brewfather_client.BrewFatherDisabledError, brewfather_client.BrewFatherAPIError):
+        flash("Não foi possível confirmar este item no Brewfather. Atualize o inventário e tente novamente.", "error")
+        return redirect(url_for("brewfather_syncs.portal_inventario", categoria=categoria))
+    if request.method == "POST":
+        try:
+            material_id = int(request.form.get("material_id", ""))
+            reconciliation.vincular(categoria, remote_id, material_id)
+            flash("Vínculo de inventário salvo. Confira a prévia de saldo antes de qualquer publicação.", "success")
+            return redirect(url_for("brewfather_syncs.portal_inventario", categoria=categoria))
+        except (TypeError, ValueError) as exc:
+            flash(str(exc) if isinstance(exc, ValueError) and str(exc) else "Selecione um Material.", "error")
+    vinculo = reconciliation.listar_vinculos(categoria).get(remote_id)
+    preview = reconciliation.visualizar_item(categoria, remoto, vinculo)
+    return render_template("brewfather_syncs/vincular_inventario.html", categoria=categoria,
+                           remoto=remoto, vinculo=vinculo, preview=preview,
+                           sugestao=reconciliation.sugestao_depara(remoto.get("name") or ""))
 
 
 @brewfather_syncs_bp.route("/disponiveis/sincronizar", methods=["POST"])

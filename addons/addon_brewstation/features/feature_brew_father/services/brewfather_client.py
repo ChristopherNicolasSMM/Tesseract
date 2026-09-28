@@ -386,6 +386,20 @@ def list_inventory_portal(category: str) -> tuple[list[dict], bool]:
     return _list_paginated(f"/inventory/{category}")
 
 
+def get_inventory_item(category: str, remote_id: str) -> dict:
+    """Consulta o item por ID antes de salvar um vínculo local."""
+    if category not in ("fermentables", "hops") or not remote_id:
+        raise ValueError("Item de inventário inválido.")
+    if _is_testing():
+        raise BrewFatherDisabledError("Consulta real ao inventário desabilitada nos testes.")
+    if not _is_enabled():
+        raise BrewFatherDisabledError("Integração Brewfather desabilitada.")
+    item = _get(f"/inventory/{category}/{urllib.parse.quote(remote_id, safe='')}")
+    if not isinstance(item, dict) or item.get("_id") != remote_id:
+        raise BrewFatherAPIError("O item consultado não corresponde ao ID informado.")
+    return item
+
+
 def list_portal_cached(kind: str, *, status: str = "", force: bool = False) -> tuple[list[dict], bool]:
     """Cache curto por coleção/estado; nunca guarda credenciais ou altera dados."""
     if kind != "batches" and kind not in _INVENTORY_CATEGORIES:

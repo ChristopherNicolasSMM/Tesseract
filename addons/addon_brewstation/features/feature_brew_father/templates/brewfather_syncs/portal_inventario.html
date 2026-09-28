@@ -6,7 +6,7 @@
   {% include 'brewfather_syncs/_portal_nav.html' %}
   <div class="card"><div class="card-body">
     <h2 class="card-title">Consultar inventário</h2>
-    <p class="small text-muted">Estes valores vêm do Brewfather. A unidade e o material correspondente devem ser conferidos antes de qualquer conciliação com o ledger do Tesseract.</p>
+    <p class="small text-muted">Estes valores vêm do Brewfather. Vincule cada item ao Material correto e confira a comparação com o saldo do Estoque. Nenhuma quantidade é enviada nesta etapa.</p>
     {% if erro %}<div class="alert alert-danger" role="alert">{{ erro }}</div>
     {% else %}
       {% if limitado %}<div class="alert alert-warning" role="status">Foram consultados até 500 itens desta categoria. Pode haver outros; os filtros alcançam somente os itens carregados.</div>{% endif %}
@@ -24,8 +24,19 @@
       <a class="btn btn-outline-secondary btn-sm mb-3" href="{{ url_for('brewfather_syncs.portal_inventario', categoria=categoria, refresh=1) }}">Atualizar lista do Brewfather</a>
       <p class="small text-muted" role="status">{{ itens|length }} exibido(s) de {{ total }} carregado(s)</p>
       {% if itens %}<div class="table-responsive"><table class="table table-hover align-middle">
-        <thead><tr><th scope="col">Nome</th><th scope="col">Tipo</th><th scope="col">Fabricante</th><th scope="col">Quantidade informada</th></tr></thead>
-        <tbody>{% for item in itens %}<tr><td>{{ item.name }}</td><td>{{ item.type }}</td><td>{{ item.supplier }}</td><td>{{ item.inventory if item.inventory is not none else '—' }}</td></tr>{% endfor %}</tbody>
+        <thead><tr><th scope="col">Nome</th><th scope="col">Tipo</th><th scope="col">Fabricante</th><th scope="col">Brewfather</th>{% if categoria in ('fermentables', 'hops') %}<th scope="col">Material vinculado</th><th scope="col">Saldo Tesseract</th><th scope="col">Diferença</th><th scope="col">Conciliação</th>{% endif %}</tr></thead>
+        <tbody>{% for item in itens %}<tr>
+          <td>{{ item.name }}</td><td>{{ item.type }}</td><td>{{ item.supplier }}</td>
+          <td>{{ item.inventory if item.inventory is not none else '—' }}{% if categoria == 'fermentables' %} kg{% elif categoria == 'hops' %} g{% endif %}</td>
+          {% if categoria in ('fermentables', 'hops') %}
+          <td>{{ item.conciliacao.material.nome if item.conciliacao.material else 'Não vinculado' }}</td>
+          <td>{% if item.conciliacao.quantidade_publicavel is not none %}{{ item.conciliacao.quantidade_publicavel }} {{ item.conciliacao.unidade_brewfather }}{% else %}—{% endif %}</td>
+          <td>{% if item.conciliacao.diferenca is not none %}{{ item.conciliacao.diferenca }} {{ item.conciliacao.unidade_brewfather }}{% else %}—{% endif %}</td>
+          <td>
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('brewfather_syncs.vincular_inventario', categoria=categoria, remote_id=item.id) }}">{{ 'Revisar vínculo' if item.vinculado else 'Vincular' }}</a>
+            {% for aviso in item.conciliacao.bloqueios %}<small class="d-block text-warning">{{ aviso }}</small>{% endfor %}
+          </td>{% endif %}
+        </tr>{% endfor %}</tbody>
       </table></div>{% else %}<p class="text-muted">Nenhum item corresponde aos filtros.</p>{% endif %}
     {% endif %}
   </div></div>

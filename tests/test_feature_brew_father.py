@@ -27,6 +27,10 @@ from addons.addon_brewstation.features.feature_mash_control.model.ingredient_map
 from addons.addon_brewstation.features.feature_brew_father.model.brew_father_sync import BrewFatherSync
 from addons.addon_brewstation.features.feature_brew_father.services import sync_service
 from addons.addon_brewstation.features.feature_brew_father.services import brewfather_client
+from addons.addon_brewstation.features.feature_brew_father.services import inventory_reconciliation_service as reconciliation
+from addons.addon_brewstation.features.feature_brew_father.model.inventory_link import BrewfatherInventoryLink
+from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
+from addons.addon_estoque.root.model.saldo import Saldo
 
 
 MOCK_RECIPES = [
@@ -802,6 +806,76 @@ def test_falha_ressincronizacao_preserva_versao_ativa(app, mock_client_basico, m
         resultado = sync_service.sincronizar_selecionadas(["bf-sel-001"], ressincronizar=True)
         assert resultado["quantidade_erro"] == 1
         assert MashRecipe.query.filter_by(origem_receita_id="bf-sel-001", is_deleted=False).count() == 1
+
+
+def test_conciliacao_lupulo_converte_saldo_sem_escrever_no_ledger(app):
+    with app.app_context():
+        material = _criar_material_de_estoque("Lúpulo Cascade para conciliação")
+        db.session.add(material)
+        db.session.flush()
+        db.session.add(MaterialUnidade(material_id=material.id, unidade="KG", fator_para_base=1,
+                                       is_unidade_base=True))
+        db.session.add(Saldo(material_id=material.id, quantidade_atual=2))
+        db.session.commit()
+        vinculo = reconciliation.vincular("hops", "hop-cascade", material.id)
+        preview = reconciliation.visualizar_item("hops", {"inventory": 500}, vinculo)
+        assert preview["quantidade_publicavel"] == 2000
+        assert preview["diferenca"] == 1500
+        assert preview["bloqueios"] == []
+        assert Saldo.query.filter_by(material_id=material.id).one().quantidade_atual == 2
+
+
+def test_conciliacao_exige_unidade_base_conhecida_e_vinculo_unico(app):
+    with app.app_context():
+        material = _criar_material_de_estoque("Malte Pilsen para conciliação")
+        db.session.add(material)
+        db.session.flush()
+        db.session.add(MaterialUnidade(material_id=material.id, unidade="PCT", fator_para_base=1,
+                                       is_unidade_base=True))
+        db.session.add(Saldo(material_id=material.id, quantidade_atual=5))
+        db.session.commit()
+        vinculo = reconciliation.vincular("fermentables", "bf-mal-1", material.id)
+        preview = reconciliation.visualizar_item("fermentables", {"inventory": 2}, vinculo)
+        assert preview["quantidade_publicavel"] is None
+        assert "Conversão" in preview["bloqueios"][-1]
+        with pytest.raises(ValueError, match="já está vinculado"):
+            reconciliation.vincular("fermentables", "bf-mal-2", material.id)
+
+
+def test_portal_vincula_item_por_id_com_combo_padrao(app, client, monkeypatch):
+    _login_admin(app, client)
+    with app.app_context():
+        material = _criar_material_de_estoque("Malte de referência Brewfather")
+        db.session.add(material)
+        db.session.commit()
+        material_id = material.id
+    remoto = {"_id": "bf-pilsen", "name": "Pilsen BF", "inventory": 3,
+              "type": "Grain", "supplier": "Fabricante"}
+    monkeypatch.setattr(brewfather_client, "get_inventory_item", lambda categoria, item_id: remoto)
+    monkeypatch.setattr(brewfather_client, "list_portal_cached", lambda *args, **kwargs: ([remoto], False))
+    url = "/brewstation/brewfather-syncs/portal/inventario/fermentables/vincular/bf-pilsen"
+    resposta = client.get(url)
+    assert resposta.status_code == 200
+    assert b'weakref-combo' in resposta.data
+    assert b'data-weakref-source="materials"' in resposta.data
+    resposta = client.post(url, data={"material_id": material_id}, follow_redirects=True)
+    assert resposta.status_code == 200
+    assert b"Malte de refer" in resposta.data
+    with app.app_context():
+        vinculo = BrewfatherInventoryLink.query.filter_by(remote_id="bf-pilsen").one()
+        assert vinculo.material_id == material_id
+
+
+def test_depara_sugere_material_sem_criar_vinculo_de_inventario(app):
+    with app.app_context():
+        material = _criar_material_de_estoque("Pilsen consolidado")
+        db.session.add(material)
+        db.session.flush()
+        db.session.add(IngredientMapping(origem_receita="BrewFather",
+                                         descricao_origem="Pilsen BF", material_id=material.id))
+        db.session.commit()
+        assert reconciliation.sugestao_depara("Pilsen BF")["id"] == material.id
+        assert BrewfatherInventoryLink.query.count() == 0
 
 
 def test_portal_reutiliza_lista_ao_filtrar_e_permite_atualizar(monkeypatch):

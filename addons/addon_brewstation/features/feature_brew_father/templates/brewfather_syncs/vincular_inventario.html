@@ -1,0 +1,31 @@
+{% extends "core/base.html" %}
+{% block content %}
+<div class="pagetitle"><h1>Conciliação de inventário</h1></div>
+<section class="section">
+  <a class="btn btn-outline-secondary btn-sm mb-3" href="{{ url_for('brewfather_syncs.portal_inventario', categoria=categoria) }}">Voltar ao inventário</a>
+  <div class="card"><div class="card-body">
+    <h2 class="card-title">{{ remoto.name }} — {{ 'Fermentável' if categoria == 'fermentables' else 'Lúpulo' }}</h2>
+    <p>Item Brewfather <code>{{ remoto._id }}</code>; saldo remoto: {{ remoto.inventory if remoto.inventory is not none else 'não informado' }} {{ preview.unidade_brewfather }}.</p>
+    {% if sugestao %}<p class="alert alert-info">O de-para das receitas sugere <strong>{{ sugestao.nome }}</strong> (SKU {{ sugestao.sku }}). Confira o produto e selecione o Material antes de confirmar.</p>{% endif %}
+    <form method="post">
+      <label class="form-label" for="material-busca">Material do Estoque</label>
+      <div class="weakref-combo mb-3" data-weakref-source="materials">
+        <input type="hidden" name="material_id" class="weakref-combo-value" value="{{ vinculo.material_id if vinculo else '' }}">
+        <input id="material-busca" type="text" class="form-control weakref-combo-search" autocomplete="off"
+               value="{{ preview.material.display if preview.material else '' }}" placeholder="Buscar Material pelo nome" required>
+        <ul class="list-group weakref-combo-results"></ul>
+      </div>
+      <button type="submit" class="btn btn-primary">Salvar vínculo</button>
+    </form>
+    {% if vinculo %}
+    <hr>
+    <p>Unidade base: {{ preview.unidade_base or 'não definida' }}; saldo no Tesseract: {{ preview.saldo_local if preview.saldo_local is not none else 'ausente' }}.</p>
+    <p>Quantidade convertida: {{ preview.quantidade_publicavel if preview.quantidade_publicavel is not none else 'indisponível' }} {{ preview.unidade_brewfather }}.
+       Diferença: {{ preview.diferenca if preview.diferenca is not none else 'indisponível' }} {{ preview.unidade_brewfather }}.</p>
+    {% for aviso in preview.bloqueios %}<div class="alert alert-warning">{{ aviso }}</div>{% endfor %}
+    {% endif %}
+    <p class="small text-muted">Salvar o vínculo não movimenta o ledger nem publica cadastro ou saldo no Brewfather.</p>
+  </div></div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>{% endblock %}

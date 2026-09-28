@@ -9,8 +9,9 @@ from core.feature_base import FeatureBase
 class FeatureBrewFather(FeatureBase):
     def register_models(self) -> list:
         from addons.addon_brewstation.features.feature_brew_father.model.brew_father_sync import BrewFatherSync
+        from addons.addon_brewstation.features.feature_brew_father.model.inventory_link import BrewfatherInventoryLink
 
-        return [BrewFatherSync]
+        return [BrewFatherSync, BrewfatherInventoryLink]
 
     def register_routes(self, app) -> None:
         names = ["brewfather_syncs"]

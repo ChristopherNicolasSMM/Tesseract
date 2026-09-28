@@ -64,6 +64,17 @@ consulta e filtros com escopos `batches.read` e `inventory.read`,
 respectivamente; ainda não importam esses registros. A regra de saldo do estoque exige conciliação via ledger
 antes de qualquer sincronização de quantidade externa.
 
+## Prévia de conciliação de inventário
+
+Fermentáveis e lúpulos aceitam vínculo explícito por ID do item remoto
+e ID de Material, gravado em `BrewfatherInventoryLink` (migration
+`6abac6de2f17`). `IngredientMapping` fornece apenas sugestão pelo nome;
+as duas associações não são fundidas. O portal compara saldo via
+`material_lookup.get_saldo()` e unidade base via
+`material_lookup.get_unidade_base()`, convertendo KG↔G e bloqueando
+unidades não definidas. A prévia não escreve no Brewfather nem altera
+`Saldo`/`Movimentacao` no Tesseract.
+
 ## Pendências reais
 
 - Item (c) do `BACKLOG.md` — adjuntos (`miscs[]`) e água (`water`) da
