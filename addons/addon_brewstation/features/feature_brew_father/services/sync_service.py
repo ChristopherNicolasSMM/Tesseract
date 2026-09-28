@@ -8,6 +8,7 @@ origem_receita="BrewFather".
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
 
 from core.db import db
 from addons.addon_brewstation.features.feature_brew_father.model.brew_father_sync import BrewFatherSync
@@ -145,6 +146,58 @@ def listar_portal_receitas(filtros: dict[str, str], *, atualizar: bool = False) 
         "estilos": sorted({r["style"] for r in todas if r["style"]}),
         "tipos": sorted({r["type"] for r in todas if r["type"]}),
     }
+
+
+def listar_portal_lotes(filtros: dict[str, str], *, atualizar: bool = False) -> dict:
+    status = filtros.get("status") or ""
+    raw, limitado = brewfather_client.list_portal_cached("batches", status=status, force=atualizar)
+    q = (filtros.get("q") or "").strip().casefold()
+    todos = [{
+        "id": r["_id"], "name": r.get("name") or "Sem nome",
+        "batch_no": r.get("batchNo"), "status": r.get("status") or "—",
+        "brew_date": _formatar_data_bf(r.get("brewDate")),
+        "recipe": (r.get("recipe") or {}).get("name") if isinstance(r.get("recipe"), dict) else None,
+    } for r in raw if isinstance(r, dict) and r.get("_id")]
+    exibidos = [r for r in todos if not q or q in r["name"].casefold() or q in (r["recipe"] or "").casefold()]
+    return {"lotes": exibidos, "total": len(todos), "limitado": limitado}
+
+
+def _formatar_data_bf(value) -> str:
+    if value in (None, ""):
+        return "—"
+    try:
+        if isinstance(value, (int, float)):
+            seconds = value / 1000 if abs(value) >= 10**11 else value
+            return datetime.fromtimestamp(seconds, timezone.utc).strftime("%d/%m/%Y")
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).strftime("%d/%m/%Y")
+    except (ValueError, TypeError, OverflowError, OSError):
+        return str(value)
+
+
+def _tem_saldo_brewfather(value) -> bool:
+    try:
+        return Decimal(str(value)) > 0
+    except (InvalidOperation, ValueError, TypeError):
+        return False
+
+
+def listar_portal_inventario(categoria: str, filtros: dict[str, str], *, atualizar: bool = False) -> dict:
+    raw, limitado = brewfather_client.list_portal_cached(categoria, force=atualizar)
+    todos = [{
+        "id": r["_id"], "name": r.get("name") or "Sem nome",
+        "type": r.get("type") or "—", "supplier": r.get("supplier") or "—",
+        "inventory": r.get("inventory"),
+        "has_stock": _tem_saldo_brewfather(r.get("inventory")),
+    } for r in raw if isinstance(r, dict) and r.get("_id")]
+    q = (filtros.get("q") or "").strip().casefold()
+    stock = filtros.get("stock") or ""
+    exibidos = [r for r in todos if (
+        (not q or q in r["name"].casefold() or q in r["supplier"].casefold())
+        and (not stock or r["has_stock"] == (stock == "positive"))
+    )]
+    return {"itens": exibidos, "total": len(todos), "limitado": limitado,
+            "categorias": {"fermentables": "Fermentáveis", "hops": "Lúpulos",
+                           "yeasts": "Leveduras", "miscs": "Outros ingredientes"}}
 
 
 def sincronizar_selecionadas(origem_ids: list[str]) -> dict:

@@ -54,8 +54,9 @@ lógica de normalização.
 consultar até 500 receitas paginadas, filtrar por nome, estilo, tipo ou
 situação e importar até 50 selecionadas por operação. O histórico
 gerado pelo CrudGen continua em `/brewstation/brewfather-syncs`;
-o atalho da barra leva ao portal. Lotes e inventário ainda não são
-importados. A regra de saldo do estoque exige conciliação via ledger
+o atalho da barra leva ao portal. Abas de lotes e inventário permitem
+consulta e filtros com escopos `batches.read` e `inventory.read`,
+respectivamente; ainda não importam esses registros. A regra de saldo do estoque exige conciliação via ledger
 antes de qualquer sincronização de quantidade externa.
 
 ## Pendências reais

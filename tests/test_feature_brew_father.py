@@ -767,3 +767,65 @@ def test_falha_no_meio_da_receita_desfaz_ingredientes_e_cabecalho(app, monkeypat
         assert resultado["status"] == "erro"
         assert MashRecipe.query.filter_by(origem_receita_id="bf-parcial").count() == 0
         assert RecipeIngredient.query.filter_by(descricao_origem="Malte válido").count() == 0
+
+
+def test_portal_lotes_filtra_status_na_api_e_nome_localmente(app, client, monkeypatch):
+    _login_admin(app, client)
+    chamadas = []
+
+    def listar(kind, *, status="", force=False):
+        chamadas.append((kind, status, force))
+        return ([
+            {"_id": "l-1", "name": "Lote Safra", "batchNo": 9,
+             "status": "Fermenting", "brewDate": 1767139200000, "recipe": {"name": "Red Ale"}},
+            {"_id": "l-2", "name": "Outro", "status": "Fermenting",
+             "recipe": {"name": "Pilsen"}},
+        ], False)
+
+    monkeypatch.setattr(brewfather_client, "list_portal_cached", listar)
+    response = client.get("/brewstation/brewfather-syncs/portal/lotes?status=Fermenting&q=Safra")
+    assert response.status_code == 200
+    assert b"Lote Safra" in response.data
+    assert b"Pilsen" not in response.data
+    assert chamadas == [("batches", "Fermenting", False)]
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
+        assert BrewSession.query.count() == 0
+
+
+def test_portal_inventario_filtra_saldo_sem_alterar_estoque(app, client, monkeypatch):
+    _login_admin(app, client)
+    monkeypatch.setattr(brewfather_client, "list_portal_cached", lambda kind, **kwargs: ([
+        {"_id": "h-1", "name": "Cascade", "supplier": "Fabricante A", "inventory": 250},
+        {"_id": "h-2", "name": "Sem estoque", "inventory": 0},
+    ], False))
+    response = client.get("/brewstation/brewfather-syncs/portal/inventario/hops?stock=positive")
+    assert response.status_code == 200
+    assert b"Cascade" in response.data
+    assert b"Sem estoque" not in response.data
+    with app.app_context():
+        from addons.addon_estoque.root.model.movimentacao import Movimentacao
+        assert Movimentacao.query.count() == 0
+
+
+def test_portal_inventario_rejeita_categoria_desconhecida(app, client):
+    _login_admin(app, client)
+    assert client.get("/brewstation/brewfather-syncs/portal/inventario/invalid").status_code == 404
+
+
+def test_cliente_inventario_usa_paginacao_v2(monkeypatch):
+    monkeypatch.setattr(brewfather_client, "_is_testing", lambda: False)
+    monkeypatch.setattr(brewfather_client, "_is_enabled", lambda: True)
+    chamadas = []
+
+    def fake_get(path, params):
+        chamadas.append((path, params.copy()))
+        if "start_after" not in params:
+            return [{"_id": str(i)} for i in range(50)]
+        return [{"_id": "50"}]
+
+    monkeypatch.setattr(brewfather_client, "_get", fake_get)
+    itens, limitado = brewfather_client.list_inventory_portal("hops")
+    assert len(itens) == 51
+    assert chamadas[1] == ("/inventory/hops", {"limit": 50, "start_after": "49"})
+    assert limitado is False

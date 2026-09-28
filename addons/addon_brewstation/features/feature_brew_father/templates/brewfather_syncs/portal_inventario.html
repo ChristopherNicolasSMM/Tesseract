@@ -1,0 +1,33 @@
+{% extends "core/base.html" %}
+{% block content %}
+<div class="pagetitle"><h1>Portal Brewfather — {{ categorias[categoria] }}</h1></div>
+<section class="section">
+  {% set aba_portal = categoria %}
+  {% include 'brewfather_syncs/_portal_nav.html' %}
+  <div class="card"><div class="card-body">
+    <h2 class="card-title">Consultar inventário</h2>
+    <p class="small text-muted">Estes valores vêm do Brewfather. A unidade e o material correspondente devem ser conferidos antes de qualquer conciliação com o ledger do Tesseract.</p>
+    {% if erro %}<div class="alert alert-danger" role="alert">{{ erro }}</div>
+    {% else %}
+      {% if limitado %}<div class="alert alert-warning" role="status">Foram consultados até 500 itens desta categoria. Pode haver outros; os filtros alcançam somente os itens carregados.</div>{% endif %}
+      <form method="get" action="{{ url_for('brewfather_syncs.portal_inventario', categoria=categoria) }}" class="row g-2 align-items-end mb-3">
+        <div class="col-md-5"><label class="form-label" for="inventario-q">Nome ou fabricante</label><input id="inventario-q" name="q" class="form-control" value="{{ filtros.q }}"></div>
+        <div class="col-md-3"><label class="form-label" for="inventario-stock">Quantidade no Brewfather</label>
+          <select id="inventario-stock" name="stock" class="form-select">
+            <option value="">Todas</option>
+            <option value="positive" {% if filtros.stock == 'positive' %}selected{% endif %}>Maior que zero</option>
+            <option value="other" {% if filtros.stock == 'other' %}selected{% endif %}>Zero, negativa ou não informada</option>
+          </select></div>
+        <div class="col-md-auto"><button class="btn btn-primary" type="submit">Filtrar</button></div>
+        <div class="col-md-auto"><a class="btn btn-outline-secondary" href="{{ url_for('brewfather_syncs.portal_inventario', categoria=categoria) }}">Limpar</a></div>
+      </form>
+      <a class="btn btn-outline-secondary btn-sm mb-3" href="{{ url_for('brewfather_syncs.portal_inventario', categoria=categoria, refresh=1) }}">Atualizar lista do Brewfather</a>
+      <p class="small text-muted" role="status">{{ itens|length }} exibido(s) de {{ total }} carregado(s)</p>
+      {% if itens %}<div class="table-responsive"><table class="table table-hover align-middle">
+        <thead><tr><th scope="col">Nome</th><th scope="col">Tipo</th><th scope="col">Fabricante</th><th scope="col">Quantidade informada</th></tr></thead>
+        <tbody>{% for item in itens %}<tr><td>{{ item.name }}</td><td>{{ item.type }}</td><td>{{ item.supplier }}</td><td>{{ item.inventory if item.inventory is not none else '—' }}</td></tr>{% endfor %}</tbody>
+      </table></div>{% else %}<p class="text-muted">Nenhum item corresponde aos filtros.</p>{% endif %}
+    {% endif %}
+  </div></div>
+</section>
+{% endblock %}

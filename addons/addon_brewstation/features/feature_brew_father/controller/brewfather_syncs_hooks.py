@@ -3,7 +3,7 @@ addons/addon_brewstation/features/feature_brew_father/controller/brewfather_sync
 
 Criado UMA ÚNICA VEZ pelo CrudGen — nunca sobrescrito.
 """
-from flask import redirect, url_for, flash, render_template, request
+from flask import abort, redirect, url_for, flash, render_template, request
 from flask_login import login_required, current_user
 
 from core.permissions import permission_required
@@ -63,6 +63,43 @@ def portal():
         erro = str(exc)
 
     return render_template("brewfather_syncs/portal.html", **dados, filtros=filtros, erro=erro)
+
+
+@brewfather_syncs_bp.route("/portal/lotes", methods=["GET"])
+@login_required
+@permission_required("brewfather_syncs.list")
+def portal_lotes():
+    filtros = {"q": request.args.get("q", "").strip(), "status": request.args.get("status", "").strip()}
+    if filtros["status"] not in ("", "Planning", "Brewing", "Fermenting", "Conditioning", "Completed", "Archived"):
+        abort(400)
+    try:
+        dados = sync_service.listar_portal_lotes(filtros, atualizar=request.args.get("refresh") == "1")
+        erro = None
+    except (brewfather_client.BrewFatherDisabledError, brewfather_client.BrewFatherAPIError) as exc:
+        dados = {"lotes": [], "total": 0, "limitado": False}
+        erro = str(exc)
+    return render_template("brewfather_syncs/portal_lotes.html", **dados, filtros=filtros, erro=erro)
+
+
+@brewfather_syncs_bp.route("/portal/inventario/<categoria>", methods=["GET"])
+@login_required
+@permission_required("brewfather_syncs.list")
+def portal_inventario(categoria: str):
+    if categoria not in ("fermentables", "hops", "yeasts", "miscs"):
+        abort(404)
+    filtros = {"q": request.args.get("q", "").strip(), "stock": request.args.get("stock", "").strip()}
+    if filtros["stock"] not in ("", "positive", "other"):
+        abort(400)
+    try:
+        dados = sync_service.listar_portal_inventario(categoria, filtros, atualizar=request.args.get("refresh") == "1")
+        erro = None
+    except (brewfather_client.BrewFatherDisabledError, brewfather_client.BrewFatherAPIError) as exc:
+        dados = {"itens": [], "total": 0, "limitado": False,
+                 "categorias": {"fermentables": "Fermentáveis", "hops": "Lúpulos",
+                                "yeasts": "Leveduras", "miscs": "Outros ingredientes"}}
+        erro = str(exc)
+    return render_template("brewfather_syncs/portal_inventario.html", **dados,
+                           categoria=categoria, filtros=filtros, erro=erro)
 
 
 @brewfather_syncs_bp.route("/disponiveis/sincronizar", methods=["POST"])

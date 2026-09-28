@@ -1,0 +1,9 @@
+<nav aria-label="Áreas do portal Brewfather" class="mb-3">
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-sm {{ 'btn-primary' if aba_portal == 'receitas' else 'btn-outline-primary' }}" href="{{ url_for('brewfather_syncs.portal') }}" {% if aba_portal == 'receitas' %}aria-current="page"{% endif %}>Receitas</a>
+    <a class="btn btn-sm {{ 'btn-primary' if aba_portal == 'lotes' else 'btn-outline-primary' }}" href="{{ url_for('brewfather_syncs.portal_lotes') }}" {% if aba_portal == 'lotes' %}aria-current="page"{% endif %}>Lotes</a>
+    {% for chave, nome in [('fermentables', 'Fermentáveis'), ('hops', 'Lúpulos'), ('yeasts', 'Leveduras'), ('miscs', 'Outros ingredientes')] %}
+    <a class="btn btn-sm {{ 'btn-primary' if aba_portal == chave else 'btn-outline-primary' }}" href="{{ url_for('brewfather_syncs.portal_inventario', categoria=chave) }}" {% if aba_portal == chave %}aria-current="page"{% endif %}>{{ nome }}</a>
+    {% endfor %}
+  </div>
+</nav>

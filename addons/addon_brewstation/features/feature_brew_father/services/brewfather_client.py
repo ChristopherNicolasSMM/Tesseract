@@ -338,6 +338,71 @@ def list_recipes_portal_cached(force: bool = False) -> tuple[list[dict], bool]:
         return recipes, limited
 
 
+_INVENTORY_CATEGORIES = ("fermentables", "hops", "yeasts", "miscs")
+
+
+def _list_paginated(path: str, *, max_items: int = 500, params: dict | None = None) -> tuple[list[dict], bool]:
+    """Lê páginas v2 sem tratar o fim de uma página como fim da coleção."""
+    if _is_testing():
+        return [], False
+    if not _is_enabled():
+        raise BrewFatherDisabledError(
+            "Integração Brewfather desabilitada — defina BREWFATHER_ENABLED=True no .env"
+        )
+    rows: list[dict] = []
+    cursor = None
+    max_items = max(1, min(max_items, 500))
+    while len(rows) < max_items:
+        page_size = min(50, max_items - len(rows))
+        query = {"limit": page_size, **(params or {})}
+        if cursor:
+            query["start_after"] = cursor
+        page = _get(path, query)
+        if not isinstance(page, list):
+            raise BrewFatherAPIError("Resposta inesperada da API: era esperada uma lista.")
+        if not page:
+            return rows, False
+        last_id = page[-1].get("_id") if isinstance(page[-1], dict) else None
+        if not last_id or last_id == cursor:
+            raise BrewFatherAPIError("Paginação da API retornou uma página sem cursor válido.")
+        rows.extend(page)
+        cursor = last_id
+        if len(page) < page_size:
+            return rows, False
+    return rows, True
+
+
+def list_batches_portal(status: str = "") -> tuple[list[dict], bool]:
+    valid = {"", "Planning", "Brewing", "Fermenting", "Conditioning", "Completed", "Archived"}
+    if status not in valid:
+        raise ValueError("Status de lote inválido.")
+    return _list_paginated("/batches", params={"status": status} if status else None)
+
+
+def list_inventory_portal(category: str) -> tuple[list[dict], bool]:
+    if category not in _INVENTORY_CATEGORIES:
+        raise ValueError("Categoria de inventário inválida.")
+    return _list_paginated(f"/inventory/{category}")
+
+
+def list_portal_cached(kind: str, *, status: str = "", force: bool = False) -> tuple[list[dict], bool]:
+    """Cache curto por coleção/estado; nunca guarda credenciais ou altera dados."""
+    if kind != "batches" and kind not in _INVENTORY_CATEGORIES:
+        raise ValueError("Coleção inválida.")
+    if kind == "batches" and status not in {"", "Planning", "Brewing", "Fermenting", "Conditioning", "Completed", "Archived"}:
+        raise ValueError("Status de lote inválido.")
+    if _is_testing():
+        return list_batches_portal(status) if kind == "batches" else list_inventory_portal(kind)
+    key = (os.environ.get("BREWFATHER_USER_ID"), kind, status if kind == "batches" else "")
+    with _portal_cache_lock:
+        cached = _portal_cache.get(key)
+        if cached and not force and time.monotonic() < cached[2]:
+            return cached[0], cached[1]
+        result = list_batches_portal(status) if kind == "batches" else list_inventory_portal(kind)
+        _portal_cache[key] = (result[0], result[1], time.monotonic() + 90)
+        return result
+
+
 def get_recipe_normalizado(recipe_id: str) -> dict:
     """
     Skill 27 — detalhe completo de UMA receita, já normalizado pro

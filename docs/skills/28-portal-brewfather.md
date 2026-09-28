@@ -38,6 +38,30 @@ As credenciais permanecem no servidor (`BREWFATHER_USER_ID`,
 | Lotes | `/batches` e `/batches/:id` | Ainda sem importador de lotes Brewfather | Exibir e selecionar em etapa própria, após definir vínculo e idempotência com `BrewSession` |
 | Inventário | `/inventory/{fermentables,hops,yeasts,miscs}` | Estoque/ledger do Tesseract | Exibir e fazer de-para antes de qualquer conciliação; nunca atribuir saldo direto |
 
+## Consulta de lotes e inventário [EXECUTADO]
+
+O portal tem abas de consulta para lotes e para fermentáveis, lúpulos,
+leveduras e outros ingredientes. Cada aba de inventário consulta apenas
+sua coleção; lotes aceitam filtro de status na API. A busca textual de
+ambos e o filtro por quantidade informada são aplicados localmente nas
+páginas carregadas. Há limite visível de 500 registros por consulta,
+cache de 90 segundos e atualização manual.
+
+São necessários os escopos `batches.read` para lotes e `inventory.read`
+para inventário, além de `recipes.read` para receitas. A quantidade de
+inventário é mostrada como valor bruto recebido: **nenhuma conversão de
+unidade é inferida**, nenhum saldo do Tesseract é atualizado e nenhum
+lote é criado. A API de inventário não lista itens padrão sem edição
+ou quantidade cadastrada; uma lista vazia não prova ausência de um
+ingrediente no catálogo completo do Brewfather.
+
+`BrewSession` não tem identificador remoto de lote nem regra de
+correspondência com uma receita Brewfather. Estes requisitos devem ser
+resolvidos antes de permitir importação seletiva de lotes. Para o
+inventário, o passo seguinte é um de-para explícito de item remoto,
+Material e unidade, acompanhado de uma prévia de diferença de saldo e
+movimentação identificada no ledger caso o usuário confirme.
+
 **[ABERTO]** No inventário, definir a fonte de verdade do saldo, a
 unidade, a identificação do material, o tratamento de diferenças e a
 auditoria da movimentação antes de oferecer importação. Para lotes,

@@ -6,6 +6,8 @@
 </div>
 
 <section class="section">
+  {% set aba_portal = 'receitas' %}
+  {% include 'brewfather_syncs/_portal_nav.html' %}
   <div class="d-flex flex-wrap gap-2 mb-3">
     <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('brewfather_syncs.manage') }}">Histórico de sincronizações</a>
     <a class="btn btn-outline-warning btn-sm" href="{{ url_for('brewfather_syncs.pendentes') }}">Ingredientes pendentes</a>
@@ -92,7 +94,7 @@
       {% endif %}
     </div>
   </div>
-  <p class="text-muted small">Lotes e inventário terão fluxos próprios de revisão. O estoque local mantém seus saldos pelo ledger; esta tela não altera quantidades.</p>
+  <p class="text-muted small">A consulta de lotes e inventário está nas abas acima. Nenhuma delas altera quantidades do estoque.</p>
 </section>
 <script src="{{ url_for('static', filename='js/brewfather_portal.js') }}" defer></script>
 {% endblock %}
