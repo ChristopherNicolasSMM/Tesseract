@@ -75,6 +75,19 @@ def test_landing_sem_planta_nenhuma_mostra_aviso(app, client):
     assert "Nenhuma Planta cadastrada" in html
 
 
+def test_landing_cria_planta_e_abre_configuracao(app, client):
+    _login_admin(app, client)
+    resp = client.post("/brewstation/plant-workspace/", data={"name": "Planta Piloto Integrada"})
+    assert resp.status_code == 302
+    with app.app_context():
+        plant = BrewPlant.query.filter_by(name="Planta Piloto Integrada").first()
+        assert plant is not None
+        assert f"/brewstation/plant-workspace/{plant.id}?tab=plant" in resp.headers["Location"]
+    shell_html = client.get(resp.headers["Location"]).data.decode("utf-8")
+    assert 'id="pwTab-plant"' in shell_html
+    assert "__workspaceSubmitForm" in shell_html
+
+
 # ── Casca (shell) ────────────────────────────────────────────────────────────
 
 def test_shell_renderiza_barra_de_abas(app, client):
@@ -158,6 +171,38 @@ def test_tab_dashboard_sem_layout_mostra_estado_vazio(app, client):
     assert "ainda não tem nenhum Dashboard" in html
     # fragmento não pode ter o layout do Core em volta
     assert "<html" not in html.lower()
+    assert 'id="pwLayoutForm"' in html
+
+
+def test_workspace_cria_layout_da_planta_e_abre_editor(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Painel Inicial")
+        db.session.add(plant)
+        db.session.commit()
+        plant_id = plant.id
+
+    resp = client.post(f"/brewstation/plant-workspace/{plant_id}/dashboard-layouts",
+                       data={"name": "Painel da Mostura"},
+                       headers={"X-Requested-With": "XMLHttpRequest"})
+    assert resp.status_code == 201
+    layout_id = resp.get_json()["id"]
+    with app.app_context():
+        layout = db.session.get(DashboardLayout, layout_id)
+        assert layout.plant_id == plant_id
+        assert layout.is_default is True
+    fragment = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/dashboard").data.decode("utf-8")
+    assert "Painel da Mostura" in fragment
+    assert 'id="dbCanvas"' in fragment
+
+
+def test_workspace_nao_cria_layout_em_planta_inexistente(app, client):
+    _login_admin(app, client)
+    resp = client.post("/brewstation/plant-workspace/999999/dashboard-layouts",
+                       data={"name": "Painel órfão"},
+                       headers={"X-Requested-With": "XMLHttpRequest"})
+    assert resp.status_code == 404
+    assert resp.get_json()["ok"] is False
 
 
 def test_tab_dashboard_com_layout_renderiza_fragmento(app, client):
@@ -396,6 +441,30 @@ def test_tab_plant_mostra_dados_da_planta(app, client):
     assert "Planta Aba Dados" in html
     assert "50.0 L" in html
     assert "<html" not in html.lower()
+
+
+def test_workspace_adiciona_tanque_na_planta_sem_aceitar_tipo_invalido(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Tanque Inicial")
+        db.session.add(plant)
+        db.session.commit()
+        plant_id = plant.id
+
+    url = f"/brewstation/plant-workspace/{plant_id}/vessels"
+    invalid = client.post(url, data={"label_text": "Tanque impróprio", "vessel_type": "qualquer"},
+                          headers={"X-Requested-With": "XMLHttpRequest"})
+    assert invalid.status_code == 400
+    resp = client.post(url, data={"label_text": "Panela Principal", "vessel_type": "mash_tun"},
+                       headers={"X-Requested-With": "XMLHttpRequest"})
+    assert resp.status_code == 201
+    fragment = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/plant").data.decode("utf-8")
+    assert "Panela Principal" in fragment
+    assert "1 tanque(s) cadastrado(s)" in fragment
+    with app.app_context():
+        vessels = BrewPlantVessel.query.filter_by(plant_id=plant_id).all()
+        assert len(vessels) == 1
+        assert vessels[0].id == resp.get_json()["id"]
 
 
 def test_tab_plant_lista_tanques_sem_nenhum_mostra_aviso(app, client):

@@ -20,7 +20,7 @@ Arquitetura decidida em conversa:
 """
 from __future__ import annotations
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required
 
 from core.permissions import permission_required
@@ -43,6 +43,9 @@ from addons.addon_brewstation.features.feature_mash_control.services.ingredient_
     conferir_ingredientes, calcular_custo_insumos_receita,
 )
 from addons.addon_brewstation.features.feature_mash_control.model.dashboard_layout import DashboardLayout
+from addons.addon_brewstation.features.feature_mash_control.services.brew_plant_service import BrewPlantService
+from addons.addon_brewstation.features.feature_mash_control.services.brew_plant_vessel_service import BrewPlantVesselService
+from addons.addon_brewstation.features.feature_mash_control.services.dashboard_layout_service import DashboardLayoutService
 from addons.addon_brewstation.features.feature_mash_control.controller.dashboard_runtime import (
     _build_dashboard_view_context,
 )
@@ -73,6 +76,71 @@ def landing():
     return render_template("plant_workspace/landing.html", plants=plants)
 
 
+@plant_workspace_bp.route("/", methods=["POST"])
+@login_required
+@permission_required("brew_plants.create")
+def create_plant():
+    name = (request.form.get("name") or "").strip()
+    if not name or len(name) > 100:
+        flash("Informe um nome de planta com até 100 caracteres.", "error")
+        return redirect(url_for("plant_workspace.landing"))
+    result = BrewPlantService().create({"name": name})
+    if not result.success:
+        flash(result.error, "error")
+        return redirect(url_for("plant_workspace.landing"))
+    return redirect(url_for("plant_workspace.shell", plant_id=result.data.id, tab="plant"))
+
+
+def _workspace_form_result(result, *, plant_id: int, tab: str):
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        if not result.success:
+            return jsonify({"ok": False, "error": result.error}), result.code
+        return jsonify({"ok": True, "id": result.data.id}), 201
+    flash("Cadastro realizado." if result.success else result.error,
+          "success" if result.success else "error")
+    return redirect(url_for("plant_workspace.shell", plant_id=plant_id, tab=tab))
+
+
+def _workspace_form_error(message: str, code: int, *, plant_id: int, tab: str):
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": False, "error": message}), code
+    flash(message, "error")
+    return redirect(url_for("plant_workspace.shell", plant_id=plant_id, tab=tab))
+
+
+@plant_workspace_bp.route("/<int:plant_id>/vessels", methods=["POST"])
+@login_required
+@permission_required("brew_plant_vessels.create")
+def create_vessel(plant_id: int):
+    plant = BrewPlant.query.filter_by(id=plant_id, is_deleted=False, is_active=True).first()
+    if not plant:
+        return _workspace_form_error("Planta ativa não encontrada.", 404, plant_id=plant_id, tab="plant")
+    label = (request.form.get("label_text") or "").strip()
+    vessel_type = request.form.get("vessel_type") or ""
+    allowed = ("mash_tun", "boil_kettle", "hlt", "fermenter", "bright_tank")
+    if not label or len(label) > 100 or vessel_type not in allowed:
+        return _workspace_form_error("Informe nome e tipo válidos para o tanque.", 400, plant_id=plant_id, tab="plant")
+    result = BrewPlantVesselService().create({"plant_id": plant_id, "label_text": label,
+                                              "vessel_type": vessel_type})
+    return _workspace_form_result(result, plant_id=plant_id, tab="plant")
+
+
+@plant_workspace_bp.route("/<int:plant_id>/dashboard-layouts", methods=["POST"])
+@login_required
+@permission_required("dashboard_layouts.create")
+def create_layout(plant_id: int):
+    plant = BrewPlant.query.filter_by(id=plant_id, is_deleted=False, is_active=True).first()
+    if not plant:
+        return _workspace_form_error("Planta ativa não encontrada.", 404, plant_id=plant_id, tab="dashboard")
+    name = (request.form.get("name") or "").strip()
+    if not name or len(name) > 100:
+        return _workspace_form_error("Informe um nome de layout com até 100 caracteres.", 400, plant_id=plant_id, tab="dashboard")
+    first_layout = DashboardLayout.query.filter_by(plant_id=plant_id, is_deleted=False).first() is None
+    result = DashboardLayoutService().create({"plant_id": plant_id, "name": name,
+                                              "is_default": first_layout})
+    return _workspace_form_result(result, plant_id=plant_id, tab="dashboard")
+
+
 @plant_workspace_bp.route("/<int:plant_id>", methods=["GET"])
 @login_required
 @permission_required("brew_plants.list")
@@ -81,7 +149,10 @@ def shell(plant_id: int):
     if not plant or plant.is_deleted:
         flash("Planta não encontrada.", "error")
         return redirect(url_for("plant_workspace.landing"))
-    return render_template("plant_workspace/shell.html", plant=plant, tabs=_TABS)
+    initial_tab = request.args.get("tab", "dashboard")
+    if initial_tab not in {tab["key"] for tab in _TABS}:
+        initial_tab = "dashboard"
+    return render_template("plant_workspace/shell.html", plant=plant, tabs=_TABS, initial_tab=initial_tab)
 
 
 @plant_workspace_bp.route("/<int:plant_id>/tab/dashboard", methods=["GET"])

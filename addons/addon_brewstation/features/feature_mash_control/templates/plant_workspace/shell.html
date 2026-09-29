@@ -17,7 +17,7 @@
   {% for tab in tabs %}
   <li class="nav-item">
     <button type="button"
-            class="nav-link {{ 'active' if loop.first else '' }} {{ 'disabled' if not tab.enabled else '' }}"
+            class="nav-link {{ 'active' if tab.key == initial_tab else '' }} {{ 'disabled' if not tab.enabled else '' }}"
             id="pwTab-{{ tab.key }}"
             data-tab-key="{{ tab.key }}"
             {% if not tab.enabled %}disabled title="Em breve"{% endif %}>
@@ -114,6 +114,26 @@ body.pw-kiosk-mode #main { margin-left: 0 !important; padding-top: 12px !importa
   window.__workspaceReloadCurrent = function () {
     if (currentTabUrl) loadUrl(currentTabUrl);
   };
+  window.__workspaceSubmitForm = async function (form) {
+    const button = form.querySelector('button[type="submit"]');
+    button.disabled = true;
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: new FormData(form),
+      });
+      if (!(response.headers.get('content-type') || '').includes('application/json')) {
+        throw new Error('Não foi possível salvar. Recarregue a página e tente novamente.');
+      }
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || 'Não foi possível salvar.');
+      if (window.__tesseractToast) window.__tesseractToast.show('Cadastro realizado.', 'success');
+      window.__workspaceReloadCurrent();
+    } catch (error) {
+      if (window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
+      button.disabled = false;
+    }
+  };
   window.__workspaceOpenTab = function (key, query) {
     if (!tabUrls[key]) return;
     document.querySelectorAll('#pwTabBar .nav-link').forEach(function (b) {
@@ -137,8 +157,8 @@ body.pw-kiosk-mode #main { margin-left: 0 !important; padding-top: 12px !importa
     });
   });
 
-  // Aba inicial: a primeira habilitada na lista (Dashboard, fase 1).
-  const firstEnabled = document.querySelector('#pwTabBar .nav-link:not(.disabled)');
+  // Abre a aba solicitada após o cadastro, ou Dashboard ao entrar.
+  const firstEnabled = document.querySelector('#pwTabBar .nav-link.active:not(.disabled)');
   if (firstEnabled) loadTab(firstEnabled.dataset.tabKey);
 
   // Se o usuário sair do workspace (navegar pra outra página de

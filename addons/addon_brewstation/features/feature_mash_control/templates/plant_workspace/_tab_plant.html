@@ -1,7 +1,6 @@
 {# Fragmento AJAX da aba Planta (conversa — workspace consolidado):
    consolida os dados da própria Planta + Tanques + Mapeamentos de
-   Planta. Sem <script>/setInterval nesta aba — não precisa do hook
-   window.__tabCleanup. #}
+   Planta. O script do formulário não cria intervalos nem listeners globais. #}
 
 <div class="card bg-dark border-secondary mb-3">
   <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -9,7 +8,7 @@
       <h5 class="mb-1">{{ plant.name }}</h5>
       <div class="small text-muted">
         {{ plant.capacity_liters ~ ' L' if plant.capacity_liters is not none else 'Capacidade não informada' }}
-        · {{ plant.vessel_count or 0 }} tanque(s) previsto(s)
+        · {{ vessels|length }} tanque(s) cadastrado(s)
         · <span class="badge {{ 'bg-success' if plant.is_active else 'bg-secondary' }}">{{ 'Ativa' if plant.is_active else 'Inativa' }}</span>
       </div>
       {% if plant.description %}
@@ -25,9 +24,7 @@
 <div class="card bg-dark border-secondary mb-3">
   <div class="card-header d-flex justify-content-between align-items-center">
     <span><i class="bi bi-cup-straw"></i> Tanques</span>
-    <a href="{{ url_for('brew_plant_vessels.manage') }}" target="_blank" class="btn btn-sm btn-outline-success">
-      <i class="bi bi-plus-lg"></i> Novo Tanque
-    </a>
+    {% if current_user.has_permission('brew_plant_vessels.create') %}<a href="#pwVesselForm" class="btn btn-sm btn-outline-success"><i class="bi bi-plus-lg"></i> Novo Tanque</a>{% endif %}
   </div>
   <div class="table-responsive">
     <table class="table table-dark table-sm mb-0">
@@ -51,6 +48,21 @@
       </tbody>
     </table>
   </div>
+  {% if current_user.has_permission('brew_plant_vessels.create') %}
+  <div class="card-body border-top border-secondary">
+    <form id="pwVesselForm" method="post" action="{{ url_for('plant_workspace.create_vessel', plant_id=plant.id) }}" class="row g-2 align-items-end">
+      <div class="col-md-5"><label class="form-label" for="pwVesselLabel">Identificação</label>
+        <input id="pwVesselLabel" name="label_text" class="form-control" maxlength="100" required placeholder="Ex.: Panela de mostura"></div>
+      <div class="col-md-4"><label class="form-label" for="pwVesselType">Tipo</label>
+        <select id="pwVesselType" name="vessel_type" class="form-select" required>
+          <option value="mash_tun">Mostura</option><option value="boil_kettle">Fervura</option>
+          <option value="hlt">Água quente</option><option value="fermenter">Fermentador</option>
+          <option value="bright_tank">Tanque de maturação</option>
+        </select></div>
+      <div class="col-md-auto"><button type="submit" class="btn btn-primary">Adicionar tanque</button></div>
+    </form>
+  </div>
+  {% endif %}
 </div>
 
 <div class="card bg-dark border-secondary">
@@ -83,3 +95,12 @@
     </table>
   </div>
 </div>
+<script>
+(function () {
+  const form = document.getElementById('pwVesselForm');
+  if (form) form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    window.__workspaceSubmitForm(form);
+  });
+})();
+</script>
