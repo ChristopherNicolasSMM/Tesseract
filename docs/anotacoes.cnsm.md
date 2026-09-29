@@ -56,3 +56,8 @@ python run.py generate --model ./addons/addon_brewstation/features/feature_yeast
 ---
 
 
+# Apagar DB apenas brewStation...
+> Focado em limpar dados de importações e etc, insumos materiais e estoque. 
+
+python .\scripts\reset_brewstation_sqlite.py .\instance\tesseract_dev.db
+python .\scripts\reset_brewstation_sqlite.py .\instance\tesseract_dev.db --execute
