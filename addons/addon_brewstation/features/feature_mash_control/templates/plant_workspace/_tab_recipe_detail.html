@@ -96,3 +96,31 @@
 <p class="small text-muted">Confira a timeline antes de gerar o lote. A planta selecionada no workspace já vem preenchida no formulário.</p>
 {% include "recipe_timeline/_content.html" %}
 {% include "recipe_timeline/_scripts.html" %}
+<script>
+(function () {
+  const form = document.getElementById('workspaceGenerateSessionForm');
+  if (!form) return;
+  form.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    const button = form.querySelector('button[type="submit"]');
+    button.disabled = true;
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: new FormData(form),
+      });
+      if (!(response.headers.get('content-type') || '').includes('application/json')) {
+        throw new Error('Não foi possível concluir a operação. Recarregue a página e tente novamente.');
+      }
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || 'Não foi possível gerar a sessão.');
+      if (window.__tesseractToast) window.__tesseractToast.show('Sessão criada: ' + result.name, 'success');
+      window.__workspaceOpenTab('sessions', '?session_id=' + encodeURIComponent(result.session_id));
+    } catch (error) {
+      if (window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
+      button.disabled = false;
+    }
+  });
+})();
+</script>

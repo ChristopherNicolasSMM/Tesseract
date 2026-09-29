@@ -117,11 +117,8 @@ def tab_sessions(plant_id: int):
     da Sessão (visão ENXUTA, só acompanhamento — não é o CRUD completo
     de `brew_session_steps`, de propósito) + Logs + Alarmes recentes.
 
-    "Adicionar Etapa" aqui não abre um popup de edição de verdade
-    ainda (isso mora na receita-modelo, não na sessão — mesma regra do
-    step_card do Dashboard) — leva pro editor de timeline completo
-    (`recipe_timeline`) numa aba nova, até a aba "Receita Mash" deste
-    workspace existir (fase futura)."""
+    "Adicionar Etapa" usa a aba Receita Mash para alterar a receita-modelo.
+    "Nova" abre o seletor de receitas da mesma aba."""
     plant = BrewPlant.query.get(plant_id)
     if not plant or plant.is_deleted:
         return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada.")
@@ -209,14 +206,9 @@ def tab_plant(plant_id: int):
 @permission_required("recipe_steps.list")
 def tab_recipe(plant_id: int):
     """Aba Receita Mash (conversa): sem `?recipe_id=`, mostra a lista
-    de receitas ativas pra escolher (mesmo papel do
-    `recipe_timeline.picker`). Com `?recipe_id=`, embute o editor de
-    timeline completo (`recipe_timeline/_fragment.html`) — o MESMO
-    editor que a tela cheia usa, reaproveitado via extração de
-    partial (padrão já usado na aba Dashboard). Fecha a promessa
-    registrada na aba Sessões: "Adicionar Etapa" agora tem, de
-    verdade, uma aba própria pra editar a timeline sem sair do
-    workspace."""
+    de receitas ativas pra escolher. Com `?recipe_id=`, reúne ficha,
+    ingredientes, custo e timeline da receita; o formulário gera a
+    sessão e seleciona o novo lote na aba Sessões."""
     plant = BrewPlant.query.get(plant_id)
     if not plant or plant.is_deleted:
         return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada.")

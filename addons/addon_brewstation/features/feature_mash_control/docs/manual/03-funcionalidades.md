@@ -16,6 +16,10 @@ ingredientes com o estado do vínculo ao estoque, prévia de custo,
 perfis de água, fermentação e a timeline. A planta escolhida já vem
 selecionada ao gerar a sessão. A consulta não baixa materiais do
 estoque: a confirmação do consumo acontece na tela do lote.
+Ao gerar a sessão dentro do workspace, o lote aparece selecionado na
+aba **Sessões**. O botão **Nova** nessa aba volta à escolha de receita
+sem abrir outra janela. Um rascunho pode ser criado com ingredientes
+pendentes, mas a confirmação do consumo depende da revisão desses itens.
 
 Quando o volume planejado não foi registrado, a ficha mostra **não
 informado**. Se faltar vínculo, quantidade, unidade compatível ou custo

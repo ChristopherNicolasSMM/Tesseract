@@ -258,6 +258,8 @@ def test_tab_sessions_sem_sessao_mostra_estado_vazio(app, client):
     html = resp.data.decode("utf-8")
     assert "Nenhuma sessão cadastrada" in html
     assert "<html" not in html.lower()
+    assert 'id="pwNewSessionBtn"' in html
+    assert "window.__workspaceOpenTab('recipe')" in html
 
 
 def test_tab_sessions_seleciona_active_automaticamente(app, client):
@@ -607,6 +609,55 @@ def test_tab_recipe_reune_dados_importados_e_pendencias_sem_gerar_sessao(app, cl
     assert f'/brewstation/recipe-ingredients/' in html
     with app.app_context():
         assert BrewSession.query.count() == 0
+
+
+def test_gerar_sessao_no_workspace_retorna_id_sem_sair_para_tela_completa(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Gerar no Workspace")
+        recipe = MashRecipe(name="Receita Gerar no Workspace")
+        db.session.add_all([plant, recipe])
+        db.session.flush()
+        db.session.add(RecipeStep(recipe_id=recipe.id, step_type="mash", nome="Etapa Inicial", ordem=0))
+        db.session.commit()
+        plant_id, recipe_id = plant.id, recipe.id
+
+    fragment = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/recipe?recipe_id={recipe_id}").data.decode("utf-8")
+    assert 'id="workspaceGenerateSessionForm"' in fragment
+    assert 'target="_blank"' not in fragment.split('id="workspaceGenerateSessionForm"')[1].split('</form>')[0]
+    assert "window.__workspaceOpenTab('sessions'" in fragment
+
+    resp = client.post(f"/brewstation/recipe-timeline/{recipe_id}/generate-session", data={
+        "plant_id": str(plant_id), "name": "Novo lote no workspace", "status": "draft",
+    }, headers={"X-Requested-With": "XMLHttpRequest"})
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert data["plant_id"] == plant_id
+    assert data["status"] == "draft"
+    session_fragment = client.get(
+        f"/brewstation/plant-workspace/{plant_id}/tab/sessions?session_id={data['session_id']}"
+    ).data.decode("utf-8")
+    assert "Novo lote no workspace" in session_fragment
+    assert "Etapa Inicial" in session_fragment
+
+
+def test_gerar_sessao_ajax_invalida_nao_cria_lote(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        recipe = MashRecipe(name="Receita Sem Etapa")
+        plant = BrewPlant(name="Planta Sem Etapa")
+        db.session.add_all([recipe, plant])
+        db.session.commit()
+        recipe_id, plant_id = recipe.id, plant.id
+
+    resp = client.post(f"/brewstation/recipe-timeline/{recipe_id}/generate-session", data={
+        "plant_id": str(plant_id), "name": "Lote inválido", "status": "draft",
+    }, headers={"X-Requested-With": "XMLHttpRequest"})
+    assert resp.status_code == 400
+    assert resp.get_json()["ok"] is False
+    with app.app_context():
+        assert BrewSession.query.filter_by(name="Lote inválido").count() == 0
 
 
 def test_tab_recipe_receita_inexistente_devolve_fragmento_de_erro(app, client):

@@ -145,13 +145,25 @@ def resync_hop_alerts(recipe_id: int):
 @login_required
 @permission_required("brew_sessions.create")
 def generate_session(recipe_id: int):
+    ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     plant_id = request.form.get("plant_id", type=int)
     name = (request.form.get("name") or "").strip()
     status = request.form.get("status") or "draft"
 
     if not plant_id or not name:
+        if ajax:
+            return jsonify({"ok": False, "error": "Planta e nome da sessão são obrigatórios."}), 400
         flash("Planta e nome da sessão são obrigatórios.", "error")
         return redirect(url_for("recipe_timeline.view", recipe_id=recipe_id))
+
+    recipe = MashRecipe.query.filter_by(id=recipe_id, is_deleted=False).first()
+    plant = BrewPlant.query.filter_by(id=plant_id, is_deleted=False, is_active=True).first()
+    if not recipe or not plant:
+        error = "Receita ou planta ativa não encontrada."
+        if ajax:
+            return jsonify({"ok": False, "error": error}), 400
+        flash(error, "error")
+        return redirect(url_for("recipe_timeline.picker"))
 
     try:
         session = svc.generate_session_from_recipe(
@@ -159,8 +171,13 @@ def generate_session(recipe_id: int):
             created_by_user_id=current_user.id if current_user.is_authenticated else None,
         )
     except svc.RecipeTimelineError as exc:
+        if ajax:
+            return jsonify({"ok": False, "error": str(exc)}), 400
         flash(str(exc), "error")
         return redirect(url_for("recipe_timeline.view", recipe_id=recipe_id))
 
+    if ajax:
+        return jsonify({"ok": True, "session_id": session.id, "plant_id": session.plant_id,
+                        "name": session.name, "status": session.status})
     flash(f"Sessão '{session.name}' gerada com sucesso ({session.status}).", "success")
     return redirect(url_for("brew_sessions.detail", id=session.id))

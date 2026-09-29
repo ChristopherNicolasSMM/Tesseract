@@ -97,7 +97,7 @@
             Copia esta timeline pra uma Sessão de Brassagem de verdade —
             os alertas já saem agendados (disparam sozinhos durante a sessão).
           </p>
-          <form method="post" action="{{ url_for('recipe_timeline.generate_session', recipe_id=recipe.id) }}" {% if is_fragment %}target="_blank"{% endif %}>
+          <form method="post" action="{{ url_for('recipe_timeline.generate_session', recipe_id=recipe.id) }}" {% if is_fragment %}id="workspaceGenerateSessionForm"{% endif %}>
             <div class="mb-3">
               <label class="form-label">Nome da Sessão</label>
               <input type="text" name="name" class="form-control" value="{{ recipe.name }} — {{ recipe.versao }}" required>
@@ -124,6 +124,9 @@
             <button type="submit" class="btn btn-success w-100" {% if not timeline %}disabled{% endif %}>
               <i class="bi bi-play-circle"></i> Gerar Sessão
             </button>
+            {% if is_fragment and conferencia is defined and conferencia.pendencias %}
+            <p class="small text-warning mt-2 mb-0">Há {{ conferencia.pendencias|length }} ingrediente(s) pendente(s). É possível criar o rascunho; a confirmação do consumo ficará bloqueada até a revisão.</p>
+            {% endif %}
             {% if not timeline %}<p class="small text-muted mt-1">Adicione pelo menos uma etapa antes de gerar.</p>{% endif %}
           </form>
         </div>

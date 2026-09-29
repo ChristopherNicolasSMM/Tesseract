@@ -114,6 +114,13 @@ body.pw-kiosk-mode #main { margin-left: 0 !important; padding-top: 12px !importa
   window.__workspaceReloadCurrent = function () {
     if (currentTabUrl) loadUrl(currentTabUrl);
   };
+  window.__workspaceOpenTab = function (key, query) {
+    if (!tabUrls[key]) return;
+    document.querySelectorAll('#pwTabBar .nav-link').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.tabKey === key);
+    });
+    loadUrl(tabUrls[key] + (query || ''));
+  };
 
   function loadTab(key) {
     const url = tabUrls[key];

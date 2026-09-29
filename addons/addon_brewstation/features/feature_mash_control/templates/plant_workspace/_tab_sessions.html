@@ -8,9 +8,9 @@
     <div class="card bg-dark border-secondary">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span>Sessões</span>
-        <a href="{{ url_for('recipe_timeline.picker') }}" target="_blank" class="small" title="Gerar uma sessão nova a partir de uma Receita">
+        <button type="button" id="pwNewSessionBtn" class="btn btn-sm btn-link" title="Escolher uma receita e gerar sessão nesta planta">
           <i class="bi bi-plus-lg"></i> Nova
-        </a>
+        </button>
       </div>
       <div class="list-group list-group-flush" style="max-height: 480px; overflow-y: auto;">
         {% for s in sessions %}
@@ -122,6 +122,10 @@
 // da casca (window.__workspaceLoadUrl), o mesmo usado por qualquer
 // sub-navegação dentro de uma aba.
 (function () {
+  const newSessionBtn = document.getElementById('pwNewSessionBtn');
+  if (newSessionBtn) newSessionBtn.addEventListener('click', function () {
+    window.__workspaceOpenTab('recipe');
+  });
   document.querySelectorAll('[data-workspace-tab-link="sessions"]').forEach(function (link) {
     link.addEventListener('click', function (e) {
       e.preventDefault();
