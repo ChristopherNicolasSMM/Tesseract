@@ -61,3 +61,9 @@ python run.py generate --model ./addons/addon_brewstation/features/feature_yeast
 
 python .\scripts\reset_brewstation_sqlite.py .\instance\tesseract_dev.db
 python .\scripts\reset_brewstation_sqlite.py .\instance\tesseract_dev.db --execute
+
+
+## Ocultar Menus
+flask hide-legacy-mash-control-menu
+## Executar em simulação
+flask hide-legacy-mash-control-menu --dry-run
