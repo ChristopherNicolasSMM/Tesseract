@@ -44,7 +44,7 @@ class FeatureBrewFather(FeatureBase):
                 "parent_code": "TX_GROUP_BREW_FATHER",
                 "description": "Log de sincronizações com o BrewFather.",
                 "icon": "bi-arrow-repeat",
-                "route": "/brewstation/brewfather-syncs",
+                "route": "/brewstation/brewfather-syncs/portal",
                 "permission_required": "brewfather_syncs.list",
             },
         ]
