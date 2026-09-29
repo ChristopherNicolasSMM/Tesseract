@@ -1,0 +1,18 @@
+{% extends "core/base.html" %}
+{% block title %}Água — {{ recipe.name }}{% endblock %}
+{% block content %}
+<div class="pagetitle"><h1>{{ recipe.name }} — Água</h1><p class="text-muted">Versão {{ recipe.versao }} · Os contextos representam fases diferentes do cálculo. Não devem ser somados.</p></div>
+<a class="btn btn-outline-secondary mb-3" href="{{ url_for('water_workspace.index') }}">Voltar às receitas</a>
+<div class="row g-3">
+{% for profile in profiles %}
+  <div class="col-md-6 col-xl-4"><div class="card h-100"><div class="card-body">
+    <h5 class="card-title">{{ contexts.get(profile.contexto, profile.contexto) }}</h5>
+    <p>pH: <strong>{{ profile.ph if profile.ph is not none else 'Não informado' }}</strong></p>
+    <dl class="row mb-3">{% for field, label in fields %}
+      <dt class="col-6">{{ label }}</dt><dd class="col-6">{% set value = profile|attr(field) %}{{ (value ~ ' ppm') if value is not none else 'Não informado' }}</dd>
+    {% endfor %}</dl>
+    {% if current_user.has_permission('water_profiles.detail') %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('water_profiles.detail', id=profile.id) }}">Ver / editar contexto</a>{% endif %}
+  </div></div></div>
+{% else %}<div class="col"><div class="alert alert-info">Esta receita não tem perfis de água cadastrados.</div></div>{% endfor %}
+</div>
+{% endblock %}

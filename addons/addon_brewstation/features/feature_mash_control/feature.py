@@ -158,7 +158,7 @@ class FeatureMashControl(FeatureBase):
                 "parent_code": "TX_GROUP_MASH_RECIPES",
                 "description": "Perfil de água da receita (íons/pH por contexto).",
                 "icon": "bi-droplet",
-                "route": "/brewstation/water-profiles",
+                "route": "/brewstation/water-profiles/portal/",
                 "permission_required": "water_profiles.list",
             },
             {

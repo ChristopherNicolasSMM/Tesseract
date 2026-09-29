@@ -116,6 +116,41 @@ def test_atalho_de_sessoes_preserva_aba_ao_escolher_planta(app, client):
     assert f"/brewstation/plant-workspace/{plant_id}?tab=sessions" in html
 
 
+def test_agua_agrupa_por_receita_e_detalha_contextos(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        recipe = MashRecipe(name="Receita Água Consolidada", versao=2, origem_receita="BrewFather")
+        db.session.add(recipe)
+        db.session.flush()
+        db.session.add_all([
+            WaterProfile(recipe_id=recipe.id, contexto="source", calcio=0),
+            WaterProfile(recipe_id=recipe.id, contexto="target", calcio=50, ph=5.4),
+            WaterProfile(recipe_id=recipe.id, contexto="mash", calcio=60, is_deleted=True),
+        ])
+        db.session.commit()
+        recipe_id = recipe.id
+    response = client.get("/brewstation/water-profiles/portal/?q=Consolidada")
+    assert response.status_code == 200
+    html = response.data.decode("utf-8")
+    assert "2 contexto(s)" in html
+    assert f"/brewstation/water-profiles/portal/{recipe_id}" in html
+    response = client.get(f"/brewstation/water-profiles/portal/{recipe_id}")
+    assert response.status_code == 200
+    html = response.data.decode("utf-8")
+    assert "Água de origem" in html and "Perfil alvo" in html
+    assert "0.0 ppm" in html and "Não informado" in html
+    assert "Mostura</h5>" not in html
+    assert client.get("/brewstation/water-profiles/portal/999999").status_code == 404
+
+
+def test_lista_antiga_de_agua_encaminha_ao_portal(app, client):
+    _login_admin(app, client)
+    response = client.get("/brewstation/water-profiles/")
+    assert response.status_code == 302
+    assert "/brewstation/water-profiles/portal/" in response.headers["Location"]
+    assert client.get("/brewstation/water-profiles/?view=records").status_code == 200
+
+
 def test_landing_sem_planta_nenhuma_mostra_aviso(app, client):
     _login_admin(app, client)
     resp = client.get("/brewstation/plant-workspace/")

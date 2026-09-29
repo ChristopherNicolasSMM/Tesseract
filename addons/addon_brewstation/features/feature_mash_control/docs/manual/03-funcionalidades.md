@@ -66,6 +66,27 @@ de ocupar o menu lateral. O perfil de água é exibido por contexto:
 origem, alvo, mostura, lavagem e total. Até cinco linhas por receita
 são esperadas quando todos os contextos vieram do Brewfather.
 
+### Consulta agrupada da água
+
+**Perfis de Água** abre agora uma lista de cards de receitas, com
+busca pelo nome e indicação da versão. **Consultar perfis** abre uma
+tela própria com um card por contexto e todos os íons em ppm, além
+do pH. Valores ausentes aparecem como não informados. Os contextos
+não são somados. A aba Receita Mash também possui um link para essa
+consulta. A lista de registros individuais continua disponível em
+**Manutenção dos registros de água**, para edição e exportação.
+
+Se as entradas antigas de ingredientes, etapas, fermentação ou plantas
+ainda estiverem no menu, execute `flask db upgrade`, reinicie o sistema
+e atualize a página. Para reaplicar a configuração de visibilidade,
+use `flask hide-legacy-mash-control-menu` (ou acrescente `--dry-run`
+para conferir antes). Esse comando não remove páginas nem dados.
+
+O workspace integra cadastro inicial e consulta. A edição completa dos
+cadastros, os registros detalhados de sessão e a consulta de históricos
+ainda usam páginas próprias. Ocultar uma entrada do menu não incorpora
+automaticamente todas as suas operações ao fluxo.
+
 ## Sessões de Brassagem
 
 Acompanhamento de uma brassagem em andamento: etapas, logs (incluindo

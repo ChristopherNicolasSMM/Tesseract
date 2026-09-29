@@ -229,7 +229,7 @@ def register_cli_commands(app) -> None:
     @with_appcontext
     def hide_legacy_mash_control_menu(dry_run):
         """
-        Oculta apenas atalhos de visualização duplicados pelo workspace.
+        Oculta atalhos e listas acessadas pelo contexto do workspace.
         O upgrade faz esta transição nos bancos existentes; este comando
         permanece para aplicar a configuração novamente, se necessário.
 
@@ -240,9 +240,12 @@ def register_cli_commands(app) -> None:
         from core.db import db
         from model.core.transaction import Transaction
 
-        # Os CRUDs continuam acessíveis: edição e histórico completos
-        # ainda são necessários fora das abas do workspace.
+        # As rotas de edição continuam acessíveis pelos fluxos.
         codes_to_hide = {
+            "TX_RECIPE_INGREDIENTS": "aba Receita Mash",
+            "TX_RECIPE_STEPS": "aba Receita Mash",
+            "TX_FERMENTATION_STEPS": "aba Receita Mash",
+            "TX_BREW_PLANTS": "fluxo Abrir planta",
             "TX_RECIPE_TIMELINE": "aba Receita Mash",
             "TX_DASHBOARD_VIEW": "aba Dashboard",
             "TX_DASHBOARD_WIDGETS": "editor visual do Dashboard",

@@ -3,7 +3,7 @@ tests/test_hide_legacy_mash_control_menu.py
 
 Comando CLI de uso único (conversa — workspace consolidado por
 Planta): `flask hide-legacy-mash-control-menu`. Desativa no menu as
-3 atalhos de visualização absorvidos pelo workspace. O upgrade também
+7 atalhos e listas acessadas no contexto do workspace. O upgrade também
 aplica esta transição em bancos existentes.
 """
 from core.app_factory import create_app
@@ -13,16 +13,21 @@ from model.core.transaction import Transaction
 
 _EXPECTED_HIDDEN_CODES = {
     "TX_RECIPE_TIMELINE", "TX_DASHBOARD_VIEW", "TX_DASHBOARD_WIDGETS",
+    "TX_RECIPE_INGREDIENTS", "TX_RECIPE_STEPS", "TX_FERMENTATION_STEPS", "TX_BREW_PLANTS",
 }
 
 
-def test_hide_legacy_menu_desativa_as_3_transacoes_esperadas():
+def test_hide_legacy_menu_desativa_as_transacoes_integradas():
     app = create_app(env="testing")
     runner = app.test_cli_runner()
+    with app.app_context():
+        for code in _EXPECTED_HIDDEN_CODES:
+            Transaction.query.filter_by(code=code).one().is_active = True
+        db.session.commit()
 
     result = runner.invoke(args=["hide-legacy-mash-control-menu"])
     assert result.exit_code == 0, result.output
-    assert "Desativadas: 0" in result.output  # catálogo já as cria ocultas
+    assert "Desativadas: 7" in result.output
 
     with app.app_context():
         for code in _EXPECTED_HIDDEN_CODES:
