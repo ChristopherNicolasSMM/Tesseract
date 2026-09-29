@@ -35,10 +35,12 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from sqlalchemy import inspect
 
 from core.db import db
 from addons.addon_estoque.root.model.material import Material
 from addons.addon_estoque.root.model.categoria import Categoria
+from addons.addon_estoque.root.model.tipo_produto import TipoProduto
 from addons.addon_estoque.root.services.material_lookup import material_exists
 from addons.addon_estoque.root.services.estoque_seed import (
     get_or_create_origem_a_definir,
@@ -194,6 +196,21 @@ def cadastrar_todos_pendentes(origem_receita: str = "BrewFather") -> dict:
     for ing in pendentes:
         if ing.descricao_origem not in grupos:
             grupos[ing.descricao_origem] = ing
+
+    if grupos:
+        inspector = inspect(db.engine)
+        for model, required_columns in (
+            (TipoProduto, {"descricao", "codigo"}),
+            (Categoria, {"descricao", "codigo"}),
+        ):
+            table = model.__table__.name
+            actual = {column["name"] for column in inspector.get_columns(table)}
+            if not required_columns <= actual:
+                return {"criados": 0, "reaproveitados": 0, "erros": [
+                    f"Esquema de {table} desatualizado (faltam: "
+                    f"{', '.join(sorted(required_columns - actual))}). "
+                    "Execute flask db upgrade antes de cadastrar ingredientes."
+                ]}
 
     criados = 0
     reaproveitados = 0

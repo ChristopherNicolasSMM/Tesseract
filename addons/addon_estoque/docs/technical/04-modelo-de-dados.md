@@ -340,6 +340,7 @@ erDiagram
 | `tesseract_estoque_fabricante` | Lookup simples (fabricante/marca). Referenciado opcionalmente por `Material.fabricante_id`. |
 | `tesseract_estoque_origem` | Lookup simples (nacional/importado/etc.). Ganha o registro seed `"A definir"` no boot — usado quando a origem real não é conhecida (ex.: autocreate do BrewFather). |
 | `tesseract_estoque_tipo_produto` | Eixo de **natureza** do Material — 5 seeds fixos (Insumo/Embalagem/Produto Acabado/Peça/Uso e Consumo), criados idempotentemente no boot. |
+
 | `tesseract_estoque_categoria` | Classificação **fina** dentro de um `TipoProduto` (`tipo_produto_id` nullable — cadastros antigos ficam sem essa relação até revisão manual, nunca bloqueados). Substituiu o antigo campo `Material.categoria` (string livre). |
 | `tesseract_estoque_material` | Identidade de qualquer coisa estocável. `sku` é o identificador de negócio (único, sempre presente). `origem_id`/`tipo_produto_id`/`categoria_id` são obrigatórios; `fabricante_id` é opcional. `volume_calculado` = teórico; `volume_real` = medido/declarado. As unidades desses dois volumes são enums limitados a `ML`, `L`, `CM3` e `M3`; os campos numéricos de peso e volume usam `autocomplete="off"` no formulário gerado. |
 | `tesseract_estoque_material_unidade` | Múltiplas unidades por Material (compra × consumo), com código selecionado do catálogo via `@weak_ref(value_field="codigo")`. Embalagens usam códigos como `PCT` e `CX`, sem tamanho no código: `fator_para_base` registra quanto contém cada embalagem deste Material (por exemplo, base `KG` e `PCT` com fator `25`). `quantidade_atual`/`quantidade` em `Movimentacao`/`Saldo` estão SEMPRE na unidade-base — a conversão acontece uma vez, na entrada do dado. |
@@ -357,6 +358,17 @@ erDiagram
 | `tesseract_estoque_item_cotacao` | A **resposta de preço** de um fornecedor para um `ItemProcessoCotacao` já definido — nunca redigita o Material. `selecionado_como_vencedor` e `pedido_compra_item_id` são geridos pelo service (`estoque_service.py`), nunca editados direto pelo formulário genérico. |
 | `tesseract_estoque_movimentacao` | Ledger imutável — correção é lançamento de ajuste, nunca update/delete. Rastro de compra (`fornecedor_id`/`pedido_compra_item_id`/`unidade_original`/`quantidade_original`/`fator_conversao_aplicado`) é opcional — só preenchido quando a movimentação vem de `receber_pedido_compra()`. |
 | `tesseract_estoque_saldo` | Cache materializado 1:1 com `material`. Ganhou cache de última compra (`ultimo_preco_compra`/`ultimo_fornecedor_id`/`data_ultima_compra`), atualizado por `receber_pedido_compra()`. `status` é `property` Python, não persistido. |
+
+**Compatibilidade do TipoProduto:** a revisão `ee29a41c68f2` corrige bancos
+antigos cuja tabela ainda usa `nome` em vez de `descricao` e/ou não possui
+`codigo`. Ela preserva IDs e descrições, preenche códigos livres sem alterar
+códigos existentes e adiciona unicidade. No SQLite legado, onde alterar
+`NOT NULL` reconstruiria uma tabela referenciada por `Categoria`, a coluna
+`codigo` recebe triggers que impedem valores vazios em inserções e edições;
+o campo pode continuar `nullable` na definição física antiga. Antes de
+repetir o cadastro automático de ingredientes, execute `flask db upgrade`;
+caso contrário o fluxo informa uma única pendência de esquema em vez de
+repetir o erro por ingrediente.
 
 ## Sobre `Material.pendente_revisao` e a resolução de campos obrigatórios no autocreate
 
