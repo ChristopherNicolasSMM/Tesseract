@@ -14,9 +14,8 @@ Arquitetura decidida em conversa:
   layout do Core em volta (`core/base.html`).
 - As cinco abas já possuem fragmentos. Cadastro e edição avançada ainda
   reaproveitam as rotas próprias de cada entidade.
-- As telas antigas (menu "Controle de Mostura" de hoje) continuam
-  existindo em paralelo — a remoção do menu é decisão pra depois de
-  validar o workspace na prática (registrado em conversa).
+- As telas de edição e histórico continuam disponíveis no menu; três
+  atalhos de visualização duplicados pelo workspace ficam ocultos.
 """
 from __future__ import annotations
 
@@ -45,6 +44,10 @@ from addons.addon_brewstation.features.feature_mash_control.services.ingredient_
 from addons.addon_brewstation.features.feature_mash_control.model.dashboard_layout import DashboardLayout
 from addons.addon_brewstation.features.feature_mash_control.services.brew_plant_service import BrewPlantService
 from addons.addon_brewstation.features.feature_mash_control.services.brew_plant_vessel_service import BrewPlantVesselService
+from addons.addon_brewstation.features.feature_mash_control.services.brew_plant_mapping_service import BrewPlantMappingService
+from addons.addon_device_manager.root.services.device_function_lookup import (
+    get_function_by_name, list_functions_for_mapping,
+)
 from addons.addon_brewstation.features.feature_mash_control.services.dashboard_layout_service import DashboardLayoutService
 from addons.addon_brewstation.features.feature_mash_control.controller.dashboard_runtime import (
     _build_dashboard_view_context,
@@ -122,6 +125,35 @@ def create_vessel(plant_id: int):
         return _workspace_form_error("Informe nome e tipo válidos para o tanque.", 400, plant_id=plant_id, tab="plant")
     result = BrewPlantVesselService().create({"plant_id": plant_id, "label_text": label,
                                               "vessel_type": vessel_type})
+    return _workspace_form_result(result, plant_id=plant_id, tab="plant")
+
+
+@plant_workspace_bp.route("/<int:plant_id>/mappings", methods=["POST"])
+@login_required
+@permission_required("brew_plant_mappings.create")
+def create_mapping(plant_id: int):
+    plant = BrewPlant.query.filter_by(id=plant_id, is_deleted=False, is_active=True).first()
+    if not plant:
+        return _workspace_form_error("Planta ativa não encontrada.", 404, plant_id=plant_id, tab="plant")
+    vessel_id = request.form.get("vessel_id", type=int)
+    vessel = BrewPlantVessel.query.filter_by(id=vessel_id, plant_id=plant_id, is_deleted=False).first()
+    if not vessel:
+        return _workspace_form_error("Selecione um tanque desta planta.", 400, plant_id=plant_id, tab="plant")
+    role_key = (request.form.get("role_key") or "").strip()
+    category_for_role = {"sensor_temp": "sensor", "actor_heat": "actuator", "actor_flow": "actuator"}
+    if role_key not in category_for_role:
+        return _workspace_form_error("Selecione um papel válido.", 400, plant_id=plant_id, tab="plant")
+    function_name = (request.form.get("device_function_name") or "").strip()
+    function = get_function_by_name(function_name)
+    if not function or function.get("category") not in (category_for_role[role_key], "hybrid"):
+        return _workspace_form_error("Selecione uma função compatível com o papel.", 400, plant_id=plant_id, tab="plant")
+    if BrewPlantMapping.query.filter_by(vessel_id=vessel_id, role_key=role_key, is_deleted=False).first():
+        return _workspace_form_error("Este tanque já possui um mapeamento para esse papel.", 409, plant_id=plant_id, tab="plant")
+    result = BrewPlantMappingService().create({
+        "vessel_id": vessel_id, "role_key": role_key,
+        "device_function_name": function_name,
+        "is_required": request.form.get("is_required") == "on",
+    })
     return _workspace_form_result(result, plant_id=plant_id, tab="plant")
 
 
@@ -269,6 +301,7 @@ def tab_plant(plant_id: int):
     return render_template(
         "plant_workspace/_tab_plant.html",
         plant=plant, vessels=vessels, mappings=mappings, vessels_by_id=vessels_by_id,
+        device_functions=list_functions_for_mapping(),
     )
 
 

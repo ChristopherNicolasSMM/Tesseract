@@ -4,9 +4,9 @@
    **Planta**, adicione os Tanques (panela de mostura, caldeira de
    fervura, fermentador...). O número mostrado representa os tanques
    cadastrados, não a capacidade planejada no cadastro.
-2. Se tiver sensores/atuadores, mapeie cada Tanque às Funções de
-   Dispositivo correspondentes (ex.: "sensor de temperatura" no
-   tanque de mostura).
+2. Se tiver sensores/atuadores, na mesma aba selecione **Tanque**,
+   **Papel** e uma **Função de Dispositivo** compatível para criar o
+   mapeamento (ex.: sensor de temperatura no tanque de mostura).
 3. Cadastre uma Receita — direto, ou importada do BrewFather (ver
    manual de Integração BrewFather).
 4. Se quiser automação, crie uma Regra de Automação (ex.: "se a

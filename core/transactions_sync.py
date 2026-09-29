@@ -47,6 +47,7 @@ def sync_transaction(tx_data: dict, *, source_module: str | None = None, is_stan
             permission_required=tx_data.get("permission_required"),
             is_standard=is_standard,
             is_workspace=tx_data.get("is_workspace", False),
+            is_active=tx_data.get("is_active", True),
             source_module=source_module,
         )
         db.session.add(tx)

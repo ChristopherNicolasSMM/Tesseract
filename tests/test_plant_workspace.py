@@ -22,6 +22,7 @@ from addons.addon_brewstation.features.feature_mash_control.model.brew_session_l
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session_alarm import BrewSessionAlarm
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_vessel import BrewPlantVessel
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_mapping import BrewPlantMapping
+from addons.addon_device_manager.root.model.device_function import DeviceFunction
 from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
 from addons.addon_brewstation.features.feature_mash_control.model.recipe_step import RecipeStep
 from addons.addon_brewstation.features.feature_mash_control.model.recipe_ingredient import RecipeIngredient
@@ -51,6 +52,42 @@ def _login_admin(app, client):
             db.session.add(admin)
             db.session.commit()
     client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+
+
+def test_mapeamento_planta_cria_vinculo_e_rejeita_outra_planta(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Mapeada")
+        other = BrewPlant(name="Outra Planta")
+        db.session.add_all([plant, other])
+        db.session.flush()
+        vessel = BrewPlantVessel(plant_id=plant.id, label_text="Mostura", vessel_type="mash_tun")
+        other_vessel = BrewPlantVessel(plant_id=other.id, label_text="Fervura", vessel_type="boil_kettle")
+        function = DeviceFunction(name="workspace_temp", display_name="Temperatura", category="sensor")
+        db.session.add_all([vessel, other_vessel, function])
+        db.session.commit()
+        plant_id, vessel_id, other_id = plant.id, vessel.id, other_vessel.id
+
+    fragment = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/plant")
+    assert fragment.status_code == 200
+    assert b'pwMappingForm' in fragment.data
+    assert b'workspace_temp' in fragment.data
+
+    url = f"/brewstation/plant-workspace/{plant_id}/mappings"
+    headers = {"X-Requested-With": "XMLHttpRequest"}
+    payload = {"vessel_id": other_id, "role_key": "sensor_temp",
+               "device_function_name": "workspace_temp", "is_required": "on"}
+    assert client.post(url, data=payload, headers=headers).status_code == 400
+    payload["vessel_id"] = vessel_id
+    payload["role_key"] = "actor_heat"
+    assert client.post(url, data=payload, headers=headers).status_code == 400
+    payload["role_key"] = "sensor_temp"
+    assert client.post(url, data=payload, headers=headers).status_code == 201
+    assert client.post(url, data=payload, headers=headers).status_code == 409
+    with app.app_context():
+        mapping = BrewPlantMapping.query.filter_by(vessel_id=vessel_id, role_key="sensor_temp").one()
+        assert mapping.device_function_name == "workspace_temp"
+        assert mapping.is_required is True
 
 
 # ── Landing (escolher/criar Planta) ─────────────────────────────────────────

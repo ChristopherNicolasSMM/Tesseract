@@ -73,3 +73,14 @@ def function_exists(name: str | None) -> bool:
         .first()
         is not None
     )
+
+
+def list_functions_for_mapping() -> list[dict]:
+    """Opções públicas para mapeamentos entre addons, sem expor ORM."""
+    functions = (DeviceFunction.query.filter_by(is_deleted=False)
+                 .order_by(DeviceFunction.display_name, DeviceFunction.name).all())
+    return [
+        {"name": obj.name, "display": obj.display_name or obj.name,
+         "category": obj.category}
+        for obj in functions
+    ]

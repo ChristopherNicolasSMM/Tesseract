@@ -34,6 +34,21 @@ mapeamento de qual sensor/atuador (Função de Dispositivo) cada
 tanque usa para cada papel (leitura de temperatura, controle de
 aquecimento, etc.).
 
+O **Workspace de Planta** aparece no menu de Controle de Mostura e na
+lista de espaços de trabalho. Na aba **Planta** é possível cadastrar
+tanques e vincular uma função de dispositivo a um papel por tanque.
+O formulário aceita sensores para leitura de temperatura e atuadores
+para aquecimento ou fluxo; uma função híbrida serve para ambos. Cada
+tanque admite um vínculo ativo por papel. Os links de edição ainda
+abrem o cadastro completo.
+
+Os atalhos **Importar Receita para Brassar**, **Dashboard** avulso e
+**Widgets de Dashboard** foram ocultados do menu: suas operações
+estão nas abas Receita Mash e Dashboard. Suas rotas continuam ativas.
+Os demais cadastros e históricos continuam visíveis para edição e
+consulta completa. Ao atualizar uma instalação, execute
+`flask db upgrade` para aplicar a visibilidade no menu existente.
+
 ## Sessões de Brassagem
 
 Acompanhamento de uma brassagem em andamento: etapas, logs (incluindo

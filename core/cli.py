@@ -229,14 +229,9 @@ def register_cli_commands(app) -> None:
     @with_appcontext
     def hide_legacy_mash_control_menu(dry_run):
         """
-        Comando de uso ÚNICO (conversa — workspace consolidado por
-        Planta): desativa no menu as transações individuais que já
-        foram totalmente absorvidas pelas 5 abas do
-        `/brewstation/plant-workspace/`. Não é (e nunca vai ser)
-        automático via `sync_transaction()` — `is_active` é campo
-        controlado manualmente por design (skill 10,
-        `core/transactions_sync.py`), pra nenhum deploy de código
-        reativar algo que o usuário desativou de propósito.
+        Oculta apenas atalhos de visualização duplicados pelo workspace.
+        O upgrade faz esta transição nos bancos existentes; este comando
+        permanece para aplicar a configuração novamente, se necessário.
 
         As telas em si e as rotas continuam existindo e funcionando
         normalmente — só saem da navegação do menu lateral/home.
@@ -245,24 +240,12 @@ def register_cli_commands(app) -> None:
         from core.db import db
         from model.core.transaction import Transaction
 
-        # Mapeamento explícito código -> aba que absorveu (documentação
-        # inline, pra quem ler o output do comando entender o motivo de
-        # cada um sem precisar ir atrás da conversa original).
+        # Os CRUDs continuam acessíveis: edição e histórico completos
+        # ainda são necessários fora das abas do workspace.
         codes_to_hide = {
-            "TX_BREW_SESSIONS": "aba Sessões",
-            "TX_BREW_SESSION_STEPS": "aba Sessões",
-            "TX_BREW_SESSION_LOGS": "aba Sessões",
-            "TX_BREW_SESSION_ALARMS": "aba Sessões",
-            "TX_BREW_PLANTS": "aba Planta",
-            "TX_BREW_PLANT_VESSELS": "aba Planta",
-            "TX_BREW_PLANT_MAPPINGS": "aba Planta",
-            "TX_MASH_RECIPES": "aba Receita Mash",
-            "TX_RECIPE_STEPS": "aba Receita Mash",
             "TX_RECIPE_TIMELINE": "aba Receita Mash",
-            "TX_AUTOMATION_RULES": "aba Automação",
-            "TX_AUTOMATION_RULE_LOGS": "aba Automação",
             "TX_DASHBOARD_VIEW": "aba Dashboard",
-            "TX_DASHBOARD_WIDGETS": "editor visual do Dashboard (Pontos 1-3, tabela crua redundante)",
+            "TX_DASHBOARD_WIDGETS": "editor visual do Dashboard",
         }
 
         hidden, already_hidden, not_found = [], [], []

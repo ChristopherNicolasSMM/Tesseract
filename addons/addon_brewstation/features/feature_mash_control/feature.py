@@ -95,8 +95,9 @@ class FeatureMashControl(FeatureBase):
                 "code": "TX_PLANT_WORKSPACE",
                 "label": "Workspace de Planta",
                 "parent_code": "TX_GROUP_MASH_CONTROL",
-                "description": "Painel consolidado por Planta (conversa) — Dashboard, Sessões, Planta e demais abas numa tela só. Fase 1: só a aba Dashboard funciona; as telas individuais de sempre continuam existindo em paralelo até o workspace ser validado na prática.",
+                "description": "Fluxo por planta: dashboard, sessões, configuração, receitas e automação.",
                 "icon": "bi-grid-1x2",
+                "is_workspace": True,
                 "route": "/brewstation/plant-workspace/",
                 "permission_required": "brew_plants.list",
             },
@@ -131,6 +132,7 @@ class FeatureMashControl(FeatureBase):
             },
             {
                 "code": "TX_RECIPE_TIMELINE",
+                "is_active": False,
                 "label": "Importar Receita para Brassar",
                 "parent_code": "TX_GROUP_MASH_RECIPES",
                 "description": "Escolhe uma receita, edita a timeline (etapas+alertas) e gera a Sessão — rascunho ou já iniciando.",
@@ -236,6 +238,7 @@ class FeatureMashControl(FeatureBase):
             },
             {
                 "code": "TX_DASHBOARD_VIEW",
+                "is_active": False,
                 "label": "Dashboard",
                 "parent_code": "TX_GROUP_MASH_SESSIONS",
                 "description": "Painel visual em tempo real — vasilhames, tubulação, alarmes e gráficos.",
@@ -265,14 +268,8 @@ class FeatureMashControl(FeatureBase):
             },
 
             # ── Dashboard (skill 10 §Reorganização) ─────────────────
-            # Continuam declaradas (o CRUD real existe e funciona — só a
-            # parte visual de verdade, "próximo ajuste", que não existe
-            # ainda). Ficam com parent_code aqui mesmo (Controle de
-            # Mostura), mas SAEM do menu por decisão manual em
-            # /admin/transactions/ (is_active=False) — sync nunca mexe
-            # em is_active de propósito (skill 10), então isso não é
-            # feito por código, é uma ação de admin depois de aplicar
-            # este patch.
+            # Os cadastros com edição própria continuam no menu. O
+            # editor visual de widgets já está acessível no Dashboard.
             {
                 "code": "TX_DASHBOARD_LAYOUTS",
                 "label": "Layouts de Dashboard",
@@ -284,6 +281,7 @@ class FeatureMashControl(FeatureBase):
             },
             {
                 "code": "TX_DASHBOARD_WIDGETS",
+                "is_active": False,
                 "label": "Widgets de Dashboard",
                 "parent_code": "TX_GROUP_MASH_CONTROL",
                 "description": "Widgets de um layout de dashboard.",

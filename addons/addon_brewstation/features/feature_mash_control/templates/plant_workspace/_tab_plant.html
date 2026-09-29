@@ -68,9 +68,9 @@
 <div class="card bg-dark border-secondary">
   <div class="card-header d-flex justify-content-between align-items-center">
     <span><i class="bi bi-diagram-2"></i> Mapeamentos de Planta</span>
-    <a href="{{ url_for('brew_plant_mappings.manage') }}" target="_blank" class="btn btn-sm btn-outline-success">
-      <i class="bi bi-plus-lg"></i> Novo Mapeamento
-    </a>
+    {% if current_user.has_permission('brew_plant_mappings.create') and vessels and device_functions %}
+    <a href="#pwMappingForm" class="btn btn-sm btn-outline-success"><i class="bi bi-plus-lg"></i> Novo Mapeamento</a>
+    {% endif %}
   </div>
   <div class="table-responsive">
     <table class="table table-dark table-sm mb-0">
@@ -94,13 +94,53 @@
       </tbody>
     </table>
   </div>
+  {% if current_user.has_permission('brew_plant_mappings.create') %}
+  <div class="card-body border-top border-secondary">
+    {% if not vessels or not device_functions %}
+    <p class="small text-muted mb-0">Cadastre um tanque e uma função de dispositivo antes de criar o mapeamento.</p>
+    {% else %}
+    <form id="pwMappingForm" method="post" action="{{ url_for('plant_workspace.create_mapping', plant_id=plant.id) }}" class="row g-2 align-items-end">
+      <div class="col-md-3"><label class="form-label" for="pwMappingVessel">Tanque</label>
+        <select class="form-select" id="pwMappingVessel" name="vessel_id" required>
+          <option value="">Selecione</option>
+          {% for vessel in vessels %}<option value="{{ vessel.id }}">{{ vessel.label_text }}</option>{% endfor %}
+        </select></div>
+      <div class="col-md-3"><label class="form-label" for="pwMappingRole">Papel</label>
+        <select class="form-select" id="pwMappingRole" name="role_key" required>
+          <option value="">Selecione</option>
+          <option value="sensor_temp">Sensor de temperatura</option>
+          <option value="actor_heat">Atuador de aquecimento</option>
+          <option value="actor_flow">Atuador de fluxo</option>
+        </select></div>
+      <div class="col-md-3"><label class="form-label" for="pwMappingFunction">Função do dispositivo</label>
+        <select class="form-select" id="pwMappingFunction" name="device_function_name" required>
+          <option value="">Selecione</option>
+          {% for function in device_functions %}<option value="{{ function.name }}" data-category="{{ function.category }}">{{ function.display }} ({{ function.name }})</option>{% endfor %}
+        </select></div>
+      <div class="col-md-auto"><div class="form-check mb-2"><input class="form-check-input" id="pwMappingRequired" type="checkbox" name="is_required" checked><label class="form-check-label" for="pwMappingRequired">Obrigatório</label></div></div>
+      <div class="col-md-auto"><button type="submit" class="btn btn-primary">Adicionar vínculo</button></div>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
 </div>
 <script>
 (function () {
-  const form = document.getElementById('pwVesselForm');
-  if (form) form.addEventListener('submit', function (event) {
-    event.preventDefault();
-    window.__workspaceSubmitForm(form);
+  ['pwVesselForm', 'pwMappingForm'].forEach(function (id) {
+    const form = document.getElementById(id);
+    if (form) form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      window.__workspaceSubmitForm(form);
+    });
+  });
+  const role = document.getElementById('pwMappingRole');
+  const functionSelect = document.getElementById('pwMappingFunction');
+  if (role && functionSelect) role.addEventListener('change', function () {
+    const category = role.value === 'sensor_temp' ? 'sensor' : 'actuator';
+    Array.from(functionSelect.options).forEach(function (option) {
+      option.hidden = !!option.value && option.dataset.category !== category && option.dataset.category !== 'hybrid';
+    });
+    functionSelect.value = '';
   });
 })();
 </script>
