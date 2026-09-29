@@ -1,0 +1,98 @@
+{# A receita é global; a planta selecionada apenas preenche o destino da sessão. #}
+<div class="row g-3 mb-3">
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title mb-1">{{ recipe.name }} <small class="text-muted">v{{ recipe.versao }}</small></h5>
+        <p class="mb-2 small">Origem: {{ recipe.origem_receita }}{% if recipe.origem_receita_id %} · ID externo: {{ recipe.origem_receita_id }}{% endif %}</p>
+        {% if recipe.description %}<p class="mb-2">{{ recipe.description }}</p>{% endif %}
+        <div class="small text-muted">
+          Volume planejado: {{ (recipe.volume_planejado_litros ~ ' L') if recipe.volume_planejado_litros is not none else 'não informado' }}
+          · Planta para a próxima sessão: {{ plant.name }}
+        </div>
+        <a href="{{ url_for('mash_recipes.detail', id=recipe.id) }}" target="_blank" rel="noopener" class="small">Editar cadastro completo</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">Preparação da receita</h5>
+        <div>{{ ingredientes|length }} ingrediente(s) · {{ timeline|length }} etapa(s)</div>
+        {% if conferencia.pendencias %}
+        <div class="text-warning">{{ conferencia.pendencias|length }} pendência(s) de ingrediente</div>
+        {% elif ingredientes %}
+        <div class="text-success">Ingredientes conferidos para consumo</div>
+        {% else %}
+        <div class="text-muted">Sem ingredientes cadastrados</div>
+        {% endif %}
+        <div>Custo estimado: {% if custo.custo_completo and ingredientes %}R$ {{ '%.2f'|format(custo.custo_total_estimado) }}{% else %}parcial — revise os avisos abaixo{% endif %}</div>
+        <small class="text-muted">Prévia; nenhuma baixa de estoque é feita nesta tela.</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <h5 class="card-title">Ingredientes e estoque</h5>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Ingrediente</th><th>Tipo / uso</th><th>Quantidade</th><th>Estado</th><th>Orientação</th></tr></thead>
+        <tbody>
+          {% for linha in conferencia.itens %}
+          {% set ing = ingredientes_por_id[linha.id] %}
+          <tr>
+            <td><a href="{{ url_for('recipe_ingredients.detail', id=linha.id) }}" target="_blank" rel="noopener">{{ linha.descricao }}</a></td>
+            <td>{{ ing.tipo_ingrediente or '—' }}{% if ing.uso_detalhado %} · {{ ing.uso_detalhado }}{% endif %}</td>
+            <td>{{ linha.quantidade if linha.quantidade is not none else '—' }} {{ linha.unidade or '' }}</td>
+            <td>
+              {% if linha.estado == 'pronto' %}<span class="badge bg-success">Pronto</span>
+              {% elif linha.estado == 'ignorado' %}<span class="badge bg-secondary">Não consumir</span>
+              {% else %}<span class="badge bg-warning text-dark">Pendente</span>{% endif %}
+            </td>
+            <td class="small">{% if linha.motivo %}{{ linha.motivo }}{% elif linha.custo_estimado is not none %}Custo estimado: R$ {{ '%.2f'|format(linha.custo_estimado) }}{% else %}Sem custo médio cadastrado{% endif %}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-muted">Nenhum ingrediente cadastrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if custo.avisos %}<div class="alert alert-warning py-2 mb-0"><strong>Revisar custo:</strong> {{ custo.avisos|join('; ') }}</div>{% endif %}
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-6">
+    <div class="card h-100"><div class="card-body">
+      <h5 class="card-title">Água</h5>
+      {% for perfil in agua %}
+      <div class="small mb-1"><strong>{{ perfil.contexto }}</strong> · pH {{ perfil.ph if perfil.ph is not none else '—' }} · Ca {{ perfil.calcio if perfil.calcio is not none else '—' }} · Cl {{ perfil.cloreto if perfil.cloreto is not none else '—' }} · SO₄ {{ perfil.sulfato if perfil.sulfato is not none else '—' }} ppm
+        <a href="{{ url_for('water_profiles.detail', id=perfil.id) }}" target="_blank" rel="noopener">Detalhes</a></div>
+      {% else %}<div class="text-muted small">Nenhum perfil de água importado.</div>{% endfor %}
+    </div></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100"><div class="card-body">
+      <h5 class="card-title">Fermentação planejada</h5>
+      {% for etapa in fermentacao %}
+      <div class="small mb-1">{{ etapa.ordem + 1 }}. {{ etapa.nome or 'Etapa' }} · {{ (etapa.temperatura ~ ' °C') if etapa.temperatura is not none else 'temperatura não informada' }} · {{ (etapa.tempo_dias ~ ' dias') if etapa.tempo_dias is not none else 'duração não informada' }}
+        <a href="{{ url_for('fermentation_steps.detail', id=etapa.id) }}" target="_blank" rel="noopener">Detalhes</a></div>
+      {% else %}<div class="text-muted small">Nenhuma etapa de fermentação cadastrada.</div>{% endfor %}
+    </div></div>
+  </div>
+</div>
+
+<div class="card mb-3"><div class="card-body">
+  <h5 class="card-title">Histórico de versões</h5>
+  {% for registro in historico %}
+  <div class="small mb-1">{{ registro.alterado_em.strftime('%d/%m/%Y %H:%M') if registro.alterado_em else 'Sem data' }} · {{ registro.observacao or 'Alteração registrada' }}
+    <a href="{{ url_for('recipe_historys.detail', id=registro.id) }}" target="_blank" rel="noopener">Ver snapshot</a></div>
+  {% else %}<div class="small text-muted">Nenhum snapshot registrado para esta versão. A versão atual é v{{ recipe.versao }}.</div>{% endfor %}
+</div></div>
+
+<h5>Etapas de brassagem e nova sessão</h5>
+<p class="small text-muted">Confira a timeline antes de gerar o lote. A planta selecionada no workspace já vem preenchida no formulário.</p>
+{% include "recipe_timeline/_content.html" %}
+{% include "recipe_timeline/_scripts.html" %}

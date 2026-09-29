@@ -24,6 +24,9 @@ from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_ves
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_mapping import BrewPlantMapping
 from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
 from addons.addon_brewstation.features.feature_mash_control.model.recipe_step import RecipeStep
+from addons.addon_brewstation.features.feature_mash_control.model.recipe_ingredient import RecipeIngredient
+from addons.addon_brewstation.features.feature_mash_control.model.fermentation_step import FermentationStep
+from addons.addon_brewstation.features.feature_mash_control.model.water_profile import WaterProfile
 from addons.addon_brewstation.features.feature_mash_control.model.automation_rule import AutomationRule
 from addons.addon_brewstation.features.feature_mash_control.model.automation_rule_log import AutomationRuleLog
 
@@ -569,6 +572,41 @@ def test_tab_recipe_view_cheia_continua_funcionando_sem_is_fragment(app, client)
     assert "Trocar receita" in html
     assert "Ver Dashboard" in html
     assert 'id="timelineTable"' in html
+
+
+def test_tab_recipe_reune_dados_importados_e_pendencias_sem_gerar_sessao(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta da Receita Completa")
+        recipe = MashRecipe(name="Receita Brewfather Integrada", origem_receita="BrewFather",
+                            origem_receita_id="externo-42")
+        db.session.add_all([plant, recipe])
+        db.session.flush()
+        db.session.add_all([
+            RecipeIngredient(recipe_id=recipe.id, descricao_origem="Malte sem de-para",
+                             quantidade=2, unidade_medida="kg", status_resolucao="pendente_depara"),
+            RecipeIngredient(recipe_id=recipe.id, descricao_origem="Água fora do estoque",
+                             status_resolucao="ignorado"),
+            RecipeStep(recipe_id=recipe.id, step_type="mash", nome="Mostura 65", ordem=0),
+            FermentationStep(recipe_id=recipe.id, nome="Fermentação primária", ordem=0,
+                             temperatura=19, tempo_dias=7),
+            WaterProfile(recipe_id=recipe.id, contexto="target", ph=5.4, calcio=70),
+        ])
+        db.session.commit()
+        plant_id, recipe_id = plant.id, recipe.id
+
+    resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/recipe?recipe_id={recipe_id}")
+    assert resp.status_code == 200
+    html = resp.data.decode("utf-8")
+    assert "<html" not in html.lower()
+    for label in ("Receita Brewfather Integrada", "externo-42", "Malte sem de-para",
+                  "Água fora do estoque", "1 pendência(s)", "Fermentação primária",
+                  "target", "Mostura 65", "Volume planejado: não informado",
+                  "Nenhum snapshot registrado"):
+        assert label in html
+    assert f'/brewstation/recipe-ingredients/' in html
+    with app.app_context():
+        assert BrewSession.query.count() == 0
 
 
 def test_tab_recipe_receita_inexistente_devolve_fragmento_de_erro(app, client):

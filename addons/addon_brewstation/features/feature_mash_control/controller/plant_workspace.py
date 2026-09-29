@@ -1,8 +1,8 @@
 """
 addons/addon_brewstation/features/feature_mash_control/controller/plant_workspace.py
 
-Workspace consolidado por Planta (conversa — "juntar Dashboard + Etapas
-+ Sessões + Planta numa tela só"). NÃO gerado pelo CrudGen — mesmo
+Workspace consolidado por Planta (Dashboard, sessões, configuração,
+receita e automação). NÃO gerado pelo CrudGen — mesmo
 espírito de dashboard_runtime.py/automation_engine.py: ponto de
 extensão manual estável.
 
@@ -12,10 +12,8 @@ Arquitetura decidida em conversa:
 - Abas de verdade (fragmento HTML buscado via AJAX, sem iframe) — cada
   aba precisa de uma rota própria devolvendo só o conteúdo, sem o
   layout do Core em volta (`core/base.html`).
-- Fase 1 (este commit): casca (seletor/criação de Planta + barra de
-  abas) + aba Dashboard funcionando. As demais abas (Sessões, Planta,
-  Receita Mash, Automação) entram em rodadas seguintes — aparecem na
-  barra já, desabilitadas ("em breve").
+- As cinco abas já possuem fragmentos. Cadastro e edição avançada ainda
+  reaproveitam as rotas próprias de cada entidade.
 - As telas antigas (menu "Controle de Mostura" de hoje) continuam
   existindo em paralelo — a remoção do menu é decisão pra depois de
   validar o workspace na prática (registrado em conversa).
@@ -37,6 +35,13 @@ from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_map
 from addons.addon_brewstation.features.feature_mash_control.model.automation_rule import AutomationRule
 from addons.addon_brewstation.features.feature_mash_control.model.automation_rule_log import AutomationRuleLog
 from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
+from addons.addon_brewstation.features.feature_mash_control.model.recipe_ingredient import RecipeIngredient
+from addons.addon_brewstation.features.feature_mash_control.model.fermentation_step import FermentationStep
+from addons.addon_brewstation.features.feature_mash_control.model.water_profile import WaterProfile
+from addons.addon_brewstation.features.feature_mash_control.model.recipe_history import RecipeHistory
+from addons.addon_brewstation.features.feature_mash_control.services.ingredient_consumption_service import (
+    conferir_ingredientes, calcular_custo_insumos_receita,
+)
 from addons.addon_brewstation.features.feature_mash_control.model.dashboard_layout import DashboardLayout
 from addons.addon_brewstation.features.feature_mash_control.controller.dashboard_runtime import (
     _build_dashboard_view_context,
@@ -49,7 +54,7 @@ plant_workspace_bp = Blueprint(
     "plant_workspace", __name__, url_prefix="/brewstation/plant-workspace"
 )
 
-# Abas da fase 1 — só "dashboard" tem rota de fragmento real ainda.
+# Abas do workspace.
 _TABS = [
     {"key": "dashboard", "label": "Dashboard", "icon": "bi-speedometer2", "enabled": True},
     {"key": "sessions", "label": "Sessões", "icon": "bi-collection-play", "enabled": True},
@@ -222,7 +227,18 @@ def tab_recipe(plant_id: int):
         if not recipe or recipe.is_deleted:
             return render_template("plant_workspace/_tab_error.html", message="Receita não encontrada.")
         context = _build_recipe_view_context(recipe, is_fragment=True, default_plant_id=plant_id)
-        return render_template("recipe_timeline/_fragment.html", **context)
+        ingredientes = RecipeIngredient.query.filter_by(recipe_id=recipe.id, is_deleted=False).order_by(RecipeIngredient.id).all()
+        context.update(
+            plant=plant,
+            ingredientes=ingredientes,
+            ingredientes_por_id={ing.id: ing for ing in ingredientes},
+            fermentacao=FermentationStep.query.filter_by(recipe_id=recipe.id, is_deleted=False).order_by(FermentationStep.ordem).all(),
+            agua=WaterProfile.query.filter_by(recipe_id=recipe.id, is_deleted=False).order_by(WaterProfile.contexto).all(),
+            historico=RecipeHistory.query.filter_by(recipe_id=recipe.id, is_deleted=False).order_by(RecipeHistory.alterado_em.desc()).all(),
+            conferencia=conferir_ingredientes(recipe.id),
+            custo=calcular_custo_insumos_receita(recipe.id),
+        )
+        return render_template("plant_workspace/_tab_recipe_detail.html", **context)
 
     recipes = MashRecipe.query.filter_by(is_deleted=False, is_active=True).order_by(MashRecipe.name).all()
     return render_template("plant_workspace/_tab_recipe_picker.html", plant=plant, recipes=recipes)

@@ -4,8 +4,24 @@
 
 Cadastro de receitas de brassagem — etapas de mostura, perfil de
 água, etapas de fermentação e os ingredientes usados (ligados a um
-Material do Estoque). Cada alteração salva gera uma nova versão; o
-histórico de versões fica disponível para consulta/comparação.
+Material do Estoque). A ressincronização da receita do Brewfather cria
+uma versão nova; os snapshots existentes ficam disponíveis no histórico.
+A edição manual pelo formulário atual ainda altera a versão existente.
+
+### Conferir uma receita antes de gerar a sessão
+
+No **Workspace de Planta**, abra a aba **Receita Mash** e escolha a
+receita importada ou cadastrada. A ficha mostra origem e versão,
+ingredientes com o estado do vínculo ao estoque, prévia de custo,
+perfis de água, fermentação e a timeline. A planta escolhida já vem
+selecionada ao gerar a sessão. A consulta não baixa materiais do
+estoque: a confirmação do consumo acontece na tela do lote.
+
+Quando o volume planejado não foi registrado, a ficha mostra **não
+informado**. Se faltar vínculo, quantidade, unidade compatível ou custo
+médio, os avisos indicam o que revisar; valores parciais não são
+apresentados como custo completo. Links para editar cada item continuam
+disponíveis enquanto o cadastro não estiver incorporado ao workspace.
 
 ## Plantas e Tanques
 
