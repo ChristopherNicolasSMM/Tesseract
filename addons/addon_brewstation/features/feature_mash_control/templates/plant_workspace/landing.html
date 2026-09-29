@@ -16,7 +16,7 @@
   <div class="row g-3">
     {% for plant in plants %}
     <div class="col-md-4">
-      <a href="{{ url_for('plant_workspace.shell', plant_id=plant.id) }}" class="card h-100 text-decoration-none bg-dark border-secondary text-light">
+      <a href="{{ url_for('plant_workspace.shell', plant_id=plant.id, tab=initial_tab) }}" class="card h-100 text-decoration-none bg-dark border-secondary text-light">
         <div class="card-body">
           <h5 class="card-title"><i class="bi bi-diagram-3"></i> {{ plant.name }}</h5>
           <p class="card-text small text-muted">Abrir workspace desta Planta</p>

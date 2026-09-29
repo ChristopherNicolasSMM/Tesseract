@@ -41,6 +41,8 @@ from core.db import db
 from addons.addon_estoque.root.model.material import Material
 from addons.addon_estoque.root.model.categoria import Categoria
 from addons.addon_estoque.root.model.tipo_produto import TipoProduto
+from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
+from addons.addon_estoque.root.model.unidade_catalogo import UnidadeCatalogo
 from addons.addon_estoque.root.services.material_lookup import material_exists
 from addons.addon_estoque.root.services.estoque_seed import (
     get_or_create_origem_a_definir,
@@ -131,6 +133,30 @@ def _get_ou_criar_material(nome: str, categoria: str, tipo_ingrediente: str) -> 
     db.session.add(novo)
     db.session.flush()
     return novo
+
+
+def _garantir_unidade_base(material: Material, ingrediente: RecipeIngredient) -> None:
+    """Cria uma base somente quando a unidade de receita é reconhecida.
+
+    Material reaproveitado com base existente conserva a escolha manual.
+    Embalagens sem conversão conhecida não recebem fator inventado.
+    """
+    if MaterialUnidade.query.filter_by(material_id=material.id, is_unidade_base=True,
+                                       is_deleted=False).first():
+        return
+    aliases = {"KG": "KG", "G": "G", "MG": "MG", "L": "L", "LT": "L",
+               "ML": "ML", "UN": "UN", "UNIT": "UN", "UNIDADE": "UN",
+               "PKG": "PCT", "PACKAGE": "PCT"}
+    unidade = aliases.get((ingrediente.unidade_medida or "").strip().upper())
+    if not unidade:
+        return  # exige revisão manual; não presumir o conteúdo de embalagem desconhecida
+    if not UnidadeCatalogo.query.filter_by(codigo=unidade, is_deleted=False).first():
+        return  # catálogo ausente: não criar unidade fora do padrão
+    db.session.add(MaterialUnidade(material_id=material.id, unidade=unidade,
+                                   fator_para_base=1, is_unidade_base=True,
+                                   tipo_uso="ambos", ativo=True))
+    material.unidade_medida = unidade
+    db.session.flush()
 
 
 def _criar_spec_se_necessario(material: Material, ingrediente: RecipeIngredient) -> None:
@@ -229,6 +255,7 @@ def cadastrar_todos_pendentes(origem_receita: str = "BrewFather") -> dict:
                 criados += 1
 
             _criar_spec_se_necessario(material, ing)
+            _garantir_unidade_base(material, ing)
             db.session.flush()
 
             confirmar_mapeamento(origem_receita, descricao, material.id)

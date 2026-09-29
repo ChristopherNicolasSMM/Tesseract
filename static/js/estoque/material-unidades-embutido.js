@@ -20,15 +20,6 @@
     const configEl = document.getElementById("estoque-material-unidades-config");
     if (!configEl) return;
     const config = TesseractData.config("estoque-material-unidades-config");
-    TesseractData.opcoes('unidades_catalogo', '').then(function (data) {
-      const lista = document.getElementById('estoque-unidades-padrao');
-      (data.results || []).forEach(function (opcao) {
-        const item = document.createElement('option');
-        item.value = opcao.text;
-        lista.appendChild(item);
-      });
-    }).catch(function () { /* A unidade livre continua disponível. */ });
-
     const tabelaEl = document.querySelector("table[data-datatable]");
     const tbody = document.querySelector("[data-alvo='tabela-unidades']");
     const modalEl = document.getElementById("modalUnidade");
@@ -87,6 +78,7 @@
     function limparModal() {
       modalEl.querySelector("[data-campo='unidade-id']").value = "";
       modalEl.querySelector("[data-campo='unidade']").value = "";
+      modalEl.querySelector(".weakref-combo-search").value = "";
       modalEl.querySelector("[data-campo='fator_para_base']").value = "1";
       modalEl.querySelector("[data-campo='tipo_uso']").value = "ambos";
       modalEl.querySelector("[data-campo='is_unidade_base']").checked = false;
@@ -97,6 +89,7 @@
     function preencherModal(u) {
       modalEl.querySelector("[data-campo='unidade-id']").value = u.id;
       modalEl.querySelector("[data-campo='unidade']").value = u.unidade;
+      modalEl.querySelector(".weakref-combo-search").value = u.unidade;
       modalEl.querySelector("[data-campo='fator_para_base']").value = u.fator_para_base;
       modalEl.querySelector("[data-campo='tipo_uso']").value = u.tipo_uso;
       modalEl.querySelector("[data-campo='is_unidade_base']").checked = !!u.is_unidade_base;

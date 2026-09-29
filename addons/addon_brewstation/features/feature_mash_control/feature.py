@@ -63,15 +63,15 @@ class FeatureMashControl(FeatureBase):
             },
             {
                 "code": "TX_GROUP_MASH_PLANT_SESSION",
-                "label": "Planta & Sessão",
+                "label": "Plantas e configuração",
                 "parent_code": "TX_GROUP_MASH_CONTROL",
                 "route": None,
                 "icon": "bi-diagram-3",
             },
             {
                 "code": "TX_GROUP_MASH_SESSIONS",
-                "label": "Sessões / Batches",
-                "parent_code": "TX_GROUP_MASH_PLANT_SESSION",
+                "label": "Sessões de brassagem",
+                "parent_code": "TX_GROUP_MASH_CONTROL",
                 "route": None,
                 "icon": "bi-list-check",
             },
@@ -114,6 +114,7 @@ class FeatureMashControl(FeatureBase):
             },
             {
                 "code": "TX_RECIPE_INGREDIENTS",
+                "is_active": False,
                 "label": "Ingredientes de Receita",
                 "parent_code": "TX_GROUP_MASH_RECIPES",
                 "description": "Ingredientes normalizados de uma receita, resolvidos contra o estoque.",
@@ -123,6 +124,7 @@ class FeatureMashControl(FeatureBase):
             },
             {
                 "code": "TX_RECIPE_STEPS",
+                "is_active": False,
                 "label": "Etapas da Receita",
                 "parent_code": "TX_GROUP_MASH_RECIPES",
                 "description": "Timeline única (mostura+fervura+alerta) planejada na receita — CRUD cru; ver também 'Importar Receita para Brassar'.",
@@ -142,6 +144,7 @@ class FeatureMashControl(FeatureBase):
             },
             {
                 "code": "TX_FERMENTATION_STEPS",
+                "is_active": False,
                 "label": "Etapas de Fermentação",
                 "parent_code": "TX_GROUP_MASH_RECIPES",
                 "description": "Perfil de fermentação planejado na receita.",
@@ -170,7 +173,17 @@ class FeatureMashControl(FeatureBase):
 
             # ── Planta & Sessão ──────────────────────────────────────
             {
+                "code": "TX_PLANT_FLOW",
+                "label": "Abrir planta",
+                "parent_code": "TX_GROUP_MASH_PLANT_SESSION",
+                "description": "Escolha uma planta e abra sua configuração, tanques e mapeamentos.",
+                "icon": "bi-diagram-3",
+                "route": "/brewstation/plant-workspace/?tab=plant",
+                "permission_required": "brew_plants.list",
+            },
+            {
                 "code": "TX_BREW_PLANTS",
+                "is_active": False,
                 "label": "Plantas de Brassagem",
                 "parent_code": "TX_GROUP_MASH_PLANT_SESSION",
                 "description": "Estrutura física — panelas, fermentadores.",
@@ -197,9 +210,17 @@ class FeatureMashControl(FeatureBase):
                 "permission_required": "brew_plant_mappings.list",
             },
 
-            # Sessões / Batches (sub-grupo dentro de Planta & Sessão) —
-            # "Dashboards" vai entrar aqui quando o sistema de dashboard
-            # existir de verdade (próximo ajuste, não implementado ainda).
+            # Sessões / Batches — a entrada abre o fluxo da planta; os
+            # cadastros completos permanecem disponíveis abaixo dela.
+            {
+                "code": "TX_SESSION_FLOW",
+                "label": "Abrir fluxo de sessões",
+                "parent_code": "TX_GROUP_MASH_SESSIONS",
+                "description": "Escolha a planta e acompanhe as sessões no workspace.",
+                "icon": "bi-collection-play",
+                "route": "/brewstation/plant-workspace/?tab=sessions",
+                "permission_required": "brew_sessions.list",
+            },
             {
                 "code": "TX_BREW_SESSIONS",
                 "label": "Sessões de Brassagem",
@@ -273,7 +294,7 @@ class FeatureMashControl(FeatureBase):
             {
                 "code": "TX_DASHBOARD_LAYOUTS",
                 "label": "Layouts de Dashboard",
-                "parent_code": "TX_GROUP_MASH_CONTROL",
+                "parent_code": "TX_GROUP_MASH_PLANT_SESSION",
                 "description": "Layouts visuais de acompanhamento (em construção).",
                 "icon": "bi-grid-1x2",
                 "route": "/brewstation/dashboard-layouts",

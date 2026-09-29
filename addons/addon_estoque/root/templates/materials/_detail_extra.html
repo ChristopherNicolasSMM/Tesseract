@@ -59,13 +59,17 @@
         <input type="hidden" data-campo="unidade-id">
         <div class="mb-3">
           <label class="form-label">Unidade <span class="text-danger">*</span></label>
-          <input type="text" class="form-control" data-campo="unidade" list="estoque-unidades-padrao" placeholder="Ex.: KG, UN, saco25kg…">
-          <div class="form-text">Escolha uma unidade usual ou informe uma embalagem específica, como PCT de 1 kg. Cadastre a unidade-base primeiro.</div>
+          <div class="weakref-combo" data-weakref-source="unidades_catalogo" data-weakref-value-field="codigo">
+            <input type="hidden" class="weakref-combo-value" data-campo="unidade">
+            <input type="text" class="form-control weakref-combo-search" autocomplete="off" placeholder="Buscar unidade...">
+            <ul class="list-group weakref-combo-results"></ul>
+          </div>
+          <div class="form-text">Escolha uma unidade do catálogo. Para embalagens, use PCT e informe no fator a quantidade da unidade-base correspondente neste material. Cadastre a unidade-base primeiro.</div>
         </div>
         <div class="mb-3">
           <label class="form-label">Fator para Unidade-Base <span class="text-danger">*</span></label>
           <input type="number" step="0.0001" min="0" class="form-control" data-campo="fator_para_base" value="1">
-          <div class="form-text">Quantas unidades-base equivalem a 1 desta unidade. Se a base é KG: PCT de 1 kg = 1; G = 0,001. Este fator afeta quantidade e custo unitário no recebimento.</div>
+          <div class="form-text">Quantas unidades-base equivalem a 1 desta unidade. Se a base é KG: um PCT com 1 kg tem fator 1; G tem fator 0,001. Este fator afeta quantidade e custo unitário no recebimento.</div>
         </div>
         <div class="row">
           <div class="col-6 mb-3">
@@ -96,8 +100,6 @@
     </div>
   </div>
 </div>
-
-<datalist id="estoque-unidades-padrao"></datalist>
 
 <script src="{{ url_for('static', filename='js/freestyle/freestyle-tesseract-data.js') }}"></script>
 <script src="{{ url_for('static', filename='js/estoque/material-unidades-embutido.js') }}"></script>

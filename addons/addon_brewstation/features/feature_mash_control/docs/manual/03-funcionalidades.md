@@ -45,9 +45,26 @@ abrem o cadastro completo.
 Os atalhos **Importar Receita para Brassar**, **Dashboard** avulso e
 **Widgets de Dashboard** foram ocultados do menu: suas operações
 estão nas abas Receita Mash e Dashboard. Suas rotas continuam ativas.
-Os demais cadastros e históricos continuam visíveis para edição e
-consulta completa. Ao atualizar uma instalação, execute
+Os cadastros e históricos com consulta própria continuam disponíveis
+para edição e consulta completa. Ao atualizar uma instalação, execute
 `flask db upgrade` para aplicar a visibilidade no menu existente.
+
+### Navegação de configuração e sessões
+
+No menu **Controle de Mostura**, o grupo **Plantas e configuração**
+oferece **Abrir planta**, Tanques, Mapeamentos de Planta e Layouts de
+Dashboard. O grupo **Sessões de brassagem** oferece **Abrir fluxo de
+sessões** e o acesso aos cadastros completos de sessões, passos, logs
+e alarmes. Ao escolher uma planta nesses fluxos, a aba correspondente
+já abre selecionada. O cadastro avulso de plantas não aparece mais no
+menu; o cadastro e a edição continuam acessíveis no workspace.
+
+Ingredientes, etapas de brassagem e etapas de fermentação são
+consultados na aba **Receita Mash**. Suas páginas de edição continuam
+disponíveis pelos links de cada item, mas suas listas gerais deixam
+de ocupar o menu lateral. O perfil de água é exibido por contexto:
+origem, alvo, mostura, lavagem e total. Até cinco linhas por receita
+são esperadas quando todos os contextos vieram do Brewfather.
 
 ## Sessões de Brassagem
 

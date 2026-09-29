@@ -37,8 +37,7 @@ def test_hide_legacy_menu_preserva_cadastros_e_historicos():
     runner.invoke(args=["hide-legacy-mash-control-menu"])
 
     with app.app_context():
-        for code in ("TX_RECIPE_INGREDIENTS", "TX_MASH_RECIPES", "TX_RECIPE_STEPS",
-                     "TX_BREW_PLANTS", "TX_BREW_PLANT_VESSELS", "TX_BREW_PLANT_MAPPINGS",
+        for code in ("TX_MASH_RECIPES", "TX_BREW_PLANT_VESSELS", "TX_BREW_PLANT_MAPPINGS",
                      "TX_BREW_SESSIONS", "TX_BREW_SESSION_STEPS", "TX_BREW_SESSION_LOGS",
                      "TX_BREW_SESSION_ALARMS", "TX_AUTOMATION_RULES", "TX_AUTOMATION_RULE_LOGS",
                      "TX_DASHBOARD_LAYOUTS"):
@@ -55,7 +54,7 @@ def test_hide_legacy_menu_nao_mexe_em_transacoes_fora_do_escopo():
     runner.invoke(args=["hide-legacy-mash-control-menu"])
 
     with app.app_context():
-        for code in ["TX_FERMENTATION_STEPS", "TX_WATER_PROFILES", "TX_RECIPE_HISTORYS", "TX_INGREDIENT_MAPPINGS"]:
+        for code in ["TX_WATER_PROFILES", "TX_RECIPE_HISTORYS", "TX_INGREDIENT_MAPPINGS"]:
             tx = Transaction.query.filter_by(code=code).first()
             assert tx is not None
             assert tx.is_active is True, f"{code} não deveria ter sido desativada"

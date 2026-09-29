@@ -105,6 +105,17 @@ def test_landing_lista_plantas_existentes(app, client):
     assert "Planta Workspace Landing" in html
 
 
+def test_atalho_de_sessoes_preserva_aba_ao_escolher_planta(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Menu Sessões")
+        db.session.add(plant)
+        db.session.commit()
+        plant_id = plant.id
+    html = client.get("/brewstation/plant-workspace/?tab=sessions").data.decode("utf-8")
+    assert f"/brewstation/plant-workspace/{plant_id}?tab=sessions" in html
+
+
 def test_landing_sem_planta_nenhuma_mostra_aviso(app, client):
     _login_admin(app, client)
     resp = client.get("/brewstation/plant-workspace/")

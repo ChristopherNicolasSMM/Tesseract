@@ -68,7 +68,7 @@
     <div class="card h-100"><div class="card-body">
       <h5 class="card-title">Água</h5>
       {% for perfil in agua %}
-      <div class="small mb-1"><strong>{{ perfil.contexto }}</strong> · pH {{ perfil.ph if perfil.ph is not none else '—' }} · Ca {{ perfil.calcio if perfil.calcio is not none else '—' }} · Cl {{ perfil.cloreto if perfil.cloreto is not none else '—' }} · SO₄ {{ perfil.sulfato if perfil.sulfato is not none else '—' }} ppm
+      <div class="small mb-1"><strong>{{ {'source': 'Água de origem', 'target': 'Perfil alvo', 'mash': 'Mostura', 'sparge': 'Lavagem', 'total': 'Mistura total'}.get(perfil.contexto, perfil.contexto) }}</strong> · pH {{ perfil.ph if perfil.ph is not none else '—' }} · Ca {{ perfil.calcio if perfil.calcio is not none else '—' }} · Cl {{ perfil.cloreto if perfil.cloreto is not none else '—' }} · SO₄ {{ perfil.sulfato if perfil.sulfato is not none else '—' }} ppm
         <a href="{{ url_for('water_profiles.detail', id=perfil.id) }}" target="_blank" rel="noopener">Detalhes</a></div>
       {% else %}<div class="text-muted small">Nenhum perfil de água importado.</div>{% endfor %}
     </div></div>

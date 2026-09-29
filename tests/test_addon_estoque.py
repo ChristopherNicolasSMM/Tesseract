@@ -1519,6 +1519,8 @@ def test_detalhe_material_mostra_grid_de_unidades(app, client):
     resp = client.get(f"/estoque/materials/{material_id}", follow_redirects=True)
     assert resp.status_code == 200
     assert b"material-unidades-embutido.js" in resp.data
+    assert b'data-weakref-source="unidades_catalogo"' in resp.data
+    assert b"estoque-unidades-padrao" not in resp.data
     assert b'data-weakref-source="fabricantes"' in resp.data  # aba de edicao tambem corrigida
 
 

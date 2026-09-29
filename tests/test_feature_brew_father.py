@@ -399,10 +399,16 @@ def test_busca_materiais_api_retorna_resultados(app, client):
 
 def test_cadastrar_todos_pendentes_resolve_campos_obrigatorios_novos(app):
     from addons.addon_brewstation.features.feature_brew_father.services import ingredient_autocreate_service
+    from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
+    from addons.addon_estoque.root.model.unidade_catalogo import UnidadeCatalogo
     from addons.addon_estoque.root.model.origem import SEED_NOME_A_DEFINIR
     from addons.addon_estoque.root.model.tipo_produto import SEED_NOME_INSUMO
 
     with app.app_context():
+        for codigo in ("KG", "G"):
+            if not UnidadeCatalogo.query.filter_by(codigo=codigo).first():
+                db.session.add(UnidadeCatalogo(codigo=codigo, descricao=codigo, dimensao="massa"))
+        db.session.commit()
         receita = MashRecipe(name="Receita BF", versao=1, origem_receita="BrewFather")
         db.session.add(receita)
         db.session.commit()
@@ -410,10 +416,12 @@ def test_cadastrar_todos_pendentes_resolve_campos_obrigatorios_novos(app):
         db.session.add(RecipeIngredient(
             recipe_id=receita.id, descricao_origem="Pale Malt 2-Row",
             tipo_ingrediente="fermentavel", status_resolucao="pendente_depara",
+            unidade_medida="kg",
         ))
         db.session.add(RecipeIngredient(
             recipe_id=receita.id, descricao_origem="Cascade",
             tipo_ingrediente="lupulo", status_resolucao="pendente_depara",
+            unidade_medida="g",
         ))
         db.session.commit()
 
@@ -433,10 +441,13 @@ def test_cadastrar_todos_pendentes_resolve_campos_obrigatorios_novos(app):
         assert malte.tipo_produto.descricao == SEED_NOME_INSUMO
         assert malte.categoria.descricao == "materia_prima"
         assert malte.categoria.codigo == "MATERIA_PRIMA"
+        unidade_malte = MaterialUnidade.query.filter_by(material_id=malte.id, is_unidade_base=True).one()
+        assert (unidade_malte.unidade, unidade_malte.fator_para_base) == ("KG", 1)
 
         lupulo = Material.query.filter_by(nome="Cascade").first()
         assert lupulo.sku == "LUPULO-CASCADE"
         assert lupulo.pendente_revisao is True
+        assert MaterialUnidade.query.filter_by(material_id=lupulo.id, is_unidade_base=True).one().unidade == "G"
 
 
 def test_cadastrar_todos_pendentes_gera_sku_sem_colisao(app):
@@ -467,6 +478,29 @@ def test_cadastrar_todos_pendentes_gera_sku_sem_colisao(app):
             Material.nome.in_(["Malte Pilsen Alemao", "Malte Pilsen Belga"])
         ).all())
         assert skus == ["MALTE-MALTEPILSE", "MALTE-MALTEPILSE-2"]
+
+
+def test_autocadastro_pkg_cria_base_pct_idempotente(app):
+    from addons.addon_brewstation.features.feature_brew_father.services.ingredient_autocreate_service import _garantir_unidade_base
+    from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
+    from addons.addon_estoque.root.model.unidade_catalogo import UnidadeCatalogo
+
+    with app.app_context():
+        if not UnidadeCatalogo.query.filter_by(codigo="PCT").first():
+            db.session.add(UnidadeCatalogo(codigo="PCT", descricao="Pacote", dimensao="embalagem"))
+        from addons.addon_brewstation.features.feature_brew_father.services.ingredient_autocreate_service import _get_ou_criar_material
+        material = _get_ou_criar_material("Teste base própria", "materia_prima", "levedura")
+        recipe = MashRecipe(name="Levedura Base", versao=1, origem_receita="BrewFather")
+        db.session.add(recipe)
+        db.session.flush()
+        ing = RecipeIngredient(recipe_id=recipe.id, descricao_origem="Teste base própria",
+                               tipo_ingrediente="levedura", unidade_medida="pkg")
+        _garantir_unidade_base(material, ing)
+        _garantir_unidade_base(material, ing)
+        assert MaterialUnidade.query.filter_by(material_id=material.id, is_unidade_base=True).count() == 1
+        assert MaterialUnidade.query.filter_by(material_id=material.id, is_unidade_base=True).one().unidade == "PCT"
+        from addons.addon_brewstation.features.feature_envase.services.unidade_conversao import converter_quantidade
+        assert converter_quantidade(2, "pkg", "PCT", material.id) == (2, True)
 
 
 # ── Item (c): adjuntos (miscs[]) + água (WaterProfile) ───────────────

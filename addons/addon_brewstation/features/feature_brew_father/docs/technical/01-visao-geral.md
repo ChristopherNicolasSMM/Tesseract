@@ -81,3 +81,14 @@ unidades não definidas. A prévia não escreve no Brewfather nem altera
   API BrewFather, decidido mas não implementado.
 - `i18n/pt_BR.json` — não escrito (gap conhecido em quase todo o
   Addon, registrado em `BACKLOG.md`).
+
+## Autocadastro de unidades-base
+
+Ao cadastrar automaticamente um ingrediente, o serviço também cria a
+unidade-base do Material quando a unidade da linha de receita é
+reconhecida no catálogo (KG, G, MG, L, ML, UN ou PCT para `pkg`).
+O fator é 1 e o Material permanece pendente de revisão. Um Material
+reaproveitado com base existente preserva a configuração manual.
+Unidades desconhecidas exigem revisão, pois não é seguro inferir o
+conteúdo de uma embalagem. PCT identifica a embalagem; o fator de
+conversão é definido em cada Material.

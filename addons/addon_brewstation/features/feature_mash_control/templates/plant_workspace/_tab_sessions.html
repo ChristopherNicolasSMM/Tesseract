@@ -63,7 +63,7 @@
             {% for step in steps %}
             <tr>
               <td>{{ step.step_index }}</td>
-              <td>{{ step.name }}</td>
+              <td><a href="{{ url_for('brew_session_steps.detail', id=step.id) }}" target="_blank" rel="noopener">{{ step.name }}</a></td>
               <td>{{ step.step_type or '—' }}</td>
               <td>{{ (step.target_temp ~ '°C') if step.target_temp is not none else '—' }}</td>
               <td>{{ ((step.ramp_seconds + step.duration_seconds) // 60) }} min</td>
@@ -85,7 +85,7 @@
             {% for log in logs %}
             <div class="list-group-item bg-dark text-light small">
               <span class="badge {{ 'bg-danger' if log.log_level == 'error' else ('bg-warning' if log.log_level in ('warning', 'alarm') else 'bg-secondary') }}">{{ log.log_level }}</span>
-              {{ log.message }}
+              <a href="{{ url_for('brew_session_logs.detail', id=log.id) }}" target="_blank" rel="noopener">{{ log.message }}</a>
               <div class="text-muted" style="font-size: 0.75rem;">{{ log.created_at.strftime('%d/%m %H:%M:%S') if log.created_at else '' }}</div>
             </div>
             {% else %}
@@ -101,7 +101,7 @@
             {% for alarm in alarms %}
             <div class="list-group-item bg-dark text-light small">
               <span class="badge {{ 'bg-danger' if alarm.severity in ('high', 'critical') else ('bg-warning' if alarm.severity == 'medium' else 'bg-secondary') }}">{{ alarm.severity }}</span>
-              {{ alarm.message }}
+              <a href="{{ url_for('brew_session_alarms.detail', id=alarm.id) }}" target="_blank" rel="noopener">{{ alarm.message }}</a>
               {% if alarm.is_acknowledged %}<i class="bi bi-check-circle text-success" title="Reconhecido"></i>{% endif %}
               <div class="text-muted" style="font-size: 0.75rem;">{{ alarm.created_at.strftime('%d/%m %H:%M:%S') if alarm.created_at else '' }}</div>
             </div>

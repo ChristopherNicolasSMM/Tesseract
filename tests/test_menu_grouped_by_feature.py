@@ -69,7 +69,7 @@ def test_grupo_controle_de_mostura_tem_7_filhos_diretos(app):
             "TX_GROUP_MASH_RECIPES",
             "TX_GROUP_MASH_PLANT_SESSION",
             "TX_GROUP_MASH_AUTOMATION",
-            "TX_DASHBOARD_LAYOUTS",
+            "TX_GROUP_MASH_SESSIONS",
             "TX_DASHBOARD_WIDGETS",
             "TX_BRIDGE_IMPORT",
             "TX_PLANT_WORKSPACE",
@@ -87,25 +87,26 @@ def test_grupo_receitas_tem_7_transacoes(app):
         assert count == 7
 
 
-def test_grupo_planta_e_sessao_tem_3_filhos_diretos_mais_subgrupo_sessoes(app):
+def test_grupo_planta_e_sessao_tem_fluxo_e_configuracoes(app):
     with app.app_context():
         folder = Transaction.query.filter_by(code="TX_GROUP_MASH_PLANT_SESSION").first()
         assert folder is not None
         filhos = {t.code for t in Transaction.query.filter_by(parent_id=folder.id).all()}
         assert filhos == {
             "TX_BREW_PLANTS", "TX_BREW_PLANT_VESSELS", "TX_BREW_PLANT_MAPPINGS",
-            "TX_GROUP_MASH_SESSIONS",
+            "TX_DASHBOARD_LAYOUTS", "TX_PLANT_FLOW",
         }
 
         sessoes = Transaction.query.filter_by(code="TX_GROUP_MASH_SESSIONS").first()
         assert sessoes is not None
-        assert sessoes.parent_id == folder.id
+        controle = Transaction.query.filter_by(code="TX_GROUP_MASH_CONTROL").first()
+        assert sessoes.parent_id == controle.id
         filhos_sessoes = {t.code for t in Transaction.query.filter_by(parent_id=sessoes.id).all()}
         # 4 originais + TX_DASHBOARD_VIEW (dashboard de verdade, implementado
         # nesta conversa — "entra aqui quando o sistema de dashboard existir")
         assert filhos_sessoes == {
             "TX_BREW_SESSIONS", "TX_BREW_SESSION_STEPS", "TX_BREW_SESSION_LOGS",
-            "TX_BREW_SESSION_ALARMS", "TX_DASHBOARD_VIEW",
+            "TX_BREW_SESSION_ALARMS", "TX_DASHBOARD_VIEW", "TX_SESSION_FLOW",
         }
 
 
@@ -202,7 +203,7 @@ def test_transacao_orfa_agora_existe(app, code):
     with app.app_context():
         tx = Transaction.query.filter_by(code=code).first()
         assert tx is not None, f"{code} deveria existir agora"
-        assert tx.is_active is True
+        assert tx.is_active is (code not in {"TX_BREW_PLANTS", "TX_DASHBOARD_WIDGETS"})
         assert tx.route is not None
 
 
@@ -210,7 +211,7 @@ def test_todas_as_20_orfas_aparecem_na_home(app, client):
     _login_admin(app, client)
     resp = client.get("/")
     rotas_esperadas = [
-        "/brewstation/yeast-bank-items", "/brewstation/brew-plants",
+        "/brewstation/yeast-bank-items", "/brewstation/plant-workspace/",
         "/device-manager/device-functions", "/device-manager/device-actors",
         "/device-manager/emulated-devices",
     ]

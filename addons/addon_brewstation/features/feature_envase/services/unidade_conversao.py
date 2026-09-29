@@ -32,6 +32,12 @@ _VOLUME_PARA_ML = {"ml": 1.0, "l": 1000.0, "lt": 1000.0}
 
 def _fator_generico(unidade_origem: str, unidade_destino: str) -> float | None:
     uo, ud = unidade_origem.lower(), unidade_destino.lower()
+    # Brewfather usa pkg/package para a contagem de pacotes de levedura.
+    # Equivalência entre rótulos, sem inferir massa ou volume do pacote.
+    aliases = {"pkg": "pct", "package": "pct", "unit": "un", "unidade": "un", "lt": "l"}
+    uo, ud = aliases.get(uo, uo), aliases.get(ud, ud)
+    if uo == ud:
+        return 1.0
     if uo in _MASSA_PARA_GRAMA and ud in _MASSA_PARA_GRAMA:
         return _MASSA_PARA_GRAMA[uo] / _MASSA_PARA_GRAMA[ud]
     if uo in _VOLUME_PARA_ML and ud in _VOLUME_PARA_ML:

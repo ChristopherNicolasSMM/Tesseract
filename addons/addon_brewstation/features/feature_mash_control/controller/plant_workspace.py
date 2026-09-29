@@ -76,7 +76,9 @@ _TABS = [
 def landing():
     """Escolher (ou ir criar) a Planta antes de entrar no workspace."""
     plants = BrewPlant.query.filter_by(is_deleted=False).order_by(BrewPlant.name).all()
-    return render_template("plant_workspace/landing.html", plants=plants)
+    requested_tab = request.args.get("tab", "dashboard")
+    initial_tab = requested_tab if requested_tab in {t["key"] for t in _TABS} else "dashboard"
+    return render_template("plant_workspace/landing.html", plants=plants, initial_tab=initial_tab)
 
 
 @plant_workspace_bp.route("/", methods=["POST"])
