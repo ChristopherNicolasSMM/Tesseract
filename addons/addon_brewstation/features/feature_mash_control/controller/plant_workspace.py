@@ -249,6 +249,28 @@ def create_layout(plant_id: int):
     return _workspace_form_result(result, plant_id=plant_id, tab="dashboard")
 
 
+@plant_workspace_bp.route("/<int:plant_id>/dashboard-layouts/<int:layout_id>/edit", methods=["POST"])
+@login_required
+@permission_required("dashboard_layouts.update")
+def update_layout(plant_id, layout_id):
+    layout = (DashboardLayout.query.join(BrewPlant)
+              .filter(DashboardLayout.id == layout_id, DashboardLayout.plant_id == plant_id,
+                      DashboardLayout.is_deleted.is_(False), BrewPlant.is_deleted.is_(False)).first())
+    if not layout:
+        return _workspace_form_error("Layout desta planta não encontrado.", 404, plant_id=plant_id, tab="dashboard")
+    name = (request.form.get("name") or "").strip()
+    description = (request.form.get("description") or "").strip()
+    width = request.form.get("canvas_width", type=int)
+    height = request.form.get("canvas_height", type=int)
+    if not name or len(name) > 100 or len(description) > 500:
+        return _workspace_form_error("Informe nome com até 100 e descrição com até 500 caracteres.", 400, plant_id=plant_id, tab="dashboard")
+    if width is None or height is None or width <= 0 or height <= 0:
+        return _workspace_form_error("Informe largura e altura inteiras e positivas.", 400, plant_id=plant_id, tab="dashboard")
+    result = DashboardLayoutService().update(layout_id, {"name": name, "description": description,
+                                            "canvas_width": width, "canvas_height": height})
+    return _workspace_form_result(result, plant_id=plant_id, tab="dashboard", status=200)
+
+
 @plant_workspace_bp.route("/<int:plant_id>", methods=["GET"])
 @login_required
 @permission_required("brew_plants.list")
@@ -271,10 +293,14 @@ def tab_dashboard(plant_id: int):
     if not plant or plant.is_deleted:
         return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada.")
 
-    layout = (
-        DashboardLayout.query.filter_by(plant_id=plant_id, is_deleted=False, is_default=True).first()
-        or DashboardLayout.query.filter_by(plant_id=plant_id, is_deleted=False).order_by(DashboardLayout.id).first()
-    )
+    layouts = DashboardLayout.query.filter_by(plant_id=plant_id, is_deleted=False)
+    if "layout_id" in request.args:
+        layout = layouts.filter_by(id=request.args.get("layout_id", type=int)).first()
+        if not layout:
+            return render_template("plant_workspace/_tab_error.html", message="Layout desta planta não encontrado."), 404
+    else:
+        layout = (layouts.filter_by(is_default=True).first()
+                  or layouts.order_by(DashboardLayout.id).first())
     if not layout:
         return render_template("plant_workspace/_tab_dashboard_empty.html", plant=plant)
 

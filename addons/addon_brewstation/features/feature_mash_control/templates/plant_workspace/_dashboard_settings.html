@@ -1,0 +1,38 @@
+<details id="pwLayoutSettings" class="card mt-3">
+  <summary class="card-header">Configuração dos dashboards desta planta</summary>
+  <div class="card-body pt-3">
+    <p class="small text-muted">Edite o painel selecionado. Para posicionar tanques, leituras e outros elementos, use o Modo Edição do dashboard.</p>
+    {% if current_user.has_permission('dashboard_layouts.update') %}
+    <form id="pwLayoutEditForm" method="post" action="{{ url_for('plant_workspace.update_layout', plant_id=layout.plant_id, layout_id=layout.id) }}" class="row g-3">
+      <div class="col-md-6"><label for="pwLayoutEditName" class="form-label">Nome do painel</label>
+        <input id="pwLayoutEditName" name="name" class="form-control" maxlength="100" value="{{ layout.name }}" required></div>
+      <div class="col-md-3"><label for="pwLayoutWidth" class="form-label">Largura (px)</label>
+        <input id="pwLayoutWidth" name="canvas_width" type="number" min="1" step="1" class="form-control" value="{{ layout.canvas_width or 1600 }}" required></div>
+      <div class="col-md-3"><label for="pwLayoutHeight" class="form-label">Altura (px)</label>
+        <input id="pwLayoutHeight" name="canvas_height" type="number" min="1" step="1" class="form-control" value="{{ layout.canvas_height or 900 }}" required></div>
+      <div class="col-12"><label for="pwLayoutDescription" class="form-label">Descrição</label>
+        <textarea id="pwLayoutDescription" name="description" class="form-control" maxlength="500">{{ layout.description or '' }}</textarea></div>
+      <div class="col-12"><button type="submit" class="btn btn-primary">Salvar painel</button></div>
+    </form>
+    {% else %}<p class="small text-muted">Solicite alterações a quem administra os layouts.</p>{% endif %}
+    {% if current_user.has_permission('dashboard_layouts.create') %}
+    <hr>
+    <form id="pwLayoutAdditionalForm" method="post" action="{{ url_for('plant_workspace.create_layout', plant_id=layout.plant_id) }}" class="row g-2 align-items-end">
+      <div class="col-md-8"><label for="pwAdditionalName" class="form-label">Novo dashboard desta planta</label>
+        <input id="pwAdditionalName" name="name" class="form-control" maxlength="100" required></div>
+      <div class="col-md-auto"><button type="submit" class="btn btn-primary">Criar painel</button></div>
+    </form>
+    {% endif %}
+  </div>
+</details>
+<script>
+(function () {
+  ['pwLayoutEditForm', 'pwLayoutAdditionalForm'].forEach(function (id) {
+    const form = document.getElementById(id);
+    if (form) form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      window.__workspaceSubmitForm(form);
+    });
+  });
+})();
+</script>

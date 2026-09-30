@@ -9,9 +9,13 @@
     </select>
     {% endif %}
     {% if is_fragment and all_layouts|length > 1 %}
-    <a href="{{ url_for('dashboard_runtime.view', layout_id=layout.id) }}" target="_blank" class="small text-muted" title="Esta Planta tem mais de um Dashboard — trocar de layout abre a tela completa em outra aba">
-      <i class="bi bi-box-arrow-up-right"></i> Ver dashboard completo
-    </a>
+    <label for="pwDashboardSelector" class="visually-hidden">Dashboard da planta</label>
+    <select id="pwDashboardSelector" class="form-select form-select-sm" style="width:auto;"
+            onchange="window.__workspaceLoadUrl(this.value)">
+      {% for l in all_layouts %}
+      <option value="{{ url_for('plant_workspace.tab_dashboard', plant_id=layout.plant_id, layout_id=l.id) }}" {{ 'selected' if l.id == layout.id else '' }}>{{ l.name }}</option>
+      {% endfor %}
+    </select>
     {% endif %}
     {% if layout.plant_id %}
     <select id="dbSessionSelector" class="form-select form-select-sm" style="width:auto; max-width:220px;" title="Sessão exibida neste Dashboard">
@@ -26,12 +30,18 @@
       <button type="button" id="dbEditPipesBtn" class="btn btn-sm btn-info"><i class="bi bi-share"></i> Tubulação</button>
       {% endif %}
     </div>
-    <a href="{{ url_for('recipe_timeline.picker') }}" class="btn btn-sm btn-success">
+    <a href="{{ url_for('recipe_timeline.picker') }}" class="btn btn-sm btn-success"{% if is_fragment %} onclick="event.preventDefault(); window.__workspaceOpenTab('recipe');"{% endif %}>
       <i class="bi bi-signpost-split"></i> Importar Receita para Brassar
     </a>
+    {% if is_fragment %}
+    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('pwLayoutSettings').open = true; document.getElementById('pwLayoutSettings').scrollIntoView({behavior: 'smooth'});">
+      <i class="bi bi-gear"></i> Configurar layouts
+    </button>
+    {% else %}
     <a href="{{ url_for('dashboard_layouts.manage') }}" class="btn btn-sm btn-outline-secondary">
       <i class="bi bi-gear"></i> Configurar layouts
     </a>
+    {% endif %}
     <a href="{{ url_for('dashboard_widgets.manage') }}" class="btn btn-sm btn-outline-secondary">
       <i class="bi bi-table"></i> Ver tabela de widgets
     </a>

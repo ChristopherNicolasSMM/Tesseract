@@ -404,6 +404,89 @@ def test_tab_dashboard_so_lista_layouts_da_propria_planta(app, client):
     assert 'onchange="window.location.href=this.value"' not in html
 
 
+def test_dashboard_workspace_seleciona_layout_sem_sair_da_planta(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Seleção Layout")
+        other = BrewPlant(name="Outra Planta Seleção")
+        db.session.add_all([plant, other])
+        db.session.flush()
+        first = DashboardLayout(name="Painel Principal Seleção", plant_id=plant.id, is_default=True)
+        second = DashboardLayout(name="Painel Alternativo Seleção", plant_id=plant.id)
+        foreign = DashboardLayout(name="Painel Outra Planta Seleção", plant_id=other.id)
+        deleted = DashboardLayout(name="Painel Apagado Seleção", plant_id=plant.id, is_deleted=True)
+        db.session.add_all([first, second, foreign, deleted])
+        db.session.commit()
+        plant_id, second_id, foreign_id, deleted_id = plant.id, second.id, foreign.id, deleted.id
+    url = f"/brewstation/plant-workspace/{plant_id}/tab/dashboard"
+    response = client.get(url, query_string={"layout_id": second_id})
+    assert response.status_code == 200
+    html = response.data.decode("utf-8")
+    assert '<h1>Painel Alternativo Seleção</h1>' in html
+    assert 'id="pwDashboardSelector"' in html
+    assert 'onchange="window.__workspaceLoadUrl(this.value)"' in html
+    assert 'id="pwLayoutEditForm"' in html
+    assert 'id="pwLayoutAdditionalForm"' in html
+    assert "window.__workspaceOpenTab('recipe')" in html
+    for invalid_id in (foreign_id, deleted_id, "inválido"):
+        assert client.get(url, query_string={"layout_id": invalid_id}).status_code == 404
+    response = client.post(f"/brewstation/plant-workspace/{plant_id}/dashboard-layouts",
+                           data={"name": "Painel Adicional Workspace"},
+                           headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == 201
+    created_id = response.get_json()["id"]
+    with app.app_context():
+        created = db.session.get(DashboardLayout, created_id)
+        assert created.plant_id == plant_id
+        assert created.is_default is False
+    assert b'Painel Adicional Workspace' in client.get(url).data
+
+
+def test_dashboard_workspace_edita_layout_preserva_planta_e_widgets(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Edição Layout")
+        other = BrewPlant(name="Outra Planta Edição Layout")
+        db.session.add_all([plant, other])
+        db.session.flush()
+        layout = DashboardLayout(name="Painel Antes", plant_id=plant.id, is_default=True)
+        db.session.add(layout)
+        db.session.flush()
+        widget = DashboardWidget(layout_id=layout.id, widget_type="text", config_json={"content": "Preservado"})
+        db.session.add(widget)
+        db.session.commit()
+        plant_id, other_id, layout_id, widget_id = plant.id, other.id, layout.id, widget.id
+    url = f"/brewstation/plant-workspace/{plant_id}/dashboard-layouts/{layout_id}/edit"
+    headers = {"X-Requested-With": "XMLHttpRequest"}
+    payload = {"name": "Painel Depois", "description": "Descrição do painel",
+               "canvas_width": "1200", "canvas_height": "700", "plant_id": other_id}
+    assert client.post(f"/brewstation/plant-workspace/{other_id}/dashboard-layouts/{layout_id}/edit",
+                       data=payload, headers=headers).status_code == 404
+    for invalid_width in ("0", "-1", "1.5", "nan", ""):
+        assert client.post(url, data={**payload, "canvas_width": invalid_width}, headers=headers).status_code == 400
+    response = client.post(url, data=payload, headers=headers)
+    assert response.status_code == 200
+    assert response.get_json()["ok"] is True
+    with app.app_context():
+        saved = db.session.get(DashboardLayout, layout_id)
+        assert saved.name == "Painel Depois"
+        assert saved.description == "Descrição do painel"
+        assert (saved.canvas_width, saved.canvas_height) == (1200, 700)
+        assert saved.plant_id == plant_id
+        assert saved.is_default is True
+        assert db.session.get(DashboardWidget, widget_id).config_json == {"content": "Preservado"}
+    html = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/dashboard?layout_id={layout_id}").data.decode("utf-8")
+    assert '<h1>Painel Depois</h1>' in html
+
+
+def test_dashboard_workspace_edicao_exige_permissao(app, client, monkeypatch):
+    _login_admin(app, client)
+    monkeypatch.setattr(User, "has_permission", lambda self, code: code != "dashboard_layouts.update")
+    response = client.post("/brewstation/plant-workspace/1/dashboard-layouts/1/edit",
+                           headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == 403
+
+
 def test_tab_dashboard_planta_inexistente_devolve_fragmento_de_erro(app, client):
     _login_admin(app, client)
     resp = client.get("/brewstation/plant-workspace/999999/tab/dashboard")
