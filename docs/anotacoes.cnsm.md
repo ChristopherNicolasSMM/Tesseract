@@ -67,3 +67,22 @@ python .\scripts\reset_brewstation_sqlite.py .\instance\tesseract_dev.db --execu
 flask hide-legacy-mash-control-menu
 ## Executar em simulação
 flask hide-legacy-mash-control-menu --dry-run
+
+
+# Exemplos basicos sql do sqlite
+
+
+SELECT code, route
+FROM tesseract_transaction
+WHERE is_active = '0';
+
+UPDATE tesseract_transaction
+SET route = 'brewstation/brewfather-syncs/portal'
+WHERE code = 'TX_BREWFATHER_SYNCS';
+
+
+SELECT *
+FROM tesseract_transaction
+WHERE route LIKE '%brewfather%';
+
+
