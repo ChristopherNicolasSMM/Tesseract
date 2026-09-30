@@ -45,7 +45,34 @@
     {% else %}<p class="text-muted">Esta sessão não tem receita vinculada.</p>{% endif %}
     {% if selected_session.recipe_id %}<button type="button" class="btn btn-sm btn-outline-primary" onclick="window.__workspaceOpenTab('recipe', '?recipe_id={{ selected_session.recipe_id }}');">Consultar receita e ingredientes</button>{% endif %}
     {% if not selected_session.insumos_baixados_em and current_user.has_permission('brew_sessions.update') %}
-    <a href="{{ url_for('brew_sessions.detail', id=selected_session.id) }}" class="btn btn-sm btn-outline-primary">Conferir e confirmar ingredientes</a>
+    <p class="small text-muted mt-3">Confirmar registra o consumo dos ingredientes no estoque e o custo deste lote.</p>
+    <form id="pwConfirmIngredientsForm" method="post" action="{{ url_for('plant_workspace.confirm_session_ingredients', plant_id=plant.id, session_id=selected_session.id) }}">
+      <button type="submit" class="btn btn-primary"{% if not selected_session.recipe_id or not conference or conference.pendencias %} disabled{% endif %}>Confirmar ingredientes deste lote</button>
+    </form>
+    {% if conference and conference.pendencias %}<p class="text-warning mt-2">Resolva as pendências na receita antes de confirmar.</p>{% endif %}
+    <script>
+    (function () {
+      const form = document.getElementById('pwConfirmIngredientsForm');
+      const button = form.querySelector('button[type="submit"]');
+      let pending = false;
+      form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        if (pending || button.disabled) return;
+        pending = true;
+        button.disabled = true;
+        try {
+          if (!window.__tesseractConfirm) throw new Error('Confirmação indisponível. Recarregue a página.');
+          const confirmed = await window.__tesseractConfirm({key: 'brewstation_mashctrl.brew_session.confirm_confirmar_ingredientes'});
+          if (confirmed && form.isConnected) await window.__workspaceSubmitForm(form);
+        } catch (error) {
+          if (window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
+        } finally {
+          pending = false;
+          button.disabled = false;
+        }
+      });
+    })();
+    </script>
     {% endif %}
   </div>
 </div>

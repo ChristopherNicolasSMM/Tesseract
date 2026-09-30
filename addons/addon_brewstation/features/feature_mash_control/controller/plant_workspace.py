@@ -19,7 +19,7 @@ Arquitetura decidida em conversa:
 """
 from __future__ import annotations
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
 from flask_login import login_required, current_user
 
 from core.permissions import permission_required
@@ -50,6 +50,7 @@ from addons.addon_device_manager.root.services.device_function_lookup import (
 )
 from addons.addon_brewstation.features.feature_mash_control.services.dashboard_layout_service import DashboardLayoutService
 from addons.addon_brewstation.features.feature_mash_control.services.brew_session_service import BrewSessionService
+from addons.addon_brewstation.features.feature_mash_control.services import ingredient_consumption_service
 from addons.addon_brewstation.features.feature_envase.model.envase import Envase
 from addons.addon_brewstation.features.feature_mash_control.controller.dashboard_runtime import (
     _build_dashboard_view_context,
@@ -343,6 +344,36 @@ def update_session(plant_id, session_id):
         flash("Sessão atualizada." if result.success else result.error, "success" if result.success else "error")
         return redirect(url_for("plant_workspace.shell", plant_id=plant_id, tab="sessions", session_id=session_id))
     return _workspace_form_result(result, plant_id=plant_id, tab="sessions", status=200)
+
+
+@plant_workspace_bp.route("/<int:plant_id>/sessions/<int:session_id>/confirm-ingredients", methods=["POST"])
+@login_required
+@permission_required("brew_sessions.update")
+def confirm_session_ingredients(plant_id, session_id):
+    session = (BrewSession.query.join(BrewPlant)
+               .filter(BrewSession.id == session_id, BrewSession.plant_id == plant_id,
+                       BrewSession.is_deleted.is_(False), BrewPlant.is_deleted.is_(False)).first())
+    if not session:
+        return _workspace_form_error("Sessão desta planta não encontrada.", 404, plant_id=plant_id, tab="sessions")
+    try:
+        result = ingredient_consumption_service.confirmar_consumo_ingredientes(session_id)
+    except ingredient_consumption_service.LoteNaoEncontradoError:
+        return _workspace_form_error("Sessão não encontrada.", 404, plant_id=plant_id, tab="sessions")
+    except ingredient_consumption_service.ReceitaNaoVinculadaError:
+        return _workspace_form_error("Vincule uma receita antes de confirmar ingredientes.", 400, plant_id=plant_id, tab="sessions")
+    except ValueError as exc:
+        return _workspace_form_error(str(exc), 400, plant_id=plant_id, tab="sessions")
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Falha na confirmação dos ingredientes da sessão %s", session_id)
+        return _workspace_form_error("Não foi possível confirmar os ingredientes. Nenhuma baixa foi confirmada.", 500, plant_id=plant_id, tab="sessions")
+    message = "Ingredientes já estavam confirmados." if result["ja_confirmado"] else "Ingredientes confirmados."
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "id": session_id, "message": message,
+                        "ja_confirmado": result["ja_confirmado"],
+                        "custo_total_insumos": result["custo_total_insumos"]})
+    flash(message, "success")
+    return redirect(url_for("plant_workspace.shell", plant_id=plant_id, tab="sessions", session_id=session_id))
 
 
 @plant_workspace_bp.route("/<int:plant_id>/tab/sessions", methods=["GET"])

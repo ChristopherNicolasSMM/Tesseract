@@ -132,7 +132,7 @@ body.pw-kiosk-mode #main { margin-left: 0 !important; padding-top: 12px !importa
         document.getElementById('pwPlantTitle').textContent = result.plant_name;
         document.title = result.plant_name + ' - Workspace';
       }
-      if (window.__tesseractToast) window.__tesseractToast.show('Alterações salvas.', 'success');
+      if (window.__tesseractToast) window.__tesseractToast.show(result.message || 'Alterações salvas.', 'success');
       window.__workspaceReloadCurrent();
     } catch (error) {
       if (window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');

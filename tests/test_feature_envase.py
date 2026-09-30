@@ -406,6 +406,137 @@ def test_calcular_custo_insumos_receita_e_puro(app):
         assert resultado2["custo_total_estimado"] == 40.0
 
 
+def test_workspace_confirma_ingredientes_com_ledger_saldo_e_custo_idempotentes(app, client):
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_plant import BrewPlant
+    _login_admin(app, client)
+    with app.app_context():
+        material = _criar_material_com_estoque(nome="Malte Confirmar Workspace", quantidade_inicial=100, custo_unitario=8)
+        lote = _criar_lote(com_ingrediente=(material, 5))
+        plant = BrewPlant(name="Planta Confirmação Workspace")
+        db.session.add(plant)
+        db.session.flush()
+        lote.plant_id = plant.id
+        lote.status = "completed"
+        db.session.commit()
+        plant_id, lote_id, material_id = plant.id, lote.id, material.id
+        ledger_count = Movimentacao.query.count()
+    url = f"/brewstation/plant-workspace/{plant_id}/sessions/{lote_id}/confirm-ingredients"
+    headers = {"X-Requested-With": "XMLHttpRequest"}
+    fragment_url = f"/brewstation/plant-workspace/{plant_id}/tab/sessions?session_id={lote_id}"
+    html = client.get(fragment_url).data.decode("utf-8")
+    assert 'id="pwConfirmIngredientsForm"' in html
+    assert "window.__tesseractConfirm" in html
+    assert "brewstation_mashctrl.brew_session.confirm_confirmar_ingredientes" in html
+    first = client.post(url, headers=headers)
+    assert first.status_code == 200
+    assert first.get_json()["ok"] is True
+    assert first.get_json()["ja_confirmado"] is False
+    assert first.get_json()["custo_total_insumos"] == 40
+    with app.app_context():
+        saved = db.session.get(BrewSession, lote_id)
+        confirmed_at = saved.insumos_baixados_em
+        assert confirmed_at is not None and saved.custo_total_insumos == 40
+        assert saved.status == "completed"
+        assert material_movement_service.consultar_saldo(material_id)["quantidade_atual"] == 95
+        assert Movimentacao.query.count() == ledger_count + 1
+    second = client.post(url, headers=headers)
+    assert second.status_code == 200 and second.get_json()["ja_confirmado"] is True
+    with app.app_context():
+        assert db.session.get(BrewSession, lote_id).insumos_baixados_em == confirmed_at
+        assert Movimentacao.query.count() == ledger_count + 1
+        assert material_movement_service.consultar_saldo(material_id)["quantidade_atual"] == 95
+    html = client.get(fragment_url).data.decode("utf-8")
+    assert 'id="pwConfirmIngredientsForm"' not in html
+    assert "Custo registrado dos insumos" in html and "R$ 40.00" in html
+    assert client.get(url).status_code == 405
+
+
+def test_workspace_confirmacao_pendente_nao_baixa_material(app, client):
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_plant import BrewPlant
+    _login_admin(app, client)
+    with app.app_context():
+        material = _criar_material_com_estoque(nome="Malte Pendente Workspace", quantidade_inicial=10)
+        lote = _criar_lote(com_ingrediente=(material, 2))
+        plant = BrewPlant(name="Planta Pendências Workspace")
+        db.session.add(plant)
+        db.session.flush()
+        lote.plant_id = plant.id
+        db.session.add(RecipeIngredient(recipe_id=lote.recipe_id, descricao_origem="Água Pendente Workspace",
+                                       quantidade=10, unidade_medida="L", status_resolucao="pendente_depara"))
+        db.session.commit()
+        plant_id, lote_id, material_id = plant.id, lote.id, material.id
+        ledger_count = Movimentacao.query.count()
+    url = f"/brewstation/plant-workspace/{plant_id}/sessions/{lote_id}/confirm-ingredients"
+    html = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/sessions?session_id={lote_id}").data.decode("utf-8")
+    form = html.split('id="pwConfirmIngredientsForm"')[1].split('</form>')[0]
+    assert " disabled" in form
+    response = client.post(url, headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == 400
+    assert "Água Pendente Workspace" in response.get_json()["error"]
+    with app.app_context():
+        assert db.session.get(BrewSession, lote_id).insumos_baixados_em is None
+        assert Movimentacao.query.count() == ledger_count
+        assert material_movement_service.consultar_saldo(material_id)["quantidade_atual"] == 10
+
+
+def test_workspace_falha_na_confirmacao_desfaz_todas_as_baixas(app, client, monkeypatch):
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_plant import BrewPlant
+    _login_admin(app, client)
+    with app.app_context():
+        material = _criar_material_com_estoque(nome="Malte Falha Workspace", quantidade_inicial=10, custo_unitario=5)
+        lote = _criar_lote(com_ingrediente=(material, 1))
+        plant = BrewPlant(name="Planta Rollback Workspace")
+        db.session.add(plant)
+        db.session.flush()
+        lote.plant_id = plant.id
+        db.session.add(RecipeIngredient(recipe_id=lote.recipe_id, descricao_origem="Segunda Baixa Workspace",
+                                       material_id=material.id, quantidade=1, status_resolucao="resolvido"))
+        db.session.commit()
+        plant_id, lote_id, material_id = plant.id, lote.id, material.id
+        ledger_count = Movimentacao.query.count()
+    original = material_movement_service.registrar_movimentacao
+    calls = []
+    def fail_second(*args, **kwargs):
+        calls.append(args)
+        if len(calls) == 2:
+            raise ValueError("Falha simulada na segunda baixa")
+        return original(*args, **kwargs)
+    monkeypatch.setattr(material_movement_service, "registrar_movimentacao", fail_second)
+    response = client.post(f"/brewstation/plant-workspace/{plant_id}/sessions/{lote_id}/confirm-ingredients",
+                           headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == 400 and len(calls) == 2
+    with app.app_context():
+        assert db.session.get(BrewSession, lote_id).insumos_baixados_em is None
+        assert db.session.get(BrewSession, lote_id).custo_total_insumos is None
+        assert Movimentacao.query.count() == ledger_count
+        assert material_movement_service.consultar_saldo(material_id)["quantidade_atual"] == 10
+
+
+def test_workspace_confirmacao_verifica_planta_lixeira_receita_e_permissao(app, client, monkeypatch):
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_plant import BrewPlant
+    from model.core.user import User
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Proteção Confirmação")
+        other = BrewPlant(name="Outra Planta Proteção Confirmação")
+        db.session.add_all([plant, other])
+        db.session.flush()
+        lote = BrewSession(name="Sessão Sem Receita", plant_id=plant.id)
+        deleted = BrewSession(name="Sessão Apagada Confirmação", plant_id=plant.id, is_deleted=True)
+        db.session.add_all([lote, deleted])
+        db.session.commit()
+        plant_id, other_id, lote_id, deleted_id = plant.id, other.id, lote.id, deleted.id
+    headers = {"X-Requested-With": "XMLHttpRequest"}
+    for pid, sid in ((other_id, lote_id), (plant_id, deleted_id)):
+        assert client.post(f"/brewstation/plant-workspace/{pid}/sessions/{sid}/confirm-ingredients", headers=headers).status_code == 404
+    url = f"/brewstation/plant-workspace/{plant_id}/sessions/{lote_id}/confirm-ingredients"
+    assert client.post(url, headers=headers).status_code == 400
+    monkeypatch.setattr(User, "has_permission", lambda self, code: code != "brew_sessions.update")
+    assert client.post(url, headers=headers).status_code == 403
+    html = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/sessions?session_id={lote_id}").data.decode("utf-8")
+    assert 'id="pwConfirmIngredientsForm"' not in html
+
+
 def test_confirmar_consumo_ingredientes_e_idempotente(app):
     with app.app_context():
         malte = _criar_material_com_estoque(nome="Malte Idempotente", quantidade_inicial=100, custo_unitario=8.0)
