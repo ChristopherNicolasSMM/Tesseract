@@ -17,5 +17,8 @@
    Gráficos/Botões pros sensores e atuadores), clique em cada um pra
    ligá-lo ao sensor/atuador certo no painel lateral, e ligue a
    tubulação entre os tanques se quiser ver o fluxo animado.
-6. Na aba **Receita Mash**, escolha a receita e gere a Sessão; o lote
-   criado abre selecionado na aba **Sessões**.
+6. Na aba **Receita**, escolha a receita. Se ela já foi usada, crie uma
+   revisão para os próximos lotes. Abra **Sanear ingrediente** para conferir
+   vínculo, decisão de consumo e dados planejados. Salvar não baixa estoque.
+7. Confira a timeline e gere a Sessão; o lote criado abre selecionado na aba
+   **Sessões**. Confirme os ingredientes somente pela ação explícita do lote.

@@ -6,5 +6,6 @@
   "brewstation_mashctrl.recipe_timeline.confirm_remove_step": "Remover esta etapa da timeline?",
   "brewstation_mashctrl.brew_session.confirm_confirmar_ingredientes": "Confirmar o consumo de insumo da receita pra este lote? Isso dá baixa real no estoque — não pode ser desfeito por aqui.",
   "brewstation_mashctrl.brew_session.confirm_acknowledge_alarm": "Reconhecer este alarme? O reconhecimento registrará seu usuário e o horário.",
-  "brewstation_mashctrl.recipe.confirm_ignore_ingredient": "Não consumir este ingrediente do estoque? A decisão será salva somente nesta receita. Nenhuma movimentação será realizada agora."
+  "brewstation_mashctrl.recipe.confirm_ignore_ingredient": "Não consumir este ingrediente do estoque? A decisão será salva somente nesta receita. Nenhuma movimentação será realizada agora.",
+  "brewstation_mashctrl.recipe.confirm_revision": "Criar uma nova revisão completa desta receita? Os lotes anteriores continuam vinculados à versão original. Nenhum consumo de estoque será confirmado."
 }

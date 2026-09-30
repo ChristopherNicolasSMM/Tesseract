@@ -11,6 +11,17 @@
           · Planta para a próxima sessão: {{ plant.name }}
         </div>
         <a href="{{ url_for('mash_recipes.detail', id=recipe.id) }}" target="_blank" rel="noopener" class="small">Editar cadastro completo</a>
+        {% if pode_revisar %}
+        <details class="mt-2">
+          <summary>Criar revisão desta receita</summary>
+          <p class="small text-muted mt-2">Copia os ingredientes, volume, timeline, água e fermentação em uma nova versão. Os lotes anteriores continuam vinculados à receita original.</p>
+          <form id="pwRecipeRevisionForm" action="{{ url_for('plant_workspace.revise_recipe', plant_id=plant.id, recipe_id=recipe.id) }}" method="post">
+            <label for="pwRevisionNote" class="form-label">Observação da revisão</label>
+            <textarea id="pwRevisionNote" class="form-control mb-2" name="observacao" rows="2"></textarea>
+            <button class="btn btn-outline-primary" type="submit">Criar revisão</button>
+          </form>
+        </details>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -37,7 +48,7 @@
   <div class="card-body">
     <h5 class="card-title">Ingredientes e estoque</h5>
     <p class="small text-muted">O vínculo é salvo apenas nesta receita; não altera o de-para global nem movimenta estoque.</p>
-    {% if receita_em_uso %}<p class="small text-warning">Esta receita já possui sessões, inclusive possíveis registros na lixeira. A edição local está bloqueada para preservar os lotes. A revisão separada será incorporada em uma próxima etapa.</p>{% endif %}
+    {% if receita_em_uso %}<p class="small text-warning">Esta receita já possui sessões, inclusive possíveis registros na lixeira. A edição local está bloqueada para preservar os lotes. Crie uma revisão separada para preparar as próximas brassagens.</p>{% endif %}
     <div class="table-responsive">
       <table class="table table-sm align-middle">
         <thead><tr><th>Ingrediente</th><th>Tipo / uso</th><th>Quantidade</th><th>Estado</th><th>Orientação</th></tr></thead>
@@ -105,6 +116,28 @@
 <script>
 (function () {
   if (window.TesseractWeakRef) window.TesseractWeakRef.init(document.getElementById('pwTabContent'));
+  document.querySelectorAll('.pw-ingredient-data-form, #pwRecipeRevisionForm').forEach(function (form) {
+    const button = form.querySelector('button[type="submit"]');
+    let pending = false;
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      if (pending || button.disabled) return;
+      pending = true;
+      button.disabled = true;
+      try {
+        if (form.id === 'pwRecipeRevisionForm') {
+          if (!window.__tesseractConfirm) throw new Error('Confirmação indisponível. Recarregue a página.');
+          if (!await window.__tesseractConfirm({key: 'brewstation_mashctrl.recipe.confirm_revision'})) return;
+        }
+        await window.__workspaceSubmitForm(form);
+      } catch (error) {
+        if (window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
+      } finally {
+        pending = false;
+        button.disabled = false;
+      }
+    });
+  });
   document.querySelectorAll('.pw-ingredient-sanitation').forEach(function (form) {
     const decision = form.querySelector('[name="status_resolucao"]');
     const hidden = form.querySelector('.weakref-combo-value');

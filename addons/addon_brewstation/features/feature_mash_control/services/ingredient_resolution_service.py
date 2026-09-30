@@ -8,9 +8,9 @@ addon_estoque) - e o ponto de extensao estavel para:
    reaproveitavel por qualquer importador (feature_brew_father hoje,
    futura feature_beersmith/BeerXML), que so precisa fazer o parse do
    formato de origem e chamar resolver_ingrediente() por ingrediente.
-2. Versionamento de receita - toda edicao salva cria uma nova versao
-   (nunca UPDATE de uma versao existente), com snapshot em
-   RecipeHistory.
+2. Versionamento de receita - copia do planejamento ativo em nova versao
+   com snapshot em RecipeHistory. A edicao local de ingredientes de uma
+   receita sem sessoes fica em ingredient_sanitation_service.py.
 
 Ver addons/addon_brewstation/features/feature_mash_control/docs/technical/03-fluxos.md
 para o desenho completo dos dois fluxos.
@@ -25,6 +25,9 @@ from addons.addon_brewstation.features.feature_mash_control.model.recipe_ingredi
 from addons.addon_brewstation.features.feature_mash_control.model.ingredient_mapping import IngredientMapping
 from addons.addon_brewstation.features.feature_mash_control.model.recipe_history import RecipeHistory
 from addons.addon_estoque.root.services import material_lookup
+from addons.addon_brewstation.features.feature_mash_control.model.recipe_step import RecipeStep
+from addons.addon_brewstation.features.feature_mash_control.model.fermentation_step import FermentationStep
+from addons.addon_brewstation.features.feature_mash_control.model.water_profile import WaterProfile
 
 
 class OrigemInvalidaError(Exception):
@@ -150,77 +153,101 @@ def confirmar_mapeamento(origem_receita: str, descricao_origem: str, material_id
     return {"mapping": mapping.to_dict(), "ingredientes_resolvidos": len(pendentes)}
 
 
+def build_recipe_snapshot(receita: MashRecipe) -> dict:
+    """Fotografia dos dados planejados ativos; não inclui execuções de lotes."""
+    snapshot = {"recipe": receita.to_dict()}
+    for key, model in (("ingredientes", RecipeIngredient), ("recipe_steps", RecipeStep),
+                       ("fermentation_steps", FermentationStep), ("water_profiles", WaterProfile)):
+        snapshot[key] = [row.to_dict() for row in model.query.filter_by(
+            recipe_id=receita.id, is_deleted=False).order_by(model.id).all()]
+    return snapshot
+
+
+def _copy_plan_fields(obj, *, exclude=()):
+    # Somente colunas escalares, sem identidades, lixeira ou metadados de criação.
+    skip = {"id", "recipe_id", "is_deleted", "deleted_at", "created_at", "updated_at",
+            "created_by", "versao", *exclude}
+    return {column.key: getattr(obj, column.key) for column in obj.__table__.columns
+            if column.key not in skip}
+
+
 def criar_nova_versao(
     recipe_id: int,
     dados_atualizados: dict,
     *,
     usuario_id: int | None = None,
     observacao: str | None = None,
+    commit: bool = True,
 ) -> dict:
+    """Copia integralmente o planejamento ativo em uma revisão isolada.
+
+    Remapeia referências de alertas para etapas/ingredientes novos. Não copia
+    sessões, custos registrados, envases ou lixeira. O próximo número é maior
+    que todas as versões do mesmo nome, inclusive ao revisar versão antiga.
+    Conflito concorrente de versão causa rollback, permitindo nova tentativa.
     """
-    Cria uma nova MashRecipe (mesma name, versao+1) a partir de uma
-    receita existente, copiando os RecipeIngredient atuais (o
-    chamador pode sobrescrever campos específicos via
-    dados_atualizados, ex.: {"description": "novo texto"}) e grava um
-    snapshot completo em RecipeHistory. A versão anterior nunca é
-    alterada.
-    """
-    receita_atual = MashRecipe.query.filter_by(id=recipe_id, is_deleted=False).first()
-    if receita_atual is None:
-        raise ReceitaNaoEncontradaError(f"MashRecipe id={recipe_id} não encontrada ou removida")
+    try:
+        if not isinstance(recipe_id, int) or isinstance(recipe_id, bool) or recipe_id <= 0:
+            raise ReceitaNaoEncontradaError("Receita não encontrada.")
+        receita_atual = MashRecipe.query.filter_by(id=recipe_id, is_deleted=False).first()
+        if receita_atual is None:
+            raise ReceitaNaoEncontradaError("Receita não encontrada ou removida.")
+        campos_permitidos = {"description", "equipment_mapping", "origem_receita",
+                             "origem_receita_id", "is_active"}
+        for chave in dados_atualizados:
+            if chave not in campos_permitidos:
+                raise ValueError(f"Campo não editável em nova versão: {chave!r}")
+        if "origem_receita" in dados_atualizados:
+            _validar_origem(dados_atualizados["origem_receita"])
+        campos = _copy_plan_fields(receita_atual)
+        campos.update(dados_atualizados)
+        max_versao = db.session.query(db.func.max(MashRecipe.versao)).filter_by(
+            name=receita_atual.name).scalar() or 0
+        nova_receita = MashRecipe(**campos, versao=max_versao + 1,
+                                  created_by=usuario_id if usuario_id is not None else receita_atual.created_by)
+        db.session.add(nova_receita)
+        db.session.flush()
 
-    campos_permitidos = {"description", "equipment_mapping", "origem_receita", "origem_receita_id", "is_active"}
-    nova_receita = MashRecipe(
-        name=receita_atual.name,
-        versao=receita_atual.versao + 1,
-        description=dados_atualizados.get("description", receita_atual.description),
-        equipment_mapping=dados_atualizados.get("equipment_mapping", receita_atual.equipment_mapping),
-        origem_receita=dados_atualizados.get("origem_receita", receita_atual.origem_receita),
-        origem_receita_id=dados_atualizados.get("origem_receita_id", receita_atual.origem_receita_id),
-        created_by=usuario_id or receita_atual.created_by,
-        is_active=dados_atualizados.get("is_active", receita_atual.is_active),
-    )
-    for chave in dados_atualizados:
-        if chave not in campos_permitidos:
-            raise ValueError(f"Campo não editável em nova versão: {chave!r}")
+        ingredientes = RecipeIngredient.query.filter_by(recipe_id=recipe_id, is_deleted=False).order_by(RecipeIngredient.id).all()
+        ingredient_map = {}
+        for ingrediente in ingredientes:
+            novo = RecipeIngredient(recipe_id=nova_receita.id, **_copy_plan_fields(ingrediente))
+            db.session.add(novo)
+            db.session.flush()
+            ingredient_map[ingrediente.id] = novo.id
 
-    db.session.add(nova_receita)
-    db.session.flush()  # garante nova_receita.id sem commitar ainda
+        steps = RecipeStep.query.filter_by(recipe_id=recipe_id, is_deleted=False).order_by(RecipeStep.id).all()
+        step_map = {}
+        for step in steps:
+            novo = RecipeStep(recipe_id=nova_receita.id, **_copy_plan_fields(
+                step, exclude=("parent_step_id", "source_recipe_ingredient_id")))
+            db.session.add(novo)
+            db.session.flush()
+            step_map[step.id] = novo
+        for step in steps:
+            if step.parent_step_id is not None and step.parent_step_id not in step_map:
+                raise ValueError("Uma etapa referencia pai apagado ou de outra receita. Corrija antes de revisar.")
+            if step.source_recipe_ingredient_id is not None and step.source_recipe_ingredient_id not in ingredient_map:
+                raise ValueError("Um alerta referencia ingrediente apagado ou de outra receita. Corrija antes de revisar.")
+            novo = step_map[step.id]
+            novo.parent_step_id = step_map[step.parent_step_id].id if step.parent_step_id is not None else None
+            novo.source_recipe_ingredient_id = ingredient_map.get(step.source_recipe_ingredient_id)
 
-    ingredientes_novos = []
-    for ingrediente_atual in receita_atual.ingredientes:
-        novo = RecipeIngredient(
-            recipe_id=nova_receita.id,
-            material_id=ingrediente_atual.material_id,
-            descricao_origem=ingrediente_atual.descricao_origem,
-            quantidade=ingrediente_atual.quantidade,
-            unidade_medida=ingrediente_atual.unidade_medida,
-            tempo_adicao_min=ingrediente_atual.tempo_adicao_min,
-            etapa=ingrediente_atual.etapa,
-            status_resolucao=ingrediente_atual.status_resolucao,
-        )
-        db.session.add(novo)
-        ingredientes_novos.append(novo)
-
-    db.session.flush()
-
-    snapshot = {
-        "recipe": nova_receita.to_dict(),
-        "ingredientes": [i.to_dict() for i in ingredientes_novos],
-    }
-    historico = RecipeHistory(
-        recipe_id=nova_receita.id,
-        alterado_por=usuario_id,
-        alterado_em=datetime.now(timezone.utc),
-        observacao=observacao,
-    )
-    historico.set_snapshot(snapshot)
-    db.session.add(historico)
-
-    db.session.commit()
-
-    return {
-        "recipe": nova_receita.to_dict(),
-        "ingredientes": [i.to_dict() for i in ingredientes_novos],
-        "history_id": historico.id,
-    }
+        for model in (FermentationStep, WaterProfile):
+            for row in model.query.filter_by(recipe_id=recipe_id, is_deleted=False).order_by(model.id).all():
+                db.session.add(model(recipe_id=nova_receita.id, **_copy_plan_fields(row)))
+        db.session.flush()
+        snapshot = build_recipe_snapshot(nova_receita)
+        snapshot["source_recipe_id"] = recipe_id
+        historico = RecipeHistory(recipe_id=nova_receita.id, alterado_por=usuario_id,
+                                  alterado_em=datetime.now(timezone.utc), observacao=observacao)
+        historico.set_snapshot(snapshot)
+        db.session.add(historico)
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
+        return {**snapshot, "history_id": historico.id}
+    except Exception:
+        db.session.rollback()
+        raise

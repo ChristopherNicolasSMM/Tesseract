@@ -2,7 +2,8 @@
 
 Planejamento técnico de 30/09/2026, conferido no commit `b3d3bab`.
 Este documento registra cobertura e próximos incrementos; itens planejados
-não são funcionalidades implementadas. Não altera banco, menus ou runtime.
+não são funcionalidades implementadas. O planejamento inicial não alterou
+banco, menus ou runtime; os incrementos abaixo registram a evolução real.
 Os testes recentes foram aprovados pelo usuário; nesta análise não foi
 executado pytest nem realizada validação visual em uma aplicação em execução.
 
@@ -11,7 +12,7 @@ executado pytest nem realizada validação visual em uma aplicação em execuç�
 | Etapa | Estado da integração | Evidência e lacuna real | Próximo incremento | Dependências |
 | --- | --- | --- | --- | --- |
 | Planta, tanques e mapeamentos | Parcial | `plant_workspace.py` tem criação/edição e validações; manutenção completa ainda depende de cadastros | Inventariar lixeira, restauração e configuração avançada antes de ocultar acessos | Permissões, pertencimento e funcionalidades dos cadastros |
-| Receita e ingredientes | Parcial | `_tab_recipe_detail.html` reúne conferência/custo; cada ingrediente abre `recipe_ingredients.detail` em outra página | 1A/1B: resolução segura e vínculo local; 1C: demais dados | Serviço de resolução, conversão, referências públicas e proteção de receitas usadas |
+| Receita e ingredientes | Parcial | `_tab_recipe_detail.html` reúne conferência/custo, vínculo local, revisão e dados planejados; cadastro avançado preservado | Validar 1C localmente | Serviço de resolução, conversão, referências públicas e proteção de receitas usadas |
 | Sessões, histórico e alarmes | Concluída no escopo dos patches recentes | Busca/paginação, edição básica, confirmação de insumos e reconhecimento rastreável estão no código | Preservar; operações adicionais ficam na etapa 4 | Suítes de workspace, runtime e estoque |
 | Envase e precificação | Parcial | Lista e retorno ao lote integrados; registro/estorno existem nos serviços/hooks, fora da aba | 2A: preparação/registro; 2B: detalhes/estorno com retorno | Saneamento, composição, snapshots e transação de estoque |
 | Dashboards | Parcial | Seleção/criação/edição básica integradas; fundo, standby, padrão e manutenção usam cadastro completo | 3A: opções avançadas; 3B: manutenção | Widgets/tubulação existentes e limpeza de listeners/timers |
@@ -30,11 +31,14 @@ a área funcional. A quantidade final de patches pode mudar ao conferir dependê
   no ambiente do assistente (dependências indisponíveis).
   Ver [saneamento de ingredientes — 1A](workspace-saneamento-ingredientes-servico.md).
 - 1B: vínculo local/Não consumir incorporados à aba Receita, com rota
-  autenticada, permissão, combo padrão e retorno à seleção. Sintaxe/diff/
-  aplicação verificados; pytest e teste visual aguardam validação local.
+  autenticada, permissão, combo padrão e retorno à seleção. Aplicado e
+  validado pelo usuário.
   Ver [interface 1B](workspace-saneamento-ingredientes-interface.md).
-- 1C e etapas 2–6: pendentes. As proteções locais
-  não alteram o comportamento do de-para global ou do CRUD atual.
+- 1C: revisão completa e dados planejados de ingredientes implementados;
+  sintaxe/diff/aplicação verificados, pytest e visual aguardam o usuário.
+  Ver [revisão e dados — 1C](workspace-revisao-receita-ingredientes.md).
+- Etapas 2–6: pendentes. As proteções locais não alteram o comportamento
+  do de-para global, dos importadores ou das ações avançadas do CRUD/runtime.
 
 ## Achados que condicionam o saneamento
 
@@ -58,10 +62,11 @@ a área funcional. A quantidade final de patches pode mudar ao conferir dependê
    `BrewSessionStep`. A operação explícita `resync_session_steps()` ainda
    pode atualizar etapas pendentes; não tratar snapshots de etapas como
    proteção automática dos ingredientes.
-5. `criar_nova_versao()` existe, mas não é uma clonagem completa do processo:
-   não copia volume planejado, timeline, perfis de água e fermentação, nem
-   todos os campos de especificação/uso dos ingredientes. Não usá-lo como
-   solução completa de isolamento sem corrigir e testar essas lacunas.
+5. Achado original corrigido no 1C: `criar_nova_versao()` agora copia
+   volume, ingredientes/especificações, timeline, água e fermentação ativos.
+   Remapeia referências internas e grava snapshot completo; não copia lotes
+   nem seus custos. Referência a pai/ingrediente externo ou apagado bloqueia
+   a revisão com rollback. Históricos anteriores não são reescritos.
 6. A casca inicialmente só preservava `session_id`; o incremento 1B passou
    a propagar `recipe_id` ao abrir a aba Receita, preservando retorno/reabertura.
 

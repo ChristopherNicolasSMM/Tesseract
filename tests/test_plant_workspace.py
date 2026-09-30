@@ -1,12 +1,9 @@
 """
 tests/test_plant_workspace.py
 
-Workspace consolidado por Planta (conversa — "Dashboard + Etapas +
-Sessões + Planta numa tela só"). Fase 1: casca (seletor/criação de
-Planta + barra de abas) + aba Dashboard funcionando via fragmento
-AJAX. As demais abas (Sessões, Planta, Receita Mash, Automação)
-aparecem desabilitadas — sem rota de fragmento ainda, fora de escopo
-desta rodada.
+Workspace consolidado por Planta: casca, abas AJAX, planta/dashboard,
+sessões, alarmes e receita. Inclui saneamento local, revisão completa e
+dados planejados, preservando histórico, permissões e transações.
 """
 import pytest
 
@@ -1643,3 +1640,167 @@ def test_shell_todas_as_5_abas_habilitadas(app, client):
     resp = client.get(f"/brewstation/plant-workspace/{plant_id}")
     html = resp.data.decode("utf-8")
     assert "disabled" not in html.split('id="pwTabBar"')[1].split("</ul>")[0]
+
+
+def test_workspace_revisao_abre_nova_receita_e_preserva_vinculo_do_lote(app, client):
+    from addons.addon_brewstation.features.feature_mash_control.model.recipe_history import RecipeHistory
+    _login_admin(app, client)
+    pid, rid, iid, _ = _workspace_sanitation_data(app)
+    with app.app_context():
+        recipe = db.session.get(MashRecipe, rid)
+        recipe.volume_planejado_litros = 20
+        from datetime import datetime, timezone
+        session = BrewSession(name="Lote da receita anterior", recipe_id=rid, plant_id=pid,
+                              status="completed", insumos_baixados_em=datetime.now(timezone.utc), custo_total_insumos=80)
+        db.session.add(session)
+        db.session.commit()
+        sid = session.id
+        before = session.to_dict()
+    html = client.get(f"/brewstation/plant-workspace/{pid}/tab/recipe?recipe_id={rid}").data.decode()
+    assert 'id="pwRecipeRevisionForm"' in html and 'class="pw-ingredient-data-form' not in html
+    response = client.post(f"/brewstation/plant-workspace/{pid}/recipes/{rid}/revise",
+                           data={"observacao": "Planejar próxima brassagem", "recipe_id": "99999"},
+                           headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == 200 and response.get_json()["ok"]
+    new_id = response.get_json()["recipe_id"]
+    assert new_id != rid
+    with app.app_context():
+        assert db.session.get(BrewSession, sid).to_dict() == before
+        history = RecipeHistory.query.filter_by(recipe_id=new_id).first()
+        assert history.alterado_por == User.query.filter_by(username="admin").first().id
+        assert history.observacao == "Planejar próxima brassagem"
+        assert history.get_snapshot()["source_recipe_id"] == rid
+    html = client.get(f"/brewstation/plant-workspace/{pid}/tab/recipe?recipe_id={new_id}").data.decode()
+    assert 'class="pw-ingredient-data-form' in html and 'data-weakref-source="unidades_catalogo"' in html
+    assert 'data-weakref-value-field="codigo"' in html and '<datalist' not in html
+    assert 'name="etapa" class="form-select"' in html
+    response = client.post(f"/brewstation/plant-workspace/{pid}/recipes/{rid}/revise")
+    assert response.status_code == 302 and f"recipe_id={new_id}" not in response.location
+    assert "tab=recipe" in response.location and "recipe_id=" in response.location
+
+
+@pytest.mark.parametrize("code,action", [("mash_recipes.create", "revise"),
+    ("recipe_steps.list", "revise"), ("recipe_ingredients.update", "edit-data")])
+def test_workspace_revisao_edicao_respeita_rbac(app, client, monkeypatch, code, action):
+    _login_admin(app, client)
+    pid, rid, iid, _ = _workspace_sanitation_data(app)
+    monkeypatch.setattr(User, "has_permission", lambda self, permission: permission != code)
+    base = f"/brewstation/plant-workspace/{pid}/recipes/{rid}"
+    path = f"{base}/revise" if action == "revise" else f"{base}/ingredients/{iid}/edit-data"
+    assert client.post(path, data={"quantidade": 99}, headers={"X-Requested-With": "XMLHttpRequest"}).status_code == 403
+    if code != "recipe_steps.list":
+        html = client.get(f"/brewstation/plant-workspace/{pid}/tab/recipe?recipe_id={rid}").data.decode()
+        assert ('id="pwRecipeRevisionForm"' if action == "revise" else 'class="pw-ingredient-data-form') not in html
+    with app.app_context():
+        assert MashRecipe.query.count() == 1 and db.session.get(RecipeIngredient, iid).quantidade == 5
+
+
+def test_workspace_edicao_dados_ignora_campos_fora_do_escopo_e_registra_operador(app, client):
+    from addons.addon_estoque.root.model.unidade_catalogo import UnidadeCatalogo
+    from addons.addon_brewstation.features.feature_mash_control.model.recipe_history import RecipeHistory
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+    _login_admin(app, client)
+    pid, rid, iid, mid = _workspace_sanitation_data(app)
+    with app.app_context():
+        if not UnidadeCatalogo.query.filter_by(codigo="KG").first():
+            db.session.add(UnidadeCatalogo(codigo="KG", descricao="Quilograma", dimensao="massa"))
+            db.session.commit()
+        before = db.session.get(RecipeIngredient, iid).to_dict()
+        ledger_before = Movimentacao.query.count()
+    path = f"/brewstation/plant-workspace/{pid}/recipes/{rid}/ingredients/{iid}/edit-data"
+    response = client.post(path, data={"quantidade": "7.5", "unidade_medida": "KG", "etapa": "mostura",
+        "recipe_id": 99999, "material_id": mid, "status_resolucao": "ignorado", "descricao_origem": "Alterada",
+        "usuario_id": 99999}, headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == 200
+    with app.app_context():
+        ing = db.session.get(RecipeIngredient, iid)
+        assert ing.quantidade == 7.5 and ing.unidade_medida == "KG"
+        for key in ("recipe_id", "material_id", "status_resolucao", "descricao_origem"):
+            assert ing.to_dict()[key] == before[key]
+        history = RecipeHistory.query.filter_by(recipe_id=rid).first()
+        assert history.alterado_por == User.query.filter_by(username="admin").first().id
+        assert Movimentacao.query.count() == ledger_before
+    assert client.post(path, data={"quantidade": "NaN"}, headers={"X-Requested-With": "XMLHttpRequest"}).status_code == 400
+
+
+@pytest.mark.parametrize("context", ["plant", "recipe", "ingredient", "used", "foreign"])
+def test_workspace_edicao_dados_rejeita_contexto_e_uso(app, client, context):
+    _login_admin(app, client)
+    pid, rid, iid, _ = _workspace_sanitation_data(app)
+    with app.app_context():
+        if context == "used":
+            db.session.add(BrewSession(name="Lote na lixeira", recipe_id=rid, plant_id=pid, is_deleted=True))
+        elif context == "foreign":
+            other = MashRecipe(name="Outra receita para teste", versao=1, origem_receita="Manual")
+            db.session.add(other)
+            db.session.flush()
+            ing = db.session.get(RecipeIngredient, iid)
+            ing.recipe_id = other.id
+        else:
+            model, identity = {"plant": (BrewPlant, pid), "recipe": (MashRecipe, rid), "ingredient": (RecipeIngredient, iid)}[context]
+            db.session.get(model, identity).is_deleted = True
+        db.session.commit()
+    response = client.post(f"/brewstation/plant-workspace/{pid}/recipes/{rid}/ingredients/{iid}/edit-data",
+                           data={"quantidade": 99}, headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == (409 if context == "used" else 404)
+    with app.app_context():
+        assert db.session.get(RecipeIngredient, iid).quantidade == 5
+
+
+def test_workspace_consultar_receita_usada_nao_sincroniza_alertas(app, client):
+    from addons.addon_brewstation.features.feature_mash_control.model.recipe_step import RecipeStep
+    _login_admin(app, client)
+    pid, rid, iid, _ = _workspace_sanitation_data(app)
+    with app.app_context():
+        ing = db.session.get(RecipeIngredient, iid)
+        ing.tipo_ingrediente, ing.etapa, ing.tempo_adicao_min = "lupulo", "fervura", 10
+        db.session.add_all([BrewSession(name="Receita protegida", recipe_id=rid, plant_id=pid),
+                           RecipeStep(recipe_id=rid, step_type="boil", tempo_min=60)])
+        db.session.commit()
+        before = [row.to_dict() for row in RecipeStep.query.filter_by(recipe_id=rid).all()]
+    assert client.get(f"/brewstation/plant-workspace/{pid}/tab/recipe?recipe_id={rid}").status_code == 200
+    assert client.get(f"/brewstation/recipe-timeline/{rid}").status_code == 200
+    with app.app_context():
+        assert [row.to_dict() for row in RecipeStep.query.filter_by(recipe_id=rid).all()] == before
+
+
+@pytest.mark.parametrize("action", ["revise", "edit-data"])
+def test_workspace_revisao_edicao_falha_rollback_e_mensagem_generica(app, client, monkeypatch, action):
+    _login_admin(app, client)
+    pid, rid, iid, _ = _workspace_sanitation_data(app)
+    def fail():
+        raise RuntimeError("detalhe interno sensível")
+    with app.app_context():
+        monkeypatch.setattr(db.session, "commit", fail)
+    base = f"/brewstation/plant-workspace/{pid}/recipes/{rid}"
+    path = f"{base}/revise" if action == "revise" else f"{base}/ingredients/{iid}/edit-data"
+    response = client.post(path, data={"quantidade": 99}, headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == 500 and "sensível" not in response.get_json()["error"]
+    with app.app_context():
+        assert MashRecipe.query.count() == 1 and db.session.get(RecipeIngredient, iid).quantidade == 5
+
+
+@pytest.mark.parametrize("context", ["plant", "recipe"])
+def test_workspace_revisao_rejeita_registros_apagados(app, client, context):
+    _login_admin(app, client)
+    pid, rid, _, _ = _workspace_sanitation_data(app)
+    with app.app_context():
+        db.session.get(BrewPlant if context == "plant" else MashRecipe, pid if context == "plant" else rid).is_deleted = True
+        db.session.commit()
+    response = client.post(f"/brewstation/plant-workspace/{pid}/recipes/{rid}/revise",
+                           headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == 404
+    with app.app_context():
+        assert MashRecipe.query.count() == 1
+
+
+def test_workspace_unidade_catalogo_combo_busca_codigo_pela_api(app, client):
+    from addons.addon_estoque.root.model.unidade_catalogo import UnidadeCatalogo
+    _login_admin(app, client)
+    with app.app_context():
+        if not UnidadeCatalogo.query.filter_by(codigo="PCT").first():
+            db.session.add(UnidadeCatalogo(codigo="PCT", descricao="Pacote", dimensao="embalagem"))
+            db.session.commit()
+    response = client.get("/api/options/unidades_catalogo?search=PCT&value_field=codigo")
+    assert response.status_code == 200
+    assert any(row["id"] == "PCT" for row in response.get_json()["results"])

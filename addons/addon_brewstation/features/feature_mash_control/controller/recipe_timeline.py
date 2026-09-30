@@ -16,6 +16,7 @@ from flask_login import login_required, current_user
 from core.permissions import permission_required
 from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant import BrewPlant
+from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
 from addons.addon_brewstation.features.feature_mash_control.services import recipe_timeline_service as svc
 
 recipe_timeline_bp = Blueprint(
@@ -36,7 +37,9 @@ def _build_recipe_view_context(recipe: MashRecipe, *, is_fragment: bool = False,
     extraído pra função própria porque agora tem dois consumidores: a
     rota `view()` (tela cheia) e a aba Receita Mash do workspace
     consolidado por Planta (`plant_workspace.py`, fragmento AJAX)."""
-    sync_result = svc.sync_hop_alerts(recipe)
+    # Consulta de receita usada por lote preserva seu planejamento histórico.
+    sync_result = (svc.sync_hop_alerts(recipe) if not BrewSession.query.filter_by(recipe_id=recipe.id).first()
+                   else {"created": [], "updated": [], "removed": []})
     if sync_result["created"]:
         flash(f"Alertas de lupulagem criados automaticamente: {', '.join(sync_result['created'])}", "success")
 

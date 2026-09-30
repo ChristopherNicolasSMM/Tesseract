@@ -52,6 +52,8 @@ from addons.addon_brewstation.features.feature_mash_control.services.dashboard_l
 from addons.addon_brewstation.features.feature_mash_control.services.brew_session_service import BrewSessionService
 from addons.addon_brewstation.features.feature_mash_control.services import ingredient_consumption_service
 from addons.addon_brewstation.features.feature_mash_control.services import ingredient_sanitation_service
+from addons.addon_brewstation.features.feature_mash_control.services import ingredient_resolution_service
+from sqlalchemy.exc import IntegrityError
 from addons.addon_estoque.root.services import material_lookup
 from addons.addon_brewstation.features.feature_mash_control.services.session_alarm_actions import (
     acknowledge_alarm, SessionAlarmNotFound,
@@ -566,6 +568,65 @@ def sanitize_recipe_ingredient(plant_id, recipe_id, ingredient_id):
     return respond("Decisão do ingrediente salva. Confira as pendências e o custo estimado; o estoque não foi movimentado.")
 
 
+def _recipe_workspace_response(plant_id, selected_recipe_id, message, code=200, **extra):
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": code == 200, "message" if code == 200 else "error": message, **extra}), code
+    flash(message, "success" if code == 200 else "error")
+    return redirect(url_for("plant_workspace.shell", plant_id=plant_id, tab="recipe", recipe_id=selected_recipe_id))
+
+
+@plant_workspace_bp.route("/<int:plant_id>/recipes/<int:recipe_id>/revise", methods=["POST"])
+@login_required
+@permission_required("mash_recipes.create")
+@permission_required("recipe_steps.list")
+def revise_recipe(plant_id, recipe_id):
+    if not BrewPlant.query.filter_by(id=plant_id, is_deleted=False).first():
+        return _recipe_workspace_response(plant_id, recipe_id, "Planta não encontrada.", 404)
+    try:
+        result = ingredient_resolution_service.criar_nova_versao(
+            recipe_id, {}, usuario_id=current_user.id,
+            observacao=(request.form.get("observacao") or "Revisão criada no workspace da planta."),
+        )
+    except ingredient_resolution_service.ReceitaNaoEncontradaError as exc:
+        return _recipe_workspace_response(plant_id, recipe_id, str(exc), 404)
+    except IntegrityError:
+        db.session.rollback()
+        return _recipe_workspace_response(plant_id, recipe_id, "Houve conflito ao criar a versão. Atualize a receita e tente novamente.", 409)
+    except ValueError as exc:
+        return _recipe_workspace_response(plant_id, recipe_id, str(exc), 400)
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Falha ao revisar receita %s", recipe_id)
+        return _recipe_workspace_response(plant_id, recipe_id, "Não foi possível criar a revisão. Nenhuma cópia parcial foi confirmada.", 500)
+    new_id = result["recipe"]["id"]
+    return _recipe_workspace_response(plant_id, new_id, f"Revisão v{result['recipe']['versao']} criada. Os lotes anteriores mantêm a receita original.",
+                                      recipe_id=new_id)
+
+
+@plant_workspace_bp.route("/<int:plant_id>/recipes/<int:recipe_id>/ingredients/<int:ingredient_id>/edit-data", methods=["POST"])
+@login_required
+@permission_required("recipe_ingredients.update")
+def edit_recipe_ingredient_data(plant_id, recipe_id, ingredient_id):
+    if not BrewPlant.query.filter_by(id=plant_id, is_deleted=False).first():
+        return _recipe_workspace_response(plant_id, recipe_id, "Planta não encontrada.", 404)
+    try:
+        dados = {field: request.form[field] for field in ingredient_sanitation_service.INGREDIENT_DATA_FIELDS if field in request.form}
+        ingredient_sanitation_service.editar_dados_ingrediente(
+            recipe_id, ingredient_id, dados, usuario_id=current_user.id,
+        )
+    except ingredient_sanitation_service.IngredienteNaoEncontradoError as exc:
+        return _recipe_workspace_response(plant_id, recipe_id, str(exc), 404)
+    except ingredient_sanitation_service.ReceitaEmUsoError as exc:
+        return _recipe_workspace_response(plant_id, recipe_id, str(exc), 409)
+    except ValueError as exc:
+        return _recipe_workspace_response(plant_id, recipe_id, str(exc), 400)
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Falha ao editar dados do ingrediente %s", ingredient_id)
+        return _recipe_workspace_response(plant_id, recipe_id, "Não foi possível salvar os dados. Nenhuma alteração parcial foi confirmada.", 500)
+    return _recipe_workspace_response(plant_id, recipe_id, "Dados salvos. Confira as pendências, alertas e o custo estimado; o estoque não foi movimentado.")
+
+
 @plant_workspace_bp.route("/<int:plant_id>/tab/recipe", methods=["GET"])
 @login_required
 @permission_required("recipe_steps.list")
@@ -591,6 +652,7 @@ def tab_recipe(plant_id: int):
             plant=plant,
             receita_em_uso=BrewSession.query.filter_by(recipe_id=recipe.id).first() is not None,
             pode_sanear=current_user.has_permission("recipe_ingredients.update"),
+            pode_revisar=current_user.has_permission("mash_recipes.create"),
             materiais_vinculados={mid: material_lookup.get_material(mid) for mid in {ing.material_id for ing in ingredientes if ing.material_id}},
             ingredientes=ingredientes,
             ingredientes_por_id={ing.id: ing for ing in ingredientes},

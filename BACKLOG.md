@@ -11,17 +11,18 @@ O plano de consolidação conferido no commit `b3d3bab` está em
 Esse plano distingue cobertura atual de implementação futura e complementa
 o histórico abaixo, sem considerar atalhos ao CRUD como integração completa.
 
-Próximos incrementos: saneamento seguro de ingredientes (serviço com escopo,
-vínculo local, revisão completa/demais campos), envase/estorno no contexto do
+Próximos incrementos após validar o 1C: envase/estorno no contexto do
 lote, dashboards avançados, operações restantes de sessões/automação e
 revisão seletiva de menus. Brewfather/YeastBank permanecem no radar posterior,
 preservando os portais e painéis que já existem.
 
 O reconhecimento de alarmes está implementado; não refazer esse patch.
 Incremento 1A: serviço de saneamento local implementado e validado pelo usuário.
-Incremento 1B: interface/rota de vínculo local implementadas, aguardando validação
-local; detalhes em [workspace-saneamento-ingredientes-interface.md](docs/patches/workspace-saneamento-ingredientes-interface.md).
-Revisão completa (1C) e etapas 2–6 continuam pendentes.
+Incremento 1B: interface/rota de vínculo local implementadas e validadas pelo usuário; detalhes em [workspace-saneamento-ingredientes-interface.md](docs/patches/workspace-saneamento-ingredientes-interface.md).
+Incremento 1C: revisão completa e dados planejados de ingredientes implementados,
+aguardando pytest e validação visual locais. Sem migration. Detalhes, rotas e
+roteiro em [workspace-revisao-receita-ingredientes.md](docs/patches/workspace-revisao-receita-ingredientes.md).
+Etapas 2–6 continuam pendentes; menus e cadastros avançados preservados.
 
 ## Fase 0 — Scaffold
 

@@ -37,7 +37,7 @@ sequenceDiagram
         loop para cada ingrediente resolvido
             IngSvc->>Lookup: get_saldo(material_id) -> custo_medio
             IngSvc->>EstSvc: registrar_movimentacao(material_id, "saida", quantidade, custo_unitario=custo_medio)
-            Note over IngSvc,EstSvc: best-effort por linha — uma falha não<br/>impede as demais (mesmo padrão de<br/>estoque_service.movimentar_estoque_em_massa)
+            Note over IngSvc,EstSvc: Sem commit por linha; qualquer falha desfaz toda a tentativa
         end
         IngSvc->>Session: UPDATE insumos_baixados_em=agora, custo_total_insumos=soma
         IngSvc-->>Hook: {ja_confirmado: false, resultados por linha, custo_total_insumos}
@@ -46,10 +46,9 @@ sequenceDiagram
     Hook-->>UI: flash de sucesso/aviso + redirect
 ```
 
-Ingredientes sem `material_id` resolvido (ainda pendente de de-para,
-ver `feature_brew_father`) são pulados silenciosamente — não contam
-como falha, só ficam de fora do cálculo/baixa até alguém resolver o
-de-para deles.
+Ingredientes pendentes bloqueiam a confirmação antes de qualquer baixa.
+Somente linhas prontas são consumidas; `ignorado` é uma decisão explícita de
+não consumir. Falha de movimentação desfaz todas as saídas daquela tentativa.
 
 Este mesmo service é chamado de novo, como fallback, quando um Envase
 é registrado sem essa confirmação ter acontecido antes — ver
@@ -203,21 +202,25 @@ sequenceDiagram
     U->>Mapping: confirma de-para (grava origem_receita+descricao -> material_id, reaproveitado nas próximas importações)
 ```
 
-## Sequência: nova versão de receita ao salvar edição
+## Revisão completa no workspace (1C)
 
-```mermaid
-sequenceDiagram
-    actor U as Usuário
-    participant UI as Tela Receita
-    participant Recipe as MashRecipe
-    participant Hist as RecipeHistory
+O usuário abre a receita no contexto da planta e confirma Criar revisão.
+`POST /brewstation/plant-workspace/<plant>/recipes/<recipe>/revise` chama
+`criar_nova_versao()` com operador autenticado. O serviço insere uma receita
+com mesmo nome e versão maior que todas as existentes, copia os dados
+planejados ativos e remapeia pai/ingrediente dos alertas. Snapshot inclui
+receita, ingredientes, etapas, fermentação, água e `source_recipe_id`.
+Somente ao concluir tudo confirma a transação; falha desfaz toda a cópia.
+A resposta abre a nova seleção na aba Receita. Lotes não mudam de receita.
 
-    U->>UI: edita Receita existente e salva
-    UI->>Recipe: INSERT nova linha (mesmo name, versao = versao_atual + 1)
-    Note over Recipe: versão anterior nunca é alterada — imutável após criada
-    UI->>Hist: INSERT snapshot_data (JSON completo da nova versão + ingredientes)
-    Hist-->>UI: registro de histórico disponível pra comparação
-```
+Editar os dados da linha usa `POST .../ingredients/<ingredient>/edit-data`.
+Receitas sem sessões podem ser editadas; qualquer sessão, inclusive apagada,
+bloqueia a operação. Dados validados, sincronização dos alertas automáticos
+(`commit=False`) e snapshot com operador são gravados juntos. A consulta da
+timeline de receita já usada não sincroniza alertas automaticamente.
+Vínculo/status continuam na ação independente `sanitize`; baixa continua
+exclusivamente em `confirmar_consumo_ingredientes`, nunca na revisão/edição.
+As operações avançadas/importadores mantêm seus comportamentos existentes.
 
 ## Prévia e decisão de consumo (2026-09-25)
 

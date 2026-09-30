@@ -209,7 +209,7 @@ esse botão, só as que ainda não começaram).
 
 ## Conferência de ingredientes do lote
 
-Na tela da sessão, a tabela **Insumos da Receita** mostra cada linha como Pronto, Pendente ou Não consumir. Abra a linha do ingrediente para vincular o Material de Estoque e ajustar quantidade/unidade. Para água ou outros itens deliberadamente fora do estoque, selecione o status **Não consumir do estoque** no ingrediente; essa decisão fica registrada na receita e a linha não gera baixa. Quantidades inválidas, material ausente ou unidade sem conversão deixam a confirmação bloqueada e mostram a causa. O mesmo bloqueio vale se o envase tentar confirmar ingredientes automaticamente. Para receitas sem ingredientes cadastrados, o comportamento anterior de confirmação sem baixas é preservado.
+Na tela da sessão, a tabela **Insumos da Receita** mostra cada linha como Pronto, Pendente ou Não consumir. O atalho Receita abre o planejamento no workspace. Se já houver sessão vinculada, prepare uma revisão para os próximos lotes antes de editar ingredientes. Para água ou outros itens deliberadamente fora do estoque, selecione o status **Não consumir do estoque** no ingrediente; essa decisão fica registrada na receita e a linha não gera baixa. Quantidades inválidas, material ausente ou unidade sem conversão deixam a confirmação bloqueada e mostram a causa. O mesmo bloqueio vale se o envase tentar confirmar ingredientes automaticamente. Para receitas sem ingredientes cadastrados, o comportamento anterior de confirmação sem baixas é preservado.
 ## Sanear ingredientes na receita
 
 Na aba Receita da planta, selecione uma receita sem sessões vinculadas e
@@ -224,6 +224,41 @@ a vincular um material em receita ainda editável. Confira os avisos: vínculo
 não resolve automaticamente unidade incompatível ou quantidade incompleta.
 
 Receitas já vinculadas a qualquer sessão, inclusive na lixeira, exibem bloqueio
-da edição local para preservar os lotes. A revisão separada ainda será integrada.
+da edição local para preservar os lotes. Use **Criar revisão desta receita**
+para preparar uma versão separada.
 O formulário só aparece para usuários com permissão de editar ingredientes.
 O cadastro completo continua acessível com seu funcionamento anterior.
+
+### Criar revisão e ajustar dados planejados
+
+1. Na aba Receita, abra **Criar revisão desta receita**, informe uma observação
+   opcional e clique em **Criar revisão**. Confirme no modal do Core.
+2. A nova versão abre na mesma planta. Copia volume planejado, ingredientes
+   ativos com vínculos/decisões, timeline e alertas, fermentação e todos os
+   contextos de água ativos. Os IDs internos dos alertas apontam para a cópia.
+   Registros na lixeira não são copiados. O número será maior que todas as
+   versões do mesmo nome, mesmo quando a origem for uma versão antiga.
+3. Abra **Sanear ingrediente** e, no formulário **Dados planejados do ingrediente**,
+   ajuste quantidade, unidade pesquisável, tipo, etapa de uso, uso detalhado,
+   tempo de adição e especificações. Clique em **Salvar dados planejados**.
+   O vínculo/decisão de estoque é salvo pelo formulário separado acima.
+4. Confira pendências, custo estimado e timeline. Para lúpulo de fervura, o
+   tempo representa minutos restantes até o término. Os alertas automáticos
+   são atualizados junto com os dados; alertas manuais são preservados.
+5. Gere a próxima sessão com a nova versão quando o planejamento estiver pronto.
+   O lote antigo continua com receita, etapas, confirmação e custo registrado
+   anteriores. Criar revisão ou editar dados não movimenta estoque.
+
+A unidade **PCT** não significa 1 kg: o conteúdo/conversão deve estar cadastrado
+no material. Selecionar uma unidade não converte a quantidade automaticamente.
+Campo vazio continua pendente quando necessário; quantidade zero também não
+libera consumo. Valores legados podem ser mantidos até seu saneamento, mas
+novas unidades precisam existir no catálogo.
+
+Criar revisão exige permissão de criar receitas e consultar etapas; editar
+os dados exige permissão de editar ingredientes. Toda gravação dos dados
+alterados registra um snapshot com o operador autenticado. Falha na cópia
+ou no registro desfaz a tentativa. Referências inválidas a etapas/ingredientes
+apagados ou de outra receita precisam ser corrigidas antes de revisar.
+As ações avançadas de cadastro, de-para, importação e runtime mantêm seus
+fluxos existentes; o bloqueio aqui se refere à edição local de ingredientes.

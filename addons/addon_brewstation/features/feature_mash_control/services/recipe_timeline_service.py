@@ -98,7 +98,7 @@ def _hop_alert_label(ing: RecipeIngredient) -> str:
     return f"{base} - {qty}" if qty else base
 
 
-def sync_hop_alerts(recipe: MashRecipe) -> dict:
+def sync_hop_alerts(recipe: MashRecipe, *, commit: bool = True) -> dict:
     """
     "Toda lupulagem cria alertas" (decisão confirmada em conversa) —
     varre RecipeIngredient (tipo_ingrediente="lupulo", etapa="fervura",
@@ -110,6 +110,8 @@ def sync_hop_alerts(recipe: MashRecipe) -> dict:
     tempo do ingrediente mudou, atualiza o alerta já existente; se o
     ingrediente sumiu/mudou de etapa, o alerta auto-derivado é
     removido (soft-delete) — alertas manuais nunca são tocados.
+    `commit=False` usa flush para composição com dados/histórico; o chamador
+    confirma a transação ou desfaz a tentativa se houver falha.
     """
     boil_step = (
         RecipeStep.query
@@ -161,7 +163,10 @@ def sync_hop_alerts(recipe: MashRecipe) -> dict:
             step.deleted_at = datetime.now(timezone.utc)
             removed.append(step.nome)
 
-    db.session.commit()
+    if commit:
+        db.session.commit()
+    else:
+        db.session.flush()
     return {"created": created, "updated": updated, "removed": removed}
 
 

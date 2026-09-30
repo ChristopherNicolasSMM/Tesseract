@@ -133,7 +133,8 @@ body.pw-kiosk-mode #main { margin-left: 0 !important; padding-top: 12px !importa
         document.title = result.plant_name + ' - Workspace';
       }
       if (window.__tesseractToast) window.__tesseractToast.show(result.message || 'Alterações salvas.', 'success');
-      window.__workspaceReloadCurrent();
+      if (result.recipe_id) window.__workspaceOpenTab('recipe', '?recipe_id=' + encodeURIComponent(result.recipe_id));
+      else window.__workspaceReloadCurrent();
     } catch (error) {
       if (window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
       button.disabled = false;

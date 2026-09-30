@@ -238,3 +238,12 @@ este documento, ver `features/feature_envase/docs/technical/04-modelo-de-dados.m
 → `addon_device_manager` (via `device_function_lookup`);
 `recipe_ingredient.material_id`, `ingredient_mapping.material_id` →
 `addon_estoque` (via `material_lookup`).
+
+## Snapshots de planejamento no workspace (1C)
+
+Sem mudança de schema: `RecipeHistory.snapshot_data` recebe JSON com
+`recipe`, `ingredientes`, `recipe_steps`, `fermentation_steps` e `water_profiles`
+ativos. A criação de revisão também inclui `source_recipe_id`. Cada linha
+usa IDs da nova versão, com pai/ingrediente de alertas remapeados. A edição
+dos dados planejados grava a fotografia após sincronizar alertas. Snapshots
+anteriores continuam com seu formato original; não são reescritos.

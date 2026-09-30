@@ -1,0 +1,46 @@
+<form class="pw-ingredient-data-form row g-2 mt-2 mb-2" method="post"
+      action="{{ url_for('plant_workspace.edit_recipe_ingredient_data', plant_id=plant.id, recipe_id=recipe.id, ingredient_id=ing.id) }}">
+  <div class="col-12"><strong class="small">Dados planejados do ingrediente</strong></div>
+  <div class="col-md-3">
+    <label for="pwIngredientQty{{ ing.id }}" class="form-label">Quantidade</label>
+    <input id="pwIngredientQty{{ ing.id }}" name="quantidade" type="number" min="0" step="any" class="form-control" value="{{ ing.quantidade if ing.quantidade is not none else '' }}">
+  </div>
+  <div class="col-md-3">
+    <label for="pwIngredientUnit{{ ing.id }}" class="form-label">Unidade</label>
+    <div class="weakref-combo" data-weakref-source="unidades_catalogo" data-weakref-value-field="codigo">
+      <input type="hidden" class="weakref-combo-value" name="unidade_medida" value="{{ ing.unidade_medida or '' }}">
+      <input id="pwIngredientUnit{{ ing.id }}" type="text" class="form-control weakref-combo-search" value="{{ ing.unidade_medida or '' }}" placeholder="Buscar unidade..." autocomplete="off">
+      <ul class="weakref-combo-results"></ul>
+    </div>
+  </div>
+  {% for field, label, options in [('tipo_ingrediente', 'Tipo', [('fermentavel', 'Fermentável'), ('lupulo', 'Lúpulo'), ('levedura', 'Levedura'), ('outro', 'Outro')]), ('etapa', 'Etapa de uso', [('mostura', 'Mostura'), ('fervura', 'Fervura'), ('fermentacao', 'Fermentação')])] %}
+  {% set current = ing|attr(field) %}
+  <div class="col-md-3">
+    <label for="pwIngredient{{ field }}{{ ing.id }}" class="form-label">{{ label }}</label>
+    <select id="pwIngredient{{ field }}{{ ing.id }}" name="{{ field }}" class="form-select">
+      <option value="">Não informado</option>
+      {% if current and current not in options|map(attribute=0)|list %}<option value="{{ current }}" selected>{{ current }} (valor existente)</option>{% endif %}
+      {% for value, text in options %}<option value="{{ value }}" {{ 'selected' if current == value else '' }}>{{ text }}</option>{% endfor %}
+    </select>
+  </div>
+  {% endfor %}
+  <div class="col-md-6">
+    <label for="pwIngredientUse{{ ing.id }}" class="form-label">Uso detalhado</label>
+    <input id="pwIngredientUse{{ ing.id }}" name="uso_detalhado" maxlength="30" class="form-control" value="{{ ing.uso_detalhado or '' }}">
+    <div class="small text-muted">Preserve o uso específico importado, como boil, dry hop ou whirlpool.</div>
+  </div>
+  <div class="col-md-6">
+    <label for="pwIngredientTime{{ ing.id }}" class="form-label">Tempo de adição (minutos restantes)</label>
+    <input id="pwIngredientTime{{ ing.id }}" name="tempo_adicao_min" type="number" min="0" max="2147483647" step="1" class="form-control" value="{{ ing.tempo_adicao_min if ing.tempo_adicao_min is not none else '' }}">
+    <div class="small text-muted">Na fervura, o alerta de lúpulo usa os minutos restantes para o término.</div>
+  </div>
+  {% for field, label in [('cor_ebc', 'Cor (EBC)'), ('rendimento', 'Rendimento (%)'), ('alpha_acidos', 'Ácidos alfa (%)'), ('atenuacao', 'Atenuação (%)')] %}
+  <div class="col-md-3">
+    <label for="pwIngredient{{ field }}{{ ing.id }}" class="form-label">{{ label }}</label>
+    {% set value = ing|attr(field) %}
+    <input id="pwIngredient{{ field }}{{ ing.id }}" name="{{ field }}" type="number" min="0" step="any" class="form-control" value="{{ value if value is not none else '' }}">
+  </div>
+  {% endfor %}
+  <div class="col-12 small text-muted">Não há conversão automática: PCT continua sendo pacote; seu conteúdo pertence ao cadastro do material. Salvar atualiza a conferência, a estimativa e os alertas automáticos de lúpulo.</div>
+  <div class="col-12"><button type="submit" class="btn btn-outline-primary">Salvar dados planejados</button></div>
+</form>

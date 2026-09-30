@@ -131,7 +131,7 @@ apareça):
    do fluxo corrente.
 ## Saneamento local de ingredientes (incremento 1A)
 
-`services/ingredient_sanitation_service.py` é extensão manual para o futuro
+`services/ingredient_sanitation_service.py` é extensão manual para o
 formulário da aba Receita. `sanear_ingrediente(recipe_id, ingredient_id,
 status_resolucao=..., material_id=..., commit=True)` modifica somente
 vínculo/status local, valida material pelo lookup público e rejeita receita
@@ -142,16 +142,38 @@ Esse caminho não chama `confirmar_mapeamento()` (propagação global/commit
 próprio) nem `confirmar_consumo_ingredientes()` (baixa de insumos). Quantidade,
 unidade, cache compartilhado e custo registrado não mudam. `commit=False`
 permite composição; falha faz rollback da transação. O serviço não aplica
-RBAC: controllers futuros devem verificar autenticação, permissão de edição
+RBAC: controllers devem verificar autenticação, permissão de edição
 de ingrediente e contexto antes da chamada.
 
 O incremento 1B adiciona `sanitize_recipe_ingredient` em `plant_workspace.py`,
 exigindo login e `recipe_ingredients.update`, e o partial manual
 `_ingredient_sanitation.html`. Reutiliza o serviço local, o combo `materials`,
 modal do Core e helpers AJAX. A seleção `recipe_id` é preservada no retorno
-e na abertura inicial da casca. Não há proteção nova no CRUD/importador. Antes de permitir
-revisar receitas utilizadas por sessões, completar a clonagem de timeline,
-volume, ingredientes/especificações, fermentação e água. Não trocar receita
-de lote ou recalcular custos congelados silenciosamente.
+e na abertura inicial da casca. Não há proteção nova no CRUD/importador.
+
+O incremento 1C adiciona `revise_recipe` (login, `mash_recipes.create` e
+`recipe_steps.list`) e `edit_recipe_ingredient_data` (`recipe_ingredients.update`).
+`criar_nova_versao()` copia volume/ingredientes/timeline/água/fermentação ativos,
+remapeia pai e ingrediente dos alertas e registra `source_recipe_id` no snapshot.
+A próxima versão usa o máximo do mesmo nome, incluindo a lixeira. Conflito
+na constraint existente é reportado como 409, com rollback; sem migration.
+
+`editar_dados_ingrediente()` permite somente os campos de planejamento,
+valida números finitos não negativos e unidades pelo lookup público
+`unidade_catalogo_lookup.get_unidade`. Código canônico é armazenado, sem
+conversão automática; valores legados não alterados podem ser preservados.
+Usa `sync_hop_alerts(commit=False)` e `build_recipe_snapshot()` antes do único
+commit. Falha desfaz ingrediente, alertas e histórico juntos. Ambos os
+serviços aceitam `commit=False` para composição transacional. Não chamar
+consumo, não trocar receita de lote e não recalcular custo congelado.
+
+`_build_recipe_view_context()` deixa de sincronizar alertas automaticamente
+quando existe qualquer sessão referenciando a receita, inclusive na lixeira.
+A proteção não substitui as ações explícitas avançadas do runtime/timeline.
+`_ingredient_data.html` usa combo `unidades_catalogo` com `value-field=codigo`
+e enums via `form-select`; edição local bloqueada em receitas com sessões.
+A resposta da revisão inclui `recipe_id` novo e o helper AJAX abre essa seleção.
+
+Detalhes, comandos e roteiro: [patch 1C](../../../../../../docs/patches/workspace-revisao-receita-ingredientes.md).
 
 Detalhes e testes: [patch 1A](../../../../../../docs/patches/workspace-saneamento-ingredientes-servico.md).

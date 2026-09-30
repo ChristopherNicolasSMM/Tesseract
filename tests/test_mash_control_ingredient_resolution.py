@@ -401,3 +401,201 @@ def test_tela_de_detalhe_da_receita_renderiza_sem_erro(app, client):
     corpo = resp.data.decode("utf-8")
     assert "Receita para Teste de Detalhe" in corpo
     assert "Malte Pilsen" in corpo
+
+
+def _plano_completo_revision():
+    from addons.addon_brewstation.features.feature_mash_control.model.recipe_step import RecipeStep
+    from addons.addon_brewstation.features.feature_mash_control.model.fermentation_step import FermentationStep
+    from addons.addon_brewstation.features.feature_mash_control.model.water_profile import WaterProfile
+    receita = _criar_receita(nome="Plano completo para revisão", origem="BrewFather")
+    receita.volume_planejado_litros = 23.5
+    receita.equipment_mapping = "Equipamento original"
+    receita.origem_receita_id = "remote-123"
+    ing = _linha_saneamento(receita, tipo_ingrediente="lupulo", etapa="fervura",
+                           uso_detalhado="boil", alpha_acidos=12.4, atenuacao=75,
+                           status_resolucao="ignorado", quantidade=0.05)
+    boil = RecipeStep(recipe_id=receita.id, step_type="boil", nome="Fervura", ordem=2,
+                      temperatura=100, tempo_min=60)
+    db.session.add(boil)
+    db.session.flush()
+    alert = RecipeStep(recipe_id=receita.id, step_type="alert", nome="Lúpulo original", ordem=3,
+                       parent_step_id=boil.id, source="auto_hop", source_recipe_ingredient_id=ing.id,
+                       trigger_minutes_remaining=30)
+    db.session.add_all([alert,
+        RecipeStep(recipe_id=receita.id, step_type="mash", nome="Mostura", ordem=1,
+                   temperatura=66.5, tempo_min=50, ramp_time_min=10, tipo="infusion"),
+        RecipeStep(recipe_id=receita.id, step_type="mash", nome="Apagada", is_deleted=True),
+        RecipeIngredient(recipe_id=receita.id, descricao_origem="Apagado", is_deleted=True),
+        FermentationStep(recipe_id=receita.id, nome="Primária", temperatura=18.5, tempo_dias=8.5),
+        FermentationStep(recipe_id=receita.id, nome="Apagada", is_deleted=True)])
+    for index, context in enumerate(("source", "target", "mash", "sparge", "total")):
+        db.session.add(WaterProfile(recipe_id=receita.id, contexto=context, calcio=10 + index,
+                                   magnesio=3, sodio=4, cloreto=50, sulfato=80, bicarbonato=9, ph=5.4))
+    db.session.commit()
+    return receita, ing, boil, alert
+
+
+def test_revisao_completa_remapeia_referencias_e_preserva_lote_custo_e_origem(app):
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_session_step import BrewSessionStep
+    with app.app_context():
+        receita, ing, boil, alert = _plano_completo_revision()
+        from datetime import datetime, timezone
+        session = BrewSession(name="Lote histórico", recipe_id=receita.id, status="completed",
+                              insumos_baixados_em=datetime.now(timezone.utc), custo_total_insumos=123.45)
+        db.session.add(session)
+        db.session.flush()
+        session_step = BrewSessionStep(session_id=session.id, name="Executada", step_index=0,
+                                       step_type="boil", source_recipe_step_id=boil.id, status="completed")
+        db.session.add(session_step)
+        db.session.commit()
+        before = svc.build_recipe_snapshot(receita)
+        session_before, step_before = session.to_dict(), session_step.to_dict()
+        result = svc.criar_nova_versao(receita.id, {}, observacao="Revisão completa")
+        new_id = result["recipe"]["id"]
+        assert new_id != receita.id and result["recipe"]["versao"] == 2
+        assert result["recipe"]["volume_planejado_litros"] == 23.5
+        assert result["recipe"]["origem_receita_id"] == "remote-123"
+        assert result["recipe"]["equipment_mapping"] == "Equipamento original"
+        new_ing = result["ingredientes"][0]
+        assert new_ing["id"] != ing.id and new_ing["recipe_id"] == new_id
+        assert {k: v for k, v in new_ing.items() if k not in ("id", "recipe_id")} == {
+            k: v for k, v in ing.to_dict().items() if k not in ("id", "recipe_id")}
+        assert len(result["recipe_steps"]) == 3
+        new_boil = next(row for row in result["recipe_steps"] if row["step_type"] == "boil")
+        new_alert = next(row for row in result["recipe_steps"] if row["step_type"] == "alert")
+        assert new_alert["parent_step_id"] == new_boil["id"] != boil.id
+        assert new_alert["source_recipe_ingredient_id"] == new_ing["id"] != ing.id
+        for key in ("fermentation_steps", "water_profiles"):
+            assert [{k: v for k, v in row.items() if k not in ("id", "recipe_id")} for row in result[key]] == [
+                {k: v for k, v in row.items() if k not in ("id", "recipe_id")} for row in before[key]]
+        history = db.session.get(RecipeHistory, result["history_id"])
+        assert history.get_snapshot()["source_recipe_id"] == receita.id
+        assert history.get_snapshot()["recipe_steps"] == result["recipe_steps"]
+        sanitation.editar_dados_ingrediente(new_id, new_ing["id"], {"quantidade": "0.07", "tempo_adicao_min": "15"})
+        assert svc.build_recipe_snapshot(receita) == before
+        assert session.to_dict() == session_before and session_step.to_dict() == step_before
+        assert BrewSession.query.count() == 1
+
+
+def test_revisar_versao_antiga_reserva_numero_apos_versoes_inclusive_apagadas(app):
+    with app.app_context():
+        recipe = _criar_receita(nome="Versões ramificadas")
+        newer = _criar_receita(nome=recipe.name, versao=3)
+        newer.is_deleted = True
+        db.session.commit()
+        assert svc.criar_nova_versao(recipe.id, {})["recipe"]["versao"] == 4
+
+
+@pytest.mark.parametrize("broken", ["parent", "ingredient", "foreign_parent", "foreign_ingredient"])
+def test_revisao_referencia_invalida_desfaz_copia_inteira(app, broken):
+    with app.app_context():
+        recipe, ing, boil, alert = _plano_completo_revision()
+        if broken.startswith("foreign_"):
+            other = _criar_receita(nome="Receita de outra referência")
+            (boil if broken == "foreign_parent" else ing).recipe_id = other.id
+        else:
+            (boil if broken == "parent" else ing).is_deleted = True
+        db.session.commit()
+        before = MashRecipe.query.count(), RecipeHistory.query.count(), RecipeIngredient.query.count()
+        with pytest.raises(ValueError):
+            svc.criar_nova_versao(recipe.id, {})
+        assert (MashRecipe.query.count(), RecipeHistory.query.count(), RecipeIngredient.query.count()) == before
+
+
+@pytest.mark.parametrize("operation", ["revision", "edit"])
+def test_revisao_e_edicao_falha_commit_rollback_inclui_alertas_e_historico(app, monkeypatch, operation):
+    with app.app_context():
+        recipe, ing, _, _ = _plano_completo_revision()
+        before = svc.build_recipe_snapshot(recipe)
+        count_recipes, count_history = MashRecipe.query.count(), RecipeHistory.query.count()
+        def fail():
+            raise RuntimeError("Falha na confirmação")
+        monkeypatch.setattr(db.session, "commit", fail)
+        with pytest.raises(RuntimeError):
+            if operation == "revision":
+                svc.criar_nova_versao(recipe.id, {})
+            else:
+                sanitation.editar_dados_ingrediente(recipe.id, ing.id, {"quantidade": 8, "tempo_adicao_min": 2})
+        assert svc.build_recipe_snapshot(recipe) == before
+        assert MashRecipe.query.count() == count_recipes and RecipeHistory.query.count() == count_history
+
+
+def test_editar_dados_sincroniza_alertas_sem_tocar_manual_estoque_ou_vinculo(app):
+    from addons.addon_brewstation.features.feature_mash_control.model.recipe_step import RecipeStep
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+    from addons.addon_estoque.root.model.saldo import Saldo
+    with app.app_context():
+        receita, ing, boil, alert = _plano_completo_revision()
+        manual = RecipeStep(recipe_id=receita.id, step_type="alert", nome="Manual", parent_step_id=boil.id,
+                            trigger_minutes_remaining=5, source="manual")
+        db.session.add(manual)
+        db.session.commit()
+        manual_before, ledger_before = manual.to_dict(), Movimentacao.query.count()
+        balances_before = [row.to_dict() for row in Saldo.query.all()]
+        sanitation.editar_dados_ingrediente(receita.id, ing.id, {"quantidade": "0,08", "tempo_adicao_min": "10"})
+        assert alert.trigger_minutes_remaining == 10 and "0.08" in alert.nome
+        assert ing.status_resolucao == "ignorado" and ing.material_id is None
+        snapshot = RecipeHistory.query.filter_by(recipe_id=receita.id).order_by(RecipeHistory.id.desc()).first().get_snapshot()
+        assert snapshot["ingredientes"][0]["quantidade"] == 0.08
+        assert next(row for row in snapshot["recipe_steps"] if row["id"] == alert.id)["trigger_minutes_remaining"] == 10
+        sanitation.editar_dados_ingrediente(receita.id, ing.id, {"etapa": "fermentacao"})
+        assert alert.is_deleted and manual.to_dict() == manual_before
+        assert Movimentacao.query.count() == ledger_before
+        assert [row.to_dict() for row in Saldo.query.all()] == balances_before
+
+
+@pytest.mark.parametrize("payload", [{"quantidade": "NaN"}, {"alpha_acidos": "inf"},
+    {"quantidade": -1}, {"tempo_adicao_min": "1.5"}, {"tempo_adicao_min": "2147483648"},
+    {"unidade_medida": "PCT de 1 kg"}, {"etapa": "inexistente"}, {"tipo_ingrediente": "inexistente"},
+    {"uso_detalhado": "x" * 31}, {"material_id": 1}])
+def test_editar_dados_rejeita_payload_sem_alteracao_parcial(app, payload):
+    with app.app_context():
+        recipe = _criar_receita()
+        ing = _linha_saneamento(recipe)
+        before = ing.to_dict()
+        with pytest.raises(ValueError):
+            sanitation.editar_dados_ingrediente(recipe.id, ing.id, payload)
+        assert ing.to_dict() == before and RecipeHistory.query.count() == 0
+
+
+@pytest.mark.parametrize("deleted", [False, True])
+def test_editar_dados_receita_em_uso_bloqueia_inclusive_lixeira(app, deleted):
+    with app.app_context():
+        recipe = _criar_receita()
+        ing = _linha_saneamento(recipe)
+        db.session.add(BrewSession(name="Histórico", recipe_id=recipe.id, is_deleted=deleted))
+        db.session.commit()
+        with pytest.raises(sanitation.ReceitaEmUsoError):
+            sanitation.editar_dados_ingrediente(recipe.id, ing.id, {"quantidade": 99})
+        assert ing.quantidade == 5
+
+
+@pytest.mark.parametrize("operation", ["revision", "edit"])
+def test_revisao_edicao_commit_false_permite_rollback_externo(app, operation):
+    with app.app_context():
+        recipe, ing, _, _ = _plano_completo_revision()
+        before = svc.build_recipe_snapshot(recipe)
+        if operation == "revision":
+            svc.criar_nova_versao(recipe.id, {}, commit=False)
+        else:
+            sanitation.editar_dados_ingrediente(recipe.id, ing.id, {"quantidade": 2}, commit=False)
+        db.session.rollback()
+        assert MashRecipe.query.count() == 1 and RecipeHistory.query.count() == 0
+        assert svc.build_recipe_snapshot(recipe) == before
+
+
+def test_edicao_unidade_catalogo_e_legado_sem_conversao_automatica(app):
+    from addons.addon_estoque.root.model.unidade_catalogo import UnidadeCatalogo
+    with app.app_context():
+        if not UnidadeCatalogo.query.filter_by(codigo="PCT").first():
+            db.session.add(UnidadeCatalogo(codigo="PCT", descricao="Pacote", dimensao="embalagem"))
+            db.session.commit()
+        recipe = _criar_receita()
+        ing = _linha_saneamento(recipe, unidade_medida="unidade legada")
+        sanitation.editar_dados_ingrediente(recipe.id, ing.id, {"quantidade": 6, "unidade_medida": "unidade legada"})
+        assert ing.unidade_medida == "unidade legada"
+        sanitation.editar_dados_ingrediente(recipe.id, ing.id, {"unidade_medida": "pct"})
+        assert ing.unidade_medida == "PCT" and ing.quantidade == 6
+        before = RecipeHistory.query.count()
+        sanitation.editar_dados_ingrediente(recipe.id, ing.id, {"quantidade": 6})
+        assert RecipeHistory.query.count() == before
