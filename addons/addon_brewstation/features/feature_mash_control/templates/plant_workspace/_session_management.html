@@ -1,0 +1,70 @@
+{% if current_user.has_permission('brew_sessions.update') %}
+<details class="card mb-3" id="pwSessionEditor">
+  <summary class="card-header">Editar dados do lote</summary>
+  <div class="card-body pt-3">
+    <form id="pwSessionEditForm" method="post" action="{{ url_for('plant_workspace.update_session', plant_id=plant.id, session_id=selected_session.id) }}" class="row g-3">
+      <div class="col-md-8"><label for="pwSessionName" class="form-label">Nome da sessão</label>
+        <input id="pwSessionName" name="name" class="form-control" maxlength="100" value="{{ selected_session.name }}" required></div>
+      <div class="col-md-4"><label for="pwSessionVolume" class="form-label">Volume real (L)</label>
+        <input id="pwSessionVolume" name="volume_real_litros" type="number" step="any" min="0" class="form-control" value="{{ selected_session.volume_real_litros if selected_session.volume_real_litros is not none else '' }}">
+        <small class="text-muted">Deixe em branco enquanto não houver medição.</small></div>
+      <div class="col-12"><label for="pwSessionNotes" class="form-label">Notas da brassagem</label>
+        <textarea id="pwSessionNotes" name="notes" class="form-control" rows="3">{{ selected_session.notes or '' }}</textarea></div>
+      <div class="col-12"><button type="submit" class="btn btn-primary">Salvar dados do lote</button></div>
+    </form>
+  </div>
+</details>
+<script>
+(function () {
+  const form = document.getElementById('pwSessionEditForm');
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    window.__workspaceSubmitForm(form);
+  });
+})();
+</script>
+{% endif %}
+
+<div class="card mb-3" id="pwSessionIngredients">
+  <div class="card-body">
+    <h5 class="card-title">Ingredientes e custo do lote</h5>
+    {% if selected_session.insumos_baixados_em %}
+      <p class="text-success">Ingredientes confirmados em {{ selected_session.insumos_baixados_em.strftime('%d/%m/%Y %H:%M') }}.</p>
+      <p>Custo registrado dos insumos: <strong>{{ 'R$ %.2f'|format(selected_session.custo_total_insumos) if selected_session.custo_total_insumos is not none else 'Não registrado' }}</strong></p>
+    {% elif conference %}
+      <p>Ingredientes ainda não confirmados. {{ conference.pendencias|length }} pendência(s).</p>
+      {% if estimated_cost %}<p>Custo estimado dos insumos: <strong>R$ {{ '%.2f'|format(estimated_cost.custo_total_estimado) }}</strong>{% if not estimated_cost.custo_completo %} <span class="badge bg-warning text-dark">Estimativa incompleta</span>{% endif %}</p>{% endif %}
+      <div class="table-responsive"><table class="table table-sm">
+        <thead><tr><th>Ingrediente</th><th>Quantidade</th><th>Estado</th><th>Orientação</th></tr></thead>
+        <tbody>{% for line in conference.itens %}<tr>
+          <td>{{ line.descricao }}</td><td>{{ line.quantidade if line.quantidade is not none else '—' }} {{ line.unidade or '' }}</td>
+          <td>{{ {'pronto': 'Pronto', 'pendente': 'Pendente', 'ignorado': 'Não consumir'}.get(line.estado, line.estado) }}</td>
+          <td>{{ line.motivo or ('Consumo: ' ~ line.quantidade_base ~ ' ' ~ (line.unidade_base or '')) }}</td>
+        </tr>{% else %}<tr><td colspan="4">Nenhum ingrediente cadastrado.</td></tr>{% endfor %}</tbody>
+      </table></div>
+    {% else %}<p class="text-muted">Esta sessão não tem receita vinculada.</p>{% endif %}
+    {% if selected_session.recipe_id %}<button type="button" class="btn btn-sm btn-outline-primary" onclick="window.__workspaceOpenTab('recipe', '?recipe_id={{ selected_session.recipe_id }}');">Consultar receita e ingredientes</button>{% endif %}
+    {% if not selected_session.insumos_baixados_em and current_user.has_permission('brew_sessions.update') %}
+    <a href="{{ url_for('brew_sessions.detail', id=selected_session.id) }}" class="btn btn-sm btn-outline-primary">Conferir e confirmar ingredientes</a>
+    {% endif %}
+  </div>
+</div>
+
+{% if current_user.has_permission('envases.list') %}
+<div class="card mb-3" id="pwSessionPackaging">
+  <div class="card-body">
+    <h5 class="card-title">Envase e precificação</h5>
+    <a href="{{ url_for('precificacao_envase.workspace', lote_id=selected_session.id) }}" class="btn btn-sm btn-primary">Simular custos de envase deste lote</a>
+    <div class="table-responsive mt-3" style="max-height: 260px; overflow-y: auto;">
+      <table class="table table-sm"><thead><tr><th>Envase</th><th>Data</th><th>Volume</th><th>Status</th></tr></thead>
+        <tbody>{% for envase in envases %}<tr>
+          <td>{% if current_user.has_permission('envases.detail') %}<a href="{{ url_for('envases.detail', id=envase.id) }}">#{{ envase.id }} {{ envase.tipo_envase or '' }}</a>{% else %}#{{ envase.id }} {{ envase.tipo_envase or '' }}{% endif %}</td>
+          <td>{{ envase.data_envase.strftime('%d/%m/%Y') if envase.data_envase else 'Não informada' }}</td>
+          <td>{{ (envase.quantidade_litros ~ ' L') if envase.quantidade_litros is not none else 'Não informado' }}</td>
+          <td>{{ {'registrado': 'Registrado', 'cancelado': 'Cancelado'}.get(envase.status, envase.status) }}</td>
+        </tr>{% else %}<tr><td colspan="4">Nenhum envase registrado para este lote.</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}

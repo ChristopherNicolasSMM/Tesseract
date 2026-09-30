@@ -20,7 +20,7 @@ Arquitetura decidida em conversa:
 from __future__ import annotations
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
-from flask_login import login_required
+from flask_login import login_required, current_user
 
 from core.permissions import permission_required
 from core.db import db
@@ -49,6 +49,8 @@ from addons.addon_device_manager.root.services.device_function_lookup import (
     get_function_by_name, list_functions_for_mapping,
 )
 from addons.addon_brewstation.features.feature_mash_control.services.dashboard_layout_service import DashboardLayoutService
+from addons.addon_brewstation.features.feature_mash_control.services.brew_session_service import BrewSessionService
+from addons.addon_brewstation.features.feature_envase.model.envase import Envase
 from addons.addon_brewstation.features.feature_mash_control.controller.dashboard_runtime import (
     _build_dashboard_view_context,
 )
@@ -282,7 +284,8 @@ def shell(plant_id: int):
     initial_tab = request.args.get("tab", "dashboard")
     if initial_tab not in {tab["key"] for tab in _TABS}:
         initial_tab = "dashboard"
-    return render_template("plant_workspace/shell.html", plant=plant, tabs=_TABS, initial_tab=initial_tab)
+    return render_template("plant_workspace/shell.html", plant=plant, tabs=_TABS, initial_tab=initial_tab,
+                           initial_session_id=request.args.get("session_id"))
 
 
 @plant_workspace_bp.route("/<int:plant_id>/tab/dashboard", methods=["GET"])
@@ -312,6 +315,34 @@ def tab_dashboard(plant_id: int):
         DashboardLayout.query.filter_by(plant_id=plant_id, is_deleted=False).order_by(DashboardLayout.name).all()
     )
     return render_template("dashboards/_fragment.html", **context)
+
+
+@plant_workspace_bp.route("/<int:plant_id>/sessions/<int:session_id>/edit", methods=["POST"])
+@login_required
+@permission_required("brew_sessions.update")
+def update_session(plant_id, session_id):
+    session = (BrewSession.query.join(BrewPlant)
+               .filter(BrewSession.id == session_id, BrewSession.plant_id == plant_id,
+                       BrewSession.is_deleted.is_(False), BrewPlant.is_deleted.is_(False)).first())
+    if not session:
+        return _workspace_form_error("Sessão desta planta não encontrada.", 404, plant_id=plant_id, tab="sessions")
+    name = (request.form.get("name") or "").strip()
+    if not name or len(name) > 100:
+        return _workspace_form_error("Informe um nome de sessão com até 100 caracteres.", 400, plant_id=plant_id, tab="sessions")
+    raw_volume = (request.form.get("volume_real_litros") or "").strip()
+    try:
+        import math
+        volume = float(raw_volume.replace(",", ".")) if raw_volume else None
+        if volume is not None and (not math.isfinite(volume) or volume < 0):
+            raise ValueError
+    except ValueError:
+        return _workspace_form_error("Informe volume real não negativo ou deixe em branco.", 400, plant_id=plant_id, tab="sessions")
+    result = BrewSessionService().update(session_id, {"name": name,
+        "notes": request.form.get("notes", ""), "volume_real_litros": volume})
+    if request.headers.get("X-Requested-With") != "XMLHttpRequest":
+        flash("Sessão atualizada." if result.success else result.error, "success" if result.success else "error")
+        return redirect(url_for("plant_workspace.shell", plant_id=plant_id, tab="sessions", session_id=session_id))
+    return _workspace_form_result(result, plant_id=plant_id, tab="sessions", status=200)
 
 
 @plant_workspace_bp.route("/<int:plant_id>/tab/sessions", methods=["GET"])
@@ -356,9 +387,17 @@ def tab_sessions(plant_id: int):
         )
 
     steps, logs, alarms = [], [], []
+    conference, estimated_cost = None, None
+    envases = []
     log_page = {"page": 1, "has_next": False}
     alarm_page = {"page": 1, "has_next": False}
     if selected_session:
+        if selected_session.recipe_id and selected_session.insumos_baixados_em is None:
+            conference = conferir_ingredientes(selected_session.recipe_id)
+            estimated_cost = calcular_custo_insumos_receita(selected_session.recipe_id)
+        if current_user.has_permission("envases.list"):
+            envases = (Envase.query.filter_by(lote_id=selected_session.id, is_deleted=False)
+                       .order_by(Envase.id.desc()).all())
         steps = (
             BrewSessionStep.query.filter_by(session_id=selected_session.id, is_deleted=False)
             .order_by(BrewSessionStep.step_index)
@@ -391,6 +430,7 @@ def tab_sessions(plant_id: int):
         search=search, status_filter=status_filter, session_page=session_page,
         log_page=log_page, alarm_page=alarm_page,
         session_urls={s.id: tab_url(session_id=s.id, logs_page=1, alarms_page=1) for s in sessions},
+        conference=conference, estimated_cost=estimated_cost, envases=envases,
     )
 
 

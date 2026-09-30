@@ -708,6 +708,150 @@ def test_workspace_pagina_logs_alarmes_sem_misturar_sessoes(app, client):
     assert "Registro Paginado 24" not in both and "Alarme Paginado 24" not in both
 
 
+def test_workspace_edita_lote_sem_alterar_execucao_ou_ledger(app, client):
+    from datetime import datetime
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Edição de Lote")
+        recipe = MashRecipe(name="Receita Edição de Lote")
+        db.session.add_all([plant, recipe])
+        db.session.flush()
+        when = datetime(2026, 1, 1, 12, 0)
+        session = BrewSession(name="Lote Original", plant_id=plant.id, recipe_id=recipe.id,
+                             status="paused", started_at=when, paused_at=when,
+                             insumos_baixados_em=when, custo_total_insumos=123.45, current_step_index=2)
+        db.session.add(session)
+        db.session.flush()
+        step = BrewSessionStep(session_id=session.id, name="Etapa Preservada", step_index=2, status="active")
+        db.session.add(step)
+        db.session.commit()
+        plant_id, recipe_id, session_id, step_id = plant.id, recipe.id, session.id, step.id
+        movement_count, envase_count = Movimentacao.query.count(), Envase.query.count()
+    url = f"/brewstation/plant-workspace/{plant_id}/sessions/{session_id}/edit"
+    headers = {"X-Requested-With": "XMLHttpRequest"}
+    payload = {"name": "Lote Renomeado", "notes": "Medição realizada\nSegunda linha", "volume_real_litros": "23,5",
+               "status": "completed", "recipe_id": "", "current_step_index": "9",
+               "custo_total_insumos": "0", "insumos_baixados_em": "", "plant_id": "999"}
+    for invalid in ("-1", "nan", "inf", "-inf", "abc", "1e999"):
+        assert client.post(url, data={**payload, "volume_real_litros": invalid}, headers=headers).status_code == 400
+    assert client.post(url, data={**payload, "name": ""}, headers=headers).status_code == 400
+    assert client.post(url, data={**payload, "name": "x" * 101}, headers=headers).status_code == 400
+    assert client.post(url, data=payload, headers=headers).status_code == 200
+    with app.app_context():
+        saved = db.session.get(BrewSession, session_id)
+        assert saved.name == "Lote Renomeado"
+        assert saved.notes == "Medição realizada\nSegunda linha"
+        assert saved.volume_real_litros == 23.5
+        assert saved.status == "paused" and saved.current_step_index == 2
+        assert saved.started_at == when and saved.paused_at == when
+        assert saved.recipe_id == recipe_id and saved.plant_id == plant_id
+        assert saved.custo_total_insumos == 123.45 and saved.insumos_baixados_em == when
+        assert db.session.get(BrewSessionStep, step_id).status == "active"
+        assert Movimentacao.query.count() == movement_count and Envase.query.count() == envase_count
+    for value, expected in (("0", 0.0), ("", None)):
+        assert client.post(url, data={**payload, "volume_real_litros": value}, headers=headers).status_code == 200
+        with app.app_context():
+            assert db.session.get(BrewSession, session_id).volume_real_litros == expected
+
+
+def test_workspace_edicao_lote_verifica_planta_lixeira_e_permissao(app, client, monkeypatch):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Proteção Lote")
+        other = BrewPlant(name="Outra Planta Proteção Lote")
+        db.session.add_all([plant, other])
+        db.session.flush()
+        session = BrewSession(name="Lote Protegido", plant_id=plant.id)
+        deleted = BrewSession(name="Lote Apagado", plant_id=plant.id, is_deleted=True)
+        db.session.add_all([session, deleted])
+        db.session.commit()
+        plant_id, other_id, session_id, deleted_id = plant.id, other.id, session.id, deleted.id
+    headers = {"X-Requested-With": "XMLHttpRequest"}
+    payload = {"name": "Novo Nome", "volume_real_litros": "10", "notes": ""}
+    for pid, sid in ((other_id, session_id), (plant_id, deleted_id)):
+        assert client.post(f"/brewstation/plant-workspace/{pid}/sessions/{sid}/edit",
+                           data=payload, headers=headers).status_code == 404
+    monkeypatch.setattr(User, "has_permission", lambda self, code: code not in ("brew_sessions.update", "envases.list"))
+    assert client.post(f"/brewstation/plant-workspace/{plant_id}/sessions/{session_id}/edit",
+                       data=payload, headers=headers).status_code == 403
+    html = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/sessions?session_id={session_id}").data.decode("utf-8")
+    assert 'id="pwSessionEditForm"' not in html
+    assert 'id="pwSessionPackaging"' not in html
+
+
+def test_workspace_lote_mostra_pendencias_custo_registrado_e_envases_corretos(app, client, monkeypatch):
+    from datetime import datetime
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Resumo Lote")
+        recipe = MashRecipe(name="Receita Resumo Lote")
+        db.session.add_all([plant, recipe])
+        db.session.flush()
+        pending = BrewSession(name="Lote Pendente Resumo", plant_id=plant.id, recipe_id=recipe.id)
+        confirmed = BrewSession(name="Lote Confirmado Resumo", plant_id=plant.id, recipe_id=recipe.id,
+                                insumos_baixados_em=datetime(2026, 1, 1), custo_total_insumos=123.45)
+        db.session.add_all([pending, confirmed])
+        db.session.flush()
+        db.session.add(RecipeIngredient(recipe_id=recipe.id, descricao_origem="Malte Pendente Resumo",
+                                       tipo_ingrediente="fermentable", quantidade=2, unidade_medida="kg", status_resolucao="pendente"))
+        included = Envase(lote_id=confirmed.id, tipo_envase="Garrafa do Lote", quantidade_litros=20)
+        excluded = Envase(lote_id=pending.id, tipo_envase="Envase de Outro Lote", quantidade_litros=10)
+        deleted = Envase(lote_id=confirmed.id, tipo_envase="Envase Apagado", is_deleted=True)
+        db.session.add_all([included, excluded, deleted])
+        db.session.commit()
+        plant_id, pending_id, confirmed_id = plant.id, pending.id, confirmed.id
+        movement_count = Movimentacao.query.count()
+    url = f"/brewstation/plant-workspace/{plant_id}/tab/sessions"
+    html = client.get(url, query_string={"session_id": pending_id}).data.decode("utf-8")
+    assert "Malte Pendente Resumo" in html and "1 pendência(s)" in html
+    assert "Estimativa incompleta" in html
+    assert 'id="pwSessionEditForm"' in html
+    from addons.addon_brewstation.features.feature_mash_control.controller import plant_workspace
+    def no_reestimate(*args):
+        raise AssertionError("Custo confirmado não deve ser recalculado")
+    monkeypatch.setattr(plant_workspace, "conferir_ingredientes", no_reestimate)
+    monkeypatch.setattr(plant_workspace, "calcular_custo_insumos_receita", no_reestimate)
+    html = client.get(url, query_string={"session_id": confirmed_id}).data.decode("utf-8")
+    assert "Custo registrado dos insumos" in html and "R$ 123.45" in html
+    assert "Garrafa do Lote" in html
+    assert "Envase de Outro Lote" not in html and "Envase Apagado" not in html
+    assert f"/brewstation/precificacao-envase/?lote_id={confirmed_id}" in html
+    with app.app_context():
+        assert Movimentacao.query.count() == movement_count
+        assert db.session.get(BrewSession, pending_id).insumos_baixados_em is None
+
+
+def test_precificacao_abre_com_lote_e_retorna_para_mesma_sessao(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Atalho Precificação")
+        db.session.add(plant)
+        db.session.flush()
+        session = BrewSession(name="Lote Atalho Precificação", plant_id=plant.id)
+        deleted = BrewSession(name="Lote Apagado Precificação", plant_id=plant.id, is_deleted=True)
+        db.session.add_all([session, deleted])
+        db.session.commit()
+        plant_id, session_id, deleted_id = plant.id, session.id, deleted.id
+    url = "/brewstation/precificacao-envase/"
+    response = client.get(url, query_string={"lote_id": session_id})
+    assert response.status_code == 200
+    html = response.data.decode("utf-8")
+    assert f'id="pcLoteId" value="{session_id}"' in html
+    assert 'value="Lote Atalho Precificação"' in html
+    assert "Voltar à sessão na planta" in html
+    for invalid in (deleted_id, "inválido", "999999"):
+        assert client.get(url, query_string={"lote_id": invalid}).status_code == 404
+    assert client.get(url).status_code == 200
+    shell = client.get(f"/brewstation/plant-workspace/{plant_id}?tab=sessions&session_id={session_id}").data.decode("utf-8")
+    assert f'const initialSessionId = "{session_id}";' in shell
+
+
 def test_tab_sessions_planta_inexistente_devolve_fragmento_de_erro(app, client):
     _login_admin(app, client)
     resp = client.get("/brewstation/plant-workspace/999999/tab/sessions")

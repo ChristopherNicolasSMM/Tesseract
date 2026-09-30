@@ -5,10 +5,11 @@ Tela de simulação/cálculo de precificação (is_workspace=True) — form
 (Lote + percentuais) + resultado detalhado por Material (origem do
 preço visível) + ação de vincular a um Envase. Não é CrudGen.
 """
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, request, abort
 from flask_login import login_required
 
 from core.permissions import permission_required
+from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
 
 precificacao_bp = Blueprint(
     "precificacao_envase", __name__, url_prefix="/brewstation/precificacao-envase"
@@ -19,4 +20,9 @@ precificacao_bp = Blueprint(
 @login_required
 @permission_required("envases.list")
 def workspace():
-    return render_template("precificacao_envase/shell.html")
+    lote = None
+    if "lote_id" in request.args:
+        lote = BrewSession.query.filter_by(id=request.args.get("lote_id", type=int), is_deleted=False).first()
+        if not lote:
+            abort(404)
+    return render_template("precificacao_envase/shell.html", lote=lote)
