@@ -20,8 +20,18 @@ executado pytest nem realizada validação visual em uma aplicação em execuç�
 | Brewfather e YeastBank | Radar posterior | Portal Brewfather e painel YeastBank já existem; não reconstruir como novidades | 6: auditorias específicas e novas lacunas | Estabilização do fluxo prioritário |
 
 Concluída nesta tabela significa o escopo explicitamente descrito, não toda
-a área funcional. Nenhum dos patches 1A–6 abaixo foi implementado por este
-planejamento. A quantidade final de patches pode mudar ao conferir dependências.
+a área funcional. A quantidade final de patches pode mudar ao conferir dependências.
+
+### Acompanhamento dos incrementos
+
+- Planejamento: aplicado e validado pelo usuário.
+- 1A: serviço local `ingredient_sanitation_service.sanear_ingrediente()`
+  implementado; sintaxe/diff/aplicação verificados. Pytest não executado
+  neste ambiente (dependências indisponíveis); aguardando validação local.
+  Ver [saneamento de ingredientes — 1A](workspace-saneamento-ingredientes-servico.md).
+- 1B/1C e etapas 2–6: pendentes. O serviço 1A ainda não está conectado à
+  interface, às rotas nem aos cadastros existentes. As proteções locais
+  não alteram o comportamento do de-para global ou do CRUD atual.
 
 ## Achados que condicionam o saneamento
 

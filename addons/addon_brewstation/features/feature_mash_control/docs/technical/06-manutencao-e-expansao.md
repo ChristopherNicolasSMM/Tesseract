@@ -129,3 +129,25 @@ apareça):
    isso no template). Preserva o contexto do workspace sem esforço de
    engenharia extra pra uma ação que já é, por natureza, uma saída
    do fluxo corrente.
+## Saneamento local de ingredientes (incremento 1A)
+
+`services/ingredient_sanitation_service.py` é extensão manual para o futuro
+formulário da aba Receita. `sanear_ingrediente(recipe_id, ingredient_id,
+status_resolucao=..., material_id=..., commit=True)` modifica somente
+vínculo/status local, valida material pelo lookup público e rejeita receita
+referenciada por sessão, inclusive na lixeira. Receitas são globais; validar
+o ingrediente pela receita, sem criar relação de propriedade com planta.
+
+Esse caminho não chama `confirmar_mapeamento()` (propagação global/commit
+próprio) nem `confirmar_consumo_ingredientes()` (baixa de insumos). Quantidade,
+unidade, cache compartilhado e custo registrado não mudam. `commit=False`
+permite composição; falha faz rollback da transação. O serviço não aplica
+RBAC: controllers futuros devem verificar autenticação, permissão de edição
+de ingrediente e contexto antes da chamada.
+
+Ainda não há rota/UI nem proteção nova no CRUD/importador. Antes de permitir
+revisar receitas utilizadas por sessões, completar a clonagem de timeline,
+volume, ingredientes/especificações, fermentação e água. Não trocar receita
+de lote ou recalcular custos congelados silenciosamente.
+
+Detalhes e testes: [patch 1A](../../../../../../docs/patches/workspace-saneamento-ingredientes-servico.md).
