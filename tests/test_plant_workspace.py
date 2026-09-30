@@ -71,7 +71,12 @@ def test_mapeamento_planta_cria_vinculo_e_rejeita_outra_planta(app, client):
     fragment = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/plant")
     assert fragment.status_code == 200
     assert b'pwMappingForm' in fragment.data
-    assert b'workspace_temp' in fragment.data
+    assert b'data-weakref-source="device_functions"' in fragment.data
+    assert b'data-weakref-value-field="name"' in fragment.data
+    # O combo padrão carrega opções pela API, não pelo HTML inicial.
+    options = client.get("/api/options/device_functions?search=Temperatura&value_field=name")
+    assert options.status_code == 200
+    assert {"id": "workspace_temp", "text": "Temperatura"} in options.get_json()["results"]
 
     url = f"/brewstation/plant-workspace/{plant_id}/mappings"
     headers = {"X-Requested-With": "XMLHttpRequest"}
@@ -88,6 +93,10 @@ def test_mapeamento_planta_cria_vinculo_e_rejeita_outra_planta(app, client):
         mapping = BrewPlantMapping.query.filter_by(vessel_id=vessel_id, role_key="sensor_temp").one()
         assert mapping.device_function_name == "workspace_temp"
         assert mapping.is_required is True
+
+    fragment = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/plant")
+    assert fragment.status_code == 200
+    assert b'workspace_temp' in fragment.data
 
 
 # ── Landing (escolher/criar Planta) ─────────────────────────────────────────
