@@ -14,13 +14,14 @@
   <link href="{{ url_for('static', filename='vendor/boxicons/css/boxicons.min.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/core_popups.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/auth_layout.css') }}" rel="stylesheet">
 
   {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="auth-page">
   <div id="core-toast-container"></div>
 
-  <main id="main" class="main">
+  <main class="auth-main">
     {% block content %}{% endblock %}
   </main>
 

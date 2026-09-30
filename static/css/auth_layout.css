@@ -1,0 +1,19 @@
+/* Public pages have no header or sidebar. Keep their layout independent
+   from the authenticated #main offsets in style.css. */
+.auth-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.auth-page .auth-main {
+  display: flex;
+  align-items: center;
+  flex: 1 0 auto;
+  padding: 24px 12px;
+}
+
+.auth-page > .footer {
+  flex-shrink: 0;
+}
