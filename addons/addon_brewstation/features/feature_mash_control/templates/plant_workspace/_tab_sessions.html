@@ -1,8 +1,20 @@
 {# Fragmento AJAX da aba Sessões (conversa — workspace consolidado):
    consolida Sessões de Brassagem + Passos da Sessão (visão ENXUTA, só
-   acompanhamento) + Logs + Alarmes recentes. Sem <script>/setInterval
-   nesta aba — não precisa do hook window.__tabCleanup. #}
+   acompanhamento) + histórico paginado de Logs e Alarmes. Os scripts
+   só navegam os fragmentos; não há polling nesta aba. #}
 
+{% from 'plant_workspace/_session_pager.html' import pager %}
+{% set statuses = {'draft': 'Rascunho', 'active': 'Em execução', 'paused': 'Pausada', 'completed': 'Concluída', 'aborted': 'Interrompida'} %}
+<form id="pwSessionSearchForm" action="{{ url_for('plant_workspace.tab_sessions', plant_id=plant.id) }}" class="row g-2 mb-3 align-items-end">
+  <div class="col-md-6"><label for="pwSessionSearch" class="form-label">Buscar sessão</label>
+    <input id="pwSessionSearch" name="q" class="form-control" value="{{ search }}" placeholder="Nome da sessão"></div>
+  <div class="col-md-4"><label for="pwSessionStatus" class="form-label">Status</label>
+    <select id="pwSessionStatus" name="status" class="form-select">
+      <option value="">Todos</option>
+      {% for key, text in statuses.items() %}<option value="{{ key }}" {{ 'selected' if status_filter == key else '' }}>{{ text }}</option>{% endfor %}
+    </select></div>
+  <div class="col-md-auto"><button type="submit" class="btn btn-primary">Filtrar</button></div>
+</form>
 <div class="row g-3">
   <div class="col-md-3">
     <div class="card bg-dark border-secondary">
@@ -14,18 +26,19 @@
       </div>
       <div class="list-group list-group-flush" style="max-height: 480px; overflow-y: auto;">
         {% for s in sessions %}
-        <a href="?session_id={{ s.id }}"
+        <a href="{{ session_urls[s.id] }}"
            class="list-group-item list-group-item-action bg-dark text-light {{ 'active' if selected_session and s.id == selected_session.id else '' }}"
            data-workspace-tab-link="sessions">
           <div class="d-flex justify-content-between">
             <span>{{ s.name }}</span>
-            <span class="badge {{ 'bg-success' if s.status == 'active' else ('bg-secondary' if s.status == 'draft' else 'bg-info') }}">{{ s.status }}</span>
+            <span class="badge {{ 'bg-success' if s.status == 'active' else ('bg-secondary' if s.status == 'draft' else 'bg-info') }}">{{ statuses.get(s.status, s.status) }}</span>
           </div>
         </a>
         {% else %}
-        <div class="list-group-item bg-dark text-muted small">Nenhuma sessão cadastrada pra esta Planta ainda.</div>
+        <div class="list-group-item bg-dark text-muted small">{{ 'Nenhuma sessão nesta página.' if session_page.page > 1 else ('Nenhuma sessão encontrada com estes filtros.' if search or status_filter else 'Nenhuma sessão cadastrada pra esta Planta ainda.') }}</div>
         {% endfor %}
       </div>
+      {{ pager(session_page, 'sessões') }}
     </div>
   </div>
 
@@ -37,11 +50,15 @@
       <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
           <h5 class="mb-0">{{ selected_session.name }}</h5>
-          <span class="badge {{ 'bg-success' if selected_session.status == 'active' else ('bg-secondary' if selected_session.status == 'draft' else 'bg-info') }}">{{ selected_session.status }}</span>
+          <span class="badge {{ 'bg-success' if selected_session.status == 'active' else ('bg-secondary' if selected_session.status == 'draft' else 'bg-info') }}">{{ statuses.get(selected_session.status, selected_session.status) }}</span>
+          <div class="small mt-2">Volume real: {{ (selected_session.volume_real_litros ~ ' L') if selected_session.volume_real_litros is not none else 'Não informado' }}</div>
+          <div class="small">Início: {{ selected_session.started_at.strftime('%d/%m/%Y %H:%M') if selected_session.started_at else 'Não iniciado' }} · Conclusão: {{ selected_session.completed_at.strftime('%d/%m/%Y %H:%M') if selected_session.completed_at else 'Não concluída' }}</div>
+          {% if selected_session.notes %}<p class="small mb-0 mt-2" style="white-space: pre-wrap;">{{ selected_session.notes }}</p>{% endif %}
         </div>
-        <a href="{{ url_for('brew_sessions.detail', id=selected_session.id) }}" target="_blank" class="btn btn-sm btn-outline-light">
-          <i class="bi bi-box-arrow-up-right"></i> Editar sessão (tela completa)
-        </a>
+        <div class="d-flex gap-2 flex-wrap">
+          <button type="button" class="btn btn-sm btn-outline-success" onclick="window.__workspaceOpenTab('dashboard');">Dashboard da planta</button>
+          <a href="{{ url_for('brew_sessions.detail', id=selected_session.id) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-light">Cadastro avançado da sessão</a>
+        </div>
       </div>
     </div>
 
@@ -63,10 +80,21 @@
             {% for step in steps %}
             <tr>
               <td>{{ step.step_index }}</td>
-              <td><a href="{{ url_for('brew_session_steps.detail', id=step.id) }}" target="_blank" rel="noopener">{{ step.name }}</a></td>
+              <td><details><summary>{{ step.name }}</summary>
+                <div class="small py-2">
+                  <div>Rampa: {{ step.ramp_seconds or 0 }} s · Permanência: {{ step.duration_seconds or 0 }} s</div>
+                  <div>Duração realizada: {{ step.actual_duration_s or 0 }} s</div>
+                  <div>Início: {{ step.started_at.strftime('%d/%m/%Y %H:%M:%S') if step.started_at else 'Não iniciado' }}</div>
+                  <div>Conclusão: {{ step.completed_at.strftime('%d/%m/%Y %H:%M:%S') if step.completed_at else 'Não concluído' }}</div>
+                  <div>PID: {{ 'Ativo' if step.pid_enabled else 'Inativo' }} · Kp: {{ step.pid_kp }} · Ki: {{ step.pid_ki }} · Kd: {{ step.pid_kd }}</div>
+                  {% if step.trigger_at_seconds is not none %}<div>Alerta em {{ step.trigger_at_seconds }} s · {{ 'Disparado' if step.alarm_fired else 'Não disparado' }}</div>{% endif %}
+                  {% if step.notes %}<p style="white-space: pre-wrap;">{{ step.notes }}</p>{% endif %}
+                  {% if step.hop_addition_json %}<details><summary>Adições de lúpulo</summary><pre class="small text-wrap">{{ step.hop_addition_json | tojson_utf8 }}</pre></details>{% endif %}
+                </div>
+              </details></td>
               <td>{{ step.step_type or '—' }}</td>
               <td>{{ (step.target_temp ~ '°C') if step.target_temp is not none else '—' }}</td>
-              <td>{{ ((step.ramp_seconds + step.duration_seconds) // 60) }} min</td>
+              <td>{{ (((step.ramp_seconds or 0) + (step.duration_seconds or 0)) // 60) }} min</td>
               <td><span class="badge {{ 'bg-success' if step.status == 'active' else ('bg-secondary' if step.status == 'pending' else ('bg-info' if step.status == 'completed' else 'bg-warning')) }}">{{ step.status }}</span></td>
             </tr>
             {% else %}
@@ -80,35 +108,45 @@
     <div class="row g-3">
       <div class="col-md-6">
         <div class="card bg-dark border-secondary">
-          <div class="card-header"><i class="bi bi-journal-text"></i> Logs recentes</div>
+          <div class="card-header"><i class="bi bi-journal-text"></i> Histórico de registros</div>
           <div class="list-group list-group-flush" style="max-height: 260px; overflow-y: auto;">
             {% for log in logs %}
             <div class="list-group-item bg-dark text-light small">
               <span class="badge {{ 'bg-danger' if log.log_level == 'error' else ('bg-warning' if log.log_level in ('warning', 'alarm') else 'bg-secondary') }}">{{ log.log_level }}</span>
-              <a href="{{ url_for('brew_session_logs.detail', id=log.id) }}" target="_blank" rel="noopener">{{ log.message }}</a>
+              <details><summary>{{ log.message }}</summary>
+                <div class="py-2">Origem: {{ log.source or 'Não informada' }} · Etapa: {{ log.step_id if log.step_id is not none else 'Não informada' }}</div>
+                {% if log.detail_json %}<pre class="small text-wrap">{{ log.detail_json | tojson_utf8 }}</pre>{% endif %}
+              </details>
               <div class="text-muted" style="font-size: 0.75rem;">{{ log.created_at.strftime('%d/%m %H:%M:%S') if log.created_at else '' }}</div>
             </div>
             {% else %}
-            <div class="list-group-item bg-dark text-muted small">Nenhum log ainda.</div>
+            <div class="list-group-item bg-dark text-muted small">Nenhum registro nesta página.</div>
             {% endfor %}
           </div>
+          {{ pager(log_page, 'registros') }}
         </div>
       </div>
       <div class="col-md-6">
         <div class="card bg-dark border-secondary">
-          <div class="card-header"><i class="bi bi-bell"></i> Alarmes recentes</div>
+          <div class="card-header"><i class="bi bi-bell"></i> Histórico de alarmes</div>
           <div class="list-group list-group-flush" style="max-height: 260px; overflow-y: auto;">
             {% for alarm in alarms %}
             <div class="list-group-item bg-dark text-light small">
               <span class="badge {{ 'bg-danger' if alarm.severity in ('high', 'critical') else ('bg-warning' if alarm.severity == 'medium' else 'bg-secondary') }}">{{ alarm.severity }}</span>
-              <a href="{{ url_for('brew_session_alarms.detail', id=alarm.id) }}" target="_blank" rel="noopener">{{ alarm.message }}</a>
+              <details><summary>{{ alarm.message }}</summary>
+                <div class="py-2">Tipo: {{ alarm.alarm_type or 'Não informado' }}</div>
+                <div>{{ 'Reconhecido' if alarm.is_acknowledged else 'Aguardando reconhecimento' }}</div>
+                {% if alarm.acknowledged_at %}<div>{{ alarm.acknowledged_at.strftime('%d/%m/%Y %H:%M:%S') }}</div>{% endif %}
+                {% if alarm.acknowledged_by is not none %}<div>Operador: #{{ alarm.acknowledged_by }}</div>{% endif %}
+              </details>
               {% if alarm.is_acknowledged %}<i class="bi bi-check-circle text-success" title="Reconhecido"></i>{% endif %}
               <div class="text-muted" style="font-size: 0.75rem;">{{ alarm.created_at.strftime('%d/%m %H:%M:%S') if alarm.created_at else '' }}</div>
             </div>
             {% else %}
-            <div class="list-group-item bg-dark text-muted small">Nenhum alarme ainda.</div>
+            <div class="list-group-item bg-dark text-muted small">Nenhum alarme nesta página.</div>
             {% endfor %}
           </div>
+          {{ pager(alarm_page, 'alarmes') }}
         </div>
       </div>
     </div>
@@ -122,6 +160,17 @@
 // da casca (window.__workspaceLoadUrl), o mesmo usado por qualquer
 // sub-navegação dentro de uma aba.
 (function () {
+  const searchForm = document.getElementById('pwSessionSearchForm');
+  searchForm.addEventListener('submit', function (event) {
+    event.preventDefault();
+    window.__workspaceLoadUrl(searchForm.action + '?' + new URLSearchParams(new FormData(searchForm)).toString());
+  });
+  document.querySelectorAll('[data-workspace-history-link]').forEach(function (link) {
+    link.addEventListener('click', function (event) {
+      event.preventDefault();
+      window.__workspaceLoadUrl(link.href);
+    });
+  });
   const newSessionBtn = document.getElementById('pwNewSessionBtn');
   if (newSessionBtn) newSessionBtn.addEventListener('click', function () {
     window.__workspaceOpenTab('recipe');
@@ -129,7 +178,7 @@
   document.querySelectorAll('[data-workspace-tab-link="sessions"]').forEach(function (link) {
     link.addEventListener('click', function (e) {
       e.preventDefault();
-      const url = "{{ url_for('plant_workspace.tab_sessions', plant_id=plant.id) }}" + link.getAttribute('href');
+      const url = link.getAttribute('href');
       if (window.__workspaceLoadUrl) window.__workspaceLoadUrl(url);
     });
   });

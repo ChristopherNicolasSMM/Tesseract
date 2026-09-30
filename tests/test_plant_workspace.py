@@ -625,6 +625,89 @@ def test_tab_sessions_adicionar_etapa_navega_pra_aba_receita_mash(app, client):
     assert "dbGoToRecipeTabBtn" in html
 
 
+def test_workspace_historico_acessa_sessao_antiga_e_filtra_nome_status(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Histórico Paginado")
+        other = BrewPlant(name="Planta Histórico Separado")
+        db.session.add_all([plant, other])
+        db.session.flush()
+        oldest = BrewSession(name="Histórico Antigo 100%", plant_id=plant.id, status="completed")
+        foreign = BrewSession(name="Histórico Outra Planta", plant_id=other.id, status="completed")
+        deleted = BrewSession(name="Histórico Apagado", plant_id=plant.id, is_deleted=True)
+        db.session.add_all([oldest, foreign, deleted])
+        db.session.flush()
+        db.session.add_all([BrewSession(name=f"Histórico Novo {i:02d}", plant_id=plant.id, status="draft") for i in range(24)])
+        db.session.commit()
+        plant_id, oldest_id, foreign_id, deleted_id = plant.id, oldest.id, foreign.id, deleted.id
+    url = f"/brewstation/plant-workspace/{plant_id}/tab/sessions"
+    first = client.get(url).data.decode("utf-8")
+    assert "Histórico Antigo 100%" not in first
+    assert "Histórico Novo 23" in first
+    second = client.get(url, query_string={"page": 2}).data.decode("utf-8")
+    assert "Histórico Antigo 100%" in second
+    assert "Histórico Novo 23" not in second
+    selected = client.get(url, query_string={"session_id": oldest_id})
+    assert selected.status_code == 200
+    assert "Histórico Antigo 100%" in selected.data.decode("utf-8")
+    filtered = client.get(url, query_string={"q": "%", "status": "completed"}).data.decode("utf-8")
+    assert "Histórico Antigo 100%" in filtered
+    assert "Histórico Novo" not in filtered
+    empty = client.get(url, query_string={"q": "%", "status": "draft"}).data.decode("utf-8")
+    assert "Nenhuma sessão encontrada com estes filtros." in empty
+    for invalid in (foreign_id, deleted_id, "inválido"):
+        response = client.get(url, query_string={"session_id": invalid})
+        assert response.status_code == 404
+        assert "Histórico Outra Planta" not in response.data.decode("utf-8")
+    assert client.get(url, query_string={"status": "desconhecido"}).status_code == 400
+
+
+def test_workspace_pagina_logs_alarmes_sem_misturar_sessoes(app, client):
+    from datetime import datetime
+    import html as html_module
+    import re
+    from urllib.parse import parse_qs, urlsplit
+
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Histórico Eventos")
+        db.session.add(plant)
+        db.session.flush()
+        session = BrewSession(name="Sessão Histórico Eventos", plant_id=plant.id, status="completed")
+        other = BrewSession(name="Sessão Outros Eventos", plant_id=plant.id)
+        db.session.add_all([session, other])
+        db.session.flush()
+        when = datetime(2026, 1, 1, 12, 0)
+        for i in range(25):
+            db.session.add(BrewSessionLog(session_id=session.id, message=f"Registro Paginado {i:02d}", created_at=when,
+                                         source="sensor", detail_json={"valor": i}))
+            db.session.add(BrewSessionAlarm(session_id=session.id, message=f"Alarme Paginado {i:02d}", created_at=when))
+        db.session.add(BrewSessionLog(session_id=other.id, message="Registro Exclusivo Outra Sessão"))
+        db.session.add(BrewSessionAlarm(session_id=other.id, message="Alarme Exclusivo Outra Sessão"))
+        db.session.add(BrewSessionLog(session_id=session.id, message="Registro Apagado", is_deleted=True))
+        db.session.add(BrewSessionAlarm(session_id=session.id, message="Alarme Apagado", is_deleted=True))
+        db.session.commit()
+        plant_id, session_id = plant.id, session.id
+    url = f"/brewstation/plant-workspace/{plant_id}/tab/sessions"
+    first = client.get(url, query_string={"session_id": session_id}).data.decode("utf-8")
+    assert "Registro Paginado 24" in first and "Registro Paginado 00" not in first
+    assert "Alarme Paginado 24" in first and "Alarme Paginado 00" not in first
+    assert "Origem: sensor" in first
+    for message in ("Registro Exclusivo Outra Sessão", "Alarme Exclusivo Outra Sessão", "Registro Apagado", "Alarme Apagado"):
+        assert message not in first
+    links = re.findall(r'href="([^"]+)"[^>]*data-workspace-history-link', first)
+    log_link = next(html_module.unescape(link) for link in links if "logs_page=2" in link)
+    query = parse_qs(urlsplit(log_link).query)
+    assert query["session_id"] == [str(session_id)]
+    assert query["alarms_page"] == ["1"]
+    log_next = client.get(log_link).data.decode("utf-8")
+    assert "Registro Paginado 00" in log_next and "Registro Paginado 24" not in log_next
+    assert "Alarme Paginado 24" in log_next
+    both = client.get(url, query_string={"session_id": session_id, "logs_page": 2, "alarms_page": 2}).data.decode("utf-8")
+    assert "Registro Paginado 00" in both and "Alarme Paginado 00" in both
+    assert "Registro Paginado 24" not in both and "Alarme Paginado 24" not in both
+
+
 def test_tab_sessions_planta_inexistente_devolve_fragmento_de_erro(app, client):
     _login_admin(app, client)
     resp = client.get("/brewstation/plant-workspace/999999/tab/sessions")

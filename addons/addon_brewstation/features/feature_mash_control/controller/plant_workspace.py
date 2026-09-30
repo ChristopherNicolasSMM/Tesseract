@@ -328,46 +328,69 @@ def tab_sessions(plant_id: int):
     if not plant or plant.is_deleted:
         return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada.")
 
-    sessions = (
-        BrewSession.query.filter_by(plant_id=plant_id, is_deleted=False)
-        .order_by(BrewSession.id.desc())
-        .limit(20)
-        .all()
-    )
+    search = (request.args.get("q") or "").strip()
+    status_filter = (request.args.get("status") or "").strip()
+    if status_filter not in ("", "draft", "active", "paused", "completed", "aborted"):
+        return render_template("plant_workspace/_tab_error.html", message="Status de sessão inválido."), 400
+    base_query = BrewSession.query.filter_by(plant_id=plant_id, is_deleted=False)
+    sessions_query = base_query
+    if search:
+        sessions_query = sessions_query.filter(BrewSession.name.contains(search, autoescape=True))
+    if status_filter:
+        sessions_query = sessions_query.filter_by(status=status_filter)
 
-    session_id = request.args.get("session_id", type=int)
+    def page_items(query, key):
+        page = max(1, request.args.get(key, 1, type=int) or 1)
+        rows = query.offset((page - 1) * 20).limit(21).all()
+        return rows[:20], {"page": page, "has_next": len(rows) > 20}
+
+    sessions, session_page = page_items(sessions_query.order_by(BrewSession.id.desc()), "page")
     selected_session = None
-    if session_id:
-        selected_session = next((s for s in sessions if s.id == session_id), None)
-    if selected_session is None and sessions:
+    if "session_id" in request.args:
+        selected_session = base_query.filter_by(id=request.args.get("session_id", type=int)).first()
+        if not selected_session:
+            return render_template("plant_workspace/_tab_error.html", message="Sessão desta planta não encontrada."), 404
+    elif sessions:
         selected_session = (
             next((s for s in sessions if s.status == "active"), None) or sessions[0]
         )
 
     steps, logs, alarms = [], [], []
+    log_page = {"page": 1, "has_next": False}
+    alarm_page = {"page": 1, "has_next": False}
     if selected_session:
         steps = (
             BrewSessionStep.query.filter_by(session_id=selected_session.id, is_deleted=False)
             .order_by(BrewSessionStep.step_index)
             .all()
         )
-        logs = (
+        logs, log_page = page_items(
             BrewSessionLog.query.filter_by(session_id=selected_session.id, is_deleted=False)
-            .order_by(BrewSessionLog.created_at.desc())
-            .limit(20)
-            .all()
-        )
-        alarms = (
+            .order_by(BrewSessionLog.created_at.desc(), BrewSessionLog.id.desc()), "logs_page")
+        alarms, alarm_page = page_items(
             BrewSessionAlarm.query.filter_by(session_id=selected_session.id, is_deleted=False)
-            .order_by(BrewSessionAlarm.created_at.desc())
-            .limit(20)
-            .all()
-        )
+            .order_by(BrewSessionAlarm.created_at.desc(), BrewSessionAlarm.id.desc()), "alarms_page")
+
+    navigation = {"q": search, "status": status_filter, "page": session_page["page"],
+                  "logs_page": log_page["page"], "alarms_page": alarm_page["page"]}
+    if selected_session:
+        navigation["session_id"] = selected_session.id
+
+    def tab_url(**changes):
+        return url_for("plant_workspace.tab_sessions", plant_id=plant_id, **{**navigation, **changes})
+
+    for pager, key in ((session_page, "page"), (log_page, "logs_page"), (alarm_page, "alarms_page")):
+        reset = {"session_id": None, "logs_page": 1, "alarms_page": 1} if key == "page" else {}
+        pager["previous_url"] = tab_url(**{**reset, key: pager["page"] - 1}) if pager["page"] > 1 else None
+        pager["next_url"] = tab_url(**{**reset, key: pager["page"] + 1}) if pager["has_next"] else None
 
     return render_template(
         "plant_workspace/_tab_sessions.html",
         plant=plant, sessions=sessions, selected_session=selected_session,
         steps=steps, logs=logs, alarms=alarms,
+        search=search, status_filter=status_filter, session_page=session_page,
+        log_page=log_page, alarm_page=alarm_page,
+        session_urls={s.id: tab_url(session_id=s.id, logs_page=1, alarms_page=1) for s in sessions},
     )
 
 
