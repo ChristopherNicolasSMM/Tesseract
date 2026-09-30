@@ -88,6 +88,8 @@
   }
 
   function initCombo(container) {
+    if (container.dataset.weakrefInitialized) return;
+    container.dataset.weakrefInitialized = '1';
     const debouncedSearch = debounce(function () { search(container); }, 250);
     const input = container.querySelector(".weakref-combo-search");
     const hidden = container.querySelector(".weakref-combo-value");
@@ -99,14 +101,20 @@
     });
     input.addEventListener("focus", debouncedSearch);
 
-    document.addEventListener("click", function (evt) {
-      if (!container.contains(evt.target)) {
-        container.querySelector(".weakref-combo-results").classList.remove("show");
-      }
-    });
   }
 
+  document.addEventListener('click', function (evt) {
+    document.querySelectorAll('.weakref-combo').forEach(function (container) {
+      if (!container.contains(evt.target)) {
+        container.querySelector('.weakref-combo-results').classList.remove('show');
+      }
+    });
+  });
+
+  window.TesseractWeakRef = { init: function (root) {
+    (root || document).querySelectorAll('.weakref-combo').forEach(initCombo);
+  }};
   document.addEventListener("DOMContentLoaded", function () {
-    document.querySelectorAll(".weakref-combo").forEach(initCombo);
+    window.TesseractWeakRef.init(document);
   });
 })();

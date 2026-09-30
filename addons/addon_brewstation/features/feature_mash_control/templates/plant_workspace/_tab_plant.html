@@ -15,9 +15,9 @@
       <p class="small mt-2 mb-0">{{ plant.description }}</p>
       {% endif %}
     </div>
-    <a href="{{ url_for('brew_plants.detail', id=plant.id) }}" target="_blank" class="btn btn-sm btn-outline-light">
+    {% if current_user.has_permission('brew_plants.update') %}<a href="#pwEditPlant" class="btn btn-sm btn-outline-light" data-open-editor="pwEditPlant">
       <i class="bi bi-pencil"></i> Editar Planta
-    </a>
+    </a>{% endif %}
   </div>
 </div>
 
@@ -37,9 +37,9 @@
           <td>{{ vessel.vessel_type.replace('_', ' ').title() }}</td>
           <td class="small text-muted">{{ vessel.description or '—' }}</td>
           <td>
-            <a href="{{ url_for('brew_plant_vessels.detail', id=vessel.id) }}" target="_blank" class="small">
+            {% if current_user.has_permission('brew_plant_vessels.update') %}<a href="#pwEditVessel{{ vessel.id }}" class="small" data-open-editor="pwEditVessel{{ vessel.id }}">
               <i class="bi bi-pencil"></i>
-            </a>
+            </a>{% endif %}
           </td>
         </tr>
         {% else %}
@@ -83,9 +83,9 @@
           <td>{{ mapping.device_function_name }}</td>
           <td>{{ '✓' if mapping.is_required else '—' }}</td>
           <td>
-            <a href="{{ url_for('brew_plant_mappings.detail', id=mapping.id) }}" target="_blank" class="small">
+            {% if current_user.has_permission('brew_plant_mappings.update') %}<a href="#pwEditMapping{{ mapping.id }}" class="small" data-open-editor="pwEditMapping{{ mapping.id }}">
               <i class="bi bi-pencil"></i>
-            </a>
+            </a>{% endif %}
           </td>
         </tr>
         {% else %}
@@ -113,10 +113,11 @@
           <option value="actor_flow">Atuador de fluxo</option>
         </select></div>
       <div class="col-md-3"><label class="form-label" for="pwMappingFunction">Função do dispositivo</label>
-        <select class="form-select" id="pwMappingFunction" name="device_function_name" required>
-          <option value="">Selecione</option>
-          {% for function in device_functions %}<option value="{{ function.name }}" data-category="{{ function.category }}">{{ function.display }} ({{ function.name }})</option>{% endfor %}
-        </select></div>
+        <div class="weakref-combo" data-weakref-source="device_functions" data-weakref-value-field="name">
+          <input type="hidden" class="weakref-combo-value" name="device_function_name">
+          <input class="form-control weakref-combo-search" id="pwMappingFunction" autocomplete="off" placeholder="Buscar função..." required>
+          <ul class="list-group weakref-combo-results"></ul>
+        </div><small class="text-muted">Selecione um sensor para temperatura ou um atuador para aquecimento/fluxo.</small></div>
       <div class="col-md-auto"><div class="form-check mb-2"><input class="form-check-input" id="pwMappingRequired" type="checkbox" name="is_required" checked><label class="form-check-label" for="pwMappingRequired">Obrigatório</label></div></div>
       <div class="col-md-auto"><button type="submit" class="btn btn-primary">Adicionar vínculo</button></div>
     </form>
@@ -133,14 +134,15 @@
       window.__workspaceSubmitForm(form);
     });
   });
-  const role = document.getElementById('pwMappingRole');
-  const functionSelect = document.getElementById('pwMappingFunction');
-  if (role && functionSelect) role.addEventListener('change', function () {
-    const category = role.value === 'sensor_temp' ? 'sensor' : 'actuator';
-    Array.from(functionSelect.options).forEach(function (option) {
-      option.hidden = !!option.value && option.dataset.category !== category && option.dataset.category !== 'hybrid';
-    });
-    functionSelect.value = '';
-  });
 })();
+</script>
+{% include 'plant_workspace/_plant_editors.html' %}
+<script>
+document.querySelectorAll('[data-open-editor]').forEach(function (link) {
+  link.addEventListener('click', function (event) {
+    event.preventDefault();
+    const editor = document.getElementById(link.dataset.openEditor);
+    if (editor) { editor.open = true; editor.scrollIntoView({behavior: 'smooth'}); }
+  });
+});
 </script>

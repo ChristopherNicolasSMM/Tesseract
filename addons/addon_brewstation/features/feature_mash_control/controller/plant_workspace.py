@@ -96,14 +96,58 @@ def create_plant():
     return redirect(url_for("plant_workspace.shell", plant_id=result.data.id, tab="plant"))
 
 
-def _workspace_form_result(result, *, plant_id: int, tab: str):
+def _workspace_form_result(result, *, plant_id: int, tab: str, status: int = 201):
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         if not result.success:
             return jsonify({"ok": False, "error": result.error}), result.code
-        return jsonify({"ok": True, "id": result.data.id}), 201
+        plant = db.session.get(BrewPlant, plant_id)
+        return jsonify({"ok": True, "id": result.data.id, "plant_name": plant.name if plant else None}), status
     flash("Cadastro realizado." if result.success else result.error,
           "success" if result.success else "error")
     return redirect(url_for("plant_workspace.shell", plant_id=plant_id, tab=tab))
+
+
+@plant_workspace_bp.route("/<int:plant_id>/edit", methods=["POST"])
+@login_required
+@permission_required("brew_plants.update")
+def update_plant(plant_id):
+    plant = BrewPlant.query.filter_by(id=plant_id, is_deleted=False).first()
+    if not plant:
+        return _workspace_form_error("Planta não encontrada.", 404, plant_id=plant_id, tab="plant")
+    name = (request.form.get("name") or "").strip()
+    capacity = (request.form.get("capacity_liters") or "").strip()
+    try:
+        import math
+        capacity = float(capacity.replace(",", ".")) if capacity else None
+        if capacity is not None and (not math.isfinite(capacity) or capacity <= 0):
+            raise ValueError
+    except ValueError:
+        return _workspace_form_error("Informe uma capacidade positiva ou deixe em branco.", 400, plant_id=plant_id, tab="plant")
+    if not name or len(name) > 100:
+        return _workspace_form_error("Informe um nome de planta com até 100 caracteres.", 400, plant_id=plant_id, tab="plant")
+    result = BrewPlantService().update(plant_id, {"name": name,
+        "description": (request.form.get("description") or "").strip(),
+        "capacity_liters": capacity, "is_active": request.form.get("is_active") == "on"})
+    return _workspace_form_result(result, plant_id=plant_id, tab="plant", status=200)
+
+
+@plant_workspace_bp.route("/<int:plant_id>/vessels/<int:vessel_id>/edit", methods=["POST"])
+@login_required
+@permission_required("brew_plant_vessels.update")
+def update_vessel(plant_id, vessel_id):
+    vessel = (BrewPlantVessel.query.join(BrewPlant)
+              .filter(BrewPlantVessel.id == vessel_id, BrewPlantVessel.plant_id == plant_id,
+                      BrewPlantVessel.is_deleted.is_(False), BrewPlant.is_deleted.is_(False)).first())
+    if not vessel:
+        return _workspace_form_error("Tanque desta planta não encontrado.", 404, plant_id=plant_id, tab="plant")
+    label = (request.form.get("label_text") or "").strip()
+    kind = request.form.get("vessel_type")
+    order = request.form.get("position_order", type=int)
+    if not label or len(label) > 100 or kind not in ("mash_tun", "boil_kettle", "hlt", "fermenter", "bright_tank") or order is None or order < 0:
+        return _workspace_form_error("Informe identificação, tipo e ordem válidos.", 400, plant_id=plant_id, tab="plant")
+    result = BrewPlantVesselService().update(vessel_id, {"label_text": label, "vessel_type": kind,
+        "position_order": order, "description": (request.form.get("description") or "").strip()})
+    return _workspace_form_result(result, plant_id=plant_id, tab="plant", status=200)
 
 
 def _workspace_form_error(message: str, code: int, *, plant_id: int, tab: str):
@@ -134,7 +178,25 @@ def create_vessel(plant_id: int):
 @login_required
 @permission_required("brew_plant_mappings.create")
 def create_mapping(plant_id: int):
-    plant = BrewPlant.query.filter_by(id=plant_id, is_deleted=False, is_active=True).first()
+    return _save_mapping(plant_id)
+
+
+@plant_workspace_bp.route("/<int:plant_id>/mappings/<int:mapping_id>/edit", methods=["POST"])
+@login_required
+@permission_required("brew_plant_mappings.update")
+def update_mapping(plant_id, mapping_id):
+    mapping = (BrewPlantMapping.query.join(BrewPlantVessel)
+               .filter(BrewPlantMapping.id == mapping_id, BrewPlantMapping.is_deleted.is_(False),
+                       BrewPlantVessel.plant_id == plant_id, BrewPlantVessel.is_deleted.is_(False)).first())
+    if not mapping:
+        return _workspace_form_error("Mapeamento desta planta não encontrado.", 404, plant_id=plant_id, tab="plant")
+    return _save_mapping(plant_id, mapping)
+
+
+def _save_mapping(plant_id, mapping=None):
+    plant = BrewPlant.query.filter_by(id=plant_id, is_deleted=False).first()
+    if plant and mapping is None and not plant.is_active:
+        plant = None
     if not plant:
         return _workspace_form_error("Planta ativa não encontrada.", 404, plant_id=plant_id, tab="plant")
     vessel_id = request.form.get("vessel_id", type=int)
@@ -143,20 +205,32 @@ def create_mapping(plant_id: int):
         return _workspace_form_error("Selecione um tanque desta planta.", 400, plant_id=plant_id, tab="plant")
     role_key = (request.form.get("role_key") or "").strip()
     category_for_role = {"sensor_temp": "sensor", "actor_heat": "actuator", "actor_flow": "actuator"}
-    if role_key not in category_for_role:
+    preserve_custom_role = mapping is not None and role_key == mapping.role_key and role_key not in category_for_role
+    if role_key not in category_for_role and not preserve_custom_role:
         return _workspace_form_error("Selecione um papel válido.", 400, plant_id=plant_id, tab="plant")
     function_name = (request.form.get("device_function_name") or "").strip()
     function = get_function_by_name(function_name)
-    if not function or function.get("category") not in (category_for_role[role_key], "hybrid"):
+    if not function or (not preserve_custom_role and function.get("category") not in (category_for_role[role_key], "hybrid")):
         return _workspace_form_error("Selecione uma função compatível com o papel.", 400, plant_id=plant_id, tab="plant")
-    if BrewPlantMapping.query.filter_by(vessel_id=vessel_id, role_key=role_key, is_deleted=False).first():
+    duplicate = BrewPlantMapping.query.filter_by(vessel_id=vessel_id, role_key=role_key, is_deleted=False)
+    if mapping is not None:
+        duplicate = duplicate.filter(BrewPlantMapping.id != mapping.id)
+    if duplicate.first():
         return _workspace_form_error("Este tanque já possui um mapeamento para esse papel.", 409, plant_id=plant_id, tab="plant")
-    result = BrewPlantMappingService().create({
+    data = {
         "vessel_id": vessel_id, "role_key": role_key,
         "device_function_name": function_name,
         "is_required": request.form.get("is_required") == "on",
-    })
-    return _workspace_form_result(result, plant_id=plant_id, tab="plant")
+    }
+    label_text = (request.form.get("label_text") or "").strip()
+    if len(label_text) > 100:
+        return _workspace_form_error("A identificação do vínculo deve ter até 100 caracteres.", 400, plant_id=plant_id, tab="plant")
+    if mapping is not None:
+        data["label_text"] = label_text
+        result = BrewPlantMappingService().update(mapping.id, data)
+    else:
+        result = BrewPlantMappingService().create(data)
+    return _workspace_form_result(result, plant_id=plant_id, tab="plant", status=200 if mapping is not None else 201)
 
 
 @plant_workspace_bp.route("/<int:plant_id>/dashboard-layouts", methods=["POST"])
@@ -275,10 +349,8 @@ def tab_sessions(plant_id: int):
 @login_required
 @permission_required("brew_plants.list")
 def tab_plant(plant_id: int):
-    """Aba Planta (conversa): consolida os dados da própria Planta +
-    Tanques + Mapeamentos de Planta. Mesmo padrão enxuto da aba
-    Sessões — lista/mostra aqui, edição de verdade continua na tela
-    cheia de cada entidade (link "abrir em nova aba")."""
+    """Consulta, cadastro e edição local de planta, tanques e vínculos.
+    Configuração avançada e manutenção continuam nos cadastros completos."""
     plant = BrewPlant.query.get(plant_id)
     if not plant or plant.is_deleted:
         return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada.")

@@ -2,7 +2,7 @@
 {% block title %}{{ plant.name }} - Workspace{% endblock %}
 {% block content %}
 <div class="pagetitle d-flex justify-content-between align-items-center flex-wrap gap-2">
-  <h1><i class="bi bi-diagram-3"></i> {{ plant.name }}</h1>
+  <h1><i class="bi bi-diagram-3"></i> <span id="pwPlantTitle">{{ plant.name }}</span></h1>
   <div class="d-flex gap-2">
     <button type="button" id="pwKioskToggle" class="btn btn-sm btn-outline-warning" title="Modo Kiosk (tela cheia) — Esc ou Ctrl+Shift+K pra sair">
       <i class="bi bi-arrows-fullscreen"></i> Modo Kiosk
@@ -43,6 +43,7 @@ body.pw-kiosk-mode #main { margin-left: 0 !important; padding-top: 12px !importa
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>
 <script>
 (function () {
   const plantId = {{ plant.id }};
@@ -127,7 +128,11 @@ body.pw-kiosk-mode #main { margin-left: 0 !important; padding-top: 12px !importa
       }
       const result = await response.json();
       if (!response.ok || !result.ok) throw new Error(result.error || 'Não foi possível salvar.');
-      if (window.__tesseractToast) window.__tesseractToast.show('Cadastro realizado.', 'success');
+      if (result.plant_name) {
+        document.getElementById('pwPlantTitle').textContent = result.plant_name;
+        document.title = result.plant_name + ' - Workspace';
+      }
+      if (window.__tesseractToast) window.__tesseractToast.show('Alterações salvas.', 'success');
       window.__workspaceReloadCurrent();
     } catch (error) {
       if (window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');

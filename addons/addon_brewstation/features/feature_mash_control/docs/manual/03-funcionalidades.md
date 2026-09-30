@@ -87,6 +87,27 @@ cadastros, os registros detalhados de sessão e a consulta de históricos
 ainda usam páginas próprias. Ocultar uma entrada do menu não incorpora
 automaticamente todas as suas operações ao fluxo.
 
+### Editar planta, tanques e vínculos no workspace
+
+Na aba **Planta**, **Editar Planta** abre o formulário local de nome,
+descrição, capacidade e ativação. O lápis de cada tanque abre sua
+identificação, tipo, ordem e descrição. O lápis do mapeamento abre
+tanque, papel, função, identificação do vínculo e obrigatoriedade.
+Ao salvar, a aba é atualizada; editar o nome também atualiza o título
+do workspace. A função de dispositivo usa o combo de busca padrão.
+
+Cada operação exige a permissão de atualização da entidade. O servidor
+confere os vínculos com a planta aberta e não permite transferir um
+tanque para outra planta por esse formulário. O mapeamento pode mudar
+de tanque dentro da própria planta, mas não duplicar um papel existente.
+Papéis personalizados existentes são preservados quando mantidos na
+edição. Capacidades devem ser positivas ou ficar sem preenchimento.
+
+Os cadastros completos continuam disponíveis para configuração
+avançada, exclusão e restauração. A edição dos layouts e os registros
+detalhados das sessões ainda serão incorporados em etapas posteriores.
+Este patch não acrescenta alterações de esquema no banco.
+
 ## Sessões de Brassagem
 
 Acompanhamento de uma brassagem em andamento: etapas, logs (incluindo

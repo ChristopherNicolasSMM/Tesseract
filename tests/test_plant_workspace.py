@@ -151,6 +151,63 @@ def test_lista_antiga_de_agua_encaminha_ao_portal(app, client):
     assert client.get("/brewstation/water-profiles/?view=records").status_code == 200
 
 
+def test_edicao_integrada_valida_dados_e_escopo_da_planta(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Editar Workspace")
+        other = BrewPlant(name="Outra planta de edição")
+        db.session.add_all([plant, other])
+        db.session.flush()
+        vessel = BrewPlantVessel(plant_id=plant.id, label_text="Tanque original", vessel_type="mash_tun")
+        other_vessel = BrewPlantVessel(plant_id=other.id, label_text="Tanque alheio", vessel_type="mash_tun")
+        function = DeviceFunction(name="workspace_edit_temp", display_name="Temperatura edição", category="sensor")
+        db.session.add_all([vessel, other_vessel, function])
+        db.session.flush()
+        mapping = BrewPlantMapping(vessel_id=vessel.id, role_key="sensor_temp", device_function_name=function.name)
+        db.session.add(mapping)
+        db.session.commit()
+        pid, oid, vid, other_vid, mid = plant.id, other.id, vessel.id, other_vessel.id, mapping.id
+    headers = {"X-Requested-With": "XMLHttpRequest"}
+    base = f"/brewstation/plant-workspace/{pid}"
+    payload = {"name": "Planta editada", "capacity_liters": "35,5", "description": "Descrição", "is_active": "on"}
+    assert client.post(base + "/edit", data={**payload, "capacity_liters": "nan"}, headers=headers).status_code == 400
+    response = client.post(base + "/edit", data=payload, headers=headers)
+    assert response.status_code == 200
+    assert response.json["plant_name"] == "Planta editada"
+    tank = {"label_text": "Tanque editado", "vessel_type": "boil_kettle", "position_order": "2", "plant_id": oid}
+    assert client.post(base + f"/vessels/{other_vid}/edit", data=tank, headers=headers).status_code == 404
+    assert client.post(base + f"/vessels/{vid}/edit", data=tank, headers=headers).status_code == 200
+    link = {"vessel_id": vid, "role_key": "sensor_temp", "device_function_name": "workspace_edit_temp", "label_text": "Leitura"}
+    assert client.post(base + f"/mappings/{mid}/edit", data={**link, "vessel_id": other_vid}, headers=headers).status_code == 400
+    assert client.post(f"/brewstation/plant-workspace/{oid}/mappings/{mid}/edit", data=link, headers=headers).status_code == 404
+    assert client.post(base + f"/mappings/{mid}/edit", data=link, headers=headers).status_code == 200
+    with app.app_context():
+        assert db.session.get(BrewPlantVessel, vid).plant_id == pid
+        assert db.session.get(BrewPlantMapping, mid).label_text == "Leitura"
+        assert db.session.get(BrewPlantMapping, mid).is_required is False
+    html = client.get(base + "/tab/plant").data.decode("utf-8")
+    assert 'data-weakref-source="device_functions"' in html
+    assert f'pwEditVessel{vid}' in html
+
+
+def test_edicao_integrada_exige_permissao_de_atualizar(app, client):
+    with app.app_context():
+        plant = BrewPlant(name="Planta protegida")
+        user = User(username="workspace_sem_acesso", email="workspace_sem_acesso@test.local",
+                    nome="Teste", nome_completo="Teste", celular="0", is_active=True, is_admin=False)
+        user.set_password("senha123")
+        db.session.add_all([plant, user])
+        db.session.commit()
+        pid = plant.id
+    client.post("/api/auth/login", json={"username": "workspace_sem_acesso", "password": "senha123"})
+    for path in ("edit", "vessels/999999/edit", "mappings/999999/edit"):
+        response = client.post(f"/brewstation/plant-workspace/{pid}/{path}",
+                               data={"name": "Não permitido"}, headers={"X-Requested-With": "XMLHttpRequest"})
+        assert response.status_code == 403
+    with app.app_context():
+        assert db.session.get(BrewPlant, pid).name == "Planta protegida"
+
+
 def test_landing_sem_planta_nenhuma_mostra_aviso(app, client):
     _login_admin(app, client)
     resp = client.get("/brewstation/plant-workspace/")

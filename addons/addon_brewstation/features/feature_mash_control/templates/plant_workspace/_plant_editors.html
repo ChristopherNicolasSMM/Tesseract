@@ -1,0 +1,55 @@
+{# Formulários locais; gravação usa os serviços existentes. #}
+<div class="card mt-3"><div class="card-body">
+<h5 class="card-title">Editar configuração desta planta</h5>
+{% if current_user.has_permission('brew_plants.update') %}
+<details id="pwEditPlant"><summary>Dados da planta</summary>
+<form class="pw-edit-form row g-2 mt-2" method="post" action="{{ url_for('plant_workspace.update_plant', plant_id=plant.id) }}">
+  <div class="col-md-8"><label class="form-label" for="pwPlantName">Nome</label><input id="pwPlantName" class="form-control" name="name" value="{{ plant.name }}" maxlength="100" required></div>
+  <div class="col-md-4"><label class="form-label" for="pwPlantCapacity">Capacidade (L)</label><input id="pwPlantCapacity" class="form-control" name="capacity_liters" type="number" step="any" min="0.001" value="{{ plant.capacity_liters if plant.capacity_liters is not none else '' }}"></div>
+  <div class="col-12"><label class="form-label" for="pwPlantDescription">Descrição</label><textarea id="pwPlantDescription" class="form-control" name="description">{{ plant.description or '' }}</textarea></div>
+  <div class="col-12"><label class="form-check-label"><input class="form-check-input" name="is_active" type="checkbox" {{ 'checked' if plant.is_active else '' }}> Planta ativa</label></div>
+  <div class="col-12"><button type="submit" class="btn btn-primary">Salvar planta</button></div>
+</form></details>
+{% endif %}
+{% if current_user.has_permission('brew_plant_vessels.update') %}
+{% for vessel in vessels %}
+<details id="pwEditVessel{{ vessel.id }}" class="mt-3"><summary>Tanque: {{ vessel.label_text }}</summary>
+<form class="pw-edit-form row g-2 mt-2" method="post" action="{{ url_for('plant_workspace.update_vessel', plant_id=plant.id, vessel_id=vessel.id) }}">
+  <div class="col-md-5"><label class="form-label" for="pwVLabel{{ vessel.id }}">Identificação</label><input id="pwVLabel{{ vessel.id }}" class="form-control" name="label_text" value="{{ vessel.label_text }}" maxlength="100" required></div>
+  <div class="col-md-5"><label class="form-label" for="pwVType{{ vessel.id }}">Tipo</label><select id="pwVType{{ vessel.id }}" class="form-select" name="vessel_type" required>{% for value, text in [('mash_tun','Mostura'),('boil_kettle','Fervura'),('hlt','Água quente'),('fermenter','Fermentador'),('bright_tank','Maturação')] %}<option value="{{ value }}" {{ 'selected' if vessel.vessel_type == value else '' }}>{{ text }}</option>{% endfor %}</select></div>
+  <div class="col-md-2"><label class="form-label" for="pwVOrder{{ vessel.id }}">Ordem</label><input id="pwVOrder{{ vessel.id }}" class="form-control" name="position_order" type="number" min="0" step="1" value="{{ vessel.position_order if vessel.position_order is not none else 1 }}" required></div>
+  <div class="col-12"><label class="form-label" for="pwVDesc{{ vessel.id }}">Descrição</label><textarea id="pwVDesc{{ vessel.id }}" name="description" class="form-control">{{ vessel.description or '' }}</textarea></div>
+  <div class="col-12"><button type="submit" class="btn btn-primary">Salvar tanque</button></div>
+</form></details>
+{% endfor %}
+{% endif %}
+{% if current_user.has_permission('brew_plant_mappings.update') %}
+{% for mapping in mappings %}
+<details id="pwEditMapping{{ mapping.id }}" class="mt-3"><summary>Vínculo: {{ mapping.role_key }} — {{ mapping.device_function_name }}</summary>
+<form class="pw-edit-form row g-2 mt-2" method="post" action="{{ url_for('plant_workspace.update_mapping', plant_id=plant.id, mapping_id=mapping.id) }}">
+  <div class="col-md-4"><label class="form-label" for="pwMV{{ mapping.id }}">Tanque</label><select id="pwMV{{ mapping.id }}" name="vessel_id" class="form-select" required>{% for vessel in vessels %}<option value="{{ vessel.id }}" {{ 'selected' if mapping.vessel_id == vessel.id else '' }}>{{ vessel.label_text }}</option>{% endfor %}</select></div>
+  <div class="col-md-4"><label class="form-label" for="pwMR{{ mapping.id }}">Papel</label><select id="pwMR{{ mapping.id }}" name="role_key" class="form-select" required>{% for value, text in [('sensor_temp','Sensor de temperatura'),('actor_heat','Atuador de aquecimento'),('actor_flow','Atuador de fluxo')] %}<option value="{{ value }}" {{ 'selected' if mapping.role_key == value else '' }}>{{ text }}</option>{% endfor %}{% if mapping.role_key not in ['sensor_temp', 'actor_heat', 'actor_flow'] %}<option selected value="{{ mapping.role_key }}">{{ mapping.role_key }} (personalizado)</option>{% endif %}</select></div>
+  <div class="col-md-4"><label class="form-label" for="pwMF{{ mapping.id }}">Função</label>
+    <div class="weakref-combo" data-weakref-source="device_functions" data-weakref-value-field="name">
+      <input type="hidden" class="weakref-combo-value" name="device_function_name" value="{{ mapping.device_function_name }}">
+      <input id="pwMF{{ mapping.id }}" class="form-control weakref-combo-search" autocomplete="off" value="{{ mapping.device_function_name }}" placeholder="Buscar função..." required>
+      <ul class="list-group weakref-combo-results"></ul>
+    </div></div>
+  <div class="col-md-8"><label class="form-label" for="pwML{{ mapping.id }}">Identificação do vínculo</label><input id="pwML{{ mapping.id }}" name="label_text" class="form-control" maxlength="100" value="{{ mapping.label_text or '' }}"></div>
+  <div class="col-md-4 align-self-end"><label class="form-check-label"><input class="form-check-input" name="is_required" type="checkbox" {{ 'checked' if mapping.is_required else '' }}> Obrigatório</label></div>
+  <div class="col-12"><button type="submit" class="btn btn-primary">Salvar vínculo</button></div>
+</form></details>
+{% endfor %}
+{% endif %}
+</div></div>
+<script>
+(function () {
+  if (window.TesseractWeakRef) window.TesseractWeakRef.init(document.getElementById('pwTabContent'));
+  document.querySelectorAll('.pw-edit-form').forEach(function (form) {
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      window.__workspaceSubmitForm(form);
+    });
+  });
+})();
+</script>
