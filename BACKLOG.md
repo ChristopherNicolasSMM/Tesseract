@@ -4,6 +4,22 @@
 > Cada item referencia a Fase do plano de construção (ver
 > `README.md` → seção Fases) e a skill/doc relevante quando aplicável.
 
+## Continuidade BrewStation — plano atual (2026-09-30)
+
+O plano de consolidação conferido no commit `b3d3bab` está em
+[`docs/patches/continuidade-workspace-brewstation.md`](docs/patches/continuidade-workspace-brewstation.md).
+Esse plano distingue cobertura atual de implementação futura e complementa
+o histórico abaixo, sem considerar atalhos ao CRUD como integração completa.
+
+Próximos incrementos: saneamento seguro de ingredientes (serviço com escopo,
+vínculo local, revisão completa/demais campos), envase/estorno no contexto do
+lote, dashboards avançados, operações restantes de sessões/automação e
+revisão seletiva de menus. Brewfather/YeastBank permanecem no radar posterior,
+preservando os portais e painéis que já existem.
+
+O reconhecimento de alarmes está implementado; não refazer esse patch.
+Os novos incrementos listados no plano continuam pendentes.
+
 ## Fase 0 — Scaffold
 
 - [x] Estrutura de pastas do Core (`core/`, `annotations/`, `model/core/`,
