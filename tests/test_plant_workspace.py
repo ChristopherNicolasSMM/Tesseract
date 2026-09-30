@@ -852,6 +852,145 @@ def test_precificacao_abre_com_lote_e_retorna_para_mesma_sessao(app, client):
     assert f'const initialSessionId = "{session_id}";' in shell
 
 
+def test_workspace_reconhece_alarme_registra_operador_sem_duplicar_log(app, client):
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Reconhecimento")
+        db.session.add(plant)
+        db.session.flush()
+        session = BrewSession(name="Sessão Reconhecimento", plant_id=plant.id, status="paused")
+        db.session.add(session)
+        db.session.flush()
+        alarm = BrewSessionAlarm(session_id=session.id, severity="high", message="Alarme Reconhecer Workspace")
+        second_user = User(username="operador_reconhecimento", email="reconhecimento@test.local", nome="Operador",
+                           nome_completo="Operador", celular="0", is_admin=True, is_active=True)
+        second_user.set_password("operador123")
+        db.session.add_all([alarm, second_user])
+        db.session.commit()
+        plant_id, session_id, alarm_id = plant.id, session.id, alarm.id
+        admin_id = User.query.filter_by(username="admin").one().id
+        second_user_id = second_user.id
+        movement_count = Movimentacao.query.count()
+    url = f"/brewstation/plant-workspace/{plant_id}/sessions/{session_id}/alarms/{alarm_id}/acknowledge"
+    headers = {"X-Requested-With": "XMLHttpRequest"}
+    response = client.post(url, data={"acknowledged_by": second_user_id, "severity": "low"}, headers=headers)
+    assert response.status_code == 200
+    assert response.get_json()["ja_reconhecido"] is False
+    with app.app_context():
+        saved = db.session.get(BrewSessionAlarm, alarm_id)
+        assert saved.is_acknowledged is True and saved.acknowledged_by == admin_id
+        acknowledged_at = saved.acknowledged_at
+        assert acknowledged_at is not None
+        assert saved.severity == "high" and saved.message == "Alarme Reconhecer Workspace"
+        log = BrewSessionLog.query.filter_by(session_id=session_id).one()
+        assert log.source == "user"
+        assert log.detail_json == {"action": "acknowledge_alarm", "alarm_id": alarm_id, "user_id": admin_id}
+        assert db.session.get(BrewSession, session_id).status == "paused"
+        assert Movimentacao.query.count() == movement_count
+    client.post("/api/auth/login", json={"username": "operador_reconhecimento", "password": "operador123"})
+    response = client.post(url, headers=headers)
+    assert response.status_code == 200 and response.get_json()["ja_reconhecido"] is True
+    with app.app_context():
+        saved = db.session.get(BrewSessionAlarm, alarm_id)
+        assert saved.acknowledged_by == admin_id and saved.acknowledged_at == acknowledged_at
+        assert BrewSessionLog.query.filter_by(session_id=session_id).count() == 1
+    assert client.get(url).status_code == 405
+
+
+def test_workspace_alarme_verifica_sessao_planta_lixeira_e_permissao(app, client, monkeypatch):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Proteção Alarmes")
+        other = BrewPlant(name="Outra Planta Proteção Alarmes")
+        db.session.add_all([plant, other])
+        db.session.flush()
+        session = BrewSession(name="Sessão Alarmes Protegida", plant_id=plant.id)
+        other_session = BrewSession(name="Outra Sessão Alarmes", plant_id=plant.id)
+        db.session.add_all([session, other_session])
+        db.session.flush()
+        alarm = BrewSessionAlarm(session_id=session.id, message="Alarme Protegido")
+        deleted = BrewSessionAlarm(session_id=session.id, message="Alarme Apagado", is_deleted=True)
+        db.session.add_all([alarm, deleted])
+        db.session.commit()
+        plant_id, other_id, session_id, other_session_id, alarm_id, deleted_id = plant.id, other.id, session.id, other_session.id, alarm.id, deleted.id
+    headers = {"X-Requested-With": "XMLHttpRequest"}
+    for pid, sid, aid in ((other_id, session_id, alarm_id), (plant_id, other_session_id, alarm_id), (plant_id, session_id, deleted_id)):
+        assert client.post(f"/brewstation/plant-workspace/{pid}/sessions/{sid}/alarms/{aid}/acknowledge", headers=headers).status_code == 404
+    url = f"/brewstation/plant-workspace/{plant_id}/sessions/{session_id}/alarms/{alarm_id}/acknowledge"
+    monkeypatch.setattr(User, "has_permission", lambda self, code: code != "brew_session_alarms.update")
+    assert client.post(url, headers=headers).status_code == 403
+    html = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/sessions?session_id={session_id}").data.decode("utf-8")
+    assert 'class="pw-alarm-ack-form' not in html
+    with app.app_context():
+        assert db.session.get(BrewSessionAlarm, alarm_id).is_acknowledged is False
+        assert BrewSessionLog.query.filter_by(session_id=session_id).count() == 0
+
+
+def test_workspace_falha_ao_salvar_reconhecimento_desfaz_estado_e_log(app, client, monkeypatch):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Rollback Alarmes")
+        db.session.add(plant)
+        db.session.flush()
+        session = BrewSession(name="Sessão Rollback Alarmes", plant_id=plant.id)
+        db.session.add(session)
+        db.session.flush()
+        alarm = BrewSessionAlarm(session_id=session.id, message="Alarme Rollback")
+        db.session.add(alarm)
+        db.session.commit()
+        plant_id, session_id, alarm_id = plant.id, session.id, alarm.id
+    def fail_commit():
+        raise RuntimeError("Falha simulada ao salvar reconhecimento")
+    with monkeypatch.context() as scoped:
+        scoped.setattr(db.session, "commit", fail_commit)
+        response = client.post(f"/brewstation/plant-workspace/{plant_id}/sessions/{session_id}/alarms/{alarm_id}/acknowledge",
+                               headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == 500 and response.get_json()["ok"] is False
+    with app.app_context():
+        saved = db.session.get(BrewSessionAlarm, alarm_id)
+        assert saved.is_acknowledged is False and saved.acknowledged_at is None and saved.acknowledged_by is None
+        assert BrewSessionLog.query.filter_by(session_id=session_id).count() == 0
+
+
+def test_workspace_filtra_alarmes_preserva_sessao_e_conta_pendentes(app, client):
+    import html as html_module
+    import re
+    from urllib.parse import parse_qs, urlsplit
+
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name="Planta Filtro Alarmes")
+        db.session.add(plant)
+        db.session.flush()
+        session = BrewSession(name="Sessão Filtro Alarmes", plant_id=plant.id)
+        db.session.add(session)
+        db.session.flush()
+        db.session.add_all([BrewSessionAlarm(session_id=session.id, message=f"Alarme Filtro Pendente {i:02d}") for i in range(21)])
+        db.session.add(BrewSessionAlarm(session_id=session.id, message="Alarme Filtro Reconhecido", is_acknowledged=True))
+        db.session.add(BrewSessionAlarm(session_id=session.id, message="Alarme Filtro Apagado", is_deleted=True))
+        db.session.commit()
+        plant_id, session_id = plant.id, session.id
+    url = f"/brewstation/plant-workspace/{plant_id}/tab/sessions"
+    response = client.get(url, query_string={"session_id": session_id, "alarm_state": "pending"})
+    assert response.status_code == 200
+    html = response.data.decode("utf-8")
+    assert "21 pendente(s)" in html
+    assert "Alarme Filtro Reconhecido" not in html and "Alarme Filtro Apagado" not in html
+    assert 'id="pwAlarmState" name="alarm_state" class="form-select' in html
+    links = re.findall(r'href="([^"]+)"[^>]*data-workspace-history-link', html)
+    alarm_link = next(html_module.unescape(link) for link in links if "alarms_page=2" in link)
+    query = parse_qs(urlsplit(alarm_link).query)
+    assert query["alarm_state"] == ["pending"] and query["session_id"] == [str(session_id)]
+    next_html = client.get(alarm_link).data.decode("utf-8")
+    assert "Alarme Filtro Pendente 00" in next_html
+    html = client.get(url, query_string={"session_id": session_id, "alarm_state": "acknowledged"}).data.decode("utf-8")
+    assert "Alarme Filtro Reconhecido" in html and "Alarme Filtro Pendente" not in html
+    assert 'class="pw-alarm-ack-form' not in html
+    assert client.get(url, query_string={"alarm_state": "inválido"}).status_code == 400
+
+
 def test_tab_sessions_planta_inexistente_devolve_fragmento_de_erro(app, client):
     _login_admin(app, client)
     resp = client.get("/brewstation/plant-workspace/999999/tab/sessions")

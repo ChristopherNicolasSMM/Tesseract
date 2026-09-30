@@ -51,6 +51,9 @@ from addons.addon_device_manager.root.services.device_function_lookup import (
 from addons.addon_brewstation.features.feature_mash_control.services.dashboard_layout_service import DashboardLayoutService
 from addons.addon_brewstation.features.feature_mash_control.services.brew_session_service import BrewSessionService
 from addons.addon_brewstation.features.feature_mash_control.services import ingredient_consumption_service
+from addons.addon_brewstation.features.feature_mash_control.services.session_alarm_actions import (
+    acknowledge_alarm, SessionAlarmNotFound,
+)
 from addons.addon_brewstation.features.feature_envase.model.envase import Envase
 from addons.addon_brewstation.features.feature_mash_control.controller.dashboard_runtime import (
     _build_dashboard_view_context,
@@ -376,6 +379,24 @@ def confirm_session_ingredients(plant_id, session_id):
     return redirect(url_for("plant_workspace.shell", plant_id=plant_id, tab="sessions", session_id=session_id))
 
 
+@plant_workspace_bp.route("/<int:plant_id>/sessions/<int:session_id>/alarms/<int:alarm_id>/acknowledge", methods=["POST"])
+@login_required
+@permission_required("brew_session_alarms.update")
+def acknowledge_session_alarm(plant_id, session_id, alarm_id):
+    try:
+        result = acknowledge_alarm(plant_id, session_id, alarm_id, int(current_user.id))
+    except SessionAlarmNotFound as exc:
+        return _workspace_form_error(str(exc), 404, plant_id=plant_id, tab="sessions")
+    except Exception:
+        current_app.logger.exception("Falha ao reconhecer alarme %s da sessão %s", alarm_id, session_id)
+        return _workspace_form_error("Não foi possível registrar o reconhecimento do alarme.", 500, plant_id=plant_id, tab="sessions")
+    message = "Alarme já estava reconhecido." if result["ja_reconhecido"] else "Alarme reconhecido."
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "id": alarm_id, "message": message, **result})
+    flash(message, "success")
+    return redirect(url_for("plant_workspace.shell", plant_id=plant_id, tab="sessions", session_id=session_id))
+
+
 @plant_workspace_bp.route("/<int:plant_id>/tab/sessions", methods=["GET"])
 @login_required
 @permission_required("brew_sessions.list")
@@ -392,6 +413,9 @@ def tab_sessions(plant_id: int):
 
     search = (request.args.get("q") or "").strip()
     status_filter = (request.args.get("status") or "").strip()
+    alarm_state = (request.args.get("alarm_state") or "").strip()
+    if alarm_state not in ("", "pending", "acknowledged"):
+        return render_template("plant_workspace/_tab_error.html", message="Filtro de alarmes inválido."), 400
     if status_filter not in ("", "draft", "active", "paused", "completed", "aborted"):
         return render_template("plant_workspace/_tab_error.html", message="Status de sessão inválido."), 400
     base_query = BrewSession.query.filter_by(plant_id=plant_id, is_deleted=False)
@@ -420,6 +444,7 @@ def tab_sessions(plant_id: int):
     steps, logs, alarms = [], [], []
     conference, estimated_cost = None, None
     envases = []
+    pending_alarm_count = 0
     log_page = {"page": 1, "has_next": False}
     alarm_page = {"page": 1, "has_next": False}
     if selected_session:
@@ -437,12 +462,14 @@ def tab_sessions(plant_id: int):
         logs, log_page = page_items(
             BrewSessionLog.query.filter_by(session_id=selected_session.id, is_deleted=False)
             .order_by(BrewSessionLog.created_at.desc(), BrewSessionLog.id.desc()), "logs_page")
-        alarms, alarm_page = page_items(
-            BrewSessionAlarm.query.filter_by(session_id=selected_session.id, is_deleted=False)
-            .order_by(BrewSessionAlarm.created_at.desc(), BrewSessionAlarm.id.desc()), "alarms_page")
+        alarm_query = BrewSessionAlarm.query.filter_by(session_id=selected_session.id, is_deleted=False)
+        pending_alarm_count = alarm_query.filter_by(is_acknowledged=False).count()
+        if alarm_state:
+            alarm_query = alarm_query.filter_by(is_acknowledged=alarm_state == "acknowledged")
+        alarms, alarm_page = page_items(alarm_query.order_by(BrewSessionAlarm.created_at.desc(), BrewSessionAlarm.id.desc()), "alarms_page")
 
     navigation = {"q": search, "status": status_filter, "page": session_page["page"],
-                  "logs_page": log_page["page"], "alarms_page": alarm_page["page"]}
+                  "logs_page": log_page["page"], "alarms_page": alarm_page["page"], "alarm_state": alarm_state}
     if selected_session:
         navigation["session_id"] = selected_session.id
 
@@ -462,6 +489,8 @@ def tab_sessions(plant_id: int):
         log_page=log_page, alarm_page=alarm_page,
         session_urls={s.id: tab_url(session_id=s.id, logs_page=1, alarms_page=1) for s in sessions},
         conference=conference, estimated_cost=estimated_cost, envases=envases,
+        alarm_state=alarm_state, pending_alarm_count=pending_alarm_count,
+        alarm_filter_url=tab_url(alarms_page=1),
     )
 
 

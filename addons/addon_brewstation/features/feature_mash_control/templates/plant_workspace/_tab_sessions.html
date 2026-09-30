@@ -5,6 +5,7 @@
 
 {% from 'plant_workspace/_session_pager.html' import pager %}
 {% set statuses = {'draft': 'Rascunho', 'active': 'Em execução', 'paused': 'Pausada', 'completed': 'Concluída', 'aborted': 'Interrompida'} %}
+{% set severities = {'low': 'Baixa', 'medium': 'Média', 'high': 'Alta', 'critical': 'Crítica'} %}
 <form id="pwSessionSearchForm" action="{{ url_for('plant_workspace.tab_sessions', plant_id=plant.id) }}" class="row g-2 mb-3 align-items-end">
   <div class="col-md-6"><label for="pwSessionSearch" class="form-label">Buscar sessão</label>
     <input id="pwSessionSearch" name="q" class="form-control" value="{{ search }}" placeholder="Nome da sessão"></div>
@@ -130,11 +131,22 @@
       </div>
       <div class="col-md-6">
         <div class="card bg-dark border-secondary">
-          <div class="card-header"><i class="bi bi-bell"></i> Histórico de alarmes</div>
+          <div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-bell"></i> Histórico de alarmes</span><span class="badge bg-warning text-dark">{{ pending_alarm_count }} pendente(s)</span></div>
+          <form id="pwAlarmFilterForm" action="{{ alarm_filter_url }}" class="p-2">
+            <label for="pwAlarmState" class="form-label small">Mostrar alarmes</label>
+            <div class="d-flex gap-2">
+              <select id="pwAlarmState" name="alarm_state" class="form-select form-select-sm">
+                <option value="" {{ 'selected' if not alarm_state else '' }}>Todos</option>
+                <option value="pending" {{ 'selected' if alarm_state == 'pending' else '' }}>Pendentes</option>
+                <option value="acknowledged" {{ 'selected' if alarm_state == 'acknowledged' else '' }}>Reconhecidos</option>
+              </select>
+              <button type="submit" class="btn btn-sm btn-outline-secondary">Filtrar</button>
+            </div>
+          </form>
           <div class="list-group list-group-flush" style="max-height: 260px; overflow-y: auto;">
             {% for alarm in alarms %}
             <div class="list-group-item bg-dark text-light small">
-              <span class="badge {{ 'bg-danger' if alarm.severity in ('high', 'critical') else ('bg-warning' if alarm.severity == 'medium' else 'bg-secondary') }}">{{ alarm.severity }}</span>
+              <span class="badge {{ 'bg-danger' if alarm.severity in ('high', 'critical') else ('bg-warning' if alarm.severity == 'medium' else 'bg-secondary') }}">{{ severities.get(alarm.severity, alarm.severity) }}</span>
               <details><summary>{{ alarm.message }}</summary>
                 <div class="py-2">Tipo: {{ alarm.alarm_type or 'Não informado' }}</div>
                 <div>{{ 'Reconhecido' if alarm.is_acknowledged else 'Aguardando reconhecimento' }}</div>
@@ -142,6 +154,11 @@
                 {% if alarm.acknowledged_by is not none %}<div>Operador: #{{ alarm.acknowledged_by }}</div>{% endif %}
               </details>
               {% if alarm.is_acknowledged %}<i class="bi bi-check-circle text-success" title="Reconhecido"></i>{% endif %}
+              {% if not alarm.is_acknowledged and current_user.has_permission('brew_session_alarms.update') %}
+              <form class="pw-alarm-ack-form mt-2" method="post" action="{{ url_for('plant_workspace.acknowledge_session_alarm', plant_id=plant.id, session_id=selected_session.id, alarm_id=alarm.id) }}">
+                <button type="submit" class="btn btn-sm btn-outline-success">Reconhecer alarme</button>
+              </form>
+              {% endif %}
               <div class="text-muted" style="font-size: 0.75rem;">{{ alarm.created_at.strftime('%d/%m %H:%M:%S') if alarm.created_at else '' }}</div>
             </div>
             {% else %}
@@ -162,6 +179,33 @@
 // da casca (window.__workspaceLoadUrl), o mesmo usado por qualquer
 // sub-navegação dentro de uma aba.
 (function () {
+  const alarmFilterForm = document.getElementById('pwAlarmFilterForm');
+  if (alarmFilterForm) alarmFilterForm.addEventListener('submit', function (event) {
+    event.preventDefault();
+    const url = new URL(alarmFilterForm.action, window.location.origin);
+    url.searchParams.set('alarm_state', document.getElementById('pwAlarmState').value);
+    window.__workspaceLoadUrl(url.href);
+  });
+  document.querySelectorAll('.pw-alarm-ack-form').forEach(function (form) {
+    const button = form.querySelector('button[type="submit"]');
+    let pending = false;
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      if (pending || button.disabled) return;
+      pending = true;
+      button.disabled = true;
+      try {
+        if (!window.__tesseractConfirm) throw new Error('Confirmação indisponível. Recarregue a página.');
+        const confirmed = await window.__tesseractConfirm({key: 'brewstation_mashctrl.brew_session.confirm_acknowledge_alarm'});
+        if (confirmed && form.isConnected) await window.__workspaceSubmitForm(form);
+      } catch (error) {
+        if (window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
+      } finally {
+        pending = false;
+        button.disabled = false;
+      }
+    });
+  });
   const searchForm = document.getElementById('pwSessionSearchForm');
   searchForm.addEventListener('submit', function (event) {
     event.preventDefault();
