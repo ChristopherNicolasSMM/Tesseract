@@ -10,6 +10,167 @@ desta rodada.
 """
 import pytest
 
+
+def _workspace_sanitation_data(app):
+    from addons.addon_estoque.root.model.material import Material
+    from addons.addon_estoque.root.model.origem import Origem, SEED_NOME_A_DEFINIR
+    from addons.addon_estoque.root.model.tipo_produto import TipoProduto, SEED_NOME_INSUMO
+    from addons.addon_estoque.root.model.categoria import Categoria
+    with app.app_context():
+        origem = Origem.query.filter_by(nome=SEED_NOME_A_DEFINIR).first()
+        tipo = TipoProduto.query.filter_by(descricao=SEED_NOME_INSUMO).first()
+        categoria = Categoria.query.filter_by(descricao="materia_prima").first()
+        if not categoria:
+            categoria = Categoria(descricao="materia_prima", codigo="MATERIA_PRIMA", tipo_produto_id=tipo.id)
+            db.session.add(categoria)
+            db.session.flush()
+        material = Material(nome="Malte para saneamento", sku="MALTE-SANEAMENTO", unidade_medida="kg",
+                            origem_id=origem.id, tipo_produto_id=tipo.id, categoria_id=categoria.id)
+        plant = BrewPlant(name="Planta saneamento")
+        recipe = MashRecipe(name="Receita saneamento", origem_receita="Manual", versao=1)
+        db.session.add_all([material, plant, recipe])
+        db.session.flush()
+        ing = RecipeIngredient(recipe_id=recipe.id, descricao_origem="Malte importado",
+                               quantidade=5, unidade_medida="kg", tipo_ingrediente="fermentavel")
+        db.session.add(ing)
+        db.session.commit()
+        return plant.id, recipe.id, ing.id, material.id
+
+
+def test_workspace_saneamento_vincula_e_recarrega_conferencia_sem_consumo(app, client):
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+    from addons.addon_estoque.root.model.material import Material
+    _login_admin(app, client)
+    pid, rid, iid, mid = _workspace_sanitation_data(app)
+    url = f"/brewstation/plant-workspace/{pid}/recipes/{rid}/ingredients/{iid}/sanitize"
+    with app.app_context():
+        before = db.session.get(RecipeIngredient, iid).to_dict()
+        count, materials = Movimentacao.query.count(), Material.query.count()
+    response = client.post(url, data={"material_id": mid, "status_resolucao": "resolvido",
+                                     "quantidade": 999, "recipe_id": 99999},
+                           headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == 200 and response.get_json()["ok"]
+    with app.app_context():
+        assert db.session.get(RecipeIngredient, iid).to_dict() == {**before, "material_id": mid, "status_resolucao": "resolvido"}
+        assert Movimentacao.query.count() == count and Material.query.count() == materials
+    html = client.get(f"/brewstation/plant-workspace/{pid}/tab/recipe?recipe_id={rid}").data.decode()
+    assert 'class="pw-ingredient-sanitation' in html
+    assert 'data-weakref-source="materials"' in html
+    assert 'name="status_resolucao" class="form-select"' in html
+    assert "Malte para saneamento" in html and "Pronto" in html
+    assert "confirm_ignore_ingredient" in html and "__workspaceSubmitForm" in html
+    assert "<datalist" not in html
+    options = client.get("/api/options/materials?search=Malte%20para%20saneamento").get_json()
+    assert any(str(row["id"]) == str(mid) for row in options["results"])
+    ignored = client.post(url, data={"status_resolucao": "ignorado"}, headers={"X-Requested-With": "XMLHttpRequest"})
+    assert ignored.status_code == 200
+    with app.app_context():
+        saved = db.session.get(RecipeIngredient, iid)
+        assert saved.material_id is None and saved.status_resolucao == "ignorado"
+        assert Movimentacao.query.count() == count
+
+
+@pytest.mark.parametrize("problema", ["planta", "receita", "ingrediente", "outra_receita"])
+def test_workspace_saneamento_rejeita_contextos_apagados_ou_incompativeis(app, client, problema):
+    _login_admin(app, client)
+    pid, rid, iid, mid = _workspace_sanitation_data(app)
+    with app.app_context():
+        if problema == "planta": db.session.get(BrewPlant, pid).is_deleted = True
+        elif problema == "receita": db.session.get(MashRecipe, rid).is_deleted = True
+        elif problema == "ingrediente": db.session.get(RecipeIngredient, iid).is_deleted = True
+        else:
+            other = MashRecipe(name="Outra receita saneamento", origem_receita="Manual", versao=1)
+            db.session.add(other)
+            db.session.flush()
+            rid = other.id
+        db.session.commit()
+    response = client.post(f"/brewstation/plant-workspace/{pid}/recipes/{rid}/ingredients/{iid}/sanitize",
+                           data={"status_resolucao": "resolvido", "material_id": mid},
+                           headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == 404
+    with app.app_context():
+        assert db.session.get(RecipeIngredient, iid).material_id is None
+
+
+@pytest.mark.parametrize("deleted", [False, True])
+def test_workspace_saneamento_bloqueia_receita_em_uso_em_qualquer_planta(app, client, deleted):
+    _login_admin(app, client)
+    pid, rid, iid, mid = _workspace_sanitation_data(app)
+    with app.app_context():
+        other_plant = BrewPlant(name="Outra planta histórica")
+        db.session.add(other_plant)
+        db.session.flush()
+        db.session.add(BrewSession(name="Lote protegido", recipe_id=rid, plant_id=other_plant.id,
+                                   status="draft", is_deleted=deleted))
+        db.session.commit()
+    html = client.get(f"/brewstation/plant-workspace/{pid}/tab/recipe?recipe_id={rid}").data.decode()
+    assert 'class="pw-ingredient-sanitation' not in html and "edição local está bloqueada" in html
+    response = client.post(f"/brewstation/plant-workspace/{pid}/recipes/{rid}/ingredients/{iid}/sanitize",
+                           data={"status_resolucao": "ignorado"}, headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == 409
+
+
+def test_workspace_saneamento_respeita_permissao_na_tela_e_no_post(app, client, monkeypatch):
+    _login_admin(app, client)
+    pid, rid, iid, mid = _workspace_sanitation_data(app)
+    monkeypatch.setattr(User, "has_permission", lambda self, code: code != "recipe_ingredients.update")
+    html = client.get(f"/brewstation/plant-workspace/{pid}/tab/recipe?recipe_id={rid}").data.decode()
+    assert 'class="pw-ingredient-sanitation' not in html
+    response = client.post(f"/brewstation/plant-workspace/{pid}/recipes/{rid}/ingredients/{iid}/sanitize",
+                           data={"status_resolucao": "ignorado"}, headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == 403
+    with app.app_context():
+        assert db.session.get(RecipeIngredient, iid).status_resolucao == "pendente_depara"
+
+
+@pytest.mark.parametrize("payload", [{"status_resolucao": "resolvido", "material_id": "abc"},
+                                     {"status_resolucao": "resolvido", "material_id": "99999"},
+                                     {"status_resolucao": "inventado"}])
+def test_workspace_saneamento_rejeita_payload_invalido(app, client, payload):
+    _login_admin(app, client)
+    pid, rid, iid, mid = _workspace_sanitation_data(app)
+    response = client.post(f"/brewstation/plant-workspace/{pid}/recipes/{rid}/ingredients/{iid}/sanitize",
+                           data=payload, headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == 400 and not response.get_json()["ok"]
+
+
+def test_workspace_saneamento_retorno_normal_preserva_receita(app, client):
+    from urllib.parse import urlparse, parse_qs
+    _login_admin(app, client)
+    pid, rid, iid, mid = _workspace_sanitation_data(app)
+    response = client.post(f"/brewstation/plant-workspace/{pid}/recipes/{rid}/ingredients/{iid}/sanitize",
+                           data={"status_resolucao": "resolvido", "material_id": mid})
+    assert response.status_code == 302
+    assert parse_qs(urlparse(response.location).query) == {"tab": ["recipe"], "recipe_id": [str(rid)]}
+    html = client.get(response.location).data.decode()
+    assert f'const initialRecipeId = "{rid}";' in html
+
+
+@pytest.mark.parametrize("rid", ["abc", "0", "-1", "99999", ""])
+def test_workspace_receita_explicitamente_invalida_nao_abre_picker(app, client, rid):
+    _login_admin(app, client)
+    pid, _, _, _ = _workspace_sanitation_data(app)
+    response = client.get(f"/brewstation/plant-workspace/{pid}/tab/recipe", query_string={"recipe_id": rid})
+    assert response.status_code == 404
+    assert "Receita não encontrada" in response.data.decode()
+
+
+def test_workspace_saneamento_falha_reverte_e_nao_expoe_excecao(app, client, monkeypatch):
+    from addons.addon_brewstation.features.feature_mash_control.services import ingredient_sanitation_service
+    _login_admin(app, client)
+    pid, rid, iid, mid = _workspace_sanitation_data(app)
+    def falhar(*args, **kwargs):
+        db.session.get(RecipeIngredient, iid).material_id = mid
+        db.session.flush()
+        raise RuntimeError("Detalhe interno")
+    monkeypatch.setattr(ingredient_sanitation_service, "sanear_ingrediente", falhar)
+    response = client.post(f"/brewstation/plant-workspace/{pid}/recipes/{rid}/ingredients/{iid}/sanitize",
+                           data={"status_resolucao": "resolvido", "material_id": mid},
+                           headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == 500 and "Detalhe interno" not in response.data.decode()
+    with app.app_context():
+        assert db.session.get(RecipeIngredient, iid).material_id is None
+
 from core.app_factory import create_app
 from core.db import db
 from model.core.user import User
@@ -1336,7 +1497,7 @@ def test_tab_recipe_receita_inexistente_devolve_fragmento_de_erro(app, client):
         plant_id = plant.id
 
     resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/recipe?recipe_id=999999")
-    assert resp.status_code == 200
+    assert resp.status_code == 404
     html = resp.data.decode("utf-8")
     assert "Receita não encontrada" in html
     assert "<html" not in html.lower()
@@ -1345,7 +1506,7 @@ def test_tab_recipe_receita_inexistente_devolve_fragmento_de_erro(app, client):
 def test_tab_recipe_planta_inexistente_devolve_fragmento_de_erro(app, client):
     _login_admin(app, client)
     resp = client.get("/brewstation/plant-workspace/999999/tab/recipe")
-    assert resp.status_code == 200
+    assert resp.status_code == 404
     html = resp.data.decode("utf-8")
     assert "Planta não encontrada" in html
     assert "<html" not in html.lower()

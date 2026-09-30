@@ -18,9 +18,10 @@ revisão seletiva de menus. Brewfather/YeastBank permanecem no radar posterior,
 preservando os portais e painéis que já existem.
 
 O reconhecimento de alarmes está implementado; não refazer esse patch.
-Incremento 1A: serviço de saneamento local implementado, aguardando testes
-locais; detalhes em [workspace-saneamento-ingredientes-servico.md](docs/patches/workspace-saneamento-ingredientes-servico.md).
-Interface/rotas (1B), revisão completa (1C) e etapas 2–6 continuam pendentes.
+Incremento 1A: serviço de saneamento local implementado e validado pelo usuário.
+Incremento 1B: interface/rota de vínculo local implementadas, aguardando validação
+local; detalhes em [workspace-saneamento-ingredientes-interface.md](docs/patches/workspace-saneamento-ingredientes-interface.md).
+Revisão completa (1C) e etapas 2–6 continuam pendentes.
 
 ## Fase 0 — Scaffold
 

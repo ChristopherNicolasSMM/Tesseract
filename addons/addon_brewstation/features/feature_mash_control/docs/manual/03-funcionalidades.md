@@ -210,3 +210,20 @@ esse botão, só as que ainda não começaram).
 ## Conferência de ingredientes do lote
 
 Na tela da sessão, a tabela **Insumos da Receita** mostra cada linha como Pronto, Pendente ou Não consumir. Abra a linha do ingrediente para vincular o Material de Estoque e ajustar quantidade/unidade. Para água ou outros itens deliberadamente fora do estoque, selecione o status **Não consumir do estoque** no ingrediente; essa decisão fica registrada na receita e a linha não gera baixa. Quantidades inválidas, material ausente ou unidade sem conversão deixam a confirmação bloqueada e mostram a causa. O mesmo bloqueio vale se o envase tentar confirmar ingredientes automaticamente. Para receitas sem ingredientes cadastrados, o comportamento anterior de confirmação sem baixas é preservado.
+## Sanear ingredientes na receita
+
+Na aba Receita da planta, selecione uma receita sem sessões vinculadas e
+abra **Sanear ingrediente** na linha desejada. Busque o Material de Estoque
+e clique em **Salvar decisão**. A tabela de conferência e a estimativa são
+atualizadas mantendo a receita selecionada. Vincular não cria material nem
+retira nada do estoque; quantidade e unidade permanecem iguais.
+
+Para itens deliberadamente fora do estoque, escolha **Não consumir do estoque**
+e confirme no diálogo. Cancelar mantém a decisão anterior. É possível voltar
+a vincular um material em receita ainda editável. Confira os avisos: vínculo
+não resolve automaticamente unidade incompatível ou quantidade incompleta.
+
+Receitas já vinculadas a qualquer sessão, inclusive na lixeira, exibem bloqueio
+da edição local para preservar os lotes. A revisão separada ainda será integrada.
+O formulário só aparece para usuários com permissão de editar ingredientes.
+O cadastro completo continua acessível com seu funcionamento anterior.

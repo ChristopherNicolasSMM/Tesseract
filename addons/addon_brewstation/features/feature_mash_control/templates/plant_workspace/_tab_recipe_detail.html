@@ -36,6 +36,8 @@
 <div class="card mb-3">
   <div class="card-body">
     <h5 class="card-title">Ingredientes e estoque</h5>
+    <p class="small text-muted">O vínculo é salvo apenas nesta receita; não altera o de-para global nem movimenta estoque.</p>
+    {% if receita_em_uso %}<p class="small text-warning">Esta receita já possui sessões, inclusive possíveis registros na lixeira. A edição local está bloqueada para preservar os lotes. A revisão separada será incorporada em uma próxima etapa.</p>{% endif %}
     <div class="table-responsive">
       <table class="table table-sm align-middle">
         <thead><tr><th>Ingrediente</th><th>Tipo / uso</th><th>Quantidade</th><th>Estado</th><th>Orientação</th></tr></thead>
@@ -53,6 +55,9 @@
             </td>
             <td class="small">{% if linha.motivo %}{{ linha.motivo }}{% elif linha.custo_estimado is not none %}Custo estimado: R$ {{ '%.2f'|format(linha.custo_estimado) }}{% else %}Sem custo médio cadastrado{% endif %}</td>
           </tr>
+          {% if pode_sanear and not receita_em_uso %}
+          <tr><td colspan="5">{% include "plant_workspace/_ingredient_sanitation.html" %}</td></tr>
+          {% endif %}
           {% else %}
           <tr><td colspan="5" class="text-muted">Nenhum ingrediente cadastrado.</td></tr>
           {% endfor %}
@@ -99,6 +104,40 @@
 {% include "recipe_timeline/_scripts.html" %}
 <script>
 (function () {
+  if (window.TesseractWeakRef) window.TesseractWeakRef.init(document.getElementById('pwTabContent'));
+  document.querySelectorAll('.pw-ingredient-sanitation').forEach(function (form) {
+    const decision = form.querySelector('[name="status_resolucao"]');
+    const hidden = form.querySelector('.weakref-combo-value');
+    const search = form.querySelector('.weakref-combo-search');
+    const button = form.querySelector('button[type="submit"]');
+    let pending = false;
+    function updateDecision() {
+      hidden.disabled = decision.value === 'ignorado';
+      search.disabled = hidden.disabled;
+    }
+    decision.addEventListener('change', updateDecision);
+    updateDecision();
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      if (pending || button.disabled) return;
+      pending = true;
+      button.disabled = true;
+      try {
+        if (decision.value === 'ignorado') {
+          if (!window.__tesseractConfirm) throw new Error('Confirmação indisponível. Recarregue a página.');
+          if (!await window.__tesseractConfirm({key: 'brewstation_mashctrl.recipe.confirm_ignore_ingredient'})) return;
+        } else if (!hidden.value) {
+          throw new Error('Selecione um Material de Estoque no combo de busca.');
+        }
+        await window.__workspaceSubmitForm(form);
+      } catch (error) {
+        if (window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
+      } finally {
+        pending = false;
+        button.disabled = false;
+      }
+    });
+  });
   const form = document.getElementById('workspaceGenerateSessionForm');
   if (!form) return;
   form.addEventListener('submit', async function (event) {

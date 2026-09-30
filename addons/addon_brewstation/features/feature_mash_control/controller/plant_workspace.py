@@ -51,6 +51,8 @@ from addons.addon_device_manager.root.services.device_function_lookup import (
 from addons.addon_brewstation.features.feature_mash_control.services.dashboard_layout_service import DashboardLayoutService
 from addons.addon_brewstation.features.feature_mash_control.services.brew_session_service import BrewSessionService
 from addons.addon_brewstation.features.feature_mash_control.services import ingredient_consumption_service
+from addons.addon_brewstation.features.feature_mash_control.services import ingredient_sanitation_service
+from addons.addon_estoque.root.services import material_lookup
 from addons.addon_brewstation.features.feature_mash_control.services.session_alarm_actions import (
     acknowledge_alarm, SessionAlarmNotFound,
 )
@@ -289,7 +291,8 @@ def shell(plant_id: int):
     if initial_tab not in {tab["key"] for tab in _TABS}:
         initial_tab = "dashboard"
     return render_template("plant_workspace/shell.html", plant=plant, tabs=_TABS, initial_tab=initial_tab,
-                           initial_session_id=request.args.get("session_id"))
+                           initial_session_id=request.args.get("session_id"),
+                           initial_recipe_id=request.args.get("recipe_id"))
 
 
 @plant_workspace_bp.route("/<int:plant_id>/tab/dashboard", methods=["GET"])
@@ -528,6 +531,41 @@ def tab_plant(plant_id: int):
     )
 
 
+@plant_workspace_bp.route("/<int:plant_id>/recipes/<int:recipe_id>/ingredients/<int:ingredient_id>/sanitize", methods=["POST"])
+@login_required
+@permission_required("recipe_ingredients.update")
+def sanitize_recipe_ingredient(plant_id, recipe_id, ingredient_id):
+    def respond(message, code=200):
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": code == 200, "message" if code == 200 else "error": message}), code
+        flash(message, "success" if code == 200 else "error")
+        return redirect(url_for("plant_workspace.shell", plant_id=plant_id, tab="recipe", recipe_id=recipe_id))
+
+    if not BrewPlant.query.filter_by(id=plant_id, is_deleted=False).first():
+        return respond("Planta não encontrada.", 404)
+    try:
+        raw_material = (request.form.get("material_id") or "").strip()
+        try:
+            material_id = int(raw_material) if raw_material else None
+        except ValueError:
+            return respond("Selecione um Material de Estoque válido.", 400)
+        ingredient_sanitation_service.sanear_ingrediente(
+            recipe_id, ingredient_id, material_id=material_id,
+            status_resolucao=request.form.get("status_resolucao", ""),
+        )
+    except ingredient_sanitation_service.IngredienteNaoEncontradoError as exc:
+        return respond(str(exc), 404)
+    except ingredient_sanitation_service.ReceitaEmUsoError as exc:
+        return respond(str(exc), 409)
+    except ValueError as exc:
+        return respond(str(exc), 400)
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Falha ao sanear ingrediente %s da receita %s", ingredient_id, recipe_id)
+        return respond("Não foi possível salvar o vínculo. Nenhuma alteração foi confirmada.", 500)
+    return respond("Decisão do ingrediente salva. Confira as pendências e o custo estimado; o estoque não foi movimentado.")
+
+
 @plant_workspace_bp.route("/<int:plant_id>/tab/recipe", methods=["GET"])
 @login_required
 @permission_required("recipe_steps.list")
@@ -538,17 +576,22 @@ def tab_recipe(plant_id: int):
     sessão e seleciona o novo lote na aba Sessões."""
     plant = BrewPlant.query.get(plant_id)
     if not plant or plant.is_deleted:
-        return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada.")
+        return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada."), 404
 
     recipe_id = request.args.get("recipe_id", type=int)
-    if recipe_id:
+    if "recipe_id" in request.args:
+        if recipe_id is None or recipe_id <= 0:
+            return render_template("plant_workspace/_tab_error.html", message="Receita não encontrada."), 404
         recipe = MashRecipe.query.get(recipe_id)
         if not recipe or recipe.is_deleted:
-            return render_template("plant_workspace/_tab_error.html", message="Receita não encontrada.")
+            return render_template("plant_workspace/_tab_error.html", message="Receita não encontrada."), 404
         context = _build_recipe_view_context(recipe, is_fragment=True, default_plant_id=plant_id)
         ingredientes = RecipeIngredient.query.filter_by(recipe_id=recipe.id, is_deleted=False).order_by(RecipeIngredient.id).all()
         context.update(
             plant=plant,
+            receita_em_uso=BrewSession.query.filter_by(recipe_id=recipe.id).first() is not None,
+            pode_sanear=current_user.has_permission("recipe_ingredients.update"),
+            materiais_vinculados={mid: material_lookup.get_material(mid) for mid in {ing.material_id for ing in ingredientes if ing.material_id}},
             ingredientes=ingredientes,
             ingredientes_por_id={ing.id: ing for ing in ingredientes},
             fermentacao=FermentationStep.query.filter_by(recipe_id=recipe.id, is_deleted=False).order_by(FermentationStep.ordem).all(),

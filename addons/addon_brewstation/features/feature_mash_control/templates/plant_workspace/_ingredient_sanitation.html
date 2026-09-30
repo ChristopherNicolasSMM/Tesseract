@@ -1,0 +1,26 @@
+{% set material = materiais_vinculados.get(ing.material_id) %}
+<details>
+  <summary class="small">Sanear ingrediente: {{ linha.descricao }}</summary>
+  <form class="pw-ingredient-sanitation row g-2 mt-1 mb-2" method="post"
+        action="{{ url_for('plant_workspace.sanitize_recipe_ingredient', plant_id=plant.id, recipe_id=recipe.id, ingredient_id=ing.id) }}">
+    <div class="col-md-4">
+      <label for="pwIngredientDecision{{ ing.id }}" class="form-label">Consumo de estoque</label>
+      <select id="pwIngredientDecision{{ ing.id }}" name="status_resolucao" class="form-select">
+        <option value="resolvido" {{ 'selected' if ing.status_resolucao != 'ignorado' else '' }}>Vincular material</option>
+        <option value="ignorado" {{ 'selected' if ing.status_resolucao == 'ignorado' else '' }}>Não consumir do estoque</option>
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label for="pwIngredientMaterial{{ ing.id }}" class="form-label">Material de Estoque</label>
+      <div class="weakref-combo" data-weakref-source="materials">
+        <input type="hidden" class="weakref-combo-value" name="material_id" value="{{ ing.material_id or '' }}">
+        <input id="pwIngredientMaterial{{ ing.id }}" type="text" class="form-control weakref-combo-search"
+               value="{{ material.display if material else '' }}" placeholder="Buscar material..." autocomplete="off">
+        <ul class="weakref-combo-results"></ul>
+      </div>
+      {% if ing.material_id and not material %}<div class="small text-warning">O material vinculado não está disponível. Selecione outro.</div>{% endif %}
+    </div>
+    <div class="col-md-2 d-flex align-items-end"><button type="submit" class="btn btn-primary">Salvar decisão</button></div>
+    <div class="col-12 small text-muted">Quantidade e unidade permanecem iguais. Confira os avisos após salvar; nenhum material será criado automaticamente.</div>
+  </form>
+</details>

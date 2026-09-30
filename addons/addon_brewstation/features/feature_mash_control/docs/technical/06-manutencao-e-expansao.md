@@ -145,7 +145,11 @@ permite composição; falha faz rollback da transação. O serviço não aplica
 RBAC: controllers futuros devem verificar autenticação, permissão de edição
 de ingrediente e contexto antes da chamada.
 
-Ainda não há rota/UI nem proteção nova no CRUD/importador. Antes de permitir
+O incremento 1B adiciona `sanitize_recipe_ingredient` em `plant_workspace.py`,
+exigindo login e `recipe_ingredients.update`, e o partial manual
+`_ingredient_sanitation.html`. Reutiliza o serviço local, o combo `materials`,
+modal do Core e helpers AJAX. A seleção `recipe_id` é preservada no retorno
+e na abertura inicial da casca. Não há proteção nova no CRUD/importador. Antes de permitir
 revisar receitas utilizadas por sessões, completar a clonagem de timeline,
 volume, ingredientes/especificações, fermentação e água. Não trocar receita
 de lote ou recalcular custos congelados silenciosamente.

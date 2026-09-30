@@ -26,11 +26,14 @@ a área funcional. A quantidade final de patches pode mudar ao conferir dependê
 
 - Planejamento: aplicado e validado pelo usuário.
 - 1A: serviço local `ingredient_sanitation_service.sanear_ingrediente()`
-  implementado; sintaxe/diff/aplicação verificados. Pytest não executado
-  neste ambiente (dependências indisponíveis); aguardando validação local.
+  implementado e validado pelo usuário. Pytest não executado
+  no ambiente do assistente (dependências indisponíveis).
   Ver [saneamento de ingredientes — 1A](workspace-saneamento-ingredientes-servico.md).
-- 1B/1C e etapas 2–6: pendentes. O serviço 1A ainda não está conectado à
-  interface, às rotas nem aos cadastros existentes. As proteções locais
+- 1B: vínculo local/Não consumir incorporados à aba Receita, com rota
+  autenticada, permissão, combo padrão e retorno à seleção. Sintaxe/diff/
+  aplicação verificados; pytest e teste visual aguardam validação local.
+  Ver [interface 1B](workspace-saneamento-ingredientes-interface.md).
+- 1C e etapas 2–6: pendentes. As proteções locais
   não alteram o comportamento do de-para global ou do CRUD atual.
 
 ## Achados que condicionam o saneamento
@@ -59,10 +62,8 @@ a área funcional. A quantidade final de patches pode mudar ao conferir dependê
    não copia volume planejado, timeline, perfis de água e fermentação, nem
    todos os campos de especificação/uso dos ingredientes. Não usá-lo como
    solução completa de isolamento sem corrigir e testar essas lacunas.
-6. A casca inicial preserva `session_id`, mas não propaga `recipe_id` ao
-   abrir a aba Receita. Esse ID funciona no fragmento e nos helpers AJAX.
-   Incluir retorno/reabertura da receita no incremento 1B se a navegação
-   precisar sobreviver a recarga da página inteira.
+6. A casca inicialmente só preservava `session_id`; o incremento 1B passou
+   a propagar `recipe_id` ao abrir a aba Receita, preservando retorno/reabertura.
 
 ## Sequência de patches
 
@@ -212,7 +213,7 @@ como alvo de escrita):
 URLs para revisar o estado atual (substituir os IDs reais):
 
 - `/brewstation/plant-workspace/`
-- `/brewstation/plant-workspace/<ID_PLANTA>?tab=recipe` (selecionar a receita)
+- `/brewstation/plant-workspace/<ID_PLANTA>?tab=recipe&recipe_id=<ID_RECEITA>`
 - `/brewstation/plant-workspace/<ID_PLANTA>/tab/recipe?recipe_id=<ID_RECEITA>` (fragmento AJAX)
 - `/brewstation/plant-workspace/<ID_PLANTA>?tab=sessions&session_id=<ID_SESSAO>`
 - `/brewstation/plant-workspace/<ID_PLANTA>?tab=dashboard`
