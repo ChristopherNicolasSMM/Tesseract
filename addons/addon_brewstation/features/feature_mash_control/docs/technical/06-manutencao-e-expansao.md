@@ -177,3 +177,15 @@ A resposta da revisão inclui `recipe_id` novo e o helper AJAX abre essa seleç�
 Detalhes, comandos e roteiro: [patch 1C](../../../../../../docs/patches/workspace-revisao-receita-ingredientes.md).
 
 Detalhes e testes: [patch 1A](../../../../../../docs/patches/workspace-saneamento-ingredientes-servico.md).
+
+## Preparação do envase em Sessões (2A.1)
+
+A rota manual `prepare_session_envase` confere planta/sessão não apagadas,
+pertencimento e permissões de listar lotes/envases e criar envase. Consome
+o serviço manual de preparação da feature Envase; acessos ao estoque ficam
+em lookups públicos. O resultado não gera envase/movimentação nem altera
+o lote. Os partials `_envase_preparation.html` e `_envase_preview.html`
+integram entrada/consulta no card existente. Campos do lote ou de outras
+sessões enviados em query não são usados como destino. Sem migration.
+
+[Rotas, testes e pendências](../../../../../../docs/patches/workspace-preparacao-envase.md).

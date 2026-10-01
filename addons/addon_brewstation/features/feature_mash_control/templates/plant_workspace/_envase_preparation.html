@@ -1,0 +1,64 @@
+{% if current_user.has_permission('envases.create') %}
+<details class="mt-3" id="pwEnvasePreparation">
+  <summary>Preparar envase deste lote</summary>
+  <p class="small text-muted mt-2">Confira o produto, volume e embalagens antes de registrar. A prévia não grava envase, não confirma ingredientes e não reserva estoque.</p>
+  <form id="pwEnvasePreparationForm" method="get" action="{{ url_for('plant_workspace.prepare_session_envase', plant_id=plant.id, session_id=selected_session.id) }}" class="row g-2">
+    <div class="col-md-7">
+      <label for="pwEnvaseProduct" class="form-label">Material resultante</label>
+      <div class="weakref-combo" data-weakref-source="materials">
+        <input type="hidden" class="weakref-combo-value" name="material_resultante_id">
+        <input id="pwEnvaseProduct" type="text" class="form-control weakref-combo-search" placeholder="Buscar produto..." autocomplete="off">
+        <ul class="weakref-combo-results"></ul>
+      </div>
+    </div>
+    <div class="col-md-5">
+      <label for="pwEnvaseLiters" class="form-label">Quantidade a envasar (L)</label>
+      <input id="pwEnvaseLiters" name="quantidade_litros" type="number" min="0" step="any" class="form-control" required>
+    </div>
+    <div class="col-12"><button type="submit" class="btn btn-outline-primary">Consultar prévia de embalagens</button></div>
+  </form>
+  <div id="pwEnvasePreview" class="mt-3" aria-live="polite"></div>
+</details>
+<script>
+(function () {
+  const form = document.getElementById('pwEnvasePreparationForm');
+  const output = document.getElementById('pwEnvasePreview');
+  const button = form.querySelector('button[type="submit"]');
+  if (window.TesseractWeakRef) window.TesseractWeakRef.init(form);
+  let revision = 0;
+  let pending = false;
+  function clearPreview() { revision += 1; output.replaceChildren(); }
+  form.addEventListener('input', clearPreview);
+  form.addEventListener('change', clearPreview);
+  // O combo padrão atualiza o campo oculto ao clicar, sem emitir change.
+  form.addEventListener('click', function (event) {
+    if (event.target.closest('.weakref-combo-results li')) clearPreview();
+  });
+  form.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    if (pending) return;
+    const requestRevision = revision;
+    output.replaceChildren();
+    pending = true;
+    button.disabled = true;
+    try {
+      if (!form.querySelector('[name="material_resultante_id"]').value) throw new Error('Selecione o material resultante no combo de busca.');
+      const url = new URL(form.action, window.location.origin);
+      new FormData(form).forEach(function (value, key) { url.searchParams.set(key, value); });
+      const response = await fetch(url.href, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      if (!form.isConnected || requestRevision !== revision) return;
+      if (!(response.headers.get('content-type') || '').includes('application/json')) throw new Error('Não foi possível consultar a prévia. Recarregue a página.');
+      const result = await response.json();
+      if (!form.isConnected || requestRevision !== revision) return;
+      if (!response.ok || !result.ok) throw new Error(result.error || 'Não foi possível consultar a prévia.');
+      output.innerHTML = result.html;
+    } catch (error) {
+      if (form.isConnected && requestRevision === revision && window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
+    } finally {
+      pending = false;
+      button.disabled = false;
+    }
+  });
+})();
+</script>
+{% endif %}

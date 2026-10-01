@@ -1,7 +1,7 @@
 # Workspace — revisão completa e dados planejados de ingredientes (1C)
 
 Data: 30/09/2026. Base funcional: 1B aplicado e validado pelo usuário.
-1C implementado, aguardando pytest e teste visual locais. Pytest não foi
+1C aplicado e validado pelo usuário em 01/10/2026. Pytest não foi
 executado pelo assistente: pytest/Flask/SQLAlchemy/Jinja não estão disponíveis
 nesse ambiente, e o usuário executará as suítes localmente.
 

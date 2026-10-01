@@ -27,3 +27,12 @@ só mostra o que já foi confirmado, sem descontar nada de novo.
 eles somem?**
 R: Não, ficam intactos como estavam. Só os Envases novos passam a
 funcionar pelo Material resultante + Composição.
+
+**P: Consultar a prévia no lote já faz baixa ou reserva de embalagens?**
+R: Não. Ela só consulta a composição, o saldo e os custos atuais. Alterar
+produto/litros limpa o resultado anterior; consulte novamente. O registro
+continua sendo uma ação separada, nos fluxos próprios existentes.
+
+**P: Por que aparece estimativa parcial de R$ 0,00?**
+R: Pode não haver composição ativa ou custo médio conhecido. Confira os
+avisos; esse valor não informa que a embalagem é gratuita.

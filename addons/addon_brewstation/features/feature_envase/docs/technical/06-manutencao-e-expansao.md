@@ -26,8 +26,8 @@ três chamam o mesmo `estoque_service.registrar_movimentacao()`.
 
 ## Como o Envase resolve os componentes (skill 26 — sem tabela própria)
 
-`Envase` não guarda mais nenhuma lista de componentes própria — isso é
-resolvido em runtime via `material_lookup.get_composicao(material_resultante_id)`
+`Envase.componentes_snapshot` guarda a fotografia da composição e das
+saídas no registro. A preparação de novos envases consulta o cadastro via `material_lookup.get_composicao(material_resultante_id)`
 (`addon_estoque`, referência fraca + chamada síncrona, nunca FK/ORM
 direto). Se um dia a Composição de um Material resultante mudar
 **depois** de um Envase já ter sido registrado, isso não afeta o
@@ -44,10 +44,10 @@ seção 3.2.
 
 ## Pontos de extensão conhecidos
 
-- Telas de cadastro do Envase em si (além do CRUD padrão gerado) ainda
-  não foram desenhadas — pendência registrada em `01-visao-geral.md`.
-- Nenhuma tela própria pra `calcular_custo_industrializacao_envase()`
-  ainda — só a função de service (ver UC03, `05-casos-de-uso.md`).
+- Preparação de novos envases integrada ao workspace (2A.1); registro e
+  estorno ainda continuam pelos fluxos próprios existentes.
+- A nova prévia calcula embalagem prospectiva, sem substituir o custo
+  histórico de `calcular_custo_industrializacao_envase()` nem a precificação.
 - FK real pra `BrewSession` (`feature_mash_control`) já existe
   (`lote_id`) — cross-Feature dentro do mesmo Addon é permitido pela
   skill 02, então isso não precisa de referência fraca.
@@ -79,3 +79,21 @@ nenhuma decidida ainda:
 
 Registrado aqui como achado de auditoria — nenhuma das duas foi
 aplicada nesta sessão (é mudança de código, não de documentação).
+
+## Extensão manual: preparação no workspace (2A.1)
+
+`services/envase_preparation_service.py` reutiliza volume do serviço manual
+de registro e os lookups públicos do estoque; não chama serviços gerados.
+O controller manual `feature_mash_control/controller/plant_workspace.py`
+valida permissões/contexto e renderiza `_envase_preview.html`. A entrada
+`_envase_preparation.html` fica no card do lote, com combo padrão e GET AJAX.
+Não grava estado e não introduz caminho paralelo de baixa. A consulta não
+recalcula o custo confirmado do lote nem aplica margens/impostos.
+
+Registro 2A.2 precisa de idempotência no servidor e continuidade de custos;
+não basta desabilitar botão. A precificação existente ainda usa `ItemEnvase`
+para embalagem e recalcula insumos da receita; conferir snapshots/custo
+confirmado antes de tratar o processo como consolidado. O estorno 2B já tem
+serviço transacional, mas o retorno/detalhe local ainda precisa ser integrado.
+
+Entrega e testes: [2A.1](../../../../../../docs/patches/workspace-preparacao-envase.md).

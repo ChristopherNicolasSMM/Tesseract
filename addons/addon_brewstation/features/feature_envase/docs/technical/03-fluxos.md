@@ -146,3 +146,37 @@ sequenceDiagram
 ## Estorno atômico de envase
 
 `estornar_envase` exige status `registrado`, motivo preenchido e `componentes_snapshot` não nulo. Verifica cada saída original e registra uma entrada pela regra `estoque_service.registrar_movimentacao(commit=False)` com quantidade e custo unitário originais; atualiza `Envase.status=cancelado`, `cancelado_em`, `cancelado_por_id`, `motivo_cancelamento` e `estorno_snapshot` com pares `saida_id/entrada_id` na mesma transação. Falha em qualquer componente reverte todas as entradas e mantém o envase registrado. O consumo de ingredientes do lote não é revertido. Envases legados sem snapshot não podem ser estornados automaticamente. O detalhe usa um hook de controller com permissão `envases.update`; o blueprint precisa existir antes da importação do hook.
+
+## Preparação de envase no workspace (2A.1)
+
+`GET /brewstation/plant-workspace/<plant>/sessions/<session>/prepare-envase`
+valida login, `brew_sessions.list`, `envases.list` e `envases.create`, planta
+não apagada e pertencimento da sessão. Aceita `material_resultante_id`
+e `quantidade_litros`. Retorna JSON `ok/html` com o partial da prévia, ou
+`ok=false/error` com 400 (entrada inválida), 404 (contexto/material), 403
+(permissão) e 500 (erro inesperado com mensagem genérica).
+
+`envase_preparation_service.preparar_envase()` é manual e somente leitura:
+
+- Material/composição/saldo/unidade-base pelos lookups públicos do estoque.
+- Volume normalizado com a mesma função de `envase_estoque_service`; valida
+  números finitos/positivos, inclusive o resultado da divisão/multiplicação.
+- Quantidades por unidade agrupadas por componente antes de comparar saldo.
+  Não arredonda unidades fracionadas e não inventa conversão de PCT.
+- Preço médio ausente/ inválido ou componente indisponível permanece `None`;
+  subtotal soma somente custos conhecidos, identificado como parcial.
+  Composição vazia também marca incompleta. Saldo ausente/insuficiente e
+  unidade-base sem cadastro geram avisos, sem nova regra de bloqueio.
+- Se ingredientes ainda não foram confirmados, consulta conferência e
+  informa o fallback do registro. Não chama confirmação nem grava snapshots.
+  Se confirmados, usa custo congelado do lote e não consulta/recalcula receita.
+- Não chama registro/estorno, movimentação, `add`, `commit` ou `flush`.
+  Não gera token de registro, reserva ou memória persistida da preparação.
+
+O partial de entrada usa combo `materials` inicializado no fragmento AJAX.
+O resultado é local ao formulário: alteração dos inputs ou seleção de opção
+limpa a prévia; resposta anterior é descartada após alterações/troca de aba.
+Não usa helpers de gravação para uma consulta e não interfere em
+`window.__tabCleanup` do Dashboard. Registro seguro no workspace (2A.2),
+idempotência de criação, custo na precificação e detalhes/estorno (2B)
+continuam pendentes. Sem migration neste incremento.

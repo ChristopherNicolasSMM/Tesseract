@@ -82,6 +82,7 @@
   <div class="card-body">
     <h5 class="card-title">Envase e precificação</h5>
     <a href="{{ url_for('precificacao_envase.workspace', lote_id=selected_session.id) }}" class="btn btn-sm btn-primary">Simular custos de envase deste lote</a>
+    {% include "plant_workspace/_envase_preparation.html" %}
     <div class="table-responsive mt-3" style="max-height: 260px; overflow-y: auto;">
       <table class="table table-sm"><thead><tr><th>Envase</th><th>Data</th><th>Volume</th><th>Status</th></tr></thead>
         <tbody>{% for envase in envases %}<tr>

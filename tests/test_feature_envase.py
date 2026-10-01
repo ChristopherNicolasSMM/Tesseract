@@ -754,3 +754,159 @@ def test_telas_de_listagem_nao_estouram_erro(app, client, rota):
     _login_admin(app, client)
     resp = client.get(rota, follow_redirects=True)
     assert resp.status_code == 200
+
+
+# Preparação no workspace: leitura independente do registro/estorno.
+def test_preparar_envase_repetir_nao_grava_nem_confirma_ingredientes(app, monkeypatch):
+    from addons.addon_brewstation.features.feature_envase.services import envase_preparation_service as preparation
+    from addons.addon_estoque.root.model.saldo import Saldo
+    with app.app_context():
+        lote = _criar_lote()
+        component = _criar_material_com_estoque(nome="Tampa prévia", quantidade_inicial=100, custo_unitario=2)
+        product = _criar_material_resultante(volume_real=0.5, componentes=[(component, 1)])
+        before_session = lote.to_dict()
+        before_balances = [row.to_dict() for row in Saldo.query.all()]
+        before_movements = [row.to_dict() for row in Movimentacao.query.all()]
+        def forbidden(*args, **kwargs):
+            raise AssertionError("A prévia não deve gravar ou consumir")
+        monkeypatch.setattr(ingredient_consumption_service, "confirmar_consumo_ingredientes", forbidden)
+        monkeypatch.setattr(svc, "registrar_envase", forbidden)
+        monkeypatch.setattr(material_movement_service, "registrar_movimentacao", forbidden)
+        monkeypatch.setattr(db.session, "commit", forbidden)
+        first = preparation.preparar_envase(lote.id, product.id, 10)
+        second = preparation.preparar_envase(lote.id, product.id, 10)
+        assert first == second and first["unidades_geradas"] == 20
+        assert first["componentes"][0]["quantidade_total"] == 20
+        assert first["custo_embalagem_estimado"] == 40 and first["custo_embalagem_completo"]
+        assert not first["insumos_confirmados"] and first["custo_registrado_lote"] is None
+        assert any("ingredientes ainda não confirmados" in warning for warning in first["avisos"])
+        assert lote.to_dict() == before_session and Envase.query.count() == 0
+        assert [row.to_dict() for row in Saldo.query.all()] == before_balances
+        assert [row.to_dict() for row in Movimentacao.query.all()] == before_movements
+        assert not db.session.new and not db.session.dirty
+
+
+def test_preparar_envase_preserva_custo_registrado_sem_consultar_receita(app, monkeypatch):
+    from datetime import datetime, timezone
+    from addons.addon_brewstation.features.feature_envase.services import envase_preparation_service as preparation
+    with app.app_context():
+        lote = _criar_lote()
+        lote.insumos_baixados_em = datetime.now(timezone.utc)
+        lote.custo_total_insumos = 99.5
+        db.session.commit()
+        product = _criar_material_resultante()
+        def forbidden(*args):
+            raise AssertionError("Custo confirmado não deve ser recalculado")
+        monkeypatch.setattr(preparation, "conferir_ingredientes", forbidden)
+        result = preparation.preparar_envase(lote.id, product.id, 2)
+        assert result["insumos_confirmados"] and result["custo_registrado_lote"] == 99.5
+        assert result["pendencias_ingredientes"] == []
+        assert not result["custo_embalagem_completo"]
+        assert any("não possui composição" in warning for warning in result["avisos"])
+
+
+@pytest.mark.parametrize("liters", [0, -1, True, float("nan"), float("inf"), "10"])
+def test_preparar_envase_rejeita_litros_invalidos(app, liters):
+    from addons.addon_brewstation.features.feature_envase.services import envase_preparation_service as preparation
+    with app.app_context():
+        lote = _criar_lote()
+        product = _criar_material_resultante()
+        with pytest.raises(ValueError):
+            preparation.preparar_envase(lote.id, product.id, liters)
+        assert lote.insumos_baixados_em is None and Envase.query.count() == 0
+
+
+@pytest.mark.parametrize("problem", ["lote", "product_deleted", "product_inactive", "volume", "volume_unit"])
+def test_preparar_envase_rejeita_contexto_volume_e_material(app, problem):
+    from addons.addon_brewstation.features.feature_envase.services import envase_preparation_service as preparation
+    with app.app_context():
+        lote = _criar_lote()
+        product = _criar_material_resultante()
+        if problem == "lote":
+            lote.is_deleted = True
+        elif problem == "product_deleted":
+            product.is_deleted = True
+        elif problem == "product_inactive":
+            product.ativo = False
+        elif problem == "volume":
+            product.volume_real = 0
+        else:
+            product.unidade_medida_volume_real = "PCT"
+        db.session.commit()
+        with pytest.raises(ValueError):
+            preparation.preparar_envase(lote.id, product.id, 10)
+        assert Envase.query.count() == 0
+
+
+def test_preparar_envase_custo_ausente_e_componentes_indisponiveis_nao_sao_zero_conhecido(app):
+    from addons.addon_brewstation.features.feature_envase.services import envase_preparation_service as preparation
+    with app.app_context():
+        lote = _criar_lote()
+        known = _criar_material_com_estoque(nome="Rótulo com custo", custo_unitario=2)
+        missing = _criar_material(nome="Tampa sem preço", unidade_medida="UN")
+        deleted = _criar_material_com_estoque(nome="Caixa apagada", custo_unitario=3)
+        product = _criar_material_resultante(componentes=[(known, 1), (missing, 1), (deleted, 1)])
+        deleted.is_deleted = True
+        db.session.commit()
+        result = preparation.preparar_envase(lote.id, product.id, 10)
+        assert result["custo_embalagem_estimado"] == 20 and not result["custo_embalagem_completo"]
+        rows = {row["material_componente_id"]: row for row in result["componentes"]}
+        assert rows[missing.id]["custo_estimado"] is None and rows[deleted.id]["custo_estimado"] is None
+        assert rows[missing.id]["saldo_atual"] is None
+        assert any("indisponível" in warning for warning in result["avisos"])
+
+
+def test_preparar_envase_ml_fracao_e_composicao_duplicada_somada_para_aviso_saldo(app):
+    from addons.addon_brewstation.features.feature_envase.services import envase_preparation_service as preparation
+    with app.app_context():
+        lote = _criar_lote()
+        component = _criar_material_com_estoque(nome="Embalagem compartilhada", quantidade_inicial=4, custo_unitario=0)
+        product = _criar_material_resultante(volume_real=500, componentes=[(component, 1), (component, 2)])
+        product.unidade_medida_volume_real = "ML"
+        db.session.commit()
+        result = preparation.preparar_envase(lote.id, product.id, 0.75)
+        assert result["volume_por_unidade_litros"] == 0.5 and result["unidades_geradas"] == 1.5
+        assert len(result["componentes"]) == 1 and result["componentes"][0]["quantidade_total"] == 4.5
+        assert result["custo_embalagem_completo"] and result["custo_embalagem_estimado"] == 0
+        assert any("unidades fracionadas" in warning for warning in result["avisos"])
+        assert any("maior que o saldo" in warning for warning in result["avisos"])
+
+
+@pytest.mark.parametrize("qty", [0, -1])
+def test_preparar_envase_composicao_invalida_nao_confirma_lote(app, qty):
+    from addons.addon_brewstation.features.feature_envase.services import envase_preparation_service as preparation
+    with app.app_context():
+        lote = _criar_lote()
+        component = _criar_material(nome="Componente inválido", unidade_medida="UN")
+        product = _criar_material_resultante(componentes=[(component, qty)])
+        with pytest.raises(ValueError):
+            preparation.preparar_envase(lote.id, product.id, 10)
+        assert lote.insumos_baixados_em is None and Envase.query.count() == 0
+
+
+def test_preparar_envase_expoe_pendencias_sem_consumir_e_nao_inventa_conversao_pacote(app):
+    from addons.addon_brewstation.features.feature_envase.services import envase_preparation_service as preparation
+    with app.app_context():
+        lote = _criar_lote()
+        db.session.add(RecipeIngredient(recipe_id=lote.recipe_id, descricao_origem="Ingrediente pendente",
+                                        status_resolucao="pendente_depara", unidade_medida="PCT", quantidade=1))
+        db.session.commit()
+        product = _criar_material_resultante()
+        result = preparation.preparar_envase(lote.id, product.id, 2)
+        assert len(result["pendencias_ingredientes"]) == 1 and not result["insumos_confirmados"]
+        assert any("impedem o registro" in warning for warning in result["avisos"])
+        assert lote.insumos_baixados_em is None and Movimentacao.query.count() == 0
+        assert Envase.query.count() == 0
+
+
+@pytest.mark.parametrize("liters,volume,unit", [(1e308, 1e-308, "L"), (1, 1e-320, "ML")])
+def test_preparar_envase_rejeita_resultado_numerico_nao_finito_ou_subfluxo(app, liters, volume, unit):
+    from addons.addon_brewstation.features.feature_envase.services import envase_preparation_service as preparation
+    with app.app_context():
+        lote = _criar_lote()
+        product = _criar_material_resultante(volume_real=volume)
+        product.unidade_medida_volume_real = unit
+        db.session.commit()
+        with pytest.raises(ValueError):
+            preparation.preparar_envase(lote.id, product.id, liters)
+        assert lote.insumos_baixados_em is None and Envase.query.count() == 0

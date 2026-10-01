@@ -1,0 +1,23 @@
+<div class="border rounded p-3">
+  <h6>Prévia de embalagens — {{ preview.material_descricao }}</h6>
+  <p class="small">{{ '%.6g'|format(preview.quantidade_litros) }} L ÷ {{ '%.6g'|format(preview.volume_por_unidade_litros) }} L por unidade = <strong>{{ '%.6g'|format(preview.unidades_geradas) }} unidade(s)</strong>. Sem arredondamento.</p>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead><tr><th>Componente</th><th>Por unidade</th><th>Necessário</th><th>Saldo atual</th><th>Custo médio</th><th>Custo estimado</th></tr></thead>
+      <tbody>{% for row in preview.componentes %}<tr>
+        <td>{{ row.descricao }}</td>
+        <td>{{ '%.6g'|format(row.quantidade_por_unidade) }} {{ row.unidade or '—' }}</td>
+        <td>{{ '%.6g'|format(row.quantidade_total) }} {{ row.unidade or '—' }}</td>
+        <td>{{ '%.6g'|format(row.saldo_atual) if row.saldo_atual is not none else 'Não disponível' }}</td>
+        <td>{{ 'R$ %.2f'|format(row.custo_medio) if row.custo_medio is not none else 'Não disponível' }}</td>
+        <td>{{ 'R$ %.2f'|format(row.custo_estimado) if row.custo_estimado is not none else 'Não disponível' }}</td>
+      </tr>{% else %}<tr><td colspan="6">Sem composição ativa cadastrada.</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  <p>Embalagens — {{ 'custo estimado' if preview.custo_embalagem_completo else 'estimativa parcial' }}: <strong>R$ {{ '%.2f'|format(preview.custo_embalagem_estimado) }}</strong>.</p>
+  {% if preview.insumos_confirmados %}
+  <p class="small">Custo registrado dos insumos do lote inteiro: {{ 'R$ %.2f'|format(preview.custo_registrado_lote) if preview.custo_registrado_lote is not none else 'Não disponível' }}. Preservado; não é o custo desta embalagem.</p>
+  {% else %}<p class="small">Ingredientes deste lote ainda não confirmados. A estimativa dos insumos está no card do lote acima.</p>{% endif %}
+  {% if preview.avisos %}<div class="alert alert-warning py-2"><strong>Confira antes de registrar:</strong><ul class="mb-0">{% for warning in preview.avisos %}<li>{{ warning }}</li>{% endfor %}</ul></div>{% endif %}
+  <p class="small text-muted mb-0">Prévia sem gravação, baixa ou reserva. Preços, composição e saldo podem mudar até o registro. Registro e estorno continuam nos fluxos existentes; esta consulta não gera um envase.</p>
+</div>

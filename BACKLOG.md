@@ -11,7 +11,7 @@ O plano de consolidação conferido no commit `b3d3bab` está em
 Esse plano distingue cobertura atual de implementação futura e complementa
 o histórico abaixo, sem considerar atalhos ao CRUD como integração completa.
 
-Próximos incrementos após validar o 1C: envase/estorno no contexto do
+Próximos incrementos após o 1C validado: envase/estorno no contexto do
 lote, dashboards avançados, operações restantes de sessões/automação e
 revisão seletiva de menus. Brewfather/YeastBank permanecem no radar posterior,
 preservando os portais e painéis que já existem.
@@ -19,10 +19,16 @@ preservando os portais e painéis que já existem.
 O reconhecimento de alarmes está implementado; não refazer esse patch.
 Incremento 1A: serviço de saneamento local implementado e validado pelo usuário.
 Incremento 1B: interface/rota de vínculo local implementadas e validadas pelo usuário; detalhes em [workspace-saneamento-ingredientes-interface.md](docs/patches/workspace-saneamento-ingredientes-interface.md).
-Incremento 1C: revisão completa e dados planejados de ingredientes implementados,
-aguardando pytest e validação visual locais. Sem migration. Detalhes, rotas e
+Incremento 1C: revisão completa e dados planejados de ingredientes aplicados
+e validados pelo usuário em 01/10/2026. Sem migration. Detalhes, rotas e
 roteiro em [workspace-revisao-receita-ingredientes.md](docs/patches/workspace-revisao-receita-ingredientes.md).
-Etapas 2–6 continuam pendentes; menus e cadastros avançados preservados.
+Incremento 2A.1: prévia de produto/litros/composição/custo de embalagens na aba
+Sessões implementada, aguardando pytest e visual locais; sem baixa/reserva.
+Ver [workspace-preparacao-envase.md](docs/patches/workspace-preparacao-envase.md).
+2A.2 (registro com idempotência), 2B (detalhes/estorno) e etapas 3–6 continuam
+pendentes; menus e cadastros avançados preservados. Custo de embalagem e
+insumos na precificação existente também precisa ser alinhado aos snapshots
+e custo confirmado antes de considerar o processo todo consolidado.
 
 ## Fase 0 — Scaffold
 

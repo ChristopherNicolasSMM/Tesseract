@@ -13,8 +13,11 @@
    **Confirmar Ingredientes** se ainda não tiver feito. Se você
    esquecer esse passo, o sistema confirma sozinho na hora de envasar,
    mas fazer antes deixa o custo já visível.
-4. Acesse "Envase" no menu, clique em "Novo registro" em "Envases".
-5. Informe o lote de origem, o Material resultante e a quantidade em
+4. No workspace da planta, aba **Sessões**, abra o lote e **Preparar envase
+   deste lote**. Selecione o Material resultante e os litros para consultar
+   a prévia das embalagens. Confira avisos; esta consulta não movimenta estoque.
+5. Para registrar, acesse "Envase" no menu e clique em "Novo registro" em "Envases".
+6. Informe o lote de origem, o Material resultante e a quantidade em
    litros. Salve — o sistema calcula quantas unidades isso representa
    e desconta o estoque de cada componente da Composição
    automaticamente.

@@ -1804,3 +1804,95 @@ def test_workspace_unidade_catalogo_combo_busca_codigo_pela_api(app, client):
     response = client.get("/api/options/unidades_catalogo?search=PCT&value_field=codigo")
     assert response.status_code == 200
     assert any(row["id"] == "PCT" for row in response.get_json()["results"])
+
+
+def _workspace_preparation_data(app):
+    pid, rid, _, mid = _workspace_sanitation_data(app)
+    from addons.addon_estoque.root.model.material import Material
+    with app.app_context():
+        material = db.session.get(Material, mid)
+        material.volume_real, material.unidade_medida_volume_real = 500, "ML"
+        session = BrewSession(name="Histórico para preparar envase", recipe_id=rid, plant_id=pid, status="completed")
+        db.session.add(session)
+        db.session.commit()
+        return pid, session.id, mid
+
+
+def test_workspace_preparacao_no_lote_historico_preserva_selecao_e_nao_grava(app, client):
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+    _login_admin(app, client)
+    pid, sid, mid = _workspace_preparation_data(app)
+    html = client.get(f"/brewstation/plant-workspace/{pid}/tab/sessions?session_id={sid}").data.decode()
+    assert 'id="pwEnvasePreparationForm"' in html and 'data-weakref-source="materials"' in html
+    assert 'Consultar prévia de embalagens' in html and '<datalist' not in html
+    assert f'/sessions/{sid}/prepare-envase' in html
+    with app.app_context():
+        before = db.session.get(BrewSession, sid).to_dict()
+        count = Movimentacao.query.count()
+    path = f"/brewstation/plant-workspace/{pid}/sessions/{sid}/prepare-envase"
+    for _ in range(2):
+        result = client.get(path, query_string={"material_resultante_id": mid, "quantidade_litros": 10}).get_json()
+        assert result["ok"] and '20 unidade(s)' in result["html"]
+        assert 'estimativa parcial' in result["html"] and 'ingredientes ainda não confirmados' in result["html"]
+        assert 'não gera um envase' in result["html"]
+    with app.app_context():
+        assert db.session.get(BrewSession, sid).to_dict() == before
+        assert Movimentacao.query.count() == count and Envase.query.count() == 0
+    assert client.post(path).status_code == 405
+
+
+@pytest.mark.parametrize("permission", ["brew_sessions.list", "envases.list", "envases.create"])
+def test_workspace_preparacao_respeita_permissoes(app, client, monkeypatch, permission):
+    _login_admin(app, client)
+    pid, sid, mid = _workspace_preparation_data(app)
+    monkeypatch.setattr(User, "has_permission", lambda self, code: code != permission)
+    response = client.get(f"/brewstation/plant-workspace/{pid}/sessions/{sid}/prepare-envase",
+                          query_string={"material_resultante_id": mid, "quantidade_litros": 10})
+    assert response.status_code == 403
+    if permission != "brew_sessions.list":
+        html = client.get(f"/brewstation/plant-workspace/{pid}/tab/sessions?session_id={sid}").data.decode()
+        assert 'id="pwEnvasePreparationForm"' not in html
+
+
+@pytest.mark.parametrize("context", ["plant", "session", "foreign", "missing"])
+def test_workspace_preparacao_rejeita_contexto_sem_escolher_outro_lote(app, client, context):
+    _login_admin(app, client)
+    pid, sid, mid = _workspace_preparation_data(app)
+    with app.app_context():
+        if context == "plant":
+            db.session.get(BrewPlant, pid).is_deleted = True
+        elif context == "session":
+            db.session.get(BrewSession, sid).is_deleted = True
+        elif context == "foreign":
+            other = BrewPlant(name="Planta estrangeira de envase")
+            db.session.add(other)
+            db.session.flush()
+            db.session.get(BrewSession, sid).plant_id = other.id
+        else:
+            sid = 999999
+        db.session.commit()
+    response = client.get(f"/brewstation/plant-workspace/{pid}/sessions/{sid}/prepare-envase",
+                          query_string={"material_resultante_id": mid, "quantidade_litros": 10})
+    assert response.status_code == 404 and not response.get_json()["ok"]
+
+
+@pytest.mark.parametrize("liters", ["", "abc", "0", "-1", "NaN", "Infinity"])
+def test_workspace_preparacao_rejeita_litros_invalidos(app, client, liters):
+    _login_admin(app, client)
+    pid, sid, mid = _workspace_preparation_data(app)
+    response = client.get(f"/brewstation/plant-workspace/{pid}/sessions/{sid}/prepare-envase",
+                          query_string={"material_resultante_id": mid, "quantidade_litros": liters})
+    assert response.status_code == 400 and not response.get_json()["ok"]
+
+
+def test_workspace_preparacao_falha_mensagem_generica(app, client, monkeypatch):
+    from addons.addon_brewstation.features.feature_envase.services import envase_preparation_service
+    _login_admin(app, client)
+    pid, sid, mid = _workspace_preparation_data(app)
+    def fail(*args):
+        raise RuntimeError("detalhe interno sensível")
+    monkeypatch.setattr(envase_preparation_service, "preparar_envase", fail)
+    response = client.get(f"/brewstation/plant-workspace/{pid}/sessions/{sid}/prepare-envase",
+                          query_string={"material_resultante_id": mid, "quantidade_litros": 10})
+    assert response.status_code == 500 and 'sensível' not in response.get_json()["error"]

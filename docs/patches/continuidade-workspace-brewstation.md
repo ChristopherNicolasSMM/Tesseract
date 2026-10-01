@@ -12,9 +12,9 @@ executado pytest nem realizada validação visual em uma aplicação em execuç�
 | Etapa | Estado da integração | Evidência e lacuna real | Próximo incremento | Dependências |
 | --- | --- | --- | --- | --- |
 | Planta, tanques e mapeamentos | Parcial | `plant_workspace.py` tem criação/edição e validações; manutenção completa ainda depende de cadastros | Inventariar lixeira, restauração e configuração avançada antes de ocultar acessos | Permissões, pertencimento e funcionalidades dos cadastros |
-| Receita e ingredientes | Parcial | `_tab_recipe_detail.html` reúne conferência/custo, vínculo local, revisão e dados planejados; cadastro avançado preservado | Validar 1C localmente | Serviço de resolução, conversão, referências públicas e proteção de receitas usadas |
+| Receita e ingredientes | Parcial | `_tab_recipe_detail.html` reúne conferência/custo, vínculo local, revisão e dados planejados; cadastro avançado preservado | 1C validado; 2A.1 prepara envase | Serviço de resolução, conversão, referências públicas e proteção de receitas usadas |
 | Sessões, histórico e alarmes | Concluída no escopo dos patches recentes | Busca/paginação, edição básica, confirmação de insumos e reconhecimento rastreável estão no código | Preservar; operações adicionais ficam na etapa 4 | Suítes de workspace, runtime e estoque |
-| Envase e precificação | Parcial | Lista e retorno ao lote integrados; registro/estorno existem nos serviços/hooks, fora da aba | 2A: preparação/registro; 2B: detalhes/estorno com retorno | Saneamento, composição, snapshots e transação de estoque |
+| Envase e precificação | Parcial | Lista/retorno e prévia de embalagens na aba; registro/estorno nos fluxos próprios | Validar 2A.1; 2A.2: registro seguro; 2B: detalhes/estorno com retorno | Saneamento, composição, snapshots e transação de estoque |
 | Dashboards | Parcial | Seleção/criação/edição básica integradas; fundo, standby, padrão e manutenção usam cadastro completo | 3A: opções avançadas; 3B: manutenção | Widgets/tubulação existentes e limpeza de listeners/timers |
 | Etapas e automação | Parcial | Timeline e geração já integradas; Automação lista regras e últimos 20 logs, com criação/edição no CRUD | 4A: inventário de operações; 4B: incremento das regras e histórico | Runtime existente, permissões e escopo global/por sessão |
 | Menus | Parcial | Sete códigos configurados no comando de ocultação; não prova cobertura de toda manutenção | 5: matriz de cobertura e ocultação seletiva | Validação funcional dos incrementos anteriores |
@@ -34,10 +34,14 @@ a área funcional. A quantidade final de patches pode mudar ao conferir dependê
   autenticada, permissão, combo padrão e retorno à seleção. Aplicado e
   validado pelo usuário.
   Ver [interface 1B](workspace-saneamento-ingredientes-interface.md).
-- 1C: revisão completa e dados planejados de ingredientes implementados;
-  sintaxe/diff/aplicação verificados, pytest e visual aguardam o usuário.
+- 1C: revisão completa e dados planejados de ingredientes aplicados e
+  validados pelo usuário em 01/10/2026.
   Ver [revisão e dados — 1C](workspace-revisao-receita-ingredientes.md).
-- Etapas 2–6: pendentes. As proteções locais não alteram o comportamento
+- 2A.1: preparação de envase e prévia de embalagens implementadas,
+  aguardando pytest e visual locais. Não registra envase nem baixa estoque.
+  Ver [preparação — 2A.1](workspace-preparacao-envase.md).
+- 2A.2 (registro), 2B (detalhes/estorno) e etapas 3–6: pendentes.
+  As proteções locais não alteram o comportamento
   do de-para global, dos importadores ou das ações avançadas do CRUD/runtime.
 
 ## Achados que condicionam o saneamento
@@ -135,13 +139,21 @@ como ação separada. Migration somente se houver mudança real de schema.
 
 ### 2A/2B — Envase e estorno a partir do lote
 
-2A prepara produto resultante, composição, litros, embalagens e custos no
-contexto do lote, com confirmação explícita via `registrar_envase()`. O
+2A.1 integra produto resultante/litros e prévia de composição, unidades físicas
+e estimativa das embalagens no contexto do lote. É leitura, sem gravação,
+reserva, confirmação de ingredientes ou rateio do custo do lote. Componentes
+repetidos são somados para avaliar necessidade/saldo. Custos ausentes
+permanecem identificados; composição vazia gera estimativa incompleta.
+
+2A.2 ainda precisa integrar a confirmação explícita via `registrar_envase()`. O
 serviço atual pode confirmar insumos ainda não baixados como fallback;
 essa consequência precisa aparecer antes de confirmar, não ao simular.
 Verificar proteção de repetição do registro: o bloqueio de botão sozinho
 não estabelece idempotência no servidor. Definir mecanismo se necessário
-e conferir migration antes de implementá-lo.
+e conferir migration antes de implementá-lo. Também conferir a continuidade
+da precificação: o serviço atual ainda lê `ItemEnvase` para embalagem, sem
+usar snapshots dos envases novos; o cálculo dos insumos deve preservar
+custo confirmado. A nova prévia 2A.1 não usa esse motor de preço de venda.
 
 2B apresenta snapshots e movimentações e integra `estornar_envase()` com
 motivo, operador, modal padrão e retorno à mesma sessão. O hook atual

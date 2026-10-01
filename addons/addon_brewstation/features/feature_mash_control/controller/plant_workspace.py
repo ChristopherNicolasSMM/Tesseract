@@ -59,6 +59,7 @@ from addons.addon_brewstation.features.feature_mash_control.services.session_ala
     acknowledge_alarm, SessionAlarmNotFound,
 )
 from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+from addons.addon_brewstation.features.feature_envase.services import envase_preparation_service
 from addons.addon_brewstation.features.feature_mash_control.controller.dashboard_runtime import (
     _build_dashboard_view_context,
 )
@@ -566,6 +567,35 @@ def sanitize_recipe_ingredient(plant_id, recipe_id, ingredient_id):
         current_app.logger.exception("Falha ao sanear ingrediente %s da receita %s", ingredient_id, recipe_id)
         return respond("Não foi possível salvar o vínculo. Nenhuma alteração foi confirmada.", 500)
     return respond("Decisão do ingrediente salva. Confira as pendências e o custo estimado; o estoque não foi movimentado.")
+
+
+@plant_workspace_bp.route("/<int:plant_id>/sessions/<int:session_id>/prepare-envase", methods=["GET"])
+@login_required
+@permission_required("brew_sessions.list")
+@permission_required("envases.list")
+@permission_required("envases.create")
+def prepare_session_envase(plant_id, session_id):
+    if not BrewPlant.query.filter_by(id=plant_id, is_deleted=False).first():
+        return jsonify(ok=False, error="Planta não encontrada."), 404
+    session = BrewSession.query.filter_by(id=session_id, plant_id=plant_id, is_deleted=False).first()
+    if session is None:
+        return jsonify(ok=False, error="Sessão desta planta não encontrada."), 404
+    try:
+        material_id = int(request.args.get("material_resultante_id", ""))
+        liters = float(request.args.get("quantidade_litros", "").replace(",", "."))
+    except ValueError:
+        return jsonify(ok=False, error="Selecione o material resultante e informe os litros válidos."), 400
+    try:
+        preview = envase_preparation_service.preparar_envase(session_id, material_id, liters)
+        html = render_template("plant_workspace/_envase_preview.html", preview=preview)
+    except envase_preparation_service.PreparacaoNaoEncontradaError as exc:
+        return jsonify(ok=False, error=str(exc)), 404
+    except ValueError as exc:
+        return jsonify(ok=False, error=str(exc)), 400
+    except Exception:
+        current_app.logger.exception("Falha na prévia de envase do lote %s", session_id)
+        return jsonify(ok=False, error="Não foi possível preparar a prévia de envase."), 500
+    return jsonify(ok=True, html=html)
 
 
 def _recipe_workspace_response(plant_id, selected_recipe_id, message, code=200, **extra):

@@ -58,7 +58,7 @@ para esse item antes de confiar no valor final.
 
 ## Confirmação de envase e correções
 
-O formulário de Envases usa os combos de busca do CrudGen para Lote e Material resultante. Ao criar, valida volume positivo, confirma ingredientes pendentes e registra o envase junto com todas as baixas de embalagem em uma única transação. Uma falha cancela tudo, inclusive a baixa de ingredientes disparada automaticamente. O status informado no formulário não altera o status inicial `registrado`. Envases confirmados são exibidos em modo de consulta; edição, lixeira e exclusão direta não são permitidas. A correção de um envase exige um fluxo de estorno rastreável (a implementar).
+O formulário de Envases usa os combos de busca do CrudGen para Lote e Material resultante. Ao criar, valida volume positivo, confirma ingredientes pendentes e registra o envase junto com todas as baixas de embalagem em uma única transação. Uma falha cancela tudo, inclusive a baixa de ingredientes disparada automaticamente. O status informado no formulário não altera o status inicial `registrado`. Envases confirmados são exibidos em modo de consulta; edição, lixeira e exclusão direta não são permitidas. A correção de um envase usa o estorno rastreável disponível no detalhe, descrito abaixo.
 
 ## Custos históricos de embalagem
 
@@ -67,3 +67,32 @@ A partir desta versão, cada novo envase guarda a composição usada, a quantida
 ## Estornar envase
 
 No detalhe de um envase confirmado após o registro de custos históricos, informe o motivo e clique **Estornar envase e devolver embalagens**. O sistema cria entradas no Estoque correspondentes a cada saída original e registra os dois IDs, a data e o usuário no envase cancelado. Não é possível estornar duas vezes. Os insumos de brassagem continuam consumidos no lote, pois não pertencem a um envase específico. Envases antigos sem fotografia das saídas exigem reconciliação manual. Envases cancelados não entram no rateio de custo dos envases ativos.
+
+## Preparar envase dentro do lote
+
+Na aba **Sessões** do workspace da planta, abra o lote (inclusive antigo).
+No card **Envase e precificação**, abra **Preparar envase deste lote**:
+
+1. Busque o **Material resultante**, com volume real positivo cadastrado.
+2. Informe os litros e clique em **Consultar prévia de embalagens**.
+3. Confira volume por unidade, unidades físicas, componentes por unidade,
+   necessidade total, saldo atual e estimativa pelos custos médios atuais.
+4. Confira avisos de custo/saldo ausente, componente indisponível, unidade
+   sem base cadastrada ou composição vazia. Quantidades repetidas do mesmo
+   componente são somadas. Unidades fracionadas não são arredondadas.
+5. Se houver ingredientes ainda não confirmados, a prévia informa que o
+   registro pelo fluxo existente os consumirá junto com as embalagens.
+   Pendências da receita continuam impedindo esse registro.
+
+Esta consulta não salva envase, não baixa/reserva estoque e não confirma
+ingredientes. **Estimativa parcial** soma apenas custos conhecidos; valor
+zero parcial não significa embalagens gratuitas. O custo registrado dos
+insumos do lote inteiro é mostrado separadamente, sem ratear ou recalcular.
+Selecionar PCT não significa 1 kg; nenhum pacote é convertido pela prévia.
+
+Ao alterar o produto ou os litros, consulte novamente. Composição, preços e
+saldo podem mudar até o registro; a prévia não é uma reserva nem garantia.
+A consulta exige acesso aos lotes/envases e permissão de criar envases.
+Registro e estorno continuam nos fluxos próprios existentes; não há botão
+de confirmação de envase neste formulário. O atalho de precificação permanece
+separado e esta prévia de embalagens não calcula preço de venda.

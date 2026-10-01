@@ -262,3 +262,14 @@ ou no registro desfaz a tentativa. Referências inválidas a etapas/ingredientes
 apagados ou de outra receita precisam ser corrigidas antes de revisar.
 As ações avançadas de cadastro, de-para, importação e runtime mantêm seus
 fluxos existentes; o bloqueio aqui se refere à edição local de ingredientes.
+
+## Preparar embalagens para o lote
+
+Na aba **Sessões**, card **Envase e precificação**, abra **Preparar envase
+deste lote**, busque o produto e informe os litros. **Consultar prévia de
+embalagens** mostra unidades, composição, necessidade, saldo e estimativa.
+Custos ausentes deixam a estimativa parcial; o custo registrado de insumos
+é separado e preservado. Confira o aviso de consumo automático de ingredientes
+ainda não confirmados no registro existente. A prévia não grava envase,
+não reserva/baixa estoque nem confirma ingredientes. Registro e estorno
+continuam nas telas existentes. [Manual de envase](../../../feature_envase/docs/manual/03-funcionalidades.md).
