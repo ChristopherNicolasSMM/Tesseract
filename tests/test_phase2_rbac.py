@@ -193,6 +193,7 @@ def test_user_loader_session_get_preserva_permissoes_e_config_eager(app, eager_l
         user = User(username="loader_probe", email="loader_probe@test.local",
                     nome="Operador", nome_completo="Operador", celular="0",
                     is_admin=False, is_active=True, roles=[role])
+        user.set_password("senha123")
         db.session.add(user)
         db.session.commit()
         user_id = user.id

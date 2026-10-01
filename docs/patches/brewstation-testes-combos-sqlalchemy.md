@@ -70,3 +70,20 @@ pois faltam as dependências da aplicação e pytest.
 Não considerar a correção validada até os testes locais. As próximas etapas
 funcionais (registro de envase/estorno e configurações avançadas) permanecem
 pendentes. O roteiro visual do patch de seletores/layout continua aplicável.
+
+## Correção da preparação do usuário de teste
+
+Retorno local: os dois testes dos combos passaram; as duas variantes do
+teste de user_loader falharam antes de chamar o loader por password_hash
+obrigatório ausente. O usuário da fixture agora recebe senha por
+User.set_password, como nos demais testes RBAC. Sem alteração de autenticação
+ou schema. Patch incremental: brewstation-fixture-senha-rbac.patch.
+
+```powershell
+git -c gc.auto=0 am --keep-cr .\brewstation-fixture-senha-rbac.patch
+python -m pytest tests/test_phase2_rbac.py::test_user_loader_session_get_preserva_permissoes_e_config_eager -q -W error::sqlalchemy.exc.LegacyAPIWarning
+```
+
+AST Python, diff e aplicação isolada verificados na entrega; pytest não
+executado no ambiente de desenvolvimento. Validar as duas variantes localmente.
+O manual de uso permanece válido; esta correção altera apenas a fixture.

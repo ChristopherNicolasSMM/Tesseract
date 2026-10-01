@@ -5518,3 +5518,7 @@ Usuário reportou 427 testes aprovados, duas expectativas antigas de options
 no HTML e 627 avisos de Query.get(). Correção das verificações pela API e
 modernização dos pontos manuais indicados implementadas; validação local
 pendente. Ver [testes e SQLAlchemy](docs/patches/brewstation-testes-combos-sqlalchemy.md).
+
+Retorno da execução curta: dois testes de combos aprovados; teste RBAC nas
+duas variantes bloqueado por senha ausente na fixture. Preparação corrigida
+com User.set_password; validação local pendente, sem migration.
