@@ -86,3 +86,14 @@ FROM tesseract_transaction
 WHERE route LIKE '%brewfather%';
 
 
+
+
+
+# Remover credencial de teste...
+
+client.post("/api/auth/login", json={"username": "operador_reconhecimento", "password": "operador123"})
+
+
+
+
+
