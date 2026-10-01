@@ -24,3 +24,23 @@ o botão **Detecção automática** volta à sessão escolhida automaticamente.
 Os seletores de tanques respeitam a planta e a tubulação oferece funções de
 atuadores. Status, tipos e demais opções fixas continuam nas caixas de seleção.
 As opções pesquisadas devem ser legíveis nos temas claro e escuro.
+
+## Registrar envase na sessão da planta
+
+Abra o lote na aba Sessões, inclusive se ele for antigo. Em Preparar envase,
+selecione o produto, informe os litros e, se desejar, data e tipo do envase.
+Consulte a prévia e confira componentes, unidades, custos e avisos.
+
+Clique em **Registrar envase deste lote**. O modal informa se também serão
+consumidos ingredientes ainda não confirmados. Cancelar o modal não grava
+nada. Confirmar registra o envase e as baixas de estoque na mesma operação,
+retornando à sessão escolhida. Ingredientes já confirmados e seu custo
+registrado são preservados. Pendências precisam ser resolvidas primeiro.
+
+Se a resposta se perder, tente novamente com a mesma confirmação exibida.
+Essa repetição recupera o mesmo envase, sem outra baixa. Consultar uma nova
+prévia inicia outro registro e permite um envase adicional. A prévia não
+reserva estoque: composição e custos são conferidos no registro.
+
+Para estornar, use o detalhe de envase existente. A integração do estorno
+dentro da sessão e a consolidação da precificação são próximas etapas.

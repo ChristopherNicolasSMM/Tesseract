@@ -1936,3 +1936,129 @@ def test_workspace_preparacao_falha_mensagem_generica(app, client, monkeypatch):
     response = client.get(f"/brewstation/plant-workspace/{pid}/sessions/{sid}/prepare-envase",
                           query_string={"material_resultante_id": mid, "quantidade_litros": 10})
     assert response.status_code == 500 and 'sensível' not in response.get_json()["error"]
+
+
+def _workspace_envase_confirmation(client, pid, sid, mid, **kwargs):
+    response = client.get(f"/brewstation/plant-workspace/{pid}/sessions/{sid}/prepare-envase",
+                          query_string={"material_resultante_id": mid, "quantidade_litros": 2, **kwargs})
+    assert response.status_code == 200
+    class TokenParser(HTMLParser):
+        token = None
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            if tag == "input" and attrs.get("name") == "confirmation_token":
+                self.token = attrs["value"]
+    parser = TokenParser()
+    parser.feed(response.get_json()["html"])
+    assert parser.token
+    return parser.token
+
+
+def test_workspace_envase_registra_repete_e_retorna_mesmo_lote_historico(app, client):
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+    _login_admin(app, client)
+    pid, sid, mid = _workspace_preparation_data(app)
+    # Material da fixture é também ingrediente: resolvê-lo não pode mudar a receita.
+    with app.app_context():
+        ing = RecipeIngredient.query.filter_by(recipe_id=db.session.get(BrewSession, sid).recipe_id).one()
+        ing.material_id, ing.status_resolucao, ing.unidade_medida = mid, "resolvido", "kg"
+        from addons.addon_estoque.root.services import estoque_service
+        from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
+        db.session.add(MaterialUnidade(material_id=mid, unidade="kg", fator_para_base=1, is_unidade_base=True))
+        db.session.flush()
+        estoque_service.registrar_movimentacao(mid, "entrada", 50, custo_unitario=2)
+        db.session.commit()
+        before_status = db.session.get(BrewSession, sid).status
+    token = _workspace_envase_confirmation(client, pid, sid, mid, data_envase="2026-10-01", tipo_envase="garrafa")
+    path = f"/brewstation/plant-workspace/{pid}/sessions/{sid}/register-envase"
+    result = client.post(path, data={"confirmation_token": token})
+    assert result.status_code == 200
+    payload = result.get_json()
+    assert payload["ok"] and not payload["ja_registrado"]
+    assert f"session_id={sid}" in payload["url"]
+    with app.app_context():
+        count = Movimentacao.query.count()
+        recorded_cost = db.session.get(BrewSession, sid).custo_total_insumos
+        envase = db.session.get(Envase, payload["envase_id"])
+        assert envase.lote_id == sid and envase.tipo_envase == "garrafa"
+        assert envase.data_envase.isoformat() == "2026-10-01"
+    repeated = client.post(path, data={"confirmation_token": token}).get_json()
+    assert repeated["ja_registrado"] and repeated["envase_id"] == payload["envase_id"]
+    with app.app_context():
+        assert Envase.query.count() == 1 and Movimentacao.query.count() == count
+        session = db.session.get(BrewSession, sid)
+        assert session.custo_total_insumos == recorded_cost and session.status == before_status
+
+
+@pytest.mark.parametrize("permission", ["envases.create", "envases.list", "brew_sessions.list", "brew_sessions.update"])
+def test_workspace_envase_rejeita_permissao_sem_movimentar(app, client, monkeypatch, permission):
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+    _login_admin(app, client)
+    pid, sid, mid = _workspace_preparation_data(app)
+    token = _workspace_envase_confirmation(client, pid, sid, mid)
+    with app.app_context():
+        before = Movimentacao.query.count()
+    monkeypatch.setattr(User, "has_permission", lambda self, code: code != permission)
+    response = client.post(f"/brewstation/plant-workspace/{pid}/sessions/{sid}/register-envase",
+                           data={"confirmation_token": token})
+    assert response.status_code == 403
+    with app.app_context():
+        assert Envase.query.count() == 0 and Movimentacao.query.count() == before
+
+
+def test_workspace_envase_token_invalidado_e_contexto_estrangeiro(app, client):
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+    _login_admin(app, client)
+    pid, sid, mid = _workspace_preparation_data(app)
+    token = _workspace_envase_confirmation(client, pid, sid, mid)
+    path = f"/brewstation/plant-workspace/{pid}/sessions/{sid}/register-envase"
+    assert client.post(path, data={"confirmation_token": token + "alterado"}).status_code == 400
+    with app.app_context():
+        other = BrewPlant(name="Outra planta registro envase")
+        db.session.add(other); db.session.flush()
+        other_session = BrewSession(name="Outro lote registro envase", plant_id=other.id)
+        db.session.add(other_session); db.session.commit()
+        other_pid, other_sid = other.id, other_session.id
+    foreign = client.post(f"/brewstation/plant-workspace/{other_pid}/sessions/{other_sid}/register-envase",
+                          data={"confirmation_token": token})
+    assert foreign.status_code == 400
+    assert client.post(f"/brewstation/plant-workspace/{other_pid}/sessions/{sid}/register-envase",
+                       data={"confirmation_token": token}).status_code == 404
+    with app.app_context():
+        assert Envase.query.count() == 0
+
+
+def test_workspace_envase_pendencias_apos_previa_rollback(app, client):
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+    _login_admin(app, client)
+    pid, sid, mid = _workspace_preparation_data(app)
+    token = _workspace_envase_confirmation(client, pid, sid, mid)
+    with app.app_context():
+        before = Movimentacao.query.count()
+    response = client.post(f"/brewstation/plant-workspace/{pid}/sessions/{sid}/register-envase",
+                           data={"confirmation_token": token})
+    assert response.status_code == 409
+    with app.app_context():
+        assert Envase.query.count() == 0 and Movimentacao.query.count() == before
+        assert db.session.get(BrewSession, sid).insumos_baixados_em is None
+
+
+def test_workspace_envase_insumos_confirmados_nao_exige_update_nem_recalcula(app, client, monkeypatch):
+    from datetime import datetime, timezone
+    _login_admin(app, client)
+    pid, sid, mid = _workspace_preparation_data(app)
+    with app.app_context():
+        session = db.session.get(BrewSession, sid)
+        session.insumos_baixados_em = datetime.now(timezone.utc)
+        session.custo_total_insumos = 99
+        db.session.commit()
+    monkeypatch.setattr(User, "has_permission", lambda self, code: code != "brew_sessions.update")
+    token = _workspace_envase_confirmation(client, pid, sid, mid)
+    response = client.post(f"/brewstation/plant-workspace/{pid}/sessions/{sid}/register-envase",
+                           data={"confirmation_token": token})
+    assert response.status_code == 200
+    with app.app_context():
+        assert db.session.get(BrewSession, sid).custo_total_insumos == 99

@@ -19,6 +19,10 @@ Arquitetura decidida em conversa:
 """
 from __future__ import annotations
 
+from datetime import date
+from uuid import uuid4
+from itsdangerous import URLSafeSerializer, BadSignature
+
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
 from flask_login import login_required, current_user
 
@@ -59,7 +63,7 @@ from addons.addon_brewstation.features.feature_mash_control.services.session_ala
     acknowledge_alarm, SessionAlarmNotFound,
 )
 from addons.addon_brewstation.features.feature_envase.model.envase import Envase
-from addons.addon_brewstation.features.feature_envase.services import envase_preparation_service
+from addons.addon_brewstation.features.feature_envase.services import envase_preparation_service, envase_estoque_service
 from addons.addon_brewstation.features.feature_mash_control.controller.dashboard_runtime import (
     _build_dashboard_view_context,
 )
@@ -587,7 +591,25 @@ def prepare_session_envase(plant_id, session_id):
         return jsonify(ok=False, error="Selecione o material resultante e informe os litros válidos."), 400
     try:
         preview = envase_preparation_service.preparar_envase(session_id, material_id, liters)
-        html = render_template("plant_workspace/_envase_preview.html", preview=preview)
+        data_envase = request.args.get("data_envase") or None
+        if data_envase:
+            date.fromisoformat(data_envase)
+        tipo_envase = (request.args.get("tipo_envase") or "").strip() or None
+        if tipo_envase and len(tipo_envase) > 30:
+            raise ValueError("Tipo de envase deve ter até 30 caracteres.")
+        token = _envase_confirmation_signer().dumps({
+            "plant_id": plant_id, "session_id": session_id, "material_id": material_id,
+            "liters": liters, "data_envase": data_envase, "tipo_envase": tipo_envase,
+            "key": uuid4().hex,
+        })
+        can_register = (preview["insumos_confirmados"] or
+                        bool(session.recipe_id) and not preview["pendencias_ingredientes"])
+        if not preview["insumos_confirmados"] and not current_user.has_permission("brew_sessions.update"):
+            can_register = False
+        html = render_template("plant_workspace/_envase_preview.html", preview=preview,
+                               token=token, can_register=can_register,
+                               register_url=url_for("plant_workspace.register_session_envase",
+                                                    plant_id=plant_id, session_id=session_id))
     except envase_preparation_service.PreparacaoNaoEncontradaError as exc:
         return jsonify(ok=False, error=str(exc)), 404
     except ValueError as exc:
@@ -596,6 +618,53 @@ def prepare_session_envase(plant_id, session_id):
         current_app.logger.exception("Falha na prévia de envase do lote %s", session_id)
         return jsonify(ok=False, error="Não foi possível preparar a prévia de envase."), 500
     return jsonify(ok=True, html=html)
+
+
+def _envase_confirmation_signer():
+    return URLSafeSerializer(current_app.config["SECRET_KEY"], salt="workspace-envase-confirmation-v1")
+
+
+@plant_workspace_bp.route("/<int:plant_id>/sessions/<int:session_id>/register-envase", methods=["POST"])
+@login_required
+@permission_required("brew_sessions.list")
+@permission_required("envases.list")
+@permission_required("envases.create")
+def register_session_envase(plant_id, session_id):
+    if not BrewPlant.query.filter_by(id=plant_id, is_deleted=False).first():
+        return jsonify(ok=False, error="Planta não encontrada."), 404
+    session = BrewSession.query.filter_by(id=session_id, plant_id=plant_id, is_deleted=False).first()
+    if session is None:
+        return jsonify(ok=False, error="Sessão desta planta não encontrada."), 404
+    try:
+        payload = _envase_confirmation_signer().loads(request.form.get("confirmation_token", ""))
+    except BadSignature:
+        return jsonify(ok=False, error="Confirmação inválida. Consulte novamente a prévia."), 400
+    if payload.get("plant_id") != plant_id or payload.get("session_id") != session_id:
+        return jsonify(ok=False, error="A confirmação pertence a outro contexto."), 400
+    if session.insumos_baixados_em is None and not current_user.has_permission("brew_sessions.update"):
+        return jsonify(ok=False, error="É necessária permissão para confirmar os ingredientes deste lote."), 403
+    try:
+        result = envase_estoque_service.registrar_envase(
+            session_id, payload["material_id"], payload["liters"],
+            data_envase=date.fromisoformat(payload["data_envase"]) if payload["data_envase"] else None,
+            tipo_envase=payload["tipo_envase"], idempotency_key=payload["key"],
+            usuario_id=current_user.id,
+        )
+    except (ValueError, envase_estoque_service.LoteNaoEncontradoError,
+            envase_estoque_service.MaterialNaoEncontradoError,
+            envase_estoque_service.VolumeRealNaoConfiguradoError,
+            ingredient_consumption_service.ReceitaNaoVinculadaError,
+            ingredient_consumption_service.IngredientesPendentesError) as exc:
+        db.session.rollback()
+        return jsonify(ok=False, error=str(exc)), 409
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Falha ao registrar envase do lote %s", session_id)
+        return jsonify(ok=False, error="O envase não foi confirmado. Nenhuma movimentação desta tentativa foi mantida."), 500
+    return jsonify(ok=True, envase_id=result["envase"]["id"], ja_registrado=result["ja_registrado"],
+                   message="Esta confirmação já foi registrada; nenhuma baixa adicional foi feita."
+                           if result["ja_registrado"] else "Envase registrado com sucesso.",
+                   url=url_for("plant_workspace.tab_sessions", plant_id=plant_id, session_id=session_id))
 
 
 def _recipe_workspace_response(plant_id, selected_recipe_id, message, code=200, **extra):

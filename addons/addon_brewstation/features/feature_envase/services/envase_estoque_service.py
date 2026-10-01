@@ -21,6 +21,8 @@ mesma pasta services/.
 from __future__ import annotations
 
 from math import isfinite
+from uuid import UUID
+from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone
 
 from core.db import db
@@ -60,6 +62,22 @@ def _volume_real_litros(material: dict) -> float:
     raise VolumeRealNaoConfiguradoError(f"Unidade do volume real não suportada: {unidade}")
 
 
+class RequisicaoEnvaseConflitanteError(ValueError):
+    """Uma chave já usada não pode representar outro envase."""
+
+
+def _envase_repetido(key, lote_id, material_id, liters, data_envase, tipo_envase):
+    envase = Envase.query.filter_by(idempotency_key=key).first()
+    if envase is None:
+        return None
+    if (envase.lote_id != lote_id or envase.material_resultante_id != material_id
+            or envase.quantidade_litros != liters or envase.data_envase != data_envase
+            or envase.tipo_envase != tipo_envase):
+        raise RequisicaoEnvaseConflitanteError("Esta confirmação já foi usada com outros dados.")
+    return {"envase": envase.to_dict(), "ja_registrado": True,
+            "componentes_baixados": 0, "movimentacoes": []}
+
+
 def registrar_envase(
     lote_id: int,
     material_resultante_id: int,
@@ -67,6 +85,8 @@ def registrar_envase(
     *,
     data_envase=None,
     tipo_envase: str | None = None,
+    idempotency_key: str | None = None,
+    usuario_id: int | None = None,
 ) -> dict:
     """
     Registra um Envase apontando pro Material resultante (produto
@@ -88,25 +108,34 @@ def registrar_envase(
        `quantidade_componente × unidades` via `registrar_movimentacao`.
     5. Retorna o Envase + o detalhe de custo (seção 3.3 da skill).
     """
+    if isinstance(quantidade_litros, bool) or not isinstance(quantidade_litros, (int, float)) or not isfinite(quantidade_litros) or quantidade_litros <= 0:
+        raise ValueError("A quantidade de envase deve ser um número positivo e finito em litros.")
+    if idempotency_key is not None:
+        if not isinstance(idempotency_key, str):
+            raise ValueError("Chave de confirmação inválida.")
+        try:
+            idempotency_key = UUID(idempotency_key).hex
+        except (ValueError, AttributeError) as exc:
+            raise ValueError("Chave de confirmação inválida.") from exc
+        replay = _envase_repetido(idempotency_key, lote_id, material_resultante_id,
+                                 quantidade_litros, data_envase, tipo_envase)
+        if replay is not None:
+            return replay
+
     lote = BrewSession.query.filter_by(id=lote_id, is_deleted=False).first()
     if lote is None:
         raise LoteNaoEncontradoError(f"BrewSession id={lote_id} não encontrada ou removida")
 
     material_resultante = material_lookup.get_material(material_resultante_id)
-    if material_resultante is None:
+    if material_resultante is None or not material_resultante.get("ativo", False):
         raise MaterialNaoEncontradoError(f"Material id={material_resultante_id} não encontrado em addon_estoque")
 
     volume_real = _volume_real_litros(material_resultante)
-    if isinstance(quantidade_litros, bool) or not isinstance(quantidade_litros, (int, float)) or not isfinite(quantidade_litros) or quantidade_litros <= 0:
-        raise ValueError("A quantidade de envase deve ser um número positivo e finito em litros.")
 
     unidades_geradas = quantidade_litros / volume_real
     componentes = material_lookup.get_composicao(material_resultante_id)
 
     try:
-        if lote.insumos_baixados_em is None:
-            ingredient_consumption_service.confirmar_consumo_ingredientes(lote_id, commit=False)
-
         envase = Envase(
             lote_id=lote_id,
             material_resultante_id=material_resultante_id,
@@ -115,9 +144,15 @@ def registrar_envase(
             tipo_envase=tipo_envase,
             status="registrado",
             componentes_snapshot=[],
+            idempotency_key=idempotency_key,
         )
         db.session.add(envase)
         db.session.flush()
+        # O INSERT obtém a reserva de escrita no SQLite; reler o lote evita
+        # usar a confirmação antiga mantida no identity map por outro POST.
+        db.session.refresh(lote)
+        if lote.insumos_baixados_em is None:
+            ingredient_consumption_service.confirmar_consumo_ingredientes(lote_id, commit=False)
 
         movimentacoes = []
         snapshot = []
@@ -131,7 +166,7 @@ def registrar_envase(
                 componente["material_componente_id"], "saida", quantidade_total,
                 custo_unitario=custo_medio,
                 observacoes=f"Baixa de componente de embalagem — Envase #{envase.id} (lote #{lote_id}).",
-                commit=False,
+                commit=False, usuario_id=usuario_id,
             )
             movimentacoes.append(resultado)
             snapshot.append({
@@ -143,13 +178,30 @@ def registrar_envase(
                 "movimentacao_id": resultado["movimentacao"]["id"],
             })
         envase.componentes_snapshot = snapshot
+        if idempotency_key:
+            from addons.addon_brewstation.features.feature_mash_control.model.brew_session_log import BrewSessionLog
+            db.session.add(BrewSessionLog(
+                session_id=lote_id, log_level="info", source="envase",
+                message=f"Envase #{envase.id} registrado: {quantidade_litros} L.",
+                detail_json={"envase_id": envase.id, "usuario_id": usuario_id,
+                             "material_resultante_id": material_resultante_id},
+            ))
         db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        if idempotency_key:
+            replay = _envase_repetido(idempotency_key, lote_id, material_resultante_id,
+                                     quantidade_litros, data_envase, tipo_envase)
+            if replay is not None:
+                return replay
+        raise
     except Exception:
         db.session.rollback()
         raise
 
     return {
         "envase": envase.to_dict(),
+        "ja_registrado": False,
         "unidades_geradas": unidades_geradas,
         "componentes_baixados": len(componentes),
         "movimentacoes": movimentacoes,

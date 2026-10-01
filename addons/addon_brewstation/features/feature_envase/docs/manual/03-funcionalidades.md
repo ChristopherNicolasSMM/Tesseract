@@ -93,6 +93,26 @@ Selecionar PCT não significa 1 kg; nenhum pacote é convertido pela prévia.
 Ao alterar o produto ou os litros, consulte novamente. Composição, preços e
 saldo podem mudar até o registro; a prévia não é uma reserva nem garantia.
 A consulta exige acesso aos lotes/envases e permissão de criar envases.
-Registro e estorno continuam nos fluxos próprios existentes; não há botão
-de confirmação de envase neste formulário. O atalho de precificação permanece
+O registro agora também pode ser confirmado dentro da sessão; o estorno
+continua no detalhe de envase existente. O atalho de precificação permanece
 separado e esta prévia de embalagens não calcula preço de venda.
+
+## Registrar envase na sessão da planta
+
+Abra o lote na aba Sessões, inclusive se ele for antigo. Em Preparar envase,
+selecione o produto, informe os litros e, se desejar, data e tipo do envase.
+Consulte a prévia e confira componentes, unidades, custos e avisos.
+
+Clique em **Registrar envase deste lote**. O modal informa se também serão
+consumidos ingredientes ainda não confirmados. Cancelar o modal não grava
+nada. Confirmar registra o envase e as baixas de estoque na mesma operação,
+retornando à sessão escolhida. Ingredientes já confirmados e seu custo
+registrado são preservados. Pendências precisam ser resolvidas primeiro.
+
+Se a resposta se perder, tente novamente com a mesma confirmação exibida.
+Essa repetição recupera o mesmo envase, sem outra baixa. Consultar uma nova
+prévia inicia outro registro e permite um envase adicional. A prévia não
+reserva estoque: composição e custos são conferidos no registro.
+
+Para estornar, use o detalhe de envase existente. A integração do estorno
+dentro da sessão e a consolidação da precificação são próximas etapas.

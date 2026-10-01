@@ -19,5 +19,14 @@
   <p class="small">Custo registrado dos insumos do lote inteiro: {{ 'R$ %.2f'|format(preview.custo_registrado_lote) if preview.custo_registrado_lote is not none else 'Não disponível' }}. Preservado; não é o custo desta embalagem.</p>
   {% else %}<p class="small">Ingredientes deste lote ainda não confirmados. A estimativa dos insumos está no card do lote acima.</p>{% endif %}
   {% if preview.avisos %}<div class="alert alert-warning py-2"><strong>Confira antes de registrar:</strong><ul class="mb-0">{% for warning in preview.avisos %}<li>{{ warning }}</li>{% endfor %}</ul></div>{% endif %}
-  <p class="small text-muted mb-0">Prévia sem gravação, baixa ou reserva. Preços, composição e saldo podem mudar até o registro. Registro e estorno continuam nos fluxos existentes; esta consulta não gera um envase.</p>
+  <p class="small text-muted mb-0">Prévia sem gravação, baixa ou reserva. Preços, composição e saldo podem mudar até o registro. Esta consulta não gera um envase. O registro exige confirmação abaixo; o estorno continua no fluxo existente.</p>
 </div>
+{% if token is defined %}
+<form class="pw-register-envase-form mt-3" method="post" action="{{ register_url }}"
+      data-product="{{ preview.material_descricao }}" data-liters="{{ preview.quantidade_litros }}"
+      data-ingredients="{{ 'Ingredientes já confirmados: serão consumidas somente as embalagens.' if preview.insumos_confirmados else 'Os ingredientes ainda não confirmados serão consumidos junto com as embalagens.' }}">
+  <input type="hidden" name="confirmation_token" value="{{ token }}">
+  <button type="submit" class="btn btn-success" {{ 'disabled' if not can_register else '' }}>Registrar envase deste lote</button>
+  {% if not can_register %}<p class="small text-muted mt-2">Resolva as pendências dos ingredientes e confira a permissão de confirmação do lote antes de registrar.</p>{% endif %}
+</form>
+{% endif %}

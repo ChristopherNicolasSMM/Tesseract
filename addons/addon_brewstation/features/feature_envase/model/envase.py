@@ -14,7 +14,7 @@ _MATERIAL_RESOLVER = "addons.addon_estoque.root.services.material_lookup.get_mat
 
 @label("Envase")
 @plural("envases")
-@readonly_fields(["componentes_snapshot", "estorno_snapshot", "cancelado_em", "motivo_cancelamento", "cancelado_por_id"])
+@readonly_fields(["idempotency_key", "componentes_snapshot", "estorno_snapshot", "cancelado_em", "motivo_cancelamento", "cancelado_por_id"])
 @enum_field("status", options=["registrado", "cancelado"])
 @choices("status", label="Status")
 @required("lote_id", message="Lote é obrigatório")
@@ -38,6 +38,10 @@ class Envase(db.Model):
     # addon_estoque, skill 02) — nullable por enquanto pra não quebrar
     # Envase já existentes, criados antes desta coluna existir.
     material_resultante_id = db.Column(db.Integer, nullable=True, index=True)
+
+    # Chave opcional de requisição: UNIQUE permite múltiplos NULL históricos.
+    idempotency_key = db.Column(db.String(32), nullable=True)
+    __table_args__ = (db.Index("uq_brewstation_envase_request_key", "idempotency_key", unique=True),)
 
     quantidade_litros = db.Column(db.Float, nullable=True)
     # Fotografia dos componentes e custos na confirmação; nulo em envases antigos.

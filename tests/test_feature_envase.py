@@ -910,3 +910,96 @@ def test_preparar_envase_rejeita_resultado_numerico_nao_finito_ou_subfluxo(app, 
         with pytest.raises(ValueError):
             preparation.preparar_envase(lote.id, product.id, liters)
         assert lote.insumos_baixados_em is None and Envase.query.count() == 0
+
+
+def test_registrar_envase_chave_repetida_preserva_ledger_snapshot_e_custo(app):
+    from uuid import uuid4
+    from addons.addon_estoque.root.model.saldo import Saldo
+    with app.app_context():
+        lote = _criar_lote()
+        tampa = _criar_material_com_estoque("Tampa idempotencia", quantidade_inicial=100)
+        produto = _criar_material_resultante("Produto idempotencia", componentes=[(tampa, 1)])
+        key = uuid4().hex
+        first = svc.registrar_envase(lote.id, produto.id, 4, idempotency_key=key)
+        count = Movimentacao.query.count()
+        balance = Saldo.query.filter_by(material_id=tampa.id).one().quantidade_atual
+        cost = lote.custo_total_insumos
+        snapshot = db.session.get(Envase, first["envase"]["id"]).componentes_snapshot
+        again = svc.registrar_envase(lote.id, produto.id, 4, idempotency_key=key)
+        assert again["ja_registrado"] is True
+        assert again["envase"]["id"] == first["envase"]["id"]
+        assert Movimentacao.query.count() == count and Envase.query.count() == 1
+        from addons.addon_brewstation.features.feature_mash_control.model.brew_session_log import BrewSessionLog
+        assert BrewSessionLog.query.filter_by(session_id=lote.id, source="envase").count() == 1
+        assert Saldo.query.filter_by(material_id=tampa.id).one().quantidade_atual == balance
+        assert lote.custo_total_insumos == cost and again["envase"]["componentes_snapshot"] == snapshot
+        with pytest.raises(svc.RequisicaoEnvaseConflitanteError):
+            svc.registrar_envase(lote.id, produto.id, 5, idempotency_key=key)
+        assert Movimentacao.query.count() == count
+        # Uma NOVA intenção permite outro envase do mesmo produto/volume.
+        other = svc.registrar_envase(lote.id, produto.id, 4, idempotency_key=uuid4().hex)
+        assert other["envase"]["id"] != first["envase"]["id"]
+
+
+def test_registrar_envase_chave_falha_libera_tentativa_sem_baixa(app, monkeypatch):
+    from uuid import uuid4
+    with app.app_context():
+        lote = _criar_lote()
+        tampa = _criar_material_com_estoque("Tampa tentativa idempotente", quantidade_inicial=100)
+        produto = _criar_material_resultante("Produto tentativa idempotente", componentes=[(tampa, 1)])
+        key = uuid4().hex
+        before = Movimentacao.query.count()
+        original = svc.estoque_service.registrar_movimentacao
+        def fail(*args, **kwargs):
+            original(*args, **kwargs)
+            raise RuntimeError("Falha após gravar movimento")
+        monkeypatch.setattr(svc.estoque_service, "registrar_movimentacao", fail)
+        with pytest.raises(RuntimeError):
+            svc.registrar_envase(lote.id, produto.id, 4, idempotency_key=key)
+        assert Envase.query.count() == 0 and Movimentacao.query.count() == before
+        assert db.session.get(BrewSession, lote.id).insumos_baixados_em is None
+        monkeypatch.setattr(svc.estoque_service, "registrar_movimentacao", original)
+        result = svc.registrar_envase(lote.id, produto.id, 4, idempotency_key=key)
+        assert result["ja_registrado"] is False and Envase.query.count() == 1
+
+
+def test_envase_unique_key_recupera_repeticao_detectada_no_flush(app, monkeypatch):
+    from uuid import uuid4
+    with app.app_context():
+        lote = _criar_lote()
+        tampa = _criar_material_com_estoque("Tampa unique race", quantidade_inicial=100)
+        produto = _criar_material_resultante("Produto unique race", componentes=[(tampa, 1)])
+        key = uuid4().hex
+        first = svc.registrar_envase(lote.id, produto.id, 3, idempotency_key=key)
+        count = Movimentacao.query.count()
+        lookup = svc._envase_repetido
+        calls = []
+        def late_lookup(*args):
+            calls.append(True)
+            return None if len(calls) == 1 else lookup(*args)
+        # Simula outra confirmação já persistida entre consulta e INSERT.
+        monkeypatch.setattr(svc, "_envase_repetido", late_lookup)
+        again = svc.registrar_envase(lote.id, produto.id, 3, idempotency_key=key)
+        assert len(calls) == 2 and again["ja_registrado"]
+        assert again["envase"]["id"] == first["envase"]["id"]
+        assert Envase.query.count() == 1 and Movimentacao.query.count() == count
+
+
+def test_envase_falha_log_reverte_movimentos_e_chave(app, monkeypatch):
+    from uuid import uuid4
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_session_log import BrewSessionLog
+    with app.app_context():
+        lote = _criar_lote()
+        tampa = _criar_material_com_estoque("Tampa log rollback", quantidade_inicial=100)
+        produto = _criar_material_resultante("Produto log rollback", componentes=[(tampa, 1)])
+        before = Movimentacao.query.count()
+        add = db.session.add
+        def fail_log(obj, *args, **kwargs):
+            if isinstance(obj, BrewSessionLog):
+                raise RuntimeError("Log indisponível")
+            return add(obj, *args, **kwargs)
+        monkeypatch.setattr(db.session, "add", fail_log)
+        with pytest.raises(RuntimeError):
+            svc.registrar_envase(lote.id, produto.id, 3, idempotency_key=uuid4().hex)
+        assert Movimentacao.query.count() == before and Envase.query.count() == 0
+        assert db.session.get(BrewSession, lote.id).insumos_baixados_em is None

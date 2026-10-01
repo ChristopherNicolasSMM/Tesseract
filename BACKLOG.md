@@ -5522,3 +5522,13 @@ pendente. Ver [testes e SQLAlchemy](docs/patches/brewstation-testes-combos-sqlal
 Retorno da execução curta: dois testes de combos aprovados; teste RBAC nas
 duas variantes bloqueado por senha ausente na fixture. Preparação corrigida
 com User.set_password; validação local pendente, sem migration.
+
+### Envase 2A.2 (01/10/2026)
+
+Correções dos combos/RBAC validadas na execução curta pelo usuário. Registro
+do envase pela sessão implementado: confirmação explícita, proteção de
+repetição persistente, transação central e retorno ao lote histórico. Exige
+flask db upgrade; validação local pendente.
+[Entrega e roteiro](docs/patches/workspace-registro-envase-2a2.md).
+Estorno local (2B), alinhamento da precificação e demais etapas continuam
+pendentes; menus/cadastros avançados preservados.

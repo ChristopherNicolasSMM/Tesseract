@@ -97,3 +97,12 @@ confirmado antes de tratar o processo como consolidado. O estorno 2B já tem
 serviço transacional, mas o retorno/detalhe local ainda precisa ser integrado.
 
 Entrega e testes: [2A.1](../../../../../../docs/patches/workspace-preparacao-envase.md).
+
+## Registro pelo workspace (2A.2)
+
+Envase.idempotency_key é opcional e protegida por índice único; recebida
+via confirmação assinada da prévia. A reserva precede baixas na transação
+central, e repetição recupera o registro sem repetir consumo/log. Rollback
+remove a chave de tentativas malsucedidas. Os callers sem chave continuam
+funcionando; não editar o service gerado. Migration e testes na raiz:
+`docs/patches/workspace-registro-envase-2a2.md`.
