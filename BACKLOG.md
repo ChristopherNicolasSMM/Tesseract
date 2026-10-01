@@ -23,8 +23,10 @@ Incremento 1C: revisão completa e dados planejados de ingredientes aplicados
 e validados pelo usuário em 01/10/2026. Sem migration. Detalhes, rotas e
 roteiro em [workspace-revisao-receita-ingredientes.md](docs/patches/workspace-revisao-receita-ingredientes.md).
 Incremento 2A.1: prévia de produto/litros/composição/custo de embalagens na aba
-Sessões implementada, aguardando pytest e visual locais; sem baixa/reserva.
+Sessões aplicada e validada pelo usuário; sem baixa/reserva.
 Ver [workspace-preparacao-envase.md](docs/patches/workspace-preparacao-envase.md).
+Correção intermediária de seletores e layout implementada, aguardando validação local.
+Ver [seletores e layout](docs/patches/brewstation-seletores-layout.md).
 2A.2 (registro com idempotência), 2B (detalhes/estorno) e etapas 3–6 continuam
 pendentes; menus e cadastros avançados preservados. Custo de embalagem e
 insumos na precificação existente também precisa ser alinhado aos snapshots

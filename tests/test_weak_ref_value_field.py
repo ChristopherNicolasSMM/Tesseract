@@ -274,3 +274,33 @@ def test_tela_de_detalhe_de_dashboard_layout_resolve_nome_da_planta(app, client)
     html = resp.data.decode("utf-8")
     assert "Planta Teste" in html
     assert 'data-weakref-source="brew_plants"' in html
+
+
+def test_api_options_ids_restringe_antes_de_paginar_e_exclui_apagados(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        _, vessel = _criar_plant_vessel()
+        other = BrewPlant(name="Outra planta do combo")
+        db.session.add(other)
+        db.session.flush()
+        foreign = BrewPlantVessel(plant_id=other.id, vessel_type="hlt", label_text="Outro tanque")
+        deleted = BrewPlantVessel(plant_id=vessel.plant_id, vessel_type="hlt", label_text="Apagado", is_deleted=True)
+        db.session.add_all([foreign, deleted])
+        db.session.commit()
+        vid, did = vessel.id, deleted.id
+    result = client.get(f"/api/options/brew_plant_vessels?ids={vid},{did}")
+    assert result.status_code == 200
+    assert [row["id"] for row in result.get_json()["results"]] == [vid]
+    assert client.get("/api/options/brew_plant_vessels?ids=").get_json()["results"] == []
+    for invalid in ("abc", "1,,2", "-1", "0"):
+        assert client.get("/api/options/brew_plant_vessels", query_string={"ids": invalid}).status_code == 400
+
+
+def test_api_options_ids_funciona_com_value_field_name(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        fn = _criar_device_function(name="scoped_temp", display_name="Sensor restrito")
+        fn_id = fn.id
+        _criar_device_function(name="other_temp", display_name="Outro sensor")
+    response = client.get(f"/api/options/device_functions?ids={fn_id}&value_field=name&search=restrito")
+    assert response.get_json()["results"] == [{"id": "scoped_temp", "text": "Sensor restrito"}]

@@ -25,8 +25,8 @@
   overflow-y: auto;
   margin-top: 2px;
   padding: 0;
-  background: #fff;
-  border: 1px solid #dee2e6;
+  background: var(--weakref-bg, #fff);
+  border: 1px solid var(--weakref-border, #dee2e6);
   border-radius: 0 0 0.375rem 0.375rem;
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
 }
@@ -37,10 +37,24 @@
 
 .weakref-combo-results .list-group-item {
   cursor: pointer;
+  background: var(--weakref-bg, #fff);
+  color: var(--weakref-text, #212529);
+  border-color: var(--weakref-border, #dee2e6);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .weakref-combo-results .list-group-item:hover {
-  background-color: #f6f9ff;
+  background-color: var(--weakref-hover, #f6f9ff);
+  color: var(--weakref-text, #212529);
+}
+
+html[data-theme="dark"] .weakref-combo,
+body.dark .weakref-combo, body[data-theme="dark"] .weakref-combo {
+  --weakref-bg: #16213a;
+  --weakref-text: #e5e7eb;
+  --weakref-border: #334155;
+  --weakref-hover: #253655;
 }
 
 /*--------------------------------------------------------------

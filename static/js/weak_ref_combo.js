@@ -54,10 +54,13 @@
       li.style.cursor = "pointer";
       li.textContent = item.text;
       li.addEventListener("click", function () {
+        container._weakrefRequestId = (container._weakrefRequestId || 0) + 1;
         hidden.value = item.id;
         search.value = item.text;
         list.classList.remove("show");
+        search.setCustomValidity("");
         search.blur();
+        hidden.dispatchEvent(new Event("change", { bubbles: true }));
       });
       list.appendChild(li);
     });
@@ -75,15 +78,21 @@
       url += "&value_field=" + encodeURIComponent(valueField);
     }
 
+    if (container.dataset.weakrefIds !== undefined) {
+      url += "&ids=" + encodeURIComponent(container.dataset.weakrefIds);
+    }
+    const requestId = container._weakrefRequestId = (container._weakrefRequestId || 0) + 1;
     fetch(url)
       .then(function (resp) {
         return resp.ok ? resp.json() : { results: [] };
       })
       .then(function (data) {
-        renderResults(container, data.results || []);
+        if (requestId === container._weakrefRequestId && container.isConnected) {
+          renderResults(container, data.results || []);
+        }
       })
       .catch(function () {
-        renderResults(container, []);
+        if (requestId === container._weakrefRequestId) renderResults(container, []);
       });
   }
 
@@ -94,9 +103,14 @@
     const input = container.querySelector(".weakref-combo-search");
     const hidden = container.querySelector(".weakref-combo-value");
 
-    //input.addEventListener("input", debouncedSearch);
+    container.querySelector(".weakref-combo-results").classList.add("list-group");
     input.addEventListener("input", function () {
+      const hadValue = hidden.value !== "";
       hidden.value = "";
+      container._weakrefRequestId = (container._weakrefRequestId || 0) + 1;
+      container.querySelector(".weakref-combo-results").classList.remove("show");
+      input.setCustomValidity(input.value ? "Selecione uma opção da lista." : "");
+      if (hadValue) hidden.dispatchEvent(new Event("change", { bubbles: true }));
       debouncedSearch();
     });
     input.addEventListener("focus", debouncedSearch);

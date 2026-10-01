@@ -1,3 +1,4 @@
+{% from '_reference_combo.html' import reference %}
 <div class="pagetitle d-flex justify-content-between align-items-center">
   <h1>Timeline: {{ recipe.name }} <span class="text-muted small">v{{ recipe.versao }}</span></h1>
   <div class="d-flex gap-2">
@@ -104,11 +105,8 @@
             </div>
             <div class="mb-3">
               <label class="form-label">Planta</label>
-              <select name="plant_id" class="form-select" required>
-                {% for p in plants %}
-                <option value="{{ p.id }}" {{ 'selected' if default_plant_id and p.id == default_plant_id else '' }}>{{ p.name }}</option>
-                {% endfor %}
-              </select>
+              {% set chosen_plant = (plants|selectattr('id', 'equalto', default_plant_id)|first) if default_plant_id else (plants|first) %}
+              {{ reference('timelinePlant', 'brew_plants', value=chosen_plant.id if chosen_plant else '', text=chosen_plant.name if chosen_plant else '', name='plant_id', ids=plants|map(attribute='id')|list, required=true, placeholder='Buscar planta') }}
             </div>
             <div class="mb-3">
               <label class="form-label">Status inicial</label>

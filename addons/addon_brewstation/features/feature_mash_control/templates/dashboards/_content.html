@@ -1,26 +1,17 @@
+{% from '_reference_combo.html' import reference %}
 <div class="pagetitle d-flex justify-content-between align-items-center flex-wrap gap-2">
   <h1>{{ layout.name }}</h1>
-  <div class="d-flex align-items-center gap-2">
-    {% if not is_fragment and all_layouts|length > 1 %}
-    <select class="form-select form-select-sm" style="width:auto;" onchange="window.location.href=this.value">
-      {% for l in all_layouts %}
-      <option value="{{ url_for('dashboard_runtime.view', layout_id=l.id) }}" {{ 'selected' if l.id == layout.id else '' }}>{{ l.name }}</option>
-      {% endfor %}
-    </select>
-    {% endif %}
-    {% if is_fragment and all_layouts|length > 1 %}
-    <label for="pwDashboardSelector" class="visually-hidden">Dashboard da planta</label>
-    <select id="pwDashboardSelector" class="form-select form-select-sm" style="width:auto;"
-            onchange="window.__workspaceLoadUrl(this.value)">
-      {% for l in all_layouts %}
-      <option value="{{ url_for('plant_workspace.tab_dashboard', plant_id=layout.plant_id, layout_id=l.id) }}" {{ 'selected' if l.id == layout.id else '' }}>{{ l.name }}</option>
-      {% endfor %}
-    </select>
+  <div class="d-flex align-items-center flex-wrap gap-2">
+    {% if all_layouts|length > 1 %}
+    <div style="width: 220px; max-width: 100%;">
+      {{ reference('pwDashboardSelector', 'dashboard_layouts', value=layout.id, text=layout.name, ids=all_layouts|map(attribute='id')|list, placeholder='Buscar dashboard') }}
+    </div>
     {% endif %}
     {% if layout.plant_id %}
-    <select id="dbSessionSelector" class="form-select form-select-sm" style="width:auto; max-width:220px;" title="Sessão exibida neste Dashboard">
-      <option value="">Detecção automática</option>
-    </select>
+    <div style="width: 220px; max-width: 100%;">
+      {{ reference('dbSessionSelector', 'brew_sessions', ids=[], placeholder='Detecção automática') }}
+      <button type="button" id="dbSessionAuto" class="btn btn-sm btn-link">Detecção automática</button>
+    </div>
     {% endif %}
     <button type="button" id="dbEditToggle" class="btn btn-sm btn-outline-warning">
       <i class="bi bi-unlock"></i> Modo Edição
@@ -373,21 +364,11 @@
       </div>
       <div class="mb-2 db-panel-field" data-field="vessel_ref">
         <label class="form-label small">Tanque</label>
-        <select id="dbPanelVessel" class="form-select form-select-sm">
-          <option value="">— nenhum —</option>
-          {% for vid, v in vessels_by_id.items() %}
-          <option value="{{ vid }}">{{ v.label_text }}</option>
-          {% endfor %}
-        </select>
+        {{ reference('dbPanelVessel', 'brew_plant_vessels', ids=vessels_by_id|list, placeholder='Buscar tanque; apague para remover') }}
       </div>
       <div class="mb-2 db-panel-field" data-field="function_ref">
-        <label class="form-label small">Function do dispositivo</label>
-        <select id="dbPanelFunction" class="form-select form-select-sm">
-          <option value="">— nenhuma —</option>
-          {% for f in device_functions %}
-          <option value="{{ f.name }}">{{ f.display_name or f.name }} ({{ f.category }})</option>
-          {% endfor %}
-        </select>
+        <label class="form-label small">Função do dispositivo</label>
+        {{ reference('dbPanelFunction', 'device_functions', value_field='name', placeholder='Buscar função; apague para remover') }}
       </div>
       <div class="mb-2 db-panel-field" data-field="svg_shape">
         <label class="form-label small">Formato do tanque</label>
@@ -416,7 +397,7 @@
       </div>
       <div class="mb-2 db-panel-field" data-field="session_window">
         <div class="row g-2">
-          <div class="col-6"><label class="form-label small">Sessão (opcional)</label><input type="number" id="dbPanelSessionId" class="form-control form-control-sm"></div>
+          <div class="col-6"><label class="form-label small">Sessão (opcional)</label>{{ reference('dbPanelSessionId', 'brew_sessions', placeholder='Buscar sessão; vazio usa a atual') }}</div>
           <div class="col-6"><label class="form-label small">Janela (min)</label><input type="number" id="dbPanelWindowMinutes" class="form-control form-control-sm" value="60"></div>
         </div>
       </div>

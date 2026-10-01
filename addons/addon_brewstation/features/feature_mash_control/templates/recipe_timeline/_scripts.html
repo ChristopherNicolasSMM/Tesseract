@@ -1,6 +1,7 @@
 <script>
 (function () {
   'use strict';
+  window.TesseractWeakRef.init(document);
   const recipeId = {{ recipe.id }};
   const addStepUrl = "{{ url_for('recipe_timeline.add_step', recipe_id=recipe.id) }}";
   const reorderUrl = "{{ url_for('recipe_timeline.reorder_steps', recipe_id=recipe.id) }}";

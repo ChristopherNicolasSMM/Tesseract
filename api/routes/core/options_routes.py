@@ -81,6 +81,16 @@ def get_options(plural: str):
     if hasattr(model_cls, "is_deleted"):
         query = query.filter_by(is_deleted=False)
 
+    if "ids" in request.args:
+        try:
+            raw_ids = request.args["ids"]
+            ids = [int(value) for value in raw_ids.split(",")] if raw_ids else []
+            if any(value <= 0 for value in ids):
+                raise ValueError
+        except ValueError:
+            return jsonify({"error": "Lista de referências inválida."}), 400
+        query = query.filter(model_cls.id.in_(ids))
+
     display_column = getattr(model_cls, display_field, None)
     if search and display_column is not None:
         query = query.filter(display_column.ilike(f"%{search}%"))

@@ -1,3 +1,4 @@
+{% from '_reference_combo.html' import reference %}
 {# Formulários locais; gravação usa os serviços existentes. #}
 <div class="card mt-3"><div class="card-body">
 <h5 class="card-title">Editar configuração desta planta</h5>
@@ -27,7 +28,7 @@
 {% for mapping in mappings %}
 <details id="pwEditMapping{{ mapping.id }}" class="mt-3"><summary>Vínculo: {{ mapping.role_key }} — {{ mapping.device_function_name }}</summary>
 <form class="pw-edit-form row g-2 mt-2" method="post" action="{{ url_for('plant_workspace.update_mapping', plant_id=plant.id, mapping_id=mapping.id) }}">
-  <div class="col-md-4"><label class="form-label" for="pwMV{{ mapping.id }}">Tanque</label><select id="pwMV{{ mapping.id }}" name="vessel_id" class="form-select" required>{% for vessel in vessels %}<option value="{{ vessel.id }}" {{ 'selected' if mapping.vessel_id == vessel.id else '' }}>{{ vessel.label_text }}</option>{% endfor %}</select></div>
+  <div class="col-md-4"><label class="form-label" for="pwMV{{ mapping.id }}Search">Tanque</label>{% set current_vessel = vessels|selectattr('id', 'equalto', mapping.vessel_id)|first %}{{ reference('pwMV' ~ mapping.id, 'brew_plant_vessels', value=mapping.vessel_id, text=current_vessel.label_text if current_vessel else '', name='vessel_id', ids=vessels|map(attribute='id')|list, required=true, placeholder='Buscar tanque da planta') }}</div>
   <div class="col-md-4"><label class="form-label" for="pwMR{{ mapping.id }}">Papel</label><select id="pwMR{{ mapping.id }}" name="role_key" class="form-select" required>{% for value, text in [('sensor_temp','Sensor de temperatura'),('actor_heat','Atuador de aquecimento'),('actor_flow','Atuador de fluxo')] %}<option value="{{ value }}" {{ 'selected' if mapping.role_key == value else '' }}>{{ text }}</option>{% endfor %}{% if mapping.role_key not in ['sensor_temp', 'actor_heat', 'actor_flow'] %}<option selected value="{{ mapping.role_key }}">{{ mapping.role_key }} (personalizado)</option>{% endif %}</select></div>
   <div class="col-md-4"><label class="form-label" for="pwMF{{ mapping.id }}">Função</label>
     <div class="weakref-combo" data-weakref-source="device_functions" data-weakref-value-field="name">

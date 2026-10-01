@@ -2,6 +2,7 @@
 <script>
 (function () {
   'use strict';
+  window.TesseractWeakRef.init(document);
   const layoutId = {{ layout.id }};
   const snapshotUrl = "{{ url_for('dashboard_runtime.snapshot', layout_id=layout.id) }}";
   const setValueUrlTemplate = "{{ url_for('dashboard_runtime.set_value', widget_id=0) }}";
@@ -558,28 +559,38 @@
     });
   });
 
-  // Seletor de sessão (conversa — "selecionar sessão ativa de forma mais
-  // dinâmica"): dropdown alimentado pelo próprio snapshot, sem round-trip
-  // extra. Preserva a seleção manual do usuário entre polls — só
-  // reconstrói as <option> se a lista de sessões mudou de verdade.
-  let lastSessionOptionsKey = null;
+  // O snapshot delimita as sessões elegíveis; a busca usa o combo do Core.
   function populateSessionSelector(sessions, autoDetectedId) {
     const sel = document.getElementById('dbSessionSelector');
     if (!sel) return;
-    const key = sessions.map(function (s) { return s.id + ':' + s.status; }).join(',');
-    if (key === lastSessionOptionsKey) return;
-    lastSessionOptionsKey = key;
-    const currentValue = sel.value;
-    sel.innerHTML = '<option value="">Detecção automática' + (autoDetectedId ? ' (#' + autoDetectedId + ')' : '') + '</option>';
-    sessions.forEach(function (s) {
-      const opt = document.createElement('option');
-      opt.value = s.id;
-      opt.textContent = '#' + s.id + ' — ' + s.name + ' (' + s.status + ')';
-      sel.appendChild(opt);
-    });
-    sel.value = currentValue; // restaura seleção manual, se ainda existir na lista
+    const combo = sel.closest('.weakref-combo');
+    combo.dataset.weakrefIds = sessions.map(function (s) { return s.id; }).join(',');
+    combo.querySelector('.weakref-combo-search').placeholder = 'Detecção automática' + (autoDetectedId ? ' (#' + autoDetectedId + ')' : '');
   }
 
+  function setReferenceValue(input, value, label) {
+    input.value = value || '';
+    const search = input.closest('.weakref-combo').querySelector('.weakref-combo-search');
+    search.value = label || value || '';
+    search.setCustomValidity('');
+  }
+  const dashboardSelector = document.getElementById('pwDashboardSelector');
+  const dashboardUrls = {
+    {% for item in all_layouts %}
+    {{ item.id|tojson }}: {{ (url_for('plant_workspace.tab_dashboard', plant_id=layout.plant_id, layout_id=item.id) if is_fragment else url_for('dashboard_runtime.view', layout_id=item.id))|tojson }},
+    {% endfor %}
+  };
+  if (dashboardSelector) dashboardSelector.addEventListener('change', function () {
+    const url = dashboardUrls[this.value];
+    if (!url) return;
+    {% if is_fragment %}window.__workspaceLoadUrl(url);{% else %}window.location.href = url;{% endif %}
+  });
+  const vesselLabels = {
+    {% for vid, vessel in vessels_by_id.items() %}{{ vid|tojson }}: {{ vessel.label_text|tojson }},{% endfor %}
+  };
+  const functionLabels = {
+    {% for fn in device_functions %}{{ fn.name|tojson }}: {{ (fn.display_name or fn.name)|tojson }},{% endfor %}
+  };
   const sessionSelectorEl = document.getElementById('dbSessionSelector');
   if (sessionSelectorEl) {
     sessionSelectorEl.addEventListener('change', function () {
@@ -587,6 +598,12 @@
       refresh();
     });
   }
+
+  const autoSession = document.getElementById('dbSessionAuto');
+  if (autoSession) autoSession.addEventListener('click', function () {
+    setReferenceValue(sessionSelectorEl, '', '');
+    sessionSelectorEl.dispatchEvent(new Event('change', { bubbles: true }));
+  });
 
   function initCharts(fallbackSessionId) {
     document.querySelectorAll('.db-chart').forEach(function (canvas) {
@@ -850,15 +867,16 @@
     document.getElementById('dbPanelTitle').textContent = (el.dataset.labelText || type);
     document.getElementById('dbPanelWidgetId').value = el.dataset.widgetId;
     document.getElementById('dbPanelLabel').value = el.dataset.labelText || '';
-    document.getElementById('dbPanelVessel').value = el.dataset.vesselId || '';
-    document.getElementById('dbPanelFunction').value = el.dataset.deviceFunctionName || '';
+    setReferenceValue(document.getElementById('dbPanelVessel'), el.dataset.vesselId, vesselLabels[el.dataset.vesselId]);
+    setReferenceValue(document.getElementById('dbPanelFunction'), el.dataset.deviceFunctionName, functionLabels[el.dataset.deviceFunctionName]);
     document.getElementById('dbPanelSvgShape').value = config.svg_shape || 'mash_tun';
     document.getElementById('dbPanelFillRoleKey').value = config.fill_role_key || '';
     document.getElementById('dbPanelSetpoint').value = config.setpoint !== undefined && config.setpoint !== null ? config.setpoint : '';
     document.getElementById('dbPanelMin').value = config.min !== undefined ? config.min : '';
     document.getElementById('dbPanelMax').value = config.max !== undefined ? config.max : '';
     document.getElementById('dbPanelDecimalPlaces').value = config.decimal_places !== undefined ? config.decimal_places : 1;
-    document.getElementById('dbPanelSessionId').value = config.session_id || '';
+    const chartSession = ((lastSnapshot && lastSnapshot.available_sessions) || []).find(function (session) { return session.id === config.session_id; });
+    setReferenceValue(document.getElementById('dbPanelSessionId'), config.session_id, chartSession ? chartSession.name : '');
     document.getElementById('dbPanelWindowMinutes').value = config.window_minutes || 60;
     document.getElementById('dbPanelContent').value = config.content || '';
     document.getElementById('dbPanelImageUrl').value = config.image_url || '';
@@ -948,6 +966,9 @@
 
   document.getElementById('dbPanelSaveBtn').addEventListener('click', function () {
     if (!selectedWidgetEl) return;
+    const invalidReference = Array.from(document.querySelectorAll('.db-panel-field .weakref-combo-search'))
+      .find(function (input) { return input.offsetParent !== null && !input.checkValidity(); });
+    if (invalidReference) { invalidReference.reportValidity(); return; }
     const widgetId = document.getElementById('dbPanelWidgetId').value;
     const type = selectedWidgetEl.dataset.widgetType;
     const configJson = {};
@@ -1006,42 +1027,38 @@
   {% if layout.plant_id %}
   // Modal de Tubulação
   const pipesModal = new bootstrap.Modal(document.getElementById('dbPipesModal'));
-  const vesselOptions = [
-    {% for vid, v in vessels_by_id.items() %}
-    { id: {{ vid }}, label: {{ v.label_text | tojson }} },
-    {% endfor %}
-  ];
-  const actuatorFunctionOptions = [
-    {% for f in actuator_functions %}
-    { name: {{ f.name | tojson }}, label: {{ (f.display_name or f.name) | tojson }} },
-    {% endfor %}
-  ];
-
-  function pipeRowHtml(conn) {
-    conn = conn || {};
-    const opts = vesselOptions.map(function (v) {
-      return '<option value="' + v.id + '">' + v.label + '</option>';
-    }).join('');
-    const functionOpts = '<option value="">—</option>' + actuatorFunctionOptions.map(function (f) {
-      return '<option value="' + f.name + '">' + f.label + '</option>';
-    }).join('');
+  function pipeReference(className, source, ids, valueField) {
+    // Identificadores/classes/fontes são constantes; rótulos entram por .value.
+    return '<div class="weakref-combo" data-weakref-source="' + source + '" data-weakref-ids="' + ids.join(',') + '"' +
+      (valueField ? ' data-weakref-value-field="' + valueField + '"' : '') + '>' +
+      '<input type="hidden" class="weakref-combo-value ' + className + '">' +
+      '<input type="text" class="form-control form-control-sm weakref-combo-search" aria-label="Buscar referência" placeholder="Buscar e selecionar…" autocomplete="off">' +
+      '<ul class="list-group weakref-combo-results"></ul></div>';
+  }
+  function pipeRowHtml() {
+    const vesselIds = {{ vessels_by_id|list|tojson }};
+    const functionIds = {{ actuator_functions|map(attribute='id')|list|tojson }};
     return '<div class="row g-2 mb-2 db-pipe-row align-items-end">' +
-      '<div class="col-3"><label class="form-label small">De</label><select class="form-select form-select-sm db-pipe-from">' + opts + '</select></div>' +
-      '<div class="col-3"><label class="form-label small">Para</label><select class="form-select form-select-sm db-pipe-to">' + opts + '</select></div>' +
-      '<div class="col-2"><label class="form-label small">Atuador de fluxo</label><select class="form-select form-select-sm db-pipe-function">' + functionOpts + '</select></div>' +
-      '<div class="col-2"><label class="form-label small">Cor</label><input type="color" class="form-control form-control-sm form-control-color db-pipe-color" value="' + (conn.color || '#3498db') + '"></div>' +
-      '<div class="col-1"><label class="form-label small">Esp.</label><input type="number" class="form-control form-control-sm db-pipe-width" value="' + (conn.width || 6) + '"></div>' +
-      '<div class="col-1"><button type="button" class="btn btn-sm btn-outline-danger db-pipe-remove"><i class="bi bi-x"></i></button></div>' +
-      '</div>';
+      '<div class="col-md-3"><label class="form-label small">De</label>' + pipeReference('db-pipe-from', 'brew_plant_vessels', vesselIds) + '</div>' +
+      '<div class="col-md-3"><label class="form-label small">Para</label>' + pipeReference('db-pipe-to', 'brew_plant_vessels', vesselIds) + '</div>' +
+      '<div class="col-md-3"><label class="form-label small">Atuador de fluxo</label>' + pipeReference('db-pipe-function', 'device_functions', functionIds, 'name') + '</div>' +
+      '<div class="col-4 col-md-1"><label class="form-label small">Cor</label><input type="color" class="form-control form-control-sm form-control-color db-pipe-color"></div>' +
+      '<div class="col-4 col-md-1"><label class="form-label small">Esp.</label><input type="number" class="form-control form-control-sm db-pipe-width"></div>' +
+      '<div class="col-4 col-md-1"><button type="button" class="btn btn-sm btn-outline-danger db-pipe-remove" aria-label="Remover conexão"><i class="bi bi-x"></i></button></div></div>';
   }
 
   function addPipeRow(conn) {
     const wrap = document.createElement('div');
     wrap.innerHTML = pipeRowHtml(conn);
     const row = wrap.firstElementChild;
-    if (conn && conn.from_vessel_id) row.querySelector('.db-pipe-from').value = conn.from_vessel_id;
-    if (conn && conn.to_vessel_id) row.querySelector('.db-pipe-to').value = conn.to_vessel_id;
-    if (conn && conn.flow_function_name) row.querySelector('.db-pipe-function').value = conn.flow_function_name;
+    row.querySelector('.db-pipe-from').closest('.weakref-combo').querySelector('.weakref-combo-search').required = true;
+    row.querySelector('.db-pipe-to').closest('.weakref-combo').querySelector('.weakref-combo-search').required = true;
+    const values = conn || {};
+    setReferenceValue(row.querySelector('.db-pipe-from'), values.from_vessel_id, vesselLabels[values.from_vessel_id]);
+    setReferenceValue(row.querySelector('.db-pipe-to'), values.to_vessel_id, vesselLabels[values.to_vessel_id]);
+    setReferenceValue(row.querySelector('.db-pipe-function'), values.flow_function_name, functionLabels[values.flow_function_name]);
+    row.querySelector('.db-pipe-color').value = values.color || '#3498db';
+    row.querySelector('.db-pipe-width').value = values.width || 6;
     // Geometria (from_anchor/to_anchor/waypoints) editada no canvas viaja
     // junto da linha — o modal só edita identidade/estilo, nunca mexe
     // nisso, mas precisa devolver intacto no Salvar (conversa — editor
@@ -1054,6 +1071,7 @@
     }
     row.querySelector('.db-pipe-remove').addEventListener('click', function () { row.remove(); });
     document.getElementById('dbPipesRows').appendChild(row);
+    window.TesseractWeakRef.init(row);
   }
 
   document.getElementById('dbEditPipesBtn').addEventListener('click', function () {
@@ -1083,6 +1101,9 @@
   }
 
   document.getElementById('dbPipesSaveBtn').addEventListener('click', function () {
+    const invalidReference = Array.from(document.querySelectorAll('#dbPipesRows .weakref-combo-search'))
+      .find(function (input) { return !input.checkValidity(); });
+    if (invalidReference) { invalidReference.reportValidity(); return; }
     const connections = Array.from(document.querySelectorAll('.db-pipe-row')).map(function (row) {
       const fromId = parseInt(row.querySelector('.db-pipe-from').value, 10);
       const toId = parseInt(row.querySelector('.db-pipe-to').value, 10);
@@ -1104,7 +1125,10 @@
     fetch(connectionsUrl, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ connections: connections }),
-    }).then(function () { pipesModal.hide(); refresh(); });
+    }).then(function (response) {
+      if (!response.ok) return response.json().then(function (data) { throw new Error(data.error || 'Erro ao salvar tubulação.'); });
+      pipesModal.hide(); refresh();
+    }).catch(function (error) { window.__tesseractToast.show(error.message || 'Erro ao salvar tubulação.', 'error'); });
   });
   {% endif %}
 

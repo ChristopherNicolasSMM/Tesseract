@@ -358,6 +358,10 @@ def test_tela_pendentes_retorna_200(app, client, mock_client):
     resp = client.get("/brewstation/brewfather-syncs/pendentes", follow_redirects=True)
     assert resp.status_code == 200
     assert "De-Para" in resp.data.decode("utf-8") or "Pendentes" in resp.data.decode("utf-8")
+    html = resp.data.decode("utf-8")
+    assert 'data-weakref-source="materials"' in html
+    assert "js/weak_ref_combo.js" in html
+    assert "material-search-input" not in html
 
 
 def test_resolver_pendente_cria_mapeamento(app, client, mock_client):

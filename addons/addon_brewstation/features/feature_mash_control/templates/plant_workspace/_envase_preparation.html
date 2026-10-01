@@ -30,7 +30,7 @@
   function clearPreview() { revision += 1; output.replaceChildren(); }
   form.addEventListener('input', clearPreview);
   form.addEventListener('change', clearPreview);
-  // O combo padrão atualiza o campo oculto ao clicar, sem emitir change.
+  // Compatibilidade com fragmentos servidos antes da atualização do Core.
   form.addEventListener('click', function (event) {
     if (event.target.closest('.weakref-combo-results li')) clearPreview();
   });

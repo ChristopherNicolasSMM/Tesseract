@@ -63,6 +63,11 @@
       </div>
     </div>
 
+    {% endif %}
+  </div>
+</div>
+{% if selected_session %}
+<div id="pwSessionDetails" class="mt-3">
     {% include 'plant_workspace/_session_management.html' %}
 
     <div class="card bg-dark border-secondary mb-3">
@@ -169,9 +174,8 @@
         </div>
       </div>
     </div>
-    {% endif %}
-  </div>
 </div>
+{% endif %}
 
 <script>
 // Trocar de sessão dentro da aba não pode navegar a página inteira

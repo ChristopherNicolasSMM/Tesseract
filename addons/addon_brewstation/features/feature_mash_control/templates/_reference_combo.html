@@ -1,0 +1,7 @@
+{% macro reference(id, source, value='', text='', name='', ids=none, value_field='', required=false, placeholder='Buscar e selecionar…') -%}
+<div class="weakref-combo" data-weakref-source="{{ source }}"{% if ids is not none %} data-weakref-ids="{{ ids|join(',') }}"{% endif %}{% if value_field %} data-weakref-value-field="{{ value_field }}"{% endif %}>
+  <input type="hidden" id="{{ id }}" class="weakref-combo-value"{% if name %} name="{{ name }}"{% endif %} value="{{ value if value is not none else '' }}">
+  <input type="text" id="{{ id }}Search" class="form-control weakref-combo-search" value="{{ text }}" placeholder="{{ placeholder }}" aria-label="{{ placeholder }}" autocomplete="off"{% if required %} required{% endif %}>
+  <ul class="list-group weakref-combo-results"></ul>
+</div>
+{%- endmacro %}

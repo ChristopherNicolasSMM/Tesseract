@@ -818,9 +818,9 @@ def test_view_renderiza_checkbox_de_acionamento_manual_no_painel(app, client):
     assert "manual_control_enabled" in html
 
 
-def test_editor_tubulacao_atuador_de_fluxo_agora_e_select_com_functions(app, client):
+def test_editor_tubulacao_atuador_de_fluxo_usa_combo_padrao(app, client):
     """Achado real (conversa): o campo "Atuador de fluxo" era texto
-    livre — vira select com as Functions de atuador disponíveis
+    livre — usa combo pesquisável com as funções de atuador disponíveis
     (mesma referência fraca cross-Addon de sempre, skill 02)."""
     _login_admin(app, client)
     with app.app_context():
@@ -836,7 +836,9 @@ def test_editor_tubulacao_atuador_de_fluxo_agora_e_select_com_functions(app, cli
 
     resp = client.get(f"/brewstation/dashboards/{layout_id}/view")
     html = resp.data.decode("utf-8")
-    assert "actuatorFunctionOptions" in html
+    assert "pipeReference('db-pipe-function', 'device_functions', functionIds, 'name')" in html
+    assert 'data-weakref-source="device_functions"' in html
+    assert 'data-weakref-value-field="name"' in html
     assert "bomba_transfer2" in html
     assert "db-pipe-function" in html
 

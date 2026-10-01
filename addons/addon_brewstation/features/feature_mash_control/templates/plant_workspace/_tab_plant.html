@@ -1,3 +1,4 @@
+{% from '_reference_combo.html' import reference %}
 {# Fragmento AJAX da aba Planta (conversa — workspace consolidado):
    consolida os dados da própria Planta + Tanques + Mapeamentos de
    Planta. O script do formulário não cria intervalos nem listeners globais. #}
@@ -100,11 +101,8 @@
     <p class="small text-muted mb-0">Cadastre um tanque e uma função de dispositivo antes de criar o mapeamento.</p>
     {% else %}
     <form id="pwMappingForm" method="post" action="{{ url_for('plant_workspace.create_mapping', plant_id=plant.id) }}" class="row g-2 align-items-end">
-      <div class="col-md-3"><label class="form-label" for="pwMappingVessel">Tanque</label>
-        <select class="form-select" id="pwMappingVessel" name="vessel_id" required>
-          <option value="">Selecione</option>
-          {% for vessel in vessels %}<option value="{{ vessel.id }}">{{ vessel.label_text }}</option>{% endfor %}
-        </select></div>
+      <div class="col-md-3"><label class="form-label" for="pwMappingVesselSearch">Tanque</label>
+        {{ reference('pwMappingVessel', 'brew_plant_vessels', name='vessel_id', ids=vessels|map(attribute='id')|list, required=true, placeholder='Buscar tanque da planta') }}</div>
       <div class="col-md-3"><label class="form-label" for="pwMappingRole">Papel</label>
         <select class="form-select" id="pwMappingRole" name="role_key" required>
           <option value="">Selecione</option>

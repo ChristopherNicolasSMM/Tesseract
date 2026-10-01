@@ -189,3 +189,17 @@ integram entrada/consulta no card existente. Campos do lote ou de outras
 sessões enviados em query não são usados como destino. Sem migration.
 
 [Rotas, testes e pendências](../../../../../../docs/patches/workspace-preparacao-envase.md).
+
+## Seletores manuais e layout do workspace
+
+As referências dos partials manuais usam `_reference_combo.html` e o componente
+Core `TesseractWeakRef`. `data-weakref-ids` limita a pesquisa aos IDs fornecidos
+pelo contexto; vazio significa conjunto vazio. A API aplica esse limite antes
+da paginação, sem substituir validações de permissão/pertencimento no POST.
+Funções usam `data-weakref-value-field="name"`. O Core emite `change` ao escolher
+ou limpar uma referência e descarta respostas fora de ordem.
+
+O conteúdo de Sessões após o resumo fica em `#pwSessionDetails`, fora das
+colunas da lista e do resumo. Não recolocar os detalhes na coluna direita.
+Inventário, comandos e roteiro: `docs/patches/brewstation-seletores-layout.md`
+na raiz do repositório. Não há migration nesta correção.

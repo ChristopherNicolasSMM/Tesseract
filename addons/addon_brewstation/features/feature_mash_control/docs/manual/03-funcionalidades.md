@@ -273,3 +273,17 @@ Custos ausentes deixam a estimativa parcial; o custo registrado de insumos
 ainda não confirmados no registro existente. A prévia não grava envase,
 não reserva/baixa estoque nem confirma ingredientes. Registro e estorno
 continuam nas telas existentes. [Manual de envase](../../../feature_envase/docs/manual/03-funcionalidades.md).
+
+## Seletores e aproveitamento da tela de mostura
+
+Na aba Sessões, a lista e o resumo ficam na primeira linha. Os demais cards
+ocupam a largura abaixo, incluindo ingredientes e preparação de envase.
+Em uma janela estreita, os cards são empilhados.
+
+Para escolher planta, tanque, painel, sessão, material ou função de dispositivo,
+digite parte do nome e clique no resultado. Somente digitar não confirma a
+escolha. Para remover uma referência opcional, apague o texto. No Dashboard,
+o botão **Detecção automática** volta à sessão escolhida automaticamente.
+Os seletores de tanques respeitam a planta e a tubulação oferece funções de
+atuadores. Status, tipos e demais opções fixas continuam nas caixas de seleção.
+As opções pesquisadas devem ser legíveis nos temas claro e escuro.

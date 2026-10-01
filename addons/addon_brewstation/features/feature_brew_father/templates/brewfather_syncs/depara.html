@@ -46,13 +46,11 @@
             {# Busca material existente #}
             <div class="col-md-5">
               <label class="form-label small mb-1">Material existente no estoque</label>
-              <div class="input-group">
-                <input type="text" class="form-control form-control-sm material-search-input"
-                       placeholder="Buscar por nome..."
-                       data-target-id="material_id_{{ loop.index }}">
-                <input type="hidden" name="material_id" id="material_id_{{ loop.index }}">
+              <div class="weakref-combo" data-weakref-source="materials">
+                <input type="hidden" name="material_id" class="weakref-combo-value">
+                <input type="text" class="form-control form-control-sm weakref-combo-search" placeholder="Buscar material..." aria-label="Material existente no estoque" autocomplete="off">
+                <ul class="list-group weakref-combo-results"></ul>
               </div>
-              <div class="material-search-results list-group mt-1" id="results_{{ loop.index }}" style="display:none; position:absolute; z-index:100; min-width:300px;"></div>
             </div>
 
             {# OU cadastrar novo #}
@@ -79,61 +77,6 @@
 </section>
 {% endblock %}
 
-{% block scripts %}
-<script>
-// Autocomplete leve para busca de Material no addon_estoque.
-// Vanilla JS, sem dependência externa — consistente com o padrão do projeto.
-document.querySelectorAll(".material-search-input").forEach(function(input) {
-  var targetId = input.dataset.targetId;
-  var hiddenInput = document.getElementById(targetId);
-  var resultsIndex = targetId.replace("material_id_", "");
-  var resultsDiv = document.getElementById("results_" + resultsIndex);
-  var debounceTimer;
-
-  input.addEventListener("input", function() {
-    clearTimeout(debounceTimer);
-    var q = input.value.trim();
-    hiddenInput.value = "";
-
-    if (q.length < 2) {
-      resultsDiv.style.display = "none";
-      resultsDiv.innerHTML = "";
-      return;
-    }
-
-    debounceTimer = setTimeout(function() {
-      fetch("/api/brewstation/brewfather-syncs/buscar-materiais?q=" + encodeURIComponent(q))
-        .then(function(r) { return r.json(); })
-        .then(function(itens) {
-          resultsDiv.innerHTML = "";
-          if (itens.length === 0) {
-            resultsDiv.style.display = "none";
-            return;
-          }
-          itens.forEach(function(item) {
-            var btn = document.createElement("button");
-            btn.type = "button";
-            btn.className = "list-group-item list-group-item-action py-1 px-2";
-            btn.innerHTML = "<strong>" + item.nome + "</strong> <small class='text-muted'>(" + item.categoria + ")</small>";
-            btn.addEventListener("click", function() {
-              input.value = item.nome;
-              hiddenInput.value = item.id;
-              resultsDiv.style.display = "none";
-            });
-            resultsDiv.appendChild(btn);
-          });
-          resultsDiv.style.display = "block";
-        })
-        .catch(function() { resultsDiv.style.display = "none"; });
-    }, 300);
-  });
-
-  // Fecha os resultados ao clicar fora
-  document.addEventListener("click", function(e) {
-    if (!input.contains(e.target) && !resultsDiv.contains(e.target)) {
-      resultsDiv.style.display = "none";
-    }
-  });
-});
-</script>
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>
 {% endblock %}

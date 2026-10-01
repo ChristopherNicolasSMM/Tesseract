@@ -582,7 +582,8 @@ def test_dashboard_workspace_seleciona_layout_sem_sair_da_planta(app, client):
     html = response.data.decode("utf-8")
     assert '<h1>Painel Alternativo Seleção</h1>' in html
     assert 'id="pwDashboardSelector"' in html
-    assert 'onchange="window.__workspaceLoadUrl(this.value)"' in html
+    assert 'data-weakref-source="dashboard_layouts"' in html
+    assert 'window.__workspaceLoadUrl(url)' in html
     assert 'id="pwLayoutEditForm"' in html
     assert 'id="pwLayoutAdditionalForm"' in html
     assert "window.__workspaceOpenTab('recipe')" in html
@@ -1357,7 +1358,9 @@ def test_tab_recipe_pre_seleciona_planta_do_workspace_no_gerar_sessao(app, clien
 
     resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/recipe?recipe_id={recipe_id}")
     html = resp.data.decode("utf-8")
-    assert f'<option value="{plant_id}" selected>' in html
+    assert 'data-weakref-source="brew_plants"' in html
+    assert f'name="plant_id" value="{plant_id}"' in html
+    assert 'value="Planta Pre Selecionada"' in html
 
 
 def test_tab_recipe_reload_view_usa_helper_do_workspace_nao_reload_de_pagina(app, client):
