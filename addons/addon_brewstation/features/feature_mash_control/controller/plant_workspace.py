@@ -286,7 +286,7 @@ def update_layout(plant_id, layout_id):
 @login_required
 @permission_required("brew_plants.list")
 def shell(plant_id: int):
-    plant = BrewPlant.query.get(plant_id)
+    plant = db.session.get(BrewPlant, plant_id)
     if not plant or plant.is_deleted:
         flash("Planta não encontrada.", "error")
         return redirect(url_for("plant_workspace.landing"))
@@ -302,7 +302,7 @@ def shell(plant_id: int):
 @login_required
 @permission_required("dashboard_layouts.list")
 def tab_dashboard(plant_id: int):
-    plant = BrewPlant.query.get(plant_id)
+    plant = db.session.get(BrewPlant, plant_id)
     if not plant or plant.is_deleted:
         return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada.")
 
@@ -413,7 +413,7 @@ def tab_sessions(plant_id: int):
 
     "Adicionar Etapa" usa a aba Receita Mash para alterar a receita-modelo.
     "Nova" abre o seletor de receitas da mesma aba."""
-    plant = BrewPlant.query.get(plant_id)
+    plant = db.session.get(BrewPlant, plant_id)
     if not plant or plant.is_deleted:
         return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada.")
 
@@ -506,7 +506,7 @@ def tab_sessions(plant_id: int):
 def tab_plant(plant_id: int):
     """Consulta, cadastro e edição local de planta, tanques e vínculos.
     Configuração avançada e manutenção continuam nos cadastros completos."""
-    plant = BrewPlant.query.get(plant_id)
+    plant = db.session.get(BrewPlant, plant_id)
     if not plant or plant.is_deleted:
         return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada.")
 
@@ -665,7 +665,7 @@ def tab_recipe(plant_id: int):
     de receitas ativas pra escolher. Com `?recipe_id=`, reúne ficha,
     ingredientes, custo e timeline da receita; o formulário gera a
     sessão e seleciona o novo lote na aba Sessões."""
-    plant = BrewPlant.query.get(plant_id)
+    plant = db.session.get(BrewPlant, plant_id)
     if not plant or plant.is_deleted:
         return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada."), 404
 
@@ -673,7 +673,7 @@ def tab_recipe(plant_id: int):
     if "recipe_id" in request.args:
         if recipe_id is None or recipe_id <= 0:
             return render_template("plant_workspace/_tab_error.html", message="Receita não encontrada."), 404
-        recipe = MashRecipe.query.get(recipe_id)
+        recipe = db.session.get(MashRecipe, recipe_id)
         if not recipe or recipe.is_deleted:
             return render_template("plant_workspace/_tab_error.html", message="Receita não encontrada."), 404
         context = _build_recipe_view_context(recipe, is_fragment=True, default_plant_id=plant_id)
@@ -707,7 +707,7 @@ def tab_automation(plant_id: int):
     — só `session_id` (opcional, nullable). Filtro: regra "global"
     (sem sessão vinculada, vale pra qualquer sessão desta Planta) OU
     vinculada a uma sessão desta Planta especificamente."""
-    plant = BrewPlant.query.get(plant_id)
+    plant = db.session.get(BrewPlant, plant_id)
     if not plant or plant.is_deleted:
         return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada.")
 

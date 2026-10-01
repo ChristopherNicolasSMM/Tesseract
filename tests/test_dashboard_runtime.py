@@ -413,7 +413,7 @@ def test_update_geometry_muda_posicao_e_tamanho(app, client):
     assert resp.get_json()["ok"] is True
 
     with app.app_context():
-        widget = DashboardWidget.query.get(widget_id)
+        widget = db.session.get(DashboardWidget, widget_id)
         assert (widget.x, widget.y, widget.width, widget.height) == (250, 180, 300, 260)
 
 
@@ -430,7 +430,7 @@ def test_update_geometry_nao_deixa_colapsar_abaixo_de_40px(app, client):
 
     client.post(f"/brewstation/dashboards/widgets/{widget_id}/geometry", json={"width": 5, "height": 5})
     with app.app_context():
-        widget = DashboardWidget.query.get(widget_id)
+        widget = db.session.get(DashboardWidget, widget_id)
         assert widget.width == 40
         assert widget.height == 40
 
@@ -453,7 +453,7 @@ def test_update_config_muda_label_e_mescla_config_json(app, client):
     assert resp.status_code == 200
 
     with app.app_context():
-        widget = DashboardWidget.query.get(widget_id)
+        widget = db.session.get(DashboardWidget, widget_id)
         assert widget.label_text == "Mash Tun Novo"
         assert widget.config_json["svg_shape"] == "fermenter"
         assert widget.config_json["confirm_before_actuate"] is True
@@ -477,7 +477,7 @@ def test_create_widget_via_editor(app, client):
     assert body["ok"] is True
 
     with app.app_context():
-        widget = DashboardWidget.query.get(body["widget_id"])
+        widget = db.session.get(DashboardWidget, body["widget_id"])
         assert widget.widget_type == "toggle"
         assert widget.label_text == "Bomba Nova"
         assert widget.device_function_name == "pump_x"
@@ -514,7 +514,7 @@ def test_delete_widget_via_editor_e_soft_delete(app, client):
     assert resp.get_json()["ok"] is True
 
     with app.app_context():
-        widget = DashboardWidget.query.get(widget_id)
+        widget = db.session.get(DashboardWidget, widget_id)
         assert widget.is_deleted is True
         assert widget.deleted_at is not None
 
@@ -541,7 +541,7 @@ def test_update_connections_sobrescreve_plant_schema_json(app, client):
     assert resp.get_json()["ok"] is True
 
     with app.app_context():
-        plant = BrewPlant.query.get(plant_id)
+        plant = db.session.get(BrewPlant, plant_id)
         conns = plant.plant_schema_json["connections"]
         assert len(conns) == 1
         assert conns[0]["color"] == "#ff0000"
@@ -658,7 +658,7 @@ def test_update_connections_persiste_anchor_e_waypoints(app, client):
     assert resp.status_code == 200
 
     with app.app_context():
-        plant = BrewPlant.query.get(plant_id)
+        plant = db.session.get(BrewPlant, plant_id)
         conn = plant.plant_schema_json["connections"][0]
         assert conn["from_anchor"] == {"rx": 0.2, "ry": 0.8}
         assert conn["to_anchor"] == {"rx": 0.9, "ry": 0.1}
@@ -689,7 +689,7 @@ def test_update_connections_ignora_waypoint_malformado(app, client):
     assert resp.status_code == 200
 
     with app.app_context():
-        plant = BrewPlant.query.get(plant_id)
+        plant = db.session.get(BrewPlant, plant_id)
         conn = plant.plant_schema_json["connections"][0]
         assert conn["waypoints"] == [{"x": 100.0, "y": 50.0}]
 
@@ -800,7 +800,7 @@ def test_config_manual_control_enabled_e_persistido(app, client):
     assert resp.status_code == 200
 
     with app.app_context():
-        widget = DashboardWidget.query.get(widget_id)
+        widget = db.session.get(DashboardWidget, widget_id)
         assert widget.config_json["manual_control_enabled"] is False
 
 
@@ -1174,7 +1174,7 @@ def test_update_config_rota_web_aceita_vessel_id(app, client):
     resp = client.post(f"/brewstation/dashboards/widgets/{widget_id}/config", json={"vessel_id": 9})
     assert resp.status_code == 200
     with app.app_context():
-        widget = DashboardWidget.query.get(widget_id)
+        widget = db.session.get(DashboardWidget, widget_id)
         assert widget.vessel_id == 9
 
 
@@ -1630,7 +1630,7 @@ def test_update_config_salva_setpoint(app, client):
     resp = client.post(f"/brewstation/dashboards/widgets/{widget_id}/config", json={"config_json": {"setpoint": 68}})
     assert resp.status_code == 200
     with app.app_context():
-        widget = DashboardWidget.query.get(widget_id)
+        widget = db.session.get(DashboardWidget, widget_id)
         assert widget.config_json["setpoint"] == 68
 
 
@@ -1709,7 +1709,7 @@ def test_toggle_pause_session_active_para_paused(app, client):
     assert resp.status_code == 200
     assert resp.get_json()["status"] == "paused"
     with app.app_context():
-        assert BrewSession.query.get(session_id).status == "paused"
+        assert db.session.get(BrewSession, session_id).status == "paused"
 
 
 def test_toggle_pause_session_paused_para_active(app, client):
@@ -1750,7 +1750,7 @@ def test_stop_session_marca_completed(app, client):
     assert resp.status_code == 200
     assert resp.get_json()["status"] == "completed"
     with app.app_context():
-        assert BrewSession.query.get(session_id).status == "completed"
+        assert db.session.get(BrewSession, session_id).status == "completed"
 
 
 def test_stop_session_ja_completed_falha(app, client):
@@ -1862,7 +1862,7 @@ def test_toggle_pause_session_via_rota_congela_o_timer_ao_retomar(app, client):
     assert resp1.get_json()["status"] == "paused"
 
     with app.app_context():
-        session = BrewSession.query.get(session_id)
+        session = db.session.get(BrewSession, session_id)
         session.paused_at = datetime.now(timezone.utc) - timedelta(minutes=5)
         db.session.commit()
 
@@ -1870,7 +1870,7 @@ def test_toggle_pause_session_via_rota_congela_o_timer_ao_retomar(app, client):
     assert resp2.get_json()["status"] == "active"
 
     with app.app_context():
-        session = BrewSession.query.get(session_id)
+        session = db.session.get(BrewSession, session_id)
         new_started_at = session.started_at
         if new_started_at.tzinfo is None:
             new_started_at = new_started_at.replace(tzinfo=timezone.utc)

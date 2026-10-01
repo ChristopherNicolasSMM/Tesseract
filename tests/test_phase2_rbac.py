@@ -177,3 +177,33 @@ def test_cpf_valido_eh_formatado(app):
         # CPF válido conhecido (gerado para teste, dígitos verificadores corretos)
         user.set_cpf("11144477735")
         assert user.cpf == "111.444.777-35"
+
+
+@pytest.mark.parametrize("eager_load", [True, False])
+def test_user_loader_session_get_preserva_permissoes_e_config_eager(app, eager_load):
+    import warnings
+    from sqlalchemy import inspect
+    from sqlalchemy.exc import LegacyAPIWarning
+    from core.auth import login_manager
+
+    app.config["RBAC_SESSION_EAGER_LOAD"] = eager_load
+    with app.app_context():
+        permission = Permission(name="loader_probe.read")
+        role = Role(name="loader_probe_role", permissions=[permission])
+        user = User(username="loader_probe", email="loader_probe@test.local",
+                    nome="Operador", nome_completo="Operador", celular="0",
+                    is_admin=False, is_active=True, roles=[role])
+        db.session.add(user)
+        db.session.commit()
+        user_id = user.id
+        db.session.expunge_all()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", LegacyAPIWarning)
+            loaded = login_manager._user_callback(str(user_id))
+        assert loaded.id == user_id
+        assert ("roles" not in inspect(loaded).unloaded) is eager_load
+        if eager_load:
+            assert all("permissions" not in inspect(item).unloaded for item in loaded.roles)
+        assert loaded.has_permission("loader_probe.read") is True
+        assert loaded.has_permission("loader_probe.write") is False
+        assert login_manager._user_callback("999999999") is None

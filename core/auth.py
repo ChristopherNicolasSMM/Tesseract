@@ -10,6 +10,8 @@ import logging
 from flask_login import LoginManager
 from sqlalchemy.orm import joinedload
 
+from core.db import db
+
 logger = logging.getLogger(__name__)
 
 login_manager = LoginManager()
@@ -25,12 +27,8 @@ def init_auth(app) -> None:
         from model.core.role import Role  # noqa: F401 (garante mapper resolvido)
 
         eager_load = app.config.get("RBAC_SESSION_EAGER_LOAD", True)
-        query = User.query
-        if eager_load:
-            query = query.options(
-                joinedload(User.roles).joinedload(Role.permissions)
-            )
-        return query.get(int(user_id))
+        options = [joinedload(User.roles).joinedload(Role.permissions)] if eager_load else None
+        return db.session.get(User, int(user_id), options=options)
 
     @login_manager.unauthorized_handler
     def unauthorized():

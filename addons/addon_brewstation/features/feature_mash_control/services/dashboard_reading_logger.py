@@ -62,7 +62,7 @@ def _on_device_value_changed(function_name: str | None = None, value=None) -> No
 
 
 def _maybe_log_reading(mapping: BrewPlantMapping, function_name: str, value) -> None:
-    vessel = BrewPlantVessel.query.get(mapping.vessel_id)
+    vessel = db.session.get(BrewPlantVessel, mapping.vessel_id)
     if not vessel:
         return
 

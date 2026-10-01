@@ -203,3 +203,11 @@ O conteúdo de Sessões após o resumo fica em `#pwSessionDetails`, fora das
 colunas da lista e do resumo. Não recolocar os detalhes na coluna direita.
 Inventário, comandos e roteiro: `docs/patches/brewstation-seletores-layout.md`
 na raiz do repositório. Não há migration nesta correção.
+
+## Testes de referências carregadas pela API
+
+Não exigir que o HTML inicial contenha os nomes de todas as opções. Conferir
+o escopo de IDs do combo renderizado, consultar a API e validar seleção real.
+Consultas manuais por PK usam db.session.get; manter validações de apagamento,
+permissão e pertencimento existentes. Detalhes na raiz em
+`docs/patches/brewstation-testes-combos-sqlalchemy.md`.

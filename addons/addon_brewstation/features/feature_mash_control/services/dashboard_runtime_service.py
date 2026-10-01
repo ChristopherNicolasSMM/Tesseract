@@ -231,7 +231,7 @@ def _get_active_alarms(layout: DashboardLayout, widget: DashboardWidget) -> dict
     session = None
 
     if session_id:
-        session = BrewSession.query.get(session_id)
+        session = db.session.get(BrewSession, session_id)
     elif layout.plant_id:
         session = _get_active_session_for_plant(layout.plant_id)
         if not session:
@@ -430,7 +430,7 @@ def set_mapping_value(mapping_id: int, value, *, plant_id: Optional[int] = None)
     pelo `BrewPlantMapping.id` em vez de um `widget_id`. `plant_id` é
     opcional (o front já sabe qual planta é o card) — se omitido,
     resolve pelo próprio mapping."""
-    mapping = BrewPlantMapping.query.get(mapping_id)
+    mapping = db.session.get(BrewPlantMapping, mapping_id)
     if not mapping or mapping.is_deleted:
         return {"ok": False, "mqtt_connected": None, "error": "Mapeamento não encontrado."}
 

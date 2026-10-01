@@ -287,3 +287,10 @@ o botão **Detecção automática** volta à sessão escolhida automaticamente.
 Os seletores de tanques respeitam a planta e a tubulação oferece funções de
 atuadores. Status, tipos e demais opções fixas continuam nas caixas de seleção.
 As opções pesquisadas devem ser legíveis nos temas claro e escuro.
+
+### Encontrar um painel recém-criado
+
+Depois de criar um painel no workspace, use a busca de dashboards para
+encontrá-lo pelo nome e clique no resultado. As opções são carregadas durante
+a busca. No workspace, são painéis da planta; na tela completa de Dashboard,
+também é possível escolher painéis de outras plantas.

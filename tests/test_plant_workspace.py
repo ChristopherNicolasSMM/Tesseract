@@ -6,6 +6,23 @@ sessões, alarmes e receita. Inclui saneamento local, revisão completa e
 dados planejados, preservando histórico, permissões e transações.
 """
 import pytest
+from html.parser import HTMLParser
+
+
+def _dashboard_combo_ids(html):
+    """Lê o escopo REAL do combo que será enviado à API, sem depender de options."""
+    class ComboParser(HTMLParser):
+        ids = None
+
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            if tag == "div" and attrs.get("data-weakref-source") == "dashboard_layouts":
+                self.ids = [int(value) for value in attrs["data-weakref-ids"].split(",") if value]
+
+    parser = ComboParser()
+    parser.feed(html)
+    assert parser.ids is not None, "Combo pesquisável de dashboards ausente"
+    return parser.ids
 
 
 def _workspace_sanitation_data(app):
@@ -598,7 +615,20 @@ def test_dashboard_workspace_seleciona_layout_sem_sair_da_planta(app, client):
         created = db.session.get(DashboardLayout, created_id)
         assert created.plant_id == plant_id
         assert created.is_default is False
-    assert b'Painel Adicional Workspace' in client.get(url).data
+    refreshed = client.get(url)
+    assert refreshed.status_code == 200
+    allowed_ids = _dashboard_combo_ids(refreshed.get_data(as_text=True))
+    assert created_id in allowed_ids
+    assert foreign_id not in allowed_ids
+    assert deleted_id not in allowed_ids
+    options = client.get("/api/options/dashboard_layouts", query_string={
+        "ids": ",".join(map(str, allowed_ids)), "search": "Painel Adicional Workspace",
+    })
+    assert options.status_code == 200
+    assert options.get_json()["results"] == [{"id": created_id, "text": "Painel Adicional Workspace"}]
+    selected = client.get(url, query_string={"layout_id": created_id})
+    assert selected.status_code == 200
+    assert '<h1>Painel Adicional Workspace</h1>' in selected.get_data(as_text=True)
 
 
 def test_dashboard_workspace_edita_layout_preserva_planta_e_widgets(app, client):
@@ -671,12 +701,19 @@ def test_view_cheia_continua_mostrando_todos_os_layouts_do_sistema(app, client):
         layout_b = DashboardLayout(name="Layout B View Cheia", plant_id=plant_b.id)
         db.session.add_all([layout_a, layout_b])
         db.session.commit()
-        layout_a_id = layout_a.id
+        layout_a_id, layout_b_id = layout_a.id, layout_b.id
 
     resp = client.get(f"/brewstation/dashboards/{layout_a_id}/view")
     html = resp.data.decode("utf-8")
     assert "Layout A View Cheia" in html
-    assert "Layout B View Cheia" in html  # tela cheia = todos os layouts, comportamento inalterado
+    allowed_ids = _dashboard_combo_ids(html)
+    assert layout_a_id in allowed_ids
+    assert layout_b_id in allowed_ids  # tela cheia inclui outras plantas
+    options = client.get("/api/options/dashboard_layouts", query_string={
+        "ids": ",".join(map(str, allowed_ids)), "search": "Layout B View Cheia",
+    })
+    assert options.status_code == 200
+    assert options.get_json()["results"] == [{"id": layout_b_id, "text": "Layout B View Cheia"}]
 
 
 # ── Aba Sessões (fragmento AJAX) ─────────────────────────────────────────────

@@ -144,7 +144,7 @@ def calcular_e_salvar(lote_id: int, envase_id: int | None, percentual_lucro: flo
 
 def vincular_envase(calculo_id: int, envase_id: int) -> dict | None:
     """Preenche envase_id de um cálculo já salvo — etapa 'cria envase' do fluxo, depois de decidido."""
-    calculo = CalculoPrecificacao.query.get(calculo_id)
+    calculo = db.session.get(CalculoPrecificacao, calculo_id)
     if not calculo:
         return None
     calculo.envase_id = envase_id
@@ -161,7 +161,7 @@ def _material_display(material_id: int) -> str:
 
 def _calcular(lote_id: int, envase_id: int | None, percentual_lucro: float,
               percentual_ipi: float, percentual_icms: float) -> dict:
-    lote = BrewSession.query.get(lote_id)
+    lote = db.session.get(BrewSession, lote_id)
     if not lote:
         raise ValueError("Lote (BrewSession) não encontrado.")
 

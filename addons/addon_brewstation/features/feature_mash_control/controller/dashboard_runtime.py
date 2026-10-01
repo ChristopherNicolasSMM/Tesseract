@@ -80,7 +80,7 @@ def _build_dashboard_view_context(layout: DashboardLayout, *, is_fragment: bool 
 @login_required
 @permission_required("dashboard_layouts.list")
 def view(layout_id: int):
-    layout = DashboardLayout.query.get(layout_id)
+    layout = db.session.get(DashboardLayout, layout_id)
     if not layout or layout.is_deleted:
         flash("Layout não encontrado.", "error")
         return redirect(url_for("dashboard_layouts.manage"))
@@ -91,7 +91,7 @@ def view(layout_id: int):
 @login_required
 @permission_required("dashboard_layouts.list")
 def snapshot(layout_id: int):
-    layout = DashboardLayout.query.get(layout_id)
+    layout = db.session.get(DashboardLayout, layout_id)
     if not layout or layout.is_deleted:
         return jsonify({"error": "Layout não encontrado."}), 404
     session_id_override = request.args.get("session_id", type=int)
@@ -102,7 +102,7 @@ def snapshot(layout_id: int):
 @login_required
 @permission_required("dashboard_widgets.list")
 def set_value(widget_id: int):
-    widget = DashboardWidget.query.get(widget_id)
+    widget = db.session.get(DashboardWidget, widget_id)
     if not widget or widget.is_deleted:
         return jsonify({"ok": False, "error": "Widget não encontrado."}), 404
 
@@ -214,7 +214,7 @@ def resync_steps(session_id: int):
 @login_required
 @permission_required("dashboard_widgets.update")
 def update_geometry(widget_id: int):
-    widget = DashboardWidget.query.get(widget_id)
+    widget = db.session.get(DashboardWidget, widget_id)
     if not widget or widget.is_deleted:
         return jsonify({"ok": False, "error": "Widget não encontrado."}), 404
     payload = request.get_json(silent=True) or {}
@@ -231,7 +231,7 @@ def update_geometry(widget_id: int):
 @login_required
 @permission_required("dashboard_widgets.update")
 def update_config(widget_id: int):
-    widget = DashboardWidget.query.get(widget_id)
+    widget = db.session.get(DashboardWidget, widget_id)
     if not widget or widget.is_deleted:
         return jsonify({"ok": False, "error": "Widget não encontrado."}), 404
     payload = request.get_json(silent=True) or {}
@@ -247,7 +247,7 @@ def update_config(widget_id: int):
 @login_required
 @permission_required("dashboard_widgets.create")
 def create_widget(layout_id: int):
-    layout = DashboardLayout.query.get(layout_id)
+    layout = db.session.get(DashboardLayout, layout_id)
     if not layout or layout.is_deleted:
         return jsonify({"ok": False, "error": "Layout não encontrado."}), 404
     payload = request.get_json(silent=True) or {}
@@ -268,7 +268,7 @@ def create_widget(layout_id: int):
 @login_required
 @permission_required("dashboard_widgets.trash")
 def delete_widget(widget_id: int):
-    widget = DashboardWidget.query.get(widget_id)
+    widget = db.session.get(DashboardWidget, widget_id)
     if not widget or widget.is_deleted:
         return jsonify({"ok": False, "error": "Widget não encontrado."}), 404
     svc.remove_widget_from_editor(widget)
@@ -279,7 +279,7 @@ def delete_widget(widget_id: int):
 @login_required
 @permission_required("dashboard_layouts.update")
 def update_connections(layout_id: int):
-    layout = DashboardLayout.query.get(layout_id)
+    layout = db.session.get(DashboardLayout, layout_id)
     if not layout or layout.is_deleted:
         return jsonify({"ok": False, "error": "Layout não encontrado."}), 404
     payload = request.get_json(silent=True) or {}
@@ -342,7 +342,7 @@ def toggle_pause_session(session_id: int):
     só trocar o status aqui não bastava, o timer da etapa continuava
     correndo enquanto "pausada"."""
     from addons.addon_brewstation.features.feature_mash_control.services import recipe_timeline_service
-    session = BrewSession.query.get(session_id)
+    session = db.session.get(BrewSession, session_id)
     if not session or session.is_deleted:
         return jsonify({"ok": False, "error": "Sessão não encontrada."}), 404
     if session.status not in ("active", "paused"):
@@ -362,7 +362,7 @@ def stop_session(session_id: int):
     front-end pede confirmação antes de chamar esta rota — ação não
     reversível pelo botão (dá pra reverter manualmente via
     /brew-sessions/<id>, mudando o status de novo)."""
-    session = BrewSession.query.get(session_id)
+    session = db.session.get(BrewSession, session_id)
     if not session or session.is_deleted:
         return jsonify({"ok": False, "error": "Sessão não encontrada."}), 404
     if session.status not in ("active", "paused"):

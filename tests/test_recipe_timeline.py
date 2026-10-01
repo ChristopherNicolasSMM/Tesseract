@@ -204,7 +204,7 @@ def test_remove_step_e_soft_delete(app):
         recipe = _criar_receita()
         step = svc.add_step(recipe.id, step_type="mash", nome="X")
         svc.remove_step(step.id)
-        assert RecipeStep.query.get(step.id).is_deleted is True
+        assert db.session.get(RecipeStep, step.id).is_deleted is True
         assert svc.get_timeline(recipe.id) == []
 
 

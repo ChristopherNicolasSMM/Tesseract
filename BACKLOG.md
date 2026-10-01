@@ -5511,3 +5511,10 @@ aplicação em clone limpo, mesmo processo de sempre.
 relevantes (esta rodada). Só item 2 (`pedido_compras`/
 `processo_cotacaos`, decisão de arquitetura parada por escolha do
 Christopher) continua genuinamente aberto.
+
+### Correção após testes de seletores/layout (01/10/2026)
+
+Usuário reportou 427 testes aprovados, duas expectativas antigas de options
+no HTML e 627 avisos de Query.get(). Correção das verificações pela API e
+modernização dos pontos manuais indicados implementadas; validação local
+pendente. Ver [testes e SQLAlchemy](docs/patches/brewstation-testes-combos-sqlalchemy.md).

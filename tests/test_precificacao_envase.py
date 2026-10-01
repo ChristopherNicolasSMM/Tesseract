@@ -210,7 +210,7 @@ def test_simular_nao_grava_nada_calcular_e_salvar_grava(app):
             percentual_lucro=10, percentual_ipi=0, percentual_icms=0,
         )
         assert CalculoPrecificacao.query.count() == 1
-        calculo = CalculoPrecificacao.query.get(resultado["id"])
+        calculo = db.session.get(CalculoPrecificacao, resultado["id"])
         assert calculo.envase_id is None  # fluxo simula -> calcula -> cria envase
         assert ItemCustoIngrediente.query.filter_by(calculo_id=calculo.id).count() == 1
 

@@ -184,7 +184,7 @@ def add_step(recipe_id: int, *, step_type: str, nome: str, ordem: Optional[int] 
 
 
 def update_step(step_id: int, **fields) -> RecipeStep:
-    step = RecipeStep.query.get(step_id)
+    step = db.session.get(RecipeStep, step_id)
     if not step or step.is_deleted:
         raise RecipeTimelineError("Etapa não encontrada.")
     allowed_fields = {"nome", "temperatura", "tempo_min", "ramp_time_min", "tipo", "trigger_minutes_remaining", "parent_step_id"}
@@ -196,7 +196,7 @@ def update_step(step_id: int, **fields) -> RecipeStep:
 
 
 def remove_step(step_id: int) -> None:
-    step = RecipeStep.query.get(step_id)
+    step = db.session.get(RecipeStep, step_id)
     if step:
         step.is_deleted = True
         step.deleted_at = datetime.now(timezone.utc)
@@ -328,7 +328,7 @@ def adjust_session_step(session_step_id: int, *, field: str, new_value, user_id:
     if field not in allowed_fields:
         raise RecipeTimelineError(f"Campo não ajustável: {field}")
 
-    step = BrewSessionStep.query.get(session_step_id)
+    step = db.session.get(BrewSessionStep, session_step_id)
     if not step or step.is_deleted:
         raise RecipeTimelineError("Passo da sessão não encontrado.")
 
@@ -372,7 +372,7 @@ def resync_session_steps(session_id: int) -> dict:
     (soft-delete) passo `pending` cujo RecipeStep de origem sumiu da
     timeline. Passo sem `source_recipe_step_id` (sessão gerada antes desta
     coluna existir) nunca é tocado — fica como "órfão" intencionalmente."""
-    session = BrewSession.query.get(session_id)
+    session = db.session.get(BrewSession, session_id)
     if not session or session.is_deleted:
         raise RecipeTimelineError("Sessão não encontrada.")
     if not session.recipe_id:
@@ -485,7 +485,7 @@ def go_back_step(session_id: int) -> dict:
     etapa atual pra `pending` (zera timer) e reativando a etapa anterior
     `completed` com o timer reiniciado do zero — é um "refazer esta
     etapa", não uma reconstrução exata do tempo já gasto antes."""
-    session = BrewSession.query.get(session_id)
+    session = db.session.get(BrewSession, session_id)
     if not session or session.is_deleted:
         raise RecipeTimelineError("Sessão não encontrada.")
 
@@ -523,7 +523,7 @@ def confirm_and_advance_step(session_id: int) -> dict:
     o timer só sugere quando a etapa terminou, esta confirmação explícita
     é quem de fato conclui e já avança pra próxima, num clique só). Botão
     fica sempre disponível — nada aqui valida se o tempo já passou."""
-    session = BrewSession.query.get(session_id)
+    session = db.session.get(BrewSession, session_id)
     if not session or session.is_deleted:
         raise RecipeTimelineError("Sessão não encontrada.")
 

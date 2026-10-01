@@ -242,3 +242,10 @@ URLs para revisar o estado atual (substituir os IDs reais):
 Entrega deste planejamento: patch documental gerado por `git format-patch`,
 verificado com `git diff --check` e `git am --keep-cr` em checkout isolado
 da base. Não precisa de `db upgrade`; não adiciona interface ou rota.
+
+## Retorno dos testes de seletores/layout
+
+Execução local: 427 passed, 2 failed, 627 warnings. As duas expectativas de
+nomes de painéis no HTML inicial foram ajustadas para a API do combo; avisos
+Query.get() dos pontos manuais indicados foram tratados. Validação da correção
+pendente. Ver [roteiro](brewstation-testes-combos-sqlalchemy.md).

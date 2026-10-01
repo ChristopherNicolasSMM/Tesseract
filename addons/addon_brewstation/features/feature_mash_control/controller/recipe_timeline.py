@@ -13,6 +13,7 @@ from __future__ import annotations
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 
+from core.db import db
 from core.permissions import permission_required
 from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant import BrewPlant
@@ -56,7 +57,7 @@ def _build_recipe_view_context(recipe: MashRecipe, *, is_fragment: bool = False,
 @login_required
 @permission_required("recipe_steps.list")
 def view(recipe_id: int):
-    recipe = MashRecipe.query.get(recipe_id)
+    recipe = db.session.get(MashRecipe, recipe_id)
     if not recipe or recipe.is_deleted:
         flash("Receita não encontrada.", "error")
         return redirect(url_for("recipe_timeline.picker"))
@@ -89,7 +90,7 @@ def steps_json(recipe_id: int):
     Dashboard de Brassagem (conversa, Ponto 2: reaproveitar o mesmo
     formulário de add/editar etapa sem sair da tela de operação, em
     vez de renderizar a página HTML inteira de novo)."""
-    recipe = MashRecipe.query.get(recipe_id)
+    recipe = db.session.get(MashRecipe, recipe_id)
     if not recipe or recipe.is_deleted:
         return jsonify({"error": "Receita não encontrada."}), 404
     timeline = svc.get_timeline(recipe_id)
@@ -137,7 +138,7 @@ def reorder_steps(recipe_id: int):
 @login_required
 @permission_required("recipe_steps.update")
 def resync_hop_alerts(recipe_id: int):
-    recipe = MashRecipe.query.get(recipe_id)
+    recipe = db.session.get(MashRecipe, recipe_id)
     if not recipe or recipe.is_deleted:
         return jsonify({"ok": False, "error": "Receita não encontrada."}), 404
     result = svc.sync_hop_alerts(recipe)
