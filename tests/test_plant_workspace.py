@@ -492,7 +492,8 @@ def test_tab_dashboard_sem_layout_mostra_estado_vazio(app, client):
     resp = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/dashboard")
     assert resp.status_code == 200
     html = resp.data.decode("utf-8")
-    assert "ainda não tem nenhum Dashboard" in html
+    assert "Esta planta não tem dashboard disponível." in html
+    assert "pwDashboardMaintenance" in html
     # fragmento não pode ter o layout do Core em volta
     assert "<html" not in html.lower()
     assert 'id="pwLayoutForm"' in html
@@ -2339,3 +2340,122 @@ def test_dashboard_aparencia_retorno_normal_preserva_layout(app, client):
     html = client.get(response.location).get_data(as_text=True)
     assert f'const initialLayoutId = "{ids[1]}";' in html
     assert 'encodeURIComponent(initialLayoutId)' in html
+
+
+def test_workspace_lixeira_painel_preserva_widgets_e_retorna_fallback(app, client):
+    _login_admin(app, client)
+    plant, other, ids, widget = _appearance_layouts(app)
+    headers = {'X-Requested-With': 'XMLHttpRequest'}
+    url = f'/brewstation/plant-workspace/{plant}/dashboard-layouts/{ids[1]}'
+    response = client.post(url + '/trash', headers=headers)
+    assert response.status_code == 200
+    assert response.get_json()['layout_id'] == ids[0]
+    assert response.get_json()['dashboard_reload']
+    with app.app_context():
+        removed = db.session.get(DashboardLayout, ids[1])
+        assert removed.is_deleted and removed.deleted_at is not None
+        timestamp = removed.deleted_at
+        assert removed.layout_data == '{"original":true}'
+        assert removed.standby_duration_seconds == 45
+        assert not db.session.get(DashboardWidget, widget).is_deleted
+        assert db.session.get(DashboardLayout, ids[2]).is_default
+    assert client.post(url + '/trash', headers=headers).status_code == 400
+    with app.app_context():
+        assert db.session.get(DashboardLayout, ids[1]).deleted_at == timestamp
+    explicit = client.get(f'/brewstation/plant-workspace/{plant}/tab/dashboard?layout_id={ids[1]}')
+    assert explicit.status_code == 404
+    html = client.get(f'/brewstation/plant-workspace/{plant}/tab/dashboard').get_data(as_text=True)
+    assert 'Restaurar painel' in html and 'Painel aparência' in html
+    response = client.post(url + '/restore', headers=headers)
+    assert response.get_json()['layout_id'] == ids[1]
+    with app.app_context():
+        restored = db.session.get(DashboardLayout, ids[1])
+        assert not restored.is_deleted and restored.deleted_at is None
+        assert db.session.get(DashboardWidget, widget).config_json == {'content': 'Intacto'}
+    assert client.post(url + '/restore', headers=headers).status_code == 400
+
+
+def test_workspace_restaurar_painel_nao_substitui_padrao_atual(app, client):
+    _login_admin(app, client)
+    plant, other, ids, widget = _appearance_layouts(app)
+    with app.app_context():
+        assert db.session.get(DashboardLayout, ids[3]).is_default
+    response = client.post(f'/brewstation/plant-workspace/{plant}/dashboard-layouts/{ids[3]}/restore',
+                           headers={'X-Requested-With': 'XMLHttpRequest'})
+    assert response.status_code == 200
+    with app.app_context():
+        assert db.session.get(DashboardLayout, ids[0]).is_default
+        assert not db.session.get(DashboardLayout, ids[3]).is_default
+        assert db.session.get(DashboardLayout, ids[2]).is_default
+
+
+def test_workspace_ultimo_painel_removido_mantem_lixeira_e_restaura_padrao(app, client):
+    _login_admin(app, client)
+    with app.app_context():
+        plant = BrewPlant(name='Planta último painel'); db.session.add(plant); db.session.flush()
+        layout = DashboardLayout(name='Último recuperável', plant_id=plant.id, is_default=True)
+        db.session.add(layout); db.session.commit()
+        plant_id, layout_id = plant.id, layout.id
+    url = f'/brewstation/plant-workspace/{plant_id}/dashboard-layouts/{layout_id}'
+    response = client.post(url + '/trash')
+    assert response.status_code == 302 and 'layout_id=' not in response.location
+    html = client.get(f'/brewstation/plant-workspace/{plant_id}/tab/dashboard').get_data(as_text=True)
+    assert 'Último recuperável' in html and 'Restaurar painel' in html
+    assert 'pwDashboardMaintenance' in html and '__tesseractConfirm' in html
+    response = client.post(url + '/restore')
+    assert response.status_code == 302 and f'layout_id={layout_id}' in response.location
+    with app.app_context():
+        assert db.session.get(DashboardLayout, layout_id).is_default
+
+
+@pytest.mark.parametrize('action,permission', [('trash','dashboard_layouts.trash'), ('restore','dashboard_layouts.restore')])
+def test_workspace_manutencao_layout_escopo_permissoes_e_planta_apagada(app, client, monkeypatch, action, permission):
+    _login_admin(app, client)
+    plant, other, ids, widget = _appearance_layouts(app)
+    headers = {'X-Requested-With': 'XMLHttpRequest'}
+    for layout_id in (ids[2], 999999):
+        assert client.post(f'/brewstation/plant-workspace/{plant}/dashboard-layouts/{layout_id}/{action}', headers=headers).status_code == 404
+    monkeypatch.setattr(User, 'has_permission', lambda self, code: code != permission)
+    assert client.post(f'/brewstation/plant-workspace/{plant}/dashboard-layouts/{ids[1]}/{action}', headers=headers).status_code == 403
+    html = client.get(f'/brewstation/plant-workspace/{plant}/tab/dashboard').get_data(as_text=True)
+    assert ('Enviar painel à lixeira' not in html) if action == 'trash' else ('Restaurar painel' not in html)
+    monkeypatch.setattr(User, 'has_permission', lambda self, code: True)
+    with app.app_context():
+        db.session.get(BrewPlant, plant).is_deleted = True; db.session.commit()
+    assert client.post(f'/brewstation/plant-workspace/{plant}/dashboard-layouts/{ids[1]}/{action}', headers=headers).status_code == 404
+
+
+@pytest.mark.parametrize('action,index', [('trash',0), ('restore',3)])
+def test_workspace_manutencao_layout_rollback_preserva_lixeira_e_padrao(app, client, monkeypatch, action, index):
+    _login_admin(app, client)
+    plant, other, ids, widget = _appearance_layouts(app)
+    def fail():
+        raise RuntimeError('Falha de gravação')
+    monkeypatch.setattr(db.session, 'commit', fail)
+    response = client.post(f'/brewstation/plant-workspace/{plant}/dashboard-layouts/{ids[index]}/{action}',
+                           headers={'X-Requested-With': 'XMLHttpRequest'})
+    assert response.status_code == 500
+    with app.app_context():
+        row = db.session.get(DashboardLayout, ids[index])
+        assert row.is_deleted == (action == 'restore')
+        assert row.is_default
+        assert db.session.get(DashboardLayout, ids[0]).is_default
+
+
+def test_workspace_lixeira_layout_paginada_sem_misturar_plantas(app, client):
+    _login_admin(app, client)
+    plant, other, ids, widget = _appearance_layouts(app)
+    with app.app_context():
+        for number in range(25):
+            db.session.add(DashboardLayout(name=f'Lixeira local {number:02d}', plant_id=plant, is_deleted=True))
+        db.session.add(DashboardLayout(name='Lixeira externa secreta', plant_id=other, is_deleted=True))
+        db.session.commit()
+    url = f'/brewstation/plant-workspace/{plant}/tab/dashboard?layout_id={ids[1]}'
+    first = client.get(url).get_data(as_text=True)
+    assert 'Lixeira local 24' in first and 'Lixeira local 00' not in first
+    assert 'Lixeira externa secreta' not in first
+    assert f'layout_id={ids[1]}' in first and 'trash_page=2' in first
+    second = client.get(url + '&trash_page=2').get_data(as_text=True)
+    assert 'Lixeira local 00' in second and 'Lixeira local 24' not in second
+    assert '<h1>Painel aparência</h1>' in second
+    assert 'Página 2 de 2' in second

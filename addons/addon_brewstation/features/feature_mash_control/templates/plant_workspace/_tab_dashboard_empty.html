@@ -1,6 +1,6 @@
 <div class="card m-3"><div class="card-body">
   <h5 class="card-title">Criar dashboard de {{ plant.name }}</h5>
-  <p class="small text-muted">Esta Planta ainda não tem nenhum Dashboard cadastrado. Crie o layout e depois use o modo de edição para adicionar tanques, leituras e outros widgets.</p>
+  <p class="small text-muted">Esta planta não tem dashboard disponível. Crie o layout e depois use o modo de edição para adicionar tanques, leituras e outros widgets.</p>
   {% if current_user.has_permission('dashboard_layouts.create') %}
   <form id="pwLayoutForm" method="post" action="{{ url_for('plant_workspace.create_layout', plant_id=plant.id) }}" class="row g-2 align-items-end">
     <div class="col-md-7"><label class="form-label" for="pwLayoutName">Nome do painel</label>
@@ -8,6 +8,7 @@
     <div class="col-md-auto"><button type="submit" class="btn btn-primary">Criar dashboard</button></div>
   </form>
   {% else %}<p class="text-muted">A Planta ainda não tem dashboard. Solicite a criação a quem administra os layouts.</p>{% endif %}
+{% include "plant_workspace/_dashboard_maintenance.html" %}
 </div></div>
 <script>
 (function () {

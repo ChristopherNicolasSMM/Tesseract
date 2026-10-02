@@ -116,3 +116,26 @@ o Modo Edição continua cuidando dos elementos e conexões. Configurações
 de fundo não alteram widgets, controles, sessão ou estoque. Alterações
 exigem permissão de atualização de layouts. Standby e manutenção por
 lixeira/restauração ainda não foram incorporados neste formulário.
+
+## Lixeira e restauração de painéis (3B)
+
+Na aba **Dashboard**, abra **Configurar layouts**. **Enviar painel à lixeira**
+pede confirmação e retira somente o painel selecionado da lista disponível.
+Widgets e configurações permanecem guardados; sessões e controles da planta
+continuam funcionando. O workspace abre o padrão restante ou o primeiro
+painel disponível. Se era o último, aparece a tela de criação e a lixeira.
+
+Em **Lixeira de painéis**, use **Restaurar painel** e confirme. A lixeira
+mostra apenas painéis da planta atual, em páginas de 20 itens. A restauração
+abre o painel recuperado. Se ele era padrão, mas já existe outro padrão
+ativo na planta, volta sem substituir a escolha atual; use **Salvar fundo
+e padrão** para escolher explicitamente depois. Sem outro padrão, conserva
+a marcação original. Nome, dimensões, fundo, widgets e tubulação permanecem
+como estavam. Widgets previamente removidos individualmente mantêm esse
+estado; restaurar o painel não restaura automaticamente cada widget.
+
+Enviar à lixeira e restaurar exigem permissões próprias. Usuário que pode
+consultar layouts vê a lista; sem permissão de restauração, não recebe o
+botão. Exclusão permanente continua no cadastro completo e não está neste
+fluxo. Uma URL que aponta explicitamente para painel apagado/externo retorna
+erro; as ações locais é que encaminham para a seleção disponível.

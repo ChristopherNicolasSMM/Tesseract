@@ -5583,3 +5583,15 @@ Sem migration. Implementado, validação visual/local pendente.
 Standby: campos existem, mas não há comportamento identificado no runtime;
 avaliar contrato/implementação em 3A.2. Lixeira/restauração fica em 3B.
 Ver [entrega 3A.1](docs/patches/workspace-dashboard-fundo-padrao-3a1.md).
+
+### Dashboards 3B — lixeira e restauração no workspace (02/10/2026)
+
+Manutenção local com modal do Core, permissões existentes de trash/restore,
+escopo da planta e rollback. Ao remover painel aberto, seleciona padrão
+ativo ou primeiro restante; último removido mantém recuperação pela lixeira.
+Restauração preserva widgets/configurações e não substitui padrão ativo.
+Lixeira paginada em 20, parâmetro `trash_page`, inclusive sem painel ativo.
+Sem exclusão permanente, alteração de estoque/runtime ou ocultação de menus.
+Sem migration; implementado, validação visual/local pendente. Standby 3A.2
+e etapas 4–6 permanecem pendentes.
+Ver [entrega 3B](docs/patches/workspace-dashboard-lixeira-restauracao-3b.md).

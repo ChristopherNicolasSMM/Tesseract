@@ -309,6 +309,40 @@ def configure_layout_appearance(plant_id, layout_id):
     return redirect(url_for("plant_workspace.shell", plant_id=plant_id, tab="dashboard", layout_id=layout.id))
 
 
+@plant_workspace_bp.route("/<int:plant_id>/dashboard-layouts/<int:layout_id>/trash", methods=["POST"])
+@login_required
+@permission_required("dashboard_layouts.trash")
+def trash_workspace_layout(plant_id, layout_id):
+    return _maintain_workspace_layout(plant_id, layout_id, "trash")
+
+
+@plant_workspace_bp.route("/<int:plant_id>/dashboard-layouts/<int:layout_id>/restore", methods=["POST"])
+@login_required
+@permission_required("dashboard_layouts.restore")
+def restore_workspace_layout(plant_id, layout_id):
+    return _maintain_workspace_layout(plant_id, layout_id, "restore")
+
+
+def _maintain_workspace_layout(plant_id, layout_id, action):
+    from addons.addon_brewstation.features.feature_mash_control.services.dashboard_workspace_actions import maintain_layout
+    try:
+        selected = maintain_layout(plant_id, layout_id, action)
+    except LookupError as exc:
+        return _workspace_form_error(str(exc), 404, plant_id=plant_id, tab="dashboard")
+    except ValueError as exc:
+        return _workspace_form_error(str(exc), 400, plant_id=plant_id, tab="dashboard")
+    except Exception:
+        current_app.logger.exception("Falha na manutenção do painel %s (%s)", layout_id, action)
+        return _workspace_form_error("Não foi possível concluir a manutenção. Alterações desfeitas.", 500,
+                                     plant_id=plant_id, tab="dashboard")
+    message = "Painel enviado à lixeira." if action == "trash" else "Painel restaurado."
+    selected_id = selected.id if selected else None
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "dashboard_reload": True, "layout_id": selected_id, "message": message})
+    flash(message, "success")
+    return redirect(url_for("plant_workspace.shell", plant_id=plant_id, tab="dashboard", layout_id=selected_id))
+
+
 @plant_workspace_bp.route("/<int:plant_id>", methods=["GET"])
 @login_required
 @permission_required("brew_plants.list")
@@ -335,6 +369,14 @@ def tab_dashboard(plant_id: int):
     if not plant or plant.is_deleted:
         return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada.")
 
+    trash_page = max(1, request.args.get("trash_page", 1, type=int) or 1)
+    trash_query = DashboardLayout.query.filter_by(plant_id=plant_id, is_deleted=True)
+    trash_total = trash_query.count()
+    trash_pages = max(1, (trash_total + 19) // 20)
+    trash_page = min(trash_page, trash_pages)
+    trashed_layouts = trash_query.order_by(DashboardLayout.id.desc()).offset((trash_page - 1) * 20).limit(20).all()
+    trash_context = dict(trashed_layouts=trashed_layouts, trash_total=trash_total,
+                         trash_page=trash_page, trash_pages=trash_pages, plant=plant)
     layouts = DashboardLayout.query.filter_by(plant_id=plant_id, is_deleted=False)
     if "layout_id" in request.args:
         layout = layouts.filter_by(id=request.args.get("layout_id", type=int)).first()
@@ -344,9 +386,10 @@ def tab_dashboard(plant_id: int):
         layout = (layouts.filter_by(is_default=True).first()
                   or layouts.order_by(DashboardLayout.id).first())
     if not layout:
-        return render_template("plant_workspace/_tab_dashboard_empty.html", plant=plant)
+        return render_template("plant_workspace/_tab_dashboard_empty.html", **trash_context)
 
     context = _build_dashboard_view_context(layout, is_fragment=True)
+    context.update(trash_context)
     # Dentro do workspace, o seletor de layouts (ver _content.html) só
     # deve listar os da PRÓPRIA planta — a tela cheia continua listando
     # todos os layouts do sistema (comportamento inalterado).

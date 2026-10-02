@@ -1,0 +1,62 @@
+<div id="pwDashboardMaintenance" class="mt-3">
+  {% if layout is defined and current_user.has_permission('dashboard_layouts.trash') %}
+  <hr>
+  <form class="pw-layout-maintenance-form" method="post" data-layout-confirm-key="brewstation_mashctrl.workspace.confirm_trash_layout" data-layout-name="{{ layout.name }}"
+        action="{{ url_for('plant_workspace.trash_workspace_layout', plant_id=plant.id, layout_id=layout.id) }}">
+    <p class="small">Enviar este painel à lixeira preserva widgets e configurações. Sessões e controles da planta continuam funcionando.</p>
+    <button type="submit" class="btn btn-outline-danger">Enviar painel à lixeira</button>
+  </form>
+  {% endif %}
+  <hr>
+  <h6>Lixeira de painéis <span class="badge bg-secondary">{{ trash_total }}</span></h6>
+  {% if trashed_layouts %}
+  <div class="table-responsive"><table class="table table-sm align-middle">
+    <thead><tr><th>Painel</th><th>Enviado à lixeira</th><th>Ação</th></tr></thead>
+    <tbody>{% for removed in trashed_layouts %}<tr>
+      <td>{{ removed.name }}</td><td>{{ removed.deleted_at.strftime('%d/%m/%Y %H:%M') if removed.deleted_at else 'Não informado' }}</td>
+      <td>{% if current_user.has_permission('dashboard_layouts.restore') %}
+        <form class="pw-layout-maintenance-form" method="post" data-layout-confirm-key="brewstation_mashctrl.workspace.confirm_restore_layout" data-layout-name="{{ removed.name }}"
+              action="{{ url_for('plant_workspace.restore_workspace_layout', plant_id=plant.id, layout_id=removed.id) }}">
+          <button type="submit" class="btn btn-sm btn-outline-primary">Restaurar painel</button>
+        </form>
+        {% else %}<span class="small text-muted">Sem permissão para restaurar</span>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="small text-muted">Nenhum painel desta planta na lixeira.</p>{% endif %}
+  {% if trash_pages > 1 %}
+  <nav aria-label="Páginas da lixeira de painéis" class="d-flex flex-wrap gap-2 align-items-center">
+    {% if trash_page > 1 %}<a class="btn btn-sm btn-outline-secondary pw-layout-trash-page" href="{{ url_for('plant_workspace.tab_dashboard', plant_id=plant.id, layout_id=layout.id if layout is defined else None, trash_page=trash_page-1) }}">Anterior</a>{% endif %}
+    <span class="small">Página {{ trash_page }} de {{ trash_pages }}</span>
+    {% if trash_page < trash_pages %}<a class="btn btn-sm btn-outline-secondary pw-layout-trash-page" href="{{ url_for('plant_workspace.tab_dashboard', plant_id=plant.id, layout_id=layout.id if layout is defined else None, trash_page=trash_page+1) }}">Próxima</a>{% endif %}
+  </nav>
+  {% endif %}
+</div>
+<script>
+(function () {
+  const root = document.getElementById('pwDashboardMaintenance');
+  if (!root) return;
+  root.addEventListener('submit', async function (event) {
+    const form = event.target.closest('.pw-layout-maintenance-form');
+    if (!form) return;
+    event.preventDefault();
+    const button = form.querySelector('button[type="submit"]');
+    if (button.disabled) return;
+    button.disabled = true;
+    try {
+      if (!window.__tesseractConfirm) throw new Error('Confirmação indisponível. Recarregue a página.');
+      const confirmed = await window.__tesseractConfirm({key: form.dataset.layoutConfirmKey, params: {name: form.dataset.layoutName}});
+      if (confirmed && form.isConnected) await window.__workspaceSubmitForm(form);
+    } catch (error) {
+      if (window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
+    } finally {
+      button.disabled = false;
+    }
+  });
+  root.addEventListener('click', function (event) {
+    const link = event.target.closest('.pw-layout-trash-page');
+    if (!link) return;
+    event.preventDefault();
+    window.__workspaceLoadUrl(link.href);
+  });
+})();
+</script>

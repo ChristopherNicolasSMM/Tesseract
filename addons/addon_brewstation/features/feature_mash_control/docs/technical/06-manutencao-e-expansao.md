@@ -256,3 +256,35 @@ fragmento e view. Helpers AJAX existentes carregam o painel retornado por
 para retorno não AJAX; fragmento valida pertencimento e seleção inválida.
 Não há migrations nem edição de artefatos gerados. Standby existe apenas
 como campos persistidos no código conferido; runtime permanece pendente.
+
+## Manutenção de layouts 3B
+
+Rotas manuais POST em `/plant-workspace/<plant_id>/dashboard-layouts/<layout_id>/trash`
+e `/restore`, autenticadas, exigem `dashboard_layouts.trash` e
+`dashboard_layouts.restore` respectivamente, conforme CRUD atual. Usam
+`maintain_layout` do serviço manual: painel pertence à planta não apagada,
+estado precisa corresponder à ação. Repete estado inválido com 400, sem
+novo timestamp; fora de escopo retorna 404. Payload não altera campos.
+
+A função chama trash/restore do serviço gerado existente, sem edições no
+CrudGen. Envolve gravação em try/rollback. Restauração ajusta is_default
+apenas se antigo padrão conflita com outro ativo da planta, na mesma
+transação do restore. UPDATE condicional antecede a restauração e reserva
+a escrita no SQLite antes de conferir novamente o estado; a seleção de
+padrão ativo ocorre no próprio UPDATE. Não toca widgets, planta, sessão,
+estoque ou MQTT.
+Remoção retorna padrão ativo ou primeiro painel restante; sem nenhum,
+retorna layout_id null. Restauração retorna o painel restaurado.
+
+JSON retorna dashboard_reload=true; casca abre Dashboard com layout_id
+quando presente, ou sem seleção quando último removido. Fluxo normal usa
+redirect equivalente. Carregamento continua executando __tabCleanup.
+Fragmento recebe contexto da lixeira paginado/clampado em 20, trash_page
+>=1 e <= total de páginas. Paginação preserva seleção explícita. O estado
+vazio inclui o mesmo partial de manutenção. Modais usam chaves i18n do
+Core, envio bloqueado enquanto confirma/salva, e conferem form.isConnected.
+Formulários locais usam data-layout-confirm-key e chamam o helper diretamente:
+não usar data-confirm-key, pois o listener global em captura confirmaria e
+enviaria POST nativo além do fluxo AJAX. Teste Node inclui essa delegação real.
+Após aplicar, reiniciar app/recarregar workspace para catálogo i18n em cache.
+Sem migration ou delete_permanent no workspace; CRUD avançado preservado.

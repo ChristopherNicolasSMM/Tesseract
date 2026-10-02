@@ -16,7 +16,7 @@ Os incrementos abaixo registram as execuções posteriores e pendências locais.
 | Receita e ingredientes | Parcial | `_tab_recipe_detail.html` reúne conferência/custo, vínculo local, revisão e dados planejados; cadastro avançado preservado | Preservar proteção de receitas usadas; operações adicionais na etapa 4 | Serviço de resolução, conversão, referências públicas e proteção de receitas usadas |
 | Sessões, histórico e alarmes | Concluída no escopo dos patches recentes | Busca/paginação, edição básica, confirmação de insumos e reconhecimento rastreável estão no código | Preservar; operações adicionais ficam na etapa 4 | Suítes de workspace, runtime e estoque |
 | Envase e precificação | Parcial | Prévia/registro na aba; detalhes/estorno 2B validados; custos registrados 2C.1 implementados | Validar 2C.1/2C.2; etapas avançadas restantes | Saneamento, composição, snapshots e transação de estoque |
-| Dashboards | Parcial | Seleção/criação/edição básica integradas; fundo/padrão 3A.1 implementados; standby sem comportamento no runtime | Validar 3A.1; 3A.2: standby; 3B: manutenção | Widgets/tubulação existentes e limpeza de listeners/timers |
+| Dashboards | Parcial | Seleção/criação/edição básica, fundo/padrão e manutenção 3B implementados; standby sem runtime | Validar 3A.1/3B; 3A.2: definir standby | Widgets/tubulação existentes e limpeza de listeners/timers |
 | Etapas e automação | Parcial | Timeline e geração já integradas; Automação lista regras e últimos 20 logs, com criação/edição no CRUD | 4A: inventário de operações; 4B: incremento das regras e histórico | Runtime existente, permissões e escopo global/por sessão |
 | Menus | Parcial | Sete códigos configurados no comando de ocultação; não prova cobertura de toda manutenção | 5: matriz de cobertura e ocultação seletiva | Validação funcional dos incrementos anteriores |
 | Brewfather e YeastBank | Radar posterior | Portal Brewfather e painel YeastBank já existem; não reconstruir como novidades | 6: auditorias específicas e novas lacunas | Estabilização do fluxo prioritário |
@@ -326,3 +326,24 @@ implementar o comportamento antes de expor controle funcional.
 3B (lixeira/restauração), etapas 4–6 e validações locais 2C.1/2C.2 continuam
 pendentes; pedido de continuidade não foi interpretado como aprovação visual.
 Entrega: [workspace-dashboard-fundo-padrao-3a1.md](workspace-dashboard-fundo-padrao-3a1.md).
+
+## Incremento 3B — lixeira e restauração locais
+
+Implementada manutenção do painel selecionado e lixeira paginada da planta,
+com 20 itens/página (`trash_page`). Disponível também quando não há painel
+ativo, permitindo recuperar o último removido. Modal padrão via catálogo
+i18n e ações POST autenticadas com permissões existentes trash/restore.
+
+`dashboard_workspace_actions.maintain_layout` reaproveita o serviço gerado
+sem editá-lo; valida planta/painel, estado e reverte falhas de gravação.
+Widgets e demais configurações preservados. Restauração de antigo padrão
+não desmarca padrão ativo: retorna como não padrão se houver outro; sem
+padrão atual, preserva o flag original. Remoção não promove novo padrão;
+a seleção segue fallback existente. Seleção explicitamente inválida segue
+404, sem troca silenciosa. Retorno normal/AJAX recebe seleção adequada e
+limpa o dashboard pelos helpers existentes.
+
+Sem migration, exclusão permanente, menu novo ou alteração de controles/
+sessões/estoque. Standby 3A.2 continua exigindo definição; etapas 4–6 e
+validação local dos incrementos recentes continuam pendentes.
+Entrega: [workspace-dashboard-lixeira-restauracao-3b.md](workspace-dashboard-lixeira-restauracao-3b.md).

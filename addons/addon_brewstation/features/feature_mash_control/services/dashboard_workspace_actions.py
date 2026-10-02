@@ -66,3 +66,43 @@ def configure_layout(plant_id, layout_id, *, color, image, is_default):
         db.session.rollback()
         raise
     return layout
+
+
+def maintain_layout(plant_id, layout_id, action):
+    """Reaproveita trash/restore existentes, com escopo e rollback locais."""
+    from addons.addon_brewstation.features.feature_mash_control.services.dashboard_layout_service import DashboardLayoutService
+    layout = (DashboardLayout.query.join(BrewPlant)
+              .filter(DashboardLayout.id == layout_id, DashboardLayout.plant_id == plant_id,
+                      BrewPlant.is_deleted.is_(False)).first())
+    if layout is None:
+        raise LookupError('Painel desta planta não encontrado.')
+    if action not in ('trash', 'restore'):
+        raise ValueError('Ação de manutenção inválida.')
+    if action == 'trash' and layout.is_deleted:
+        raise ValueError('O painel já está na lixeira.')
+    if action == 'restore' and not layout.is_deleted:
+        raise ValueError('O painel não está na lixeira.')
+    try:
+        if action == 'restore':
+            # Primeiro write serializa restauração/configuração no SQLite.
+            # A decisão de preservar o padrão é feita no próprio UPDATE.
+            active_default = DashboardLayout.query.filter_by(
+                plant_id=plant_id, is_deleted=False, is_default=True).correlate(None).exists()
+            DashboardLayout.query.filter_by(id=layout_id, plant_id=plant_id,
+                is_deleted=True, is_default=True).filter(active_default).update(
+                    {'is_default': False}, synchronize_session=False)
+            db.session.refresh(layout)
+            if not layout.is_deleted:
+                raise ValueError('O painel não está na lixeira.')
+        service = DashboardLayoutService()
+        result = getattr(service, action)(layout_id)
+        if not result.success:
+            raise ValueError(result.error)
+    except Exception:
+        db.session.rollback()
+        raise
+    if action == 'restore':
+        return layout
+    remaining = DashboardLayout.query.filter_by(plant_id=plant_id, is_deleted=False)
+    return (remaining.filter_by(is_default=True).order_by(DashboardLayout.id).first()
+            or remaining.order_by(DashboardLayout.id).first())

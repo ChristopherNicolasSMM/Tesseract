@@ -9,5 +9,7 @@
   "brewstation_mashctrl.recipe.confirm_ignore_ingredient": "Não consumir este ingrediente do estoque? A decisão será salva somente nesta receita. Nenhuma movimentação será realizada agora.",
   "brewstation_mashctrl.recipe.confirm_revision": "Criar uma nova revisão completa desta receita? Os lotes anteriores continuam vinculados à versão original. Nenhum consumo de estoque será confirmado.",
   "brewstation_mashctrl.workspace.confirm_register_envase": "Registrar {liters} L de {product}? Esta ação grava o envase e movimenta o estoque. {ingredients} Custos e composição serão conferidos no momento do registro.",
-  "brewstation_mashctrl.workspace.confirm_reverse_envase": "Estornar o envase #{id}? As embalagens identificadas serão devolvidas ao estoque. O consumo e o custo registrado dos ingredientes do lote serão preservados."
+  "brewstation_mashctrl.workspace.confirm_reverse_envase": "Estornar o envase #{id}? As embalagens identificadas serão devolvidas ao estoque. O consumo e o custo registrado dos ingredientes do lote serão preservados.",
+  "brewstation_mashctrl.workspace.confirm_trash_layout": "Enviar o painel \"{name}\" à lixeira? Seus widgets e configurações serão preservados para restauração. Sessões e controles não serão interrompidos.",
+  "brewstation_mashctrl.workspace.confirm_restore_layout": "Restaurar o painel \"{name}\"? O painel padrão atual da planta será preservado."
 }

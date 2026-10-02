@@ -134,6 +134,7 @@ body.pw-kiosk-mode #main { margin-left: 0 !important; padding-top: 12px !importa
       }
       if (window.__tesseractToast) window.__tesseractToast.show(result.message || 'Alterações salvas.', 'success');
       if (result.recipe_id) window.__workspaceOpenTab('recipe', '?recipe_id=' + encodeURIComponent(result.recipe_id));
+      else if (result.dashboard_reload) window.__workspaceOpenTab('dashboard', result.layout_id ? '?layout_id=' + encodeURIComponent(result.layout_id) : '');
       else if (result.layout_id) window.__workspaceOpenTab('dashboard', '?layout_id=' + encodeURIComponent(result.layout_id));
       else window.__workspaceReloadCurrent();
     } catch (error) {
