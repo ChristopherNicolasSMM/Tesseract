@@ -14,7 +14,7 @@ executado pytest nem realizada validação visual em uma aplicação em execuç�
 | Planta, tanques e mapeamentos | Parcial | `plant_workspace.py` tem criação/edição e validações; manutenção completa ainda depende de cadastros | Inventariar lixeira, restauração e configuração avançada antes de ocultar acessos | Permissões, pertencimento e funcionalidades dos cadastros |
 | Receita e ingredientes | Parcial | `_tab_recipe_detail.html` reúne conferência/custo, vínculo local, revisão e dados planejados; cadastro avançado preservado | 1C validado; 2A.1 prepara envase | Serviço de resolução, conversão, referências públicas e proteção de receitas usadas |
 | Sessões, histórico e alarmes | Concluída no escopo dos patches recentes | Busca/paginação, edição básica, confirmação de insumos e reconhecimento rastreável estão no código | Preservar; operações adicionais ficam na etapa 4 | Suítes de workspace, runtime e estoque |
-| Envase e precificação | Parcial | Prévia/registro na aba; detalhes/estorno 2B validados; custos registrados 2C.1 implementados | Validar 2C.1; consolidar rateio por envase/unidade | Saneamento, composição, snapshots e transação de estoque |
+| Envase e precificação | Parcial | Prévia/registro na aba; detalhes/estorno 2B validados; custos registrados 2C.1 implementados | Validar 2C.1/2C.2; etapas avançadas restantes | Saneamento, composição, snapshots e transação de estoque |
 | Dashboards | Parcial | Seleção/criação/edição básica integradas; fundo, standby, padrão e manutenção usam cadastro completo | 3A: opções avançadas; 3B: manutenção | Widgets/tubulação existentes e limpeza de listeners/timers |
 | Etapas e automação | Parcial | Timeline e geração já integradas; Automação lista regras e últimos 20 logs, com criação/edição no CRUD | 4A: inventário de operações; 4B: incremento das regras e histórico | Runtime existente, permissões e escopo global/por sessão |
 | Menus | Parcial | Sete códigos configurados no comando de ocultação; não prova cobertura de toda manutenção | 5: matriz de cobertura e ocultação seletiva | Validação funcional dos incrementos anteriores |
@@ -43,7 +43,7 @@ a área funcional. A quantidade final de patches pode mudar ao conferir dependê
 - Correção intermediária: seletores e layout implementados; validação local pendente.
   Ver [inventário e testes](brewstation-seletores-layout.md).
 - 2A.2 (registro): suíte funcional passou; correção das migrations validada localmente.
-- 2B (detalhes/estorno): validado pelo usuário. 2C.1 (custos registrados): implementado, validação local pendente; rateio 2C.2 e etapas 3–6 permanecem pendentes.
+- 2B (detalhes/estorno): validado pelo usuário. 2C.1 (custos registrados): implementado, validação local pendente; 2C.2 implementado, aguardando validação local; etapas 3–6 permanecem pendentes.
   As proteções locais não alteram o comportamento
   do de-para global, dos importadores ou das ações avançadas do CRUD/runtime.
 
@@ -294,3 +294,15 @@ por lote/envase e validação de vínculos/status. Sem migration. Ver
 O cálculo mantém o escopo de ingredientes do lote completo; consolidação de
 rateio por envase/unidade permanece para 2C.2. Não considerar toda a etapa
 de precificação concluída nem ocultar menus por este patch.
+
+## Incremento 2C.2 — rateio e preço por unidade
+
+Implementado: ingredientes proporcionais aos litros registrados ativos,
+embalagens do envase escolhido, preço/custo por unidade e preço por litro.
+Snapshot de produção no registro e snapshot da base na precificação salvam
+a origem e evitam reconstruir o histórico com cadastros posteriores.
+Denominador muda para novos cálculos após registro/estorno; salvos preservados.
+Requer migration `f8c214ab709e`; sem backfill. Unidades antigas estimadas ou
+indisponíveis ficam identificadas. Sem preço unitário do lote sem envase.
+Entrega: [precificacao-rateio-unidade-2c2.md](precificacao-rateio-unidade-2c2.md).
+Validação visual/local pendente; não considerar demais etapas concluídas.

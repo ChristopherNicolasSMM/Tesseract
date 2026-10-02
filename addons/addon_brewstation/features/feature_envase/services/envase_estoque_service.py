@@ -56,10 +56,14 @@ def _volume_real_litros(material: dict) -> float:
     if unidade in ("l", "lt", "litro", "litros"):
         return volume
     if unidade in ("ml", "mililitro", "mililitros", "cm3"):
-        return volume / 1000
-    if unidade == "m3":
-        return volume * 1000
-    raise VolumeRealNaoConfiguradoError(f"Unidade do volume real não suportada: {unidade}")
+        volume = volume / 1000
+    elif unidade == "m3":
+        volume = volume * 1000
+    else:
+        raise VolumeRealNaoConfiguradoError(f"Unidade do volume real não suportada: {unidade}")
+    if not isfinite(volume) or volume <= 0:
+        raise VolumeRealNaoConfiguradoError("Volume convertido deve ser positivo e finito.")
+    return volume
 
 
 class RequisicaoEnvaseConflitanteError(ValueError):
@@ -133,6 +137,8 @@ def registrar_envase(
     volume_real = _volume_real_litros(material_resultante)
 
     unidades_geradas = quantidade_litros / volume_real
+    if not isfinite(unidades_geradas) or unidades_geradas <= 0:
+        raise VolumeRealNaoConfiguradoError("Unidades geradas devem ser positivas e finitas.")
     componentes = material_lookup.get_composicao(material_resultante_id)
 
     try:
@@ -144,6 +150,9 @@ def registrar_envase(
             tipo_envase=tipo_envase,
             status="registrado",
             componentes_snapshot=[],
+            producao_snapshot={"version": 1, "material_resultante_id": material_resultante_id,
+                               "volume_por_unidade_litros": volume_real,
+                               "unidades_geradas": unidades_geradas},
             idempotency_key=idempotency_key,
         )
         db.session.add(envase)
@@ -286,14 +295,9 @@ def calcular_custo_industrializacao_envase(envase_id: int) -> dict:
         raise EnvaseNaoEstornavelError("Envase cancelado não compõe o custo de produção.")
 
     lote = envase.lote
-    litros_produzidos_do_lote = db.session.query(
-        db.func.coalesce(db.func.sum(Envase.quantidade_litros), 0.0)
-    ).filter(Envase.lote_id == envase.lote_id, Envase.is_deleted.is_(False), Envase.status == "registrado").scalar()
-
-    custo_cerveja = 0.0
-    if lote.custo_total_insumos and litros_produzidos_do_lote:
-        custo_por_litro = lote.custo_total_insumos / litros_produzidos_do_lote
-        custo_cerveja = custo_por_litro * (envase.quantidade_litros or 0.0)
+    from addons.addon_brewstation.features.feature_envase.services.envase_cost_basis import volume_rateio
+    basis = volume_rateio(envase)
+    custo_cerveja = (lote.custo_total_insumos or 0.0) * basis["fator_rateio"]
 
     custo_componentes = 0.0
     detalhe_componentes = []

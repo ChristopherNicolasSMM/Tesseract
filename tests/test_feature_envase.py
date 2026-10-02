@@ -925,8 +925,13 @@ def test_registrar_envase_chave_repetida_preserva_ledger_snapshot_e_custo(app):
         balance = Saldo.query.filter_by(material_id=tampa.id).one().quantidade_atual
         cost = lote.custo_total_insumos
         snapshot = db.session.get(Envase, first["envase"]["id"]).componentes_snapshot
+        production = first["envase"]["producao_snapshot"]
+        assert production["unidades_geradas"] * production["volume_por_unidade_litros"] == 4
+        produto.volume_real = 1.0
+        db.session.commit()
         again = svc.registrar_envase(lote.id, produto.id, 4, idempotency_key=key)
         assert again["ja_registrado"] is True
+        assert again["envase"]["producao_snapshot"] == production
         assert again["envase"]["id"] == first["envase"]["id"]
         assert Movimentacao.query.count() == count and Envase.query.count() == 1
         from addons.addon_brewstation.features.feature_mash_control.model.brew_session_log import BrewSessionLog

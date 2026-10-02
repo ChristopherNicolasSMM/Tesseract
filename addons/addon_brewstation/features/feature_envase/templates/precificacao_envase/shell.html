@@ -52,6 +52,9 @@
     <h5 class="card-title">Resultado</h5>
     <p class="small" id="pcCostBasis"></p>
     <p class="small text-muted" id="pcCostScope"></p>
+    <p class="small" id="pcRateioBasis"></p>
+    <p class="small text-muted">As quantidades dos ingredientes representam a receita completa; o custo aplicado é proporcional ao envase selecionado.</p>
+    <div class="d-flex flex-wrap gap-4 mb-3"><div>Custo por unidade: <strong id="pcUnitCost">—</strong></div><div>Preço por unidade: <strong id="pcUnitPrice">—</strong></div><div>Preço por litro: <strong id="pcLiterPrice">—</strong></div></div>
     <div class="row text-center mb-3">
       <div class="col"><div class="small text-muted">Custo Ingredientes</div><div class="fs-5" id="pcResCustoIng">—</div></div>
       <div class="col"><div class="small text-muted">Custo Embalagem</div><div class="fs-5" id="pcResCustoEmb">—</div></div>
@@ -62,7 +65,7 @@
       <div class="col"><div class="small text-muted fw-bold">Valor Total</div><div class="fs-4 text-primary fw-bold" id="pcResTotal">—</div></div>
     </div>
     <table class="table table-sm">
-      <thead><tr><th>Material</th><th>Quantidade</th><th>Preço Unit.</th><th>Custo</th><th>Origem</th></tr></thead>
+      <thead><tr><th>Material</th><th>Quantidade da base</th><th>Preço Unit.</th><th>Custo aplicado</th><th>Origem</th></tr></thead>
       <tbody id="pcItensBody"></tbody>
     </table>
     <div class="alert alert-success d-none" id="pcSalvoMsg"></div>
@@ -109,6 +112,14 @@
     document.getElementById('pcResIcms').textContent = fmtR$(r.valor_icms);
     document.getElementById('pcResTotal').textContent = fmtR$(r.valor_total);
 
+    const basis = r.base_calculo_snapshot || {};
+    const unitMessage = basis.origem_unidades === 'registrado' ? 'Unidades registradas no envase.' :
+      (basis.origem_unidades === 'estimado_cadastro_atual' ? 'Unidades estimadas pelo volume atual do produto (envase legado).' : 'Preço por unidade indisponível: falta volume/unidades identificáveis do produto.');
+    document.getElementById('pcRateioBasis').textContent = basis.escopo === 'envase' ?
+      ('Rateio: ' + basis.volume_envase_litros + ' L / ' + basis.volume_registrado_lote_litros + ' L registrados (' + (basis.fator_rateio * 100).toFixed(2) + '%). Ingredientes do lote: ' + fmtR$(basis.custo_ingredientes_lote_total) + '. ' + unitMessage + (basis.unidades_envase != null ? ' Unidades: ' + basis.unidades_envase + '.' : '') + ' Novos registros ou estornos alteram a base de novos cálculos; cálculos salvos conservam sua base.') : 'Sem envase selecionado: total do lote, sem rateio ou preço por unidade.';
+    document.getElementById('pcUnitCost').textContent = basis.custo_por_unidade == null ? 'Indisponível' : fmtR$(basis.custo_por_unidade);
+    document.getElementById('pcUnitPrice').textContent = basis.preco_por_unidade == null ? 'Indisponível' : fmtR$(basis.preco_por_unidade);
+    document.getElementById('pcLiterPrice').textContent = basis.preco_por_litro == null ? 'Indisponível' : fmtR$(basis.preco_por_litro);
     const body = document.getElementById('pcItensBody');
     body.innerHTML = '';
     (r.itens || []).forEach(function (item) {

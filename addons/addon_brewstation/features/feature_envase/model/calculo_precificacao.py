@@ -13,11 +13,12 @@ mesmo padrão de envase.lote_id).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, min_value, weak_ref
+from annotations import label, plural, required, min_value, weak_ref, readonly_fields
 
 _MC = "addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups"
 
 
+@readonly_fields(["base_calculo_snapshot"])
 @label("Cálculo de Precificação")
 @plural("calculo_precificacaos")
 @required("lote_id", message="Lote é obrigatório")
@@ -55,6 +56,8 @@ class CalculoPrecificacao(db.Model):
 
     valor_total = db.Column(db.Float, nullable=False, default=0.0)
 
+    base_calculo_snapshot = db.Column(db.JSON, nullable=True)
+
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     def to_dict(self) -> dict:
@@ -72,6 +75,7 @@ class CalculoPrecificacao(db.Model):
             "percentual_icms": self.percentual_icms,
             "valor_icms": self.valor_icms,
             "valor_total": self.valor_total,
+            "base_calculo_snapshot": self.base_calculo_snapshot,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 

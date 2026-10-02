@@ -63,3 +63,33 @@ precificação. Estimativas anteriores à confirmação/legadas ficam identifica
 O detalhe de envase do workspace abre a precificação com lote/envase e
 retorno contextual. O rateio por envase/unidade permanece pendente; esta
 entrega não registra envase nem movimenta estoque ao simular/salvar cálculo.
+
+## Precificação por envase e unidade (2C.2)
+
+Abra a precificação pelo detalhe do envase na aba Sessões. Ingredientes
+recebem a fração litros do envase / soma dos litros dos envases registrados
+e não apagados do lote. Cancelados não participam. Embalagens são apenas
+as do envase escolhido. A tela informa litros, percentual e custo total
+do lote usado como base; quantidades de ingredientes continuam sendo da
+receita completa e o custo aplicado é proporcional.
+
+Custo por unidade = subtotal / unidades do envase. Preço por unidade =
+total após lucro/impostos / unidades. Preço por litro = total / litros do
+envase. As fórmulas de lucro e impostos existentes foram preservadas.
+As unidades não são arredondadas para inteiro. Sem envase não se calcula
+preço unitário. Volume ausente/inválido em qualquer envase participante
+bloqueia o rateio, exigindo conferir o histórico.
+
+Novos registros guardam volume por unidade e unidades geradas. Alterar
+o cadastro do produto depois não altera essa base. Para envases antigos,
+a tela identifica unidades estimadas pelo volume atual do produto ou
+preço unitário indisponível. Não se deduz volume pelo nome do material,
+pacote ou unidade PCT. Custos registrados e estimados mantêm indicação
+separada; estimativas incompletas não se tornam custos confirmados.
+
+Calcular e Salvar congela a base do rateio e valores unitários. Um novo
+envase ou estorno altera novos cálculos, sem reescrever cálculos salvos.
+Vincular posteriormente um cálculo do lote a um envase mantém sua base
+original; faça novo cálculo com o envase selecionado para aplicar rateio.
+Cálculos antigos sem snapshot permanecem históricos, sem reconstrução.
+Simular e consultar não movimentam estoque.

@@ -125,3 +125,26 @@ Valores já salvos não são recalculados ao vincular/cancelar envase. Vincular
 valida lote, status, exclusão e impede troca de vínculo existente.
 O motor usa os getters públicos do estoque para saldo/unidade-base/material.
 Controller/API/tela de precificação são manuais, não gerados pelo CrudGen.
+
+## Snapshots e rateio 2C.2
+
+`envase_cost_basis.volume_rateio` compartilha a regra existente com custo
+de industrialização: litros selecionados / total registrado ativo. Valida
+volumes finitos positivos e exclui cancelados/apagados. `unit_basis` usa
+`Envase.producao_snapshot` autoritativamente; NULL legado permite estimar
+pelo volume explícito do cadastro via ponto público `material_lookup`.
+Snapshot presente inválido gera erro, sem fallback. Conversões de volume
+continuam as existentes em `_volume_real_litros`; pacote/massa não convertem.
+
+Migration `f8c214ab709e`, filha de `e6274a913bc0`, adiciona JSONs nullable
+`producao_snapshot` e `CalculoPrecificacao.base_calculo_snapshot`, sem
+backfill. Inspeciona schema para tolerar `create_all` e repetição. Downgrade
+remove somente esses campos; perde os snapshots novos, preservando linhas
+e valores antigos. Não executar downgrade no banco de uso para testar.
+
+Produção é congelada na mesma transação do registro/idempotência. Estorno
+preserva snapshot. Cálculo salva escopo, participantes, volumes, fator,
+origem de custos/unidades e valores unitários sem acionar ledger. Vincular
+envase não recalcula snapshot do lote. UI usa o resultado do serviço; não
+reconstrói o rateio em JS. Percentuais/custos/resultados não finitos ou
+negativos são rejeitados. Demais fórmulas de lucro/IPI/ICMS preservadas.

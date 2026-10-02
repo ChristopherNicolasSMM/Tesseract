@@ -34,8 +34,8 @@ Correção de migrations validada pelo usuário. 2B (detalhes/estorno)
 validado pelo usuário; ver
 [workspace-envase-detalhes-estorno-2b.md](docs/patches/workspace-envase-detalhes-estorno-2b.md).
 Precificação 2C.1 (custos registrados) implementada, aguardando validação local;
-rateio 2C.2 e etapas 3–6 continuam pendentes; menus e cadastros avançados preservados. O rateio por envase/unidade ainda
-precisa ser consolidado antes de considerar toda a precificação concluída.
+rateio/preço por unidade 2C.2 implementado, aguardando validação local.
+Etapas 3–6 continuam pendentes; menus e cadastros avançados preservados.
 
 ## Fase 0 — Scaffold
 
@@ -5560,3 +5560,14 @@ Sem migration; validação local pendente. Ver
 O cálculo ainda considera ingredientes do lote inteiro e embalagens do
 envase selecionado. Rateio por envase/unidade (2C.2), dashboards avançados e
 etapas seguintes continuam pendentes.
+
+### Precificação 2C.2 (02/10/2026)
+
+Rateio pelo volume dos envases registrados e não apagados do lote, excluindo
+cancelados. Novo registro congela volume por unidade/unidades produzidas;
+precificação salva congela denominador, IDs/volumes participantes, origem
+das unidades e valores por unidade/litro. Legado permanece sem backfill: usa
+unidades estimadas pelo cadastro atual ou indica indisponibilidade.
+Simular não grava nem movimenta estoque. Requer `flask db upgrade`.
+Ver [entrega 2C.2](docs/patches/precificacao-rateio-unidade-2c2.md).
+Implementado; validação visual/local do usuário pendente.

@@ -27,6 +27,8 @@ de multiplicar.
 """
 from __future__ import annotations
 
+from math import isfinite
+
 from core.db import db
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
 from addons.addon_brewstation.features.feature_mash_control.model.recipe_ingredient import RecipeIngredient
@@ -119,6 +121,7 @@ def calcular_e_salvar(lote_id: int, envase_id: int | None, percentual_lucro: flo
         percentual_icms=percentual_icms,
         valor_icms=resultado["valor_icms"],
         valor_total=resultado["valor_total"],
+        base_calculo_snapshot=resultado["base_calculo_snapshot"],
     )
     db.session.add(calculo)
     db.session.flush()  # precisa do id pra gravar os itens
@@ -168,6 +171,9 @@ def _material_display(material_id: int) -> str:
 
 def _calcular(lote_id: int, envase_id: int | None, percentual_lucro: float,
               percentual_ipi: float, percentual_icms: float) -> dict:
+    for value in (percentual_lucro, percentual_ipi, percentual_icms):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(value) or value < 0:
+            raise ValueError("Percentuais devem ser números finitos e não negativos.")
     lote = db.session.get(BrewSession, lote_id)
     if not lote or lote.is_deleted:
         raise ValueError("Lote (BrewSession) não encontrado.")
@@ -219,6 +225,24 @@ def _calcular(lote_id: int, envase_id: int | None, percentual_lucro: float,
                 "origem_preco": origem,
             })
 
+    custo_ingredientes_lote = custo_ingredientes_total
+    basis = {"version": 1, "escopo": "lote", "fator_rateio": 1.0,
+             "custo_ingredientes_lote_total": custo_ingredientes_lote,
+             "volume_envase_litros": None, "volume_registrado_lote_litros": None,
+             "volume_por_unidade_litros": None, "unidades_envase": None,
+             "origem_unidades": "indisponivel"}
+    if envase is not None:
+        from addons.addon_brewstation.features.feature_envase.services.envase_cost_basis import volume_rateio, unit_basis
+        basis.update(volume_rateio(envase))
+        basis.update(unit_basis(envase))
+        basis["escopo"] = "envase"
+        custo_ingredientes_total *= basis["fator_rateio"]
+        # Quantidades continuam sendo as quantidades da receita do lote.
+        # Somente os custos das linhas são rateados; não inventa consumo parcial.
+        for item in itens_resultado:
+            item["custo_total_lote"] = item["custo_total"]
+            item["custo_total"] *= basis["fator_rateio"]
+
     custo_embalagem_total = 0.0
     embalagens_registradas = envase is not None and envase.componentes_snapshot is not None
     if embalagens_registradas:
@@ -261,6 +285,9 @@ def _calcular(lote_id: int, envase_id: int | None, percentual_lucro: float,
                 "origem_preco": origem,
             })
 
+    for cost in (custo_ingredientes_lote, custo_ingredientes_total, custo_embalagem_total):
+        if isinstance(cost, bool) or not isinstance(cost, (int, float)) or not isfinite(cost) or cost < 0:
+            raise ValueError("Custos devem ser números finitos e não negativos; confira a base.")
     subtotal = custo_ingredientes_total + custo_embalagem_total
     valor_lucro = subtotal * (percentual_lucro / 100.0)
     total_antes_impostos = subtotal + valor_lucro
@@ -268,13 +295,26 @@ def _calcular(lote_id: int, envase_id: int | None, percentual_lucro: float,
     valor_icms = total_antes_impostos * (percentual_icms / 100.0)
     valor_total = total_antes_impostos + valor_ipi + valor_icms
 
+    if not all(isfinite(value) for value in (subtotal, valor_lucro, valor_ipi, valor_icms, valor_total)):
+        raise ValueError("Resultado fora do intervalo numérico; confira os percentuais e custos.")
+    units = basis["unidades_envase"]
+    basis.update({"ingredientes_registrados": ingredientes_registrados,
+                  "embalagens_registradas": embalagens_registradas,
+                  "estimativa_incompleta": estimativa_incompleta,
+                  "custo_por_unidade": subtotal / units if units else None,
+                  "preco_por_unidade": valor_total / units if units else None,
+                  "preco_por_litro": valor_total / basis["volume_envase_litros"] if envase else None})
+    if any(value is not None and not isfinite(value) for value in
+           (basis["custo_por_unidade"], basis["preco_por_unidade"], basis["preco_por_litro"])):
+        raise ValueError("Preço unitário fora do intervalo numérico; confira o volume e as unidades.")
     return {
+        "base_calculo_snapshot": basis,
         "lote_id": lote_id,
         "envase_id": envase_id,
         "estimativa_incompleta": estimativa_incompleta,
         "ingredientes_registrados": ingredientes_registrados,
         "embalagens_registradas": embalagens_registradas,
-        "escopo_custo": "Ingredientes do lote completo; embalagens somente do envase selecionado. Não é um preço por unidade ou um rateio por envase.",
+        "escopo_custo": ("Ingredientes rateados pelos litros registrados; embalagens deste envase." if envase else "Ingredientes do lote completo. Selecione um envase para rateio e preço por unidade."),
         "custo_ingredientes_total": custo_ingredientes_total,
         "custo_embalagem_total": custo_embalagem_total,
         "subtotal": subtotal,

@@ -422,7 +422,7 @@ def test_precificacao_snapshot_prevalece_sobre_item_legado_e_preco_atual(app, mo
         assert result['itens'][0]['origem_preco'] == 'registrado'
         assert ItemCustoIngrediente.query.filter_by(calculo_id=result['id']).one().custo_total == 6
         assert Movimentacao.query.count() == before
-        empty = Envase(lote_id=lote.id, componentes_snapshot=[])
+        empty = Envase(lote_id=lote.id, quantidade_litros=2, componentes_snapshot=[])
         db.session.add(empty); db.session.commit()
         assert precificacao_service.simular(lote.id, empty.id, 0, 0, 0)['custo_embalagem_total'] == 0
         assert db.session.get(CalculoPrecificacao, result['id']).subtotal == 56
@@ -478,7 +478,7 @@ def test_precificacao_snapshot_incompleto_nao_salva_zero_inventado(app, missing)
         lote = BrewSession(name='Snapshot incompleto'); db.session.add(lote); db.session.flush()
         component = {'material_componente_id': 1, 'quantidade_total': 2, 'custo_linha': 6, 'custo_medio': 3}
         component[missing] = None
-        envase = Envase(lote_id=lote.id, componentes_snapshot=[component]); db.session.add(envase); db.session.commit()
+        envase = Envase(lote_id=lote.id, quantidade_litros=2, componentes_snapshot=[component]); db.session.add(envase); db.session.commit()
         with pytest.raises(ValueError, match='sem custo registrado'):
             precificacao_service.calcular_e_salvar(lote.id, envase.id, 0, 0, 0)
         assert CalculoPrecificacao.query.count() == 0
@@ -496,7 +496,7 @@ def test_precificacao_legado_e_pendencias_sao_estimativas_explicitas(app, monkey
         db.session.commit()
         assert precificacao_service.simular(lote.id, None, 0, 0, 0)['estimativa_incompleta']
         lote.insumos_baixados_em = datetime.now(timezone.utc); lote.custo_total_insumos = 50
-        envase = Envase(lote_id=lote.id)
+        envase = Envase(lote_id=lote.id, quantidade_litros=2)
         db.session.add(envase); db.session.flush()
         db.session.add(ItemEnvase(envase_id=envase.id, material_id=material.id, quantidade=2))
         db.session.commit()
@@ -504,3 +504,114 @@ def test_precificacao_legado_e_pendencias_sao_estimativas_explicitas(app, monkey
         result = precificacao_service.simular(lote.id, envase.id, 0, 0, 0)
         assert result['ingredientes_registrados'] and not result['embalagens_registradas']
         assert result['custo_embalagem_total'] == 14 and result['subtotal'] == 64
+
+
+def _rateio_envases(lote):
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+    from datetime import datetime, timezone
+    lote.insumos_baixados_em = datetime.now(timezone.utc)
+    lote.custo_total_insumos = 100
+    a = Envase(lote_id=lote.id, quantidade_litros=20, material_resultante_id=1,
+               componentes_snapshot=[{'material_componente_id': 1, 'quantidade_total': 40,
+                   'custo_medio': .25, 'custo_linha': 10}],
+               producao_snapshot={'material_resultante_id': 1, 'volume_por_unidade_litros': .5, 'unidades_geradas': 40})
+    b = Envase(lote_id=lote.id, quantidade_litros=30, componentes_snapshot=[])
+    db.session.add_all([a,b,Envase(lote_id=lote.id, quantidade_litros=500, status='cancelado'),
+                       Envase(lote_id=lote.id, quantidade_litros=1000, is_deleted=True)])
+    db.session.commit()
+    return a, b
+
+
+def test_rateio_unidade_conserva_total_e_congela_base_apos_estorno(app):
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+    with app.app_context():
+        lote = BrewSession(name='Rateio de dois envases'); db.session.add(lote); db.session.commit()
+        a,b = _rateio_envases(lote)
+        before = Movimentacao.query.count()
+        first = precificacao_service.calcular_e_salvar(lote.id, a.id, 20, 0, 0)
+        other = precificacao_service.simular(lote.id, b.id, 20, 0, 0)
+        assert first['custo_ingredientes_total'] == 40 and other['custo_ingredientes_total'] == 60
+        basis = first['base_calculo_snapshot']
+        assert basis['volume_registrado_lote_litros'] == 50 and basis['fator_rateio'] == .4
+        assert basis['preco_por_unidade'] == 1.5 and basis['custo_por_unidade'] == 1.25
+        assert basis['origem_unidades'] == 'registrado'
+        assert other['base_calculo_snapshot']['preco_por_unidade'] is None
+        # Cancelamento real pelo serviço existente: sem componentes em B.
+        from addons.addon_brewstation.features.feature_envase.services import envase_estoque_service
+        envase_estoque_service.estornar_envase(b.id, 'Teste da nova base')
+        again = precificacao_service.simular(lote.id, a.id, 20, 0, 0)
+        assert again['custo_ingredientes_total'] == 100
+        saved = db.session.get(CalculoPrecificacao, first['id'])
+        assert saved.base_calculo_snapshot == basis and saved.custo_ingredientes_total == 40
+        assert Movimentacao.query.count() == before and lote.custo_total_insumos == 100
+
+
+@pytest.mark.parametrize('volume', [None, 0, -1, float('inf')])
+def test_rateio_recusa_denominador_com_envase_sem_volume_valido(app, volume):
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+    with app.app_context():
+        lote = BrewSession(name='Base incompleta'); db.session.add(lote); db.session.commit()
+        a,b = _rateio_envases(lote)
+        b.quantidade_litros = volume; db.session.commit()
+        with pytest.raises(ValueError, match='Volume'):
+            precificacao_service.calcular_e_salvar(lote.id, a.id, 0, 0, 0)
+        assert CalculoPrecificacao.query.count() == 0
+
+
+@pytest.mark.parametrize('percent', [-1, float('nan'), float('inf')])
+def test_rateio_nao_salva_percentuais_invalidos(app, percent):
+    with app.app_context():
+        lote = BrewSession(name='Percentual inválido'); db.session.add(lote); db.session.commit()
+        with pytest.raises(ValueError, match='Percentuais'):
+            precificacao_service.calcular_e_salvar(lote.id, None, percent, 0, 0)
+        assert CalculoPrecificacao.query.count() == 0
+
+
+def test_rateio_snapshot_unidades_prevalece_e_legado_estima_volume(app, monkeypatch):
+    from addons.addon_estoque.root.services import material_lookup
+    with app.app_context():
+        lote = BrewSession(name='Unidades históricas'); db.session.add(lote); db.session.commit()
+        a,b = _rateio_envases(lote)
+        monkeypatch.setattr(material_lookup, 'get_material', lambda mid: {'display': 'Produto atual', 'volume_real': 1, 'unidade_medida_volume_real': 'L'})
+        result = precificacao_service.simular(lote.id, a.id, 0, 0, 0)
+        assert result['base_calculo_snapshot']['unidades_envase'] == 40
+        result = precificacao_service.simular(lote.id, b.id, 0, 0, 0)
+        assert result['base_calculo_snapshot']['unidades_envase'] == 30
+        assert result['base_calculo_snapshot']['origem_unidades'] == 'estimado_cadastro_atual'
+        a.producao_snapshot = {'material_resultante_id': 1, 'volume_por_unidade_litros': 0, 'unidades_geradas': 40}
+        db.session.commit()
+        with pytest.raises(ValueError, match='Volume por unidade'):
+            precificacao_service.simular(lote.id, a.id, 0, 0, 0)
+
+
+def test_vincular_envase_preserva_calculo_original_sem_rateio(app):
+    with app.app_context():
+        lote = BrewSession(name='Cálculo do lote'); db.session.add(lote); db.session.commit()
+        a, b = _rateio_envases(lote)
+        saved = precificacao_service.calcular_e_salvar(lote.id, None, 0, 0, 0)
+        precificacao_service.vincular_envase(saved['id'], a.id)
+        calculation = db.session.get(CalculoPrecificacao, saved['id'])
+        assert calculation.custo_ingredientes_total == 100
+        assert calculation.base_calculo_snapshot['escopo'] == 'lote'
+        assert calculation.base_calculo_snapshot['preco_por_unidade'] is None
+        assert precificacao_service.simular(lote.id, a.id, 0, 0, 0)['custo_ingredientes_total'] == 40
+
+
+@pytest.mark.parametrize('volume,unit', [(1e308, 'm3'), (5e-324, 'ml')])
+def test_conversao_volume_recusa_overflow_e_underflow(volume, unit):
+    from addons.addon_brewstation.features.feature_envase.services.envase_estoque_service import _volume_real_litros, VolumeRealNaoConfiguradoError
+    with pytest.raises(VolumeRealNaoConfiguradoError, match='positivo e finito'):
+        _volume_real_litros({'volume_real': volume, 'unidade_medida_volume_real': unit})
+
+
+@pytest.mark.parametrize('volume,unit', [(None, 'L'), (1, 'PCT'), (1e308, 'm3')])
+def test_legado_volume_invalido_indica_unidades_indisponiveis(app, monkeypatch, volume, unit):
+    from addons.addon_estoque.root.services import material_lookup
+    with app.app_context():
+        lote = BrewSession(name='Volume legado'); db.session.add(lote); db.session.commit()
+        a, b = _rateio_envases(lote)
+        monkeypatch.setattr(material_lookup, 'get_material', lambda mid: {'display': 'Produto', 'volume_real': volume, 'unidade_medida_volume_real': unit})
+        result = precificacao_service.simular(lote.id, b.id, 0, 0, 0)
+        assert result['base_calculo_snapshot']['origem_unidades'] == 'indisponivel'
+        assert result['base_calculo_snapshot']['preco_por_unidade'] is None
+        assert result['base_calculo_snapshot']['preco_por_litro'] == 2
