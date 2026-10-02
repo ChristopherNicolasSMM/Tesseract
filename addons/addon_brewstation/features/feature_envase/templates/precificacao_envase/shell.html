@@ -3,8 +3,8 @@
 {% block content %}
 <div class="pagetitle">
   <h1><i class="bi bi-calculator-fill"></i> Precificação de Envase</h1>
-  <p class="text-muted">Simule primeiro, calcule quando estiver satisfeito — só cria o Envase se você confirmar.</p>
-  {% if lote and lote.plant_id %}<a href="{{ url_for('plant_workspace.shell', plant_id=lote.plant_id, tab='sessions', session_id=lote.id) }}" class="btn btn-sm btn-outline-secondary">Voltar à sessão na planta</a>{% endif %}
+  <p class="text-muted">Simular consulta custos. Calcular e Salvar grava somente a precificação; o registro do envase é feito no lote.</p>
+  {% if lote and lote.plant_id %}<a href="{{ url_for('plant_workspace.shell', plant_id=lote.plant_id, tab='sessions', session_id=lote.id, envase_id=envase.id if envase else none) }}" class="btn btn-sm btn-outline-secondary">Voltar à sessão na planta</a>{% endif %}
 </div>
 
 <div class="card mb-3">
@@ -21,8 +21,8 @@
       <div class="col-md-4">
         <label class="form-label">Envase existente (opcional — só se já criado)</label>
         <div class="weakref-combo" data-weakref-source="envases">
-          <input type="hidden" class="weakref-combo-value" id="pcEnvaseId">
-          <input type="text" class="form-control weakref-combo-search" placeholder="Buscar envase...">
+          <input type="hidden" class="weakref-combo-value" id="pcEnvaseId" value="{{ envase.id if envase else '' }}">
+          <input type="text" class="form-control weakref-combo-search" placeholder="Buscar envase..." value="{{ ('Envase #' ~ envase.id) if envase else '' }}">
           <ul class="weakref-combo-results list-group"></ul>
         </div>
       </div>
@@ -50,6 +50,8 @@
 <div class="card d-none" id="pcResultadoCard">
   <div class="card-body">
     <h5 class="card-title">Resultado</h5>
+    <p class="small" id="pcCostBasis"></p>
+    <p class="small text-muted" id="pcCostScope"></p>
     <div class="row text-center mb-3">
       <div class="col"><div class="small text-muted">Custo Ingredientes</div><div class="fs-5" id="pcResCustoIng">—</div></div>
       <div class="col"><div class="small text-muted">Custo Embalagem</div><div class="fs-5" id="pcResCustoEmb">—</div></div>
@@ -73,7 +75,8 @@
 <script>
 (function () {
   const fmtR$ = function (v) { return 'R$ ' + Number(v || 0).toFixed(2); };
-  const origemLabel = { real: '<span class="badge bg-success">Real</span>', padrao: '<span class="badge bg-warning text-dark">Padrão</span>', sem_preco: '<span class="badge bg-secondary">Sem preço</span>' };
+  const escapeHtml = function (value) { const el = document.createElement('span'); el.textContent = String(value == null ? '' : value); return el.innerHTML; };
+  const origemLabel = { real: '<span class="badge bg-success">Preço médio atual</span>', padrao: '<span class="badge bg-warning text-dark">Preço padrão estimado</span>', registrado: '<span class="badge bg-primary">Registrado no envase</span>', sem_preco: '<span class="badge bg-secondary">Sem preço</span>' };
 
   function payload() {
     return {
@@ -94,6 +97,10 @@
   function renderResultado(r) {
     document.getElementById('pcErro').classList.add('d-none');
     document.getElementById('pcResultadoCard').classList.remove('d-none');
+    document.getElementById('pcCostBasis').textContent =
+      (r.ingredientes_registrados ? 'Ingredientes: custo registrado do lote. O total congelado não tem detalhamento por material nesta tela.' : 'Ingredientes: estimativa pelos preços atuais/padrão.') +
+      (r.embalagens_registradas ? ' Embalagens: snapshot registrado do envase.' : (r.envase_id ? ' Embalagens: estimativa legada pelos preços atuais.' : ' Sem envase selecionado: embalagens não incluídas.'));
+    document.getElementById('pcCostScope').textContent = (r.escopo_custo || '') + (r.estimativa_incompleta ? ' Estimativa incompleta: há ingrediente sem vínculo, preço ausente ou conversão não confiável.' : '');
     document.getElementById('pcResCustoIng').textContent = fmtR$(r.custo_ingredientes_total);
     document.getElementById('pcResCustoEmb').textContent = fmtR$(r.custo_embalagem_total);
     document.getElementById('pcResSubtotal').textContent = fmtR$(r.subtotal);
@@ -111,11 +118,11 @@
         ? ' <i class="bi bi-exclamation-triangle-fill text-warning" title="Não consegui converter a unidade — confira manualmente"></i>'
         : '';
       tr.innerHTML =
-        '<td>' + (item.material_nome || ('#' + item.material_id)) + '</td>' +
-        '<td>' + qtdLabel + avisoConversao + '</td>' +
-        '<td>' + fmtR$(item.preco_unitario_usado) + (item.unidade_preco ? '/' + item.unidade_preco : '') + '</td>' +
+        '<td>' + escapeHtml(item.material_nome || ('#' + item.material_id)) + '</td>' +
+        '<td>' + escapeHtml(qtdLabel) + avisoConversao + '</td>' +
+        '<td>' + fmtR$(item.preco_unitario_usado) + (item.unidade_preco ? '/' + escapeHtml(item.unidade_preco) : '') + '</td>' +
         '<td>' + fmtR$(item.custo_total) + '</td>' +
-        '<td>' + (origemLabel[item.origem_preco] || item.origem_preco) + '</td>';
+        '<td>' + (origemLabel[item.origem_preco] || escapeHtml(item.origem_preco)) + '</td>';
       body.appendChild(tr);
     });
 

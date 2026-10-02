@@ -2202,3 +2202,25 @@ def test_workspace_envase_legado_sem_snapshot_so_consulta(app, client):
     assert client.post(f'/brewstation/plant-workspace/{pid}/sessions/{sid}/envases/{eid}/reverse', data={'motivo': 'Legado'}).status_code == 400
     assert client.get(f'/brewstation/plant-workspace/{pid}/tab/sessions?session_id={sid}&envase_id=abc').status_code == 404
     assert client.get(f'/brewstation/plant-workspace/{pid}?tab=sessions&session_id={sid}&envase_id={eid}').status_code == 200
+
+
+def test_precificacao_contexto_envase_preserva_retorno_e_rejeita_estrangeiro(app, client):
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+    _login_admin(app, client)
+    pid, sid, eid, _ = _workspace_reverse_data(app)
+    url = f'/brewstation/precificacao-envase/?lote_id={sid}&envase_id={eid}'
+    html = client.get(url).data.decode()
+    assert f'id="pcEnvaseId" value="{eid}"' in html
+    assert f'envase_id={eid}' in html and 'pcCostBasis' in html
+    assert 'data-weakref-source="envases"' in html and 'pcCostScope' in html
+    assert client.get(f'/brewstation/precificacao-envase/?lote_id={sid}&envase_id=abc').status_code == 404
+    with app.app_context():
+        other = BrewSession(name='Outro lote precificação'); db.session.add(other); db.session.flush()
+        db.session.get(Envase, eid).lote_id = other.id
+        db.session.commit()
+    assert client.get(url).status_code == 404
+    with app.app_context():
+        item = db.session.get(Envase, eid)
+        item.lote_id, item.status = sid, 'cancelado'
+        db.session.commit()
+    assert client.get(url).status_code == 404

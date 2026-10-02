@@ -329,3 +329,14 @@ criadas entradas correspondentes às saídas de embalagem identificadas;
 os ingredientes e seu custo registrado permanecem no lote. O histórico
 mostra operador, horário, motivo e vínculos saída → entrada. Repetir o pedido
 não devolve novamente. Envase antigo sem snapshot exige reconciliação manual.
+
+
+### Precificação com o envase selecionado (2C.1)
+
+Nos detalhes de um envase registrado, “Abrir precificação com este envase”
+preenche lote/envase e preserva o retorno aos mesmos detalhes. A tela indica
+custo registrado versus estimativa. Ingredientes confirmados mantêm o total
+congelado e embalagens novas usam o snapshot, sem alterar saldo ou ledger.
+O escopo permanece lote inteiro mais embalagens do envase, sem rateio por
+volume/unidade nesta entrega. Envases cancelados não participam de novos
+cálculos, mas seu histórico de precificação não é apagado.

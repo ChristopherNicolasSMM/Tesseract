@@ -4,7 +4,9 @@ addons/addon_brewstation/features/feature_envase/services/precificacao_service.p
 Motor de cálculo (proposta-precificacao-envase.md) — fluxo simula ->
 calcula -> cria Envase. Não depende de nenhum Envase existir ainda
 (lê ingredientes via BrewSession.recipe_id); se um envase_id for
-passado, soma também o custo de embalagem dos ItemEnvase dele.
+passado, usa o snapshot de embalagens; ItemEnvase é fallback estimado legado.
+Depois da confirmação, usa o total de ingredientes congelado no lote, sem
+recalcular preços ou fabricar detalhamento histórico por ingrediente.
 
 Resolução de custo por Material (mesma regra pra ingrediente e
 embalagem): 1) `Saldo.custo_medio` (já mantido pelo resto do
@@ -56,23 +58,18 @@ def _custo_real_por_base(material_id: int) -> float | None:
     em unidade-base do Material (skill 23, `estoque_service.
     receber_pedido_compra`). None se o Material nunca teve entrada.
     """
-    from addons.addon_estoque.root.model.saldo import Saldo
-
-    saldo = Saldo.query.filter_by(material_id=material_id, is_deleted=False).first()
-    return saldo.custo_medio if saldo else None
+    from addons.addon_estoque.root.services import material_lookup
+    saldo = material_lookup.get_saldo(material_id)
+    return saldo.get("custo_medio") if saldo and not saldo.get("is_deleted") else None
 
 
 def _unidade_base_material(material_id: int) -> str | None:
-    from addons.addon_estoque.root.model.material import Material
-    from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
-
-    base = MaterialUnidade.query.filter_by(
-        material_id=material_id, is_unidade_base=True, is_deleted=False,
-    ).first()
+    from addons.addon_estoque.root.services import material_lookup
+    base = material_lookup.get_unidade_base(material_id)
     if base:
-        return base.unidade
-    material = Material.query.get(material_id)
-    return material.unidade_medida if material else None
+        return base["unidade"]
+    material = material_lookup.get_material(material_id)
+    return material.get("unidade_medida") if material else None
 
 
 def _resolver_custo_material(material_id: int) -> tuple[float, str, str | None]:
@@ -147,6 +144,16 @@ def vincular_envase(calculo_id: int, envase_id: int) -> dict | None:
     calculo = db.session.get(CalculoPrecificacao, calculo_id)
     if not calculo:
         return None
+    lote = db.session.get(BrewSession, calculo.lote_id)
+    if lote is None or lote.is_deleted:
+        raise ValueError("Lote (BrewSession) não encontrado.")
+    envase = db.session.get(Envase, envase_id)
+    if envase is None or envase.is_deleted or envase.lote_id != calculo.lote_id:
+        raise ValueError("Envase deste lote não encontrado.")
+    if envase.status != "registrado":
+        raise ValueError("Envase cancelado não pode ser vinculado à precificação.")
+    if calculo.envase_id is not None and calculo.envase_id != envase_id:
+        raise ValueError("Este cálculo já está vinculado a outro envase.")
     calculo.envase_id = envase_id
     db.session.commit()
     return calculo.to_dict()
@@ -162,23 +169,41 @@ def _material_display(material_id: int) -> str:
 def _calcular(lote_id: int, envase_id: int | None, percentual_lucro: float,
               percentual_ipi: float, percentual_icms: float) -> dict:
     lote = db.session.get(BrewSession, lote_id)
-    if not lote:
+    if not lote or lote.is_deleted:
         raise ValueError("Lote (BrewSession) não encontrado.")
 
     itens_resultado = []
     custo_ingredientes_total = 0.0
+    estimativa_incompleta = False
 
-    if lote.recipe_id:
+    envase = None
+    if envase_id is not None:
+        envase = db.session.get(Envase, envase_id)
+        if envase is None or envase.is_deleted or envase.lote_id != lote_id:
+            raise ValueError("Envase deste lote não encontrado.")
+        if envase.status != "registrado":
+            raise ValueError("Envase cancelado não pode compor uma nova precificação.")
+
+    ingredientes_registrados = lote.insumos_baixados_em is not None
+    if ingredientes_registrados:
+        if lote.custo_total_insumos is None:
+            raise ValueError("Lote confirmado sem custo registrado: requer conferência do histórico.")
+        custo_ingredientes_total = lote.custo_total_insumos
+    elif lote.recipe_id:
         ingredientes = RecipeIngredient.query.filter_by(
             recipe_id=lote.recipe_id, is_deleted=False
         ).all()
         for ing in ingredientes:
-            if not ing.material_id or not ing.quantidade:
+            if ing.status_resolucao == "ignorado" or not ing.quantidade:
+                continue
+            if not ing.material_id:
+                estimativa_incompleta = True
                 continue
             preco_unitario, origem, unidade_preco = _resolver_custo_material(ing.material_id)
             quantidade_convertida, conversao_ok = converter_quantidade(
                 ing.quantidade, ing.unidade_medida, unidade_preco, ing.material_id
             )
+            estimativa_incompleta |= origem == "sem_preco" or not conversao_ok
             custo_total = preco_unitario * quantidade_convertida
             custo_ingredientes_total += custo_total
             itens_resultado.append({
@@ -195,13 +220,32 @@ def _calcular(lote_id: int, envase_id: int | None, percentual_lucro: float,
             })
 
     custo_embalagem_total = 0.0
-    if envase_id:
+    embalagens_registradas = envase is not None and envase.componentes_snapshot is not None
+    if embalagens_registradas:
+        for component in envase.componentes_snapshot:
+            cost = component.get("custo_linha")
+            if cost is None or component.get("custo_medio") is None:
+                raise ValueError("Snapshot de embalagem sem custo registrado: requer conferência do histórico.")
+            custo_embalagem_total += cost
+            itens_resultado.append({
+                "material_id": component["material_componente_id"],
+                "material_nome": _material_display(component["material_componente_id"]),
+                "quantidade": component["quantidade_total"],
+                "unidade_medida": None, "quantidade_convertida": component["quantidade_total"],
+                "unidade_preco": None, "conversao_confiavel": True,
+                "preco_unitario_usado": component["custo_medio"],
+                "custo_total": cost, "origem_preco": "registrado",
+            })
+    elif envase is not None:
         itens_envase = ItemEnvase.query.filter_by(envase_id=envase_id, is_deleted=False).all()
+        if not itens_envase:
+            estimativa_incompleta = True
         for item in itens_envase:
             preco_unitario, origem, unidade_preco = _resolver_custo_material(item.material_id)
             # ItemEnvase não guarda unidade própria — assume que já
             # está na unidade-base do Material (mesma premissa de
             # antes; sem dado de unidade de origem pra converter).
+            estimativa_incompleta |= origem == "sem_preco"
             custo_total = preco_unitario * item.quantidade
             custo_embalagem_total += custo_total
             itens_resultado.append({
@@ -227,6 +271,10 @@ def _calcular(lote_id: int, envase_id: int | None, percentual_lucro: float,
     return {
         "lote_id": lote_id,
         "envase_id": envase_id,
+        "estimativa_incompleta": estimativa_incompleta,
+        "ingredientes_registrados": ingredientes_registrados,
+        "embalagens_registradas": embalagens_registradas,
+        "escopo_custo": "Ingredientes do lote completo; embalagens somente do envase selecionado. Não é um preço por unidade ou um rateio por envase.",
         "custo_ingredientes_total": custo_ingredientes_total,
         "custo_embalagem_total": custo_embalagem_total,
         "subtotal": subtotal,

@@ -14,7 +14,7 @@ _MATERIAL_RESOLVER = "addons.addon_estoque.root.services.material_lookup.get_mat
 
 @label("Item de Custo de Ingrediente")
 @plural("item_custo_ingredientes")
-@enum_field("origem_preco", options=["real", "padrao", "sem_preco"])
+@enum_field("origem_preco", options=["real", "padrao", "sem_preco", "registrado"])
 @choices("origem_preco", label="Origem do Preço")
 @required("calculo_id", message="Cálculo é obrigatório")
 @min_value("quantidade", 0, message="Quantidade não pode ser negativa")

@@ -10,6 +10,9 @@
     <dt class="col-sm-4">Data do envase</dt><dd class="col-sm-8">{{ selected_envase.data_envase.strftime('%d/%m/%Y') if selected_envase.data_envase else 'Não informada' }}</dd>
     <dt class="col-sm-4">Tipo de envase</dt><dd class="col-sm-8">{{ selected_envase.tipo_envase or 'Não informado' }}</dd>
   </dl>
+  {% if selected_envase.status == 'registrado' %}
+  <a class="btn btn-sm btn-outline-primary mb-3" href="{{ url_for('precificacao_envase.workspace', lote_id=selected_session.id, envase_id=selected_envase.id) }}">Abrir precificação com este envase</a>
+  {% endif %}
   <h6>Embalagens registradas na confirmação</h6>
   {% if selected_envase.componentes_snapshot is none %}
   <p class="text-muted small">Envase antigo sem snapshot de movimentos e custos. O estorno exige reconciliação manual.</p>

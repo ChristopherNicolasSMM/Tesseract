@@ -31,11 +31,11 @@ Ver [seletores e layout](docs/patches/brewstation-seletores-layout.md).
 498 testes aprovados e duas falhas na suíte histórica de migrations, tratadas
 no patch [correção das migrations](docs/patches/migrations-downgrade-testes.md).
 Correção de migrations validada pelo usuário. 2B (detalhes/estorno)
-implementado, aguardando validação local; ver
+validado pelo usuário; ver
 [workspace-envase-detalhes-estorno-2b.md](docs/patches/workspace-envase-detalhes-estorno-2b.md).
-Precificação alinhada aos snapshots e etapas 3–6 continuam pendentes; menus e cadastros avançados preservados. Custo de embalagem e
-insumos na precificação existente também precisa ser alinhado aos snapshots
-e custo confirmado antes de considerar o processo todo consolidado.
+Precificação 2C.1 (custos registrados) implementada, aguardando validação local;
+rateio 2C.2 e etapas 3–6 continuam pendentes; menus e cadastros avançados preservados. O rateio por envase/unidade ainda
+precisa ser consolidado antes de considerar toda a precificação concluída.
 
 ## Fase 0 — Scaffold
 
@@ -5547,3 +5547,16 @@ modal Core, permissões, escopo de planta/lote/envase, reserva de status e
 log na transação do estoque central. Não exige migration. Ver
 [entrega 2B](docs/patches/workspace-envase-detalhes-estorno-2b.md).
 Precificação alinhada aos snapshots, dashboards e demais etapas pendentes.
+
+
+### Precificação 2C.1 (02/10/2026)
+
+2B validado pelo usuário. O motor de precificação usa o total congelado de
+ingredientes confirmados e snapshots de embalagem; custos estimados ficam
+identificados, com indicação de incompletude. Envase inválido/cancelado e
+lote apagado são rejeitados. Atalho contextual e retorno ao mesmo envase.
+Sem migration; validação local pendente. Ver
+[entrega 2C.1](docs/patches/precificacao-custos-registrados-2c1.md).
+O cálculo ainda considera ingredientes do lote inteiro e embalagens do
+envase selecionado. Rateio por envase/unidade (2C.2), dashboards avançados e
+etapas seguintes continuam pendentes.

@@ -128,3 +128,26 @@ confirmação no modal padrão. A consulta requer `envases.list` e
 na mesma transação; falha desfaz as devoluções. Ingredientes não são estornados.
 Os acessos existentes de detalhe/estorno continuam disponíveis. Envases sem
 snapshot não ganham baixa ou estorno baseado na composição atual.
+
+
+## Precificação: custo registrado e estimativa (2C.1)
+
+Depois de confirmar ingredientes, a precificação usa `custo_total_insumos`
+congelado do lote. Não recalcula esse total com preços atuais nem apresenta
+uma lista estimada de ingredientes como se fosse histórico. Antes da
+confirmação, permanece estimativa por preço atual/padrão, sinalizada como
+incompleta quando faltam vínculos/preços ou conversão confiável.
+
+Com envase selecionado, embalagens vêm de seu snapshot de confirmação,
+com origem “Registrado no envase”. Snapshot vazio é custo zero conhecido;
+snapshot ausente usa ItemEnvase legado como estimativa atual. Snapshot com
+custo ausente exige conferência e não é substituído por zero/preço atual.
+Envase cancelado, apagado ou de outro lote é rejeitado. Cálculos salvos
+anteriormente permanecem com seus valores históricos após estorno.
+
+O cálculo ainda combina **ingredientes do lote inteiro** e embalagens do
+envase escolhido; não é rateio do lote nem preço por unidade. Essa etapa
+será consolidada em incremento posterior. Simular não escreve; Calcular e
+Salvar grava a precificação, sem registrar envase ou movimentar estoque.
+No detalhe de envase registrado do workspace há atalho para abrir ambos os
+combos preenchidos e retornar à mesma sessão/envase.

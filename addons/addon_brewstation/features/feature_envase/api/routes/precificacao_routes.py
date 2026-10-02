@@ -75,7 +75,10 @@ def vincular_envase(calculo_id: int):
     envase_id = data.get("envase_id")
     if not envase_id:
         return _err("envase_id é obrigatório.")
-    resultado = precificacao_service.vincular_envase(calculo_id, int(envase_id))
+    try:
+        resultado = precificacao_service.vincular_envase(calculo_id, int(envase_id))
+    except (ValueError, TypeError) as exc:
+        return _err(str(exc))
     if not resultado:
         return _err("Cálculo não encontrado.", 404)
     return _ok({"calculo": resultado})

@@ -374,3 +374,133 @@ def test_material_nome_resolvido_em_vez_de_id_cru(app):
 
         item = resultado["itens"][0]
         assert item["material_nome"] == "Malte Munich Nome Visivel"
+
+
+@pytest.mark.parametrize('recorded', [0.0, 50.0])
+def test_precificacao_preserva_total_confirmado_sem_recalcular_receita(app, monkeypatch, recorded):
+    from datetime import datetime, timezone
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+    with app.app_context():
+        material = _criar_material('Ingrediente congelado')
+        lote = _criar_lote_com_ingrediente(material, 5)
+        lote.insumos_baixados_em = datetime.now(timezone.utc)
+        lote.custo_total_insumos = recorded
+        db.session.commit()
+        def fail(*args):
+            raise AssertionError('Preço atual não pode substituir custo confirmado')
+        monkeypatch.setattr(precificacao_service, '_resolver_custo_material', fail)
+        before = Movimentacao.query.count()
+        result = precificacao_service.simular(lote.id, None, 30, 0, 0)
+        assert result['ingredientes_registrados'] and result['custo_ingredientes_total'] == recorded
+        assert result['itens'] == [] and result['valor_total'] == recorded * 1.3
+        saved = precificacao_service.calcular_e_salvar(lote.id, None, 30, 0, 0)
+        assert db.session.get(CalculoPrecificacao, saved['id']).custo_ingredientes_total == recorded
+        assert Movimentacao.query.count() == before and lote.custo_total_insumos == recorded
+
+
+def test_precificacao_snapshot_prevalece_sobre_item_legado_e_preco_atual(app, monkeypatch):
+    from datetime import datetime, timezone
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+    from addons.addon_brewstation.features.feature_envase.model.item_envase import ItemEnvase
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+    with app.app_context():
+        material = _criar_material('Embalagem snapshot')
+        lote = _criar_lote_com_ingrediente(material, 99)
+        lote.insumos_baixados_em = datetime.now(timezone.utc)
+        lote.custo_total_insumos = 50
+        envase = Envase(lote_id=lote.id, quantidade_litros=2, componentes_snapshot=[{
+            'material_componente_id': material.id, 'quantidade_total': 2, 'custo_medio': 3,
+            'custo_linha': 6, 'movimentacao_id': 999}])
+        db.session.add(envase); db.session.flush()
+        db.session.add(ItemEnvase(envase_id=envase.id, material_id=material.id, quantidade=999))
+        db.session.commit()
+        def fail(*args): raise AssertionError('Não consultar preço atual')
+        monkeypatch.setattr(precificacao_service, '_resolver_custo_material', fail)
+        before = Movimentacao.query.count()
+        result = precificacao_service.calcular_e_salvar(lote.id, envase.id, 0, 0, 0)
+        assert result['embalagens_registradas'] and result['subtotal'] == 56
+        assert result['itens'][0]['origem_preco'] == 'registrado'
+        assert ItemCustoIngrediente.query.filter_by(calculo_id=result['id']).one().custo_total == 6
+        assert Movimentacao.query.count() == before
+        empty = Envase(lote_id=lote.id, componentes_snapshot=[])
+        db.session.add(empty); db.session.commit()
+        assert precificacao_service.simular(lote.id, empty.id, 0, 0, 0)['custo_embalagem_total'] == 0
+        assert db.session.get(CalculoPrecificacao, result['id']).subtotal == 56
+
+
+@pytest.mark.parametrize('state', ['foreign', 'cancelado', 'deleted', 'missing', 'deleted_lot'])
+def test_precificacao_rejeita_envase_invalido_antes_de_salvar_ou_vincular(app, state):
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+    with app.app_context():
+        material = _criar_material('Ingrediente vínculo seguro')
+        lote = _criar_lote_com_ingrediente(material, 5)
+        saved = precificacao_service.calcular_e_salvar(lote.id, None, 0, 0, 0)
+        other = BrewSession(name='Outro lote'); db.session.add(other); db.session.flush()
+        envase = Envase(lote_id=other.id if state == 'foreign' else lote.id,
+                        status='cancelado' if state == 'cancelado' else 'registrado',
+                        is_deleted=state == 'deleted')
+        db.session.add(envase); db.session.commit()
+        if state == 'deleted_lot':
+            lote.is_deleted = True; db.session.commit()
+        eid = 999999 if state == 'missing' else envase.id
+        for action in [precificacao_service.simular, precificacao_service.calcular_e_salvar]:
+            with pytest.raises(ValueError): action(lote.id, eid, 0, 0, 0)
+        with pytest.raises(ValueError): precificacao_service.vincular_envase(saved['id'], eid)
+        assert CalculoPrecificacao.query.count() == 1
+        assert db.session.get(CalculoPrecificacao, saved['id']).envase_id is None
+
+
+def test_precificacao_confirmado_sem_custo_nao_fabrica_zero(app):
+    from datetime import datetime, timezone
+    with app.app_context():
+        lote = BrewSession(name='Custo registrado ausente', insumos_baixados_em=datetime.now(timezone.utc))
+        db.session.add(lote); db.session.commit()
+        with pytest.raises(ValueError, match='sem custo registrado'):
+            precificacao_service.calcular_e_salvar(lote.id, None, 0, 0, 0)
+        assert CalculoPrecificacao.query.count() == 0
+
+
+def test_precificacao_ignora_ingrediente_marcado_sem_consumo(app):
+    with app.app_context():
+        material = _criar_material('Ingrediente ignorado')
+        lote = _criar_lote_com_ingrediente(material, 5)
+        RecipeIngredient.query.filter_by(recipe_id=lote.recipe_id).one().status_resolucao = 'ignorado'
+        db.session.commit()
+        result = precificacao_service.simular(lote.id, None, 0, 0, 0)
+        assert not result['ingredientes_registrados'] and result['itens'] == []
+        assert result['subtotal'] == 0
+
+
+@pytest.mark.parametrize('missing', ['custo_linha', 'custo_medio'])
+def test_precificacao_snapshot_incompleto_nao_salva_zero_inventado(app, missing):
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+    with app.app_context():
+        lote = BrewSession(name='Snapshot incompleto'); db.session.add(lote); db.session.flush()
+        component = {'material_componente_id': 1, 'quantidade_total': 2, 'custo_linha': 6, 'custo_medio': 3}
+        component[missing] = None
+        envase = Envase(lote_id=lote.id, componentes_snapshot=[component]); db.session.add(envase); db.session.commit()
+        with pytest.raises(ValueError, match='sem custo registrado'):
+            precificacao_service.calcular_e_salvar(lote.id, envase.id, 0, 0, 0)
+        assert CalculoPrecificacao.query.count() == 0
+
+
+def test_precificacao_legado_e_pendencias_sao_estimativas_explicitas(app, monkeypatch):
+    from datetime import datetime, timezone
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+    from addons.addon_brewstation.features.feature_envase.model.item_envase import ItemEnvase
+    with app.app_context():
+        material = _criar_material('Embalagem legada')
+        lote = _criar_lote_com_ingrediente(material, 5)
+        ingredient = RecipeIngredient.query.filter_by(recipe_id=lote.recipe_id).one()
+        ingredient.material_id = None
+        db.session.commit()
+        assert precificacao_service.simular(lote.id, None, 0, 0, 0)['estimativa_incompleta']
+        lote.insumos_baixados_em = datetime.now(timezone.utc); lote.custo_total_insumos = 50
+        envase = Envase(lote_id=lote.id)
+        db.session.add(envase); db.session.flush()
+        db.session.add(ItemEnvase(envase_id=envase.id, material_id=material.id, quantidade=2))
+        db.session.commit()
+        monkeypatch.setattr(precificacao_service, '_resolver_custo_material', lambda mid: (7, 'real', 'kg'))
+        result = precificacao_service.simular(lote.id, envase.id, 0, 0, 0)
+        assert result['ingredientes_registrados'] and not result['embalagens_registradas']
+        assert result['custo_embalagem_total'] == 14 and result['subtotal'] == 64

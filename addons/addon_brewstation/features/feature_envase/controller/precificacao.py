@@ -11,6 +11,8 @@ from flask_login import login_required
 from core.permissions import permission_required
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
 
+from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+
 precificacao_bp = Blueprint(
     "precificacao_envase", __name__, url_prefix="/brewstation/precificacao-envase"
 )
@@ -25,4 +27,12 @@ def workspace():
         lote = BrewSession.query.filter_by(id=request.args.get("lote_id", type=int), is_deleted=False).first()
         if not lote:
             abort(404)
-    return render_template("precificacao_envase/shell.html", lote=lote)
+    envase = None
+    if "envase_id" in request.args:
+        if lote is None:
+            abort(404)
+        envase = Envase.query.filter_by(id=request.args.get("envase_id", type=int),
+                                      lote_id=lote.id, is_deleted=False, status="registrado").first()
+        if envase is None:
+            abort(404)
+    return render_template("precificacao_envase/shell.html", lote=lote, envase=envase)

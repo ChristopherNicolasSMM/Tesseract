@@ -106,3 +106,22 @@ central, e repetição recupera o registro sem repetir consumo/log. Rollback
 remove a chave de tentativas malsucedidas. Os callers sem chave continuam
 funcionando; não editar o service gerado. Migration e testes na raiz:
 `docs/patches/workspace-registro-envase-2a2.md`.
+
+
+## Precificação 2C.1 — base histórica
+
+O motor manual escolhe a fonte: `insumos_baixados_em` determina uso do total
+`custo_total_insumos` congelado (zero válido, null bloqueado); a ausência de
+snapshot de embalagem permite apenas fallback estimado dos ItemEnvase
+legados. Snapshot preenchido/vazio é autoritativo, sem ler a composição ou
+preço atual. `origem_preco=registrado` cabe no String(20) existente e sua
+annotation enum foi ampliada; não há migration.
+
+As flags de origem/incompletude são metadados da resposta atual, não novas
+colunas nem inferências sobre cálculos antigos. Totais e linhas registrados
+na precificação continuam persistidos nos campos existentes. Não fabrica
+linhas de ingrediente históricas: o lote só tem total congelado disponível.
+Valores já salvos não são recalculados ao vincular/cancelar envase. Vincular
+valida lote, status, exclusão e impede troca de vínculo existente.
+O motor usa os getters públicos do estoque para saldo/unidade-base/material.
+Controller/API/tela de precificação são manuais, não gerados pelo CrudGen.

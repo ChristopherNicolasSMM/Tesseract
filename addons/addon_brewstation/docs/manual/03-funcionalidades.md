@@ -54,3 +54,12 @@ custos/saídas registrados. O estorno exige motivo e confirmação, devolve
 embalagens pelo estoque central e preserva ingredientes/custo do lote.
 A precificação continua em sua tela própria e seu alinhamento aos snapshots
 permanece uma etapa posterior.
+
+
+### Custos na precificação (2C.1)
+
+O total confirmado de ingredientes e o snapshot de embalagem são usados na
+precificação. Estimativas anteriores à confirmação/legadas ficam identificadas.
+O detalhe de envase do workspace abre a precificação com lote/envase e
+retorno contextual. O rateio por envase/unidade permanece pendente; esta
+entrega não registra envase nem movimenta estoque ao simular/salvar cálculo.
