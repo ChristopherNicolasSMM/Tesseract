@@ -14,7 +14,7 @@ executado pytest nem realizada validação visual em uma aplicação em execuç�
 | Planta, tanques e mapeamentos | Parcial | `plant_workspace.py` tem criação/edição e validações; manutenção completa ainda depende de cadastros | Inventariar lixeira, restauração e configuração avançada antes de ocultar acessos | Permissões, pertencimento e funcionalidades dos cadastros |
 | Receita e ingredientes | Parcial | `_tab_recipe_detail.html` reúne conferência/custo, vínculo local, revisão e dados planejados; cadastro avançado preservado | 1C validado; 2A.1 prepara envase | Serviço de resolução, conversão, referências públicas e proteção de receitas usadas |
 | Sessões, histórico e alarmes | Concluída no escopo dos patches recentes | Busca/paginação, edição básica, confirmação de insumos e reconhecimento rastreável estão no código | Preservar; operações adicionais ficam na etapa 4 | Suítes de workspace, runtime e estoque |
-| Envase e precificação | Parcial | Lista/retorno e prévia de embalagens na aba; registro/estorno nos fluxos próprios | 2A.2 implementado; validar migration/testes; 2B: detalhes/estorno com retorno | Saneamento, composição, snapshots e transação de estoque |
+| Envase e precificação | Parcial | Prévia/registro na aba; detalhes/estorno 2B implementados, aguardando validação local | Validar 2B; alinhar precificação aos snapshots | Saneamento, composição, snapshots e transação de estoque |
 | Dashboards | Parcial | Seleção/criação/edição básica integradas; fundo, standby, padrão e manutenção usam cadastro completo | 3A: opções avançadas; 3B: manutenção | Widgets/tubulação existentes e limpeza de listeners/timers |
 | Etapas e automação | Parcial | Timeline e geração já integradas; Automação lista regras e últimos 20 logs, com criação/edição no CRUD | 4A: inventário de operações; 4B: incremento das regras e histórico | Runtime existente, permissões e escopo global/por sessão |
 | Menus | Parcial | Sete códigos configurados no comando de ocultação; não prova cobertura de toda manutenção | 5: matriz de cobertura e ocultação seletiva | Validação funcional dos incrementos anteriores |
@@ -42,8 +42,8 @@ a área funcional. A quantidade final de patches pode mudar ao conferir dependê
   Ver [preparação — 2A.1](workspace-preparacao-envase.md).
 - Correção intermediária: seletores e layout implementados; validação local pendente.
   Ver [inventário e testes](brewstation-seletores-layout.md).
-- 2A.2 (registro): implementado, validação local pendente.
-- 2B (detalhes/estorno) e etapas 3–6: pendentes.
+- 2A.2 (registro): suíte funcional passou; correção das migrations validada localmente.
+- 2B (detalhes/estorno): implementado, validação local pendente; precificação e etapas 3–6 permanecem pendentes.
   As proteções locais não alteram o comportamento
   do de-para global, dos importadores ou das ações avançadas do CRUD/runtime.
 
@@ -148,8 +148,8 @@ reserva, confirmação de ingredientes ou rateio do custo do lote. Componentes
 repetidos são somados para avaliar necessidade/saldo. Custos ausentes
 permanecem identificados; composição vazia gera estimativa incompleta.
 
-2A.2 integra a confirmação explícita via `registrar_envase()`; implementado,
-aguardando validação local e migration. Ver [registro 2A.2](workspace-registro-envase-2a2.md).
+2A.2 integra a confirmação explícita via `registrar_envase()`; suíte funcional
+aprovada e correção das migrations validada pelo usuário. Ver [registro 2A.2](workspace-registro-envase-2a2.md).
 O fallback dos insumos é informado antes da confirmação e protegido pela
 permissão de atualizar o lote. A repetição do token é protegida por chave
 única persistente; a reserva de escrita e o log compartilham a transação.
@@ -271,3 +271,14 @@ históricas em esquema criado pelos models. Correção e comando focado em
 [migrations-downgrade-testes.md](migrations-downgrade-testes.md).
 O aviso de `slow` foi corrigido com registro da marca, sem ocultar warnings.
 2B/precificação e etapas seguintes permanecem pendentes.
+
+
+## Incremento 2B — detalhes e estorno do envase
+
+A correção da suíte de migrations foi validada pelo usuário. O 2B incorpora
+consulta contextual de snapshots e estorno com motivo/confirmador padrão,
+retorno ao mesmo lote, RBAC, pertencimento e log na transação do serviço.
+Não exige migration. Validação local do 2B pendente; roteiro em
+[workspace-envase-detalhes-estorno-2b.md](workspace-envase-detalhes-estorno-2b.md).
+Precificação alinhada aos snapshots, dashboards avançados e demais etapas
+continuam pendentes; não ocultar novos menus por esta entrega.

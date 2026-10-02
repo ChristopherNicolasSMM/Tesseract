@@ -30,8 +30,10 @@ Ver [seletores e layout](docs/patches/brewstation-seletores-layout.md).
 2A.2 (registro com idempotência) implementado; a execução local informou
 498 testes aprovados e duas falhas na suíte histórica de migrations, tratadas
 no patch [correção das migrations](docs/patches/migrations-downgrade-testes.md).
-Validação local dessa correção pendente. 2B (detalhes/estorno) e etapas 3–6
-continuam pendentes; menus e cadastros avançados preservados. Custo de embalagem e
+Correção de migrations validada pelo usuário. 2B (detalhes/estorno)
+implementado, aguardando validação local; ver
+[workspace-envase-detalhes-estorno-2b.md](docs/patches/workspace-envase-detalhes-estorno-2b.md).
+Precificação alinhada aos snapshots e etapas 3–6 continuam pendentes; menus e cadastros avançados preservados. Custo de embalagem e
 insumos na precificação existente também precisa ser alinhado aos snapshots
 e custo confirmado antes de considerar o processo todo consolidado.
 
@@ -5535,3 +5537,13 @@ flask db upgrade; validação local pendente.
 [Entrega e roteiro](docs/patches/workspace-registro-envase-2a2.md).
 Estorno local (2B), alinhamento da precificação e demais etapas continuam
 pendentes; menus/cadastros avançados preservados.
+
+
+### Envase 2B (02/10/2026)
+
+Detalhes e estorno integrados à aba Sessões, aguardando validação local.
+Snapshots/custos registrados consultados sem escrita; ação com motivo,
+modal Core, permissões, escopo de planta/lote/envase, reserva de status e
+log na transação do estoque central. Não exige migration. Ver
+[entrega 2B](docs/patches/workspace-envase-detalhes-estorno-2b.md).
+Precificação alinhada aos snapshots, dashboards e demais etapas pendentes.

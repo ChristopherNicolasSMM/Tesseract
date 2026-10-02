@@ -1,0 +1,45 @@
+<div class="border rounded p-3 mt-3" id="pwEnvaseDetail">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <h6 class="mb-0">Detalhes do envase #{{ selected_envase.id }}</h6>
+    <a href="{{ envase_back_url }}" data-workspace-history-link class="btn btn-sm btn-outline-secondary">Fechar detalhes</a>
+  </div>
+  <p class="small mt-2">Lote #{{ selected_session.id }} · {{ selected_session.name }} · {{ {'registrado': 'Registrado', 'cancelado': 'Cancelado'}.get(selected_envase.status, selected_envase.status) }}</p>
+  <dl class="row small">
+    <dt class="col-sm-4">Produto</dt><dd class="col-sm-8">{{ ('Material #' ~ selected_envase.material_resultante_id) if selected_envase.material_resultante_id else 'Não informado' }}</dd>
+    <dt class="col-sm-4">Volume envasado</dt><dd class="col-sm-8">{{ selected_envase.quantidade_litros if selected_envase.quantidade_litros is not none else 'Não informado' }} L</dd>
+    <dt class="col-sm-4">Data do envase</dt><dd class="col-sm-8">{{ selected_envase.data_envase.strftime('%d/%m/%Y') if selected_envase.data_envase else 'Não informada' }}</dd>
+    <dt class="col-sm-4">Tipo de envase</dt><dd class="col-sm-8">{{ selected_envase.tipo_envase or 'Não informado' }}</dd>
+  </dl>
+  <h6>Embalagens registradas na confirmação</h6>
+  {% if selected_envase.componentes_snapshot is none %}
+  <p class="text-muted small">Envase antigo sem snapshot de movimentos e custos. O estorno exige reconciliação manual.</p>
+  {% elif not selected_envase.componentes_snapshot %}
+  <p class="text-muted small">Nenhuma embalagem consumida neste envase.</p>
+  {% else %}
+  <div class="table-responsive"><table class="table table-sm small">
+    <thead><tr><th>Material</th><th>Quantidade</th><th>Custo unitário registrado</th><th>Custo registrado da linha</th><th>Saída</th></tr></thead>
+    <tbody>{% for component in selected_envase.componentes_snapshot %}<tr>
+      <td>#{{ component.material_componente_id }}</td><td>{{ component.quantidade_total }}</td>
+      <td>{{ 'R$ %.2f'|format(component.custo_medio) if component.custo_medio is not none else 'Sem custo registrado' }}</td>
+      <td>{{ 'R$ %.2f'|format(component.custo_linha) if component.custo_linha is not none else 'Sem custo registrado' }}</td>
+      <td>#{{ component.movimentacao_id }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+  {% if selected_envase.status == 'cancelado' %}
+  <h6>Estorno registrado</h6>
+  <p class="small">{{ selected_envase.motivo_cancelamento or 'Motivo não registrado' }}<br>
+    Operador: {{ ('#' ~ selected_envase.cancelado_por_id) if selected_envase.cancelado_por_id is not none else 'Não registrado' }} ·
+    {{ selected_envase.cancelado_em.strftime('%d/%m/%Y %H:%M:%S') if selected_envase.cancelado_em else 'Horário não registrado' }}</p>
+  {% if selected_envase.estorno_snapshot is none %}<p class="text-muted small">Devoluções não identificadas neste registro histórico.</p>
+  {% elif selected_envase.estorno_snapshot %}<ul class="small">{% for pair in selected_envase.estorno_snapshot %}<li>Saída #{{ pair.saida_id }} → entrada #{{ pair.entrada_id }}</li>{% endfor %}</ul>
+  {% else %}<p class="text-muted small">Não havia embalagens para devolver.</p>{% endif %}
+  {% elif selected_envase.status == 'registrado' and selected_envase.componentes_snapshot is not none and current_user.has_permission('envases.update') %}
+  <form method="post" class="pw-envase-reverse-form" action="{{ url_for('plant_workspace.reverse_session_envase', plant_id=plant.id, session_id=selected_session.id, envase_id=selected_envase.id) }}" data-envase-id="{{ selected_envase.id }}">
+    <label for="pwEnvaseReverseReason" class="form-label">Motivo do estorno</label>
+    <textarea id="pwEnvaseReverseReason" name="motivo" class="form-control" required maxlength="1000"></textarea>
+    <p class="small text-muted mt-2">O estorno devolve as embalagens identificadas. Os ingredientes e seu custo registrado permanecem no lote.</p>
+    <button type="submit" class="btn btn-outline-danger btn-sm">Estornar envase</button>
+  </form>
+  {% endif %}
+</div>

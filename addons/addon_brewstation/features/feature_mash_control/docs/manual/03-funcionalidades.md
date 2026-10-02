@@ -314,3 +314,18 @@ reserva estoque: composição e custos são conferidos no registro.
 
 Para estornar, use o detalhe de envase existente. A integração do estorno
 dentro da sessão e a consolidação da precificação são próximas etapas.
+
+
+### Envase: detalhes e estorno no lote (2B)
+
+Na aba Sessões, clique no número de um envase para consultar seus dados,
+embalagens e custos registrados na confirmação. Os detalhes permanecem no
+workspace e mostram também envases cancelados. “Fechar detalhes” mantém o
+mesmo lote selecionado, inclusive um lote antigo fora da página atual.
+
+Com permissão de atualização de envase, informe o motivo (até 1000
+caracteres) e escolha “Estornar envase”. Confirme no modal do Core. São
+criadas entradas correspondentes às saídas de embalagem identificadas;
+os ingredientes e seu custo registrado permanecem no lote. O histórico
+mostra operador, horário, motivo e vínculos saída → entrada. Repetir o pedido
+não devolve novamente. Envase antigo sem snapshot exige reconciliação manual.

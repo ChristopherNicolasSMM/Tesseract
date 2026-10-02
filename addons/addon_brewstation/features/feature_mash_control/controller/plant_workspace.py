@@ -299,6 +299,7 @@ def shell(plant_id: int):
         initial_tab = "dashboard"
     return render_template("plant_workspace/shell.html", plant=plant, tabs=_TABS, initial_tab=initial_tab,
                            initial_session_id=request.args.get("session_id"),
+                           initial_envase_id=request.args.get("envase_id"),
                            initial_recipe_id=request.args.get("recipe_id"))
 
 
@@ -419,7 +420,7 @@ def tab_sessions(plant_id: int):
     "Nova" abre o seletor de receitas da mesma aba."""
     plant = db.session.get(BrewPlant, plant_id)
     if not plant or plant.is_deleted:
-        return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada.")
+        return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada."), (404 if "envase_id" in request.args else 200)
 
     search = (request.args.get("q") or "").strip()
     status_filter = (request.args.get("status") or "").strip()
@@ -478,6 +479,17 @@ def tab_sessions(plant_id: int):
             alarm_query = alarm_query.filter_by(is_acknowledged=alarm_state == "acknowledged")
         alarms, alarm_page = page_items(alarm_query.order_by(BrewSessionAlarm.created_at.desc(), BrewSessionAlarm.id.desc()), "alarms_page")
 
+    selected_envase = None
+    if "envase_id" in request.args:
+        if not (current_user.has_permission("envases.list") and current_user.has_permission("envases.detail")):
+            return render_template("plant_workspace/_tab_error.html", message="Sem permissão para consultar detalhes do envase."), 403
+        selected_envase = Envase.query.filter_by(
+            id=request.args.get("envase_id", type=int),
+            lote_id=selected_session.id if selected_session else None, is_deleted=False,
+        ).first()
+        if selected_envase is None:
+            return render_template("plant_workspace/_tab_error.html", message="Envase deste lote não encontrado."), 404
+
     navigation = {"q": search, "status": status_filter, "page": session_page["page"],
                   "logs_page": log_page["page"], "alarms_page": alarm_page["page"], "alarm_state": alarm_state}
     if selected_session:
@@ -499,6 +511,9 @@ def tab_sessions(plant_id: int):
         log_page=log_page, alarm_page=alarm_page,
         session_urls={s.id: tab_url(session_id=s.id, logs_page=1, alarms_page=1) for s in sessions},
         conference=conference, estimated_cost=estimated_cost, envases=envases,
+        selected_envase=selected_envase,
+        envase_urls={e.id: tab_url(envase_id=e.id) for e in envases},
+        envase_back_url=tab_url(),
         alarm_state=alarm_state, pending_alarm_count=pending_alarm_count,
         alarm_filter_url=tab_url(alarms_page=1),
     )
@@ -571,6 +586,33 @@ def sanitize_recipe_ingredient(plant_id, recipe_id, ingredient_id):
         current_app.logger.exception("Falha ao sanear ingrediente %s da receita %s", ingredient_id, recipe_id)
         return respond("Não foi possível salvar o vínculo. Nenhuma alteração foi confirmada.", 500)
     return respond("Decisão do ingrediente salva. Confira as pendências e o custo estimado; o estoque não foi movimentado.")
+
+
+@plant_workspace_bp.route("/<int:plant_id>/sessions/<int:session_id>/envases/<int:envase_id>/reverse", methods=["POST"])
+@login_required
+@permission_required("brew_sessions.list")
+@permission_required("envases.list")
+@permission_required("envases.detail")
+@permission_required("envases.update")
+def reverse_session_envase(plant_id, session_id, envase_id):
+    plant = BrewPlant.query.filter_by(id=plant_id, is_deleted=False).first()
+    session = BrewSession.query.filter_by(id=session_id, plant_id=plant_id, is_deleted=False).first()
+    envase = Envase.query.filter_by(id=envase_id, lote_id=session_id, is_deleted=False).first()
+    if plant is None or session is None or envase is None:
+        return jsonify(ok=False, error="Envase deste lote e planta não encontrado."), 404
+    motivo = request.form.get("motivo", "").strip()
+    if not motivo or len(motivo) > 1000:
+        return jsonify(ok=False, error="Informe o motivo do estorno com até 1000 caracteres."), 400
+    try:
+        envase_estoque_service.estornar_envase(envase_id, motivo, usuario_id=current_user.id)
+    except envase_estoque_service.EnvaseNaoEstornavelError as exc:
+        return jsonify(ok=False, error=str(exc)), 400
+    except Exception:
+        current_app.logger.exception("Falha ao estornar envase %s do lote %s", envase_id, session_id)
+        return jsonify(ok=False, error="Não foi possível estornar o envase. Nenhuma devolução desta tentativa foi mantida."), 500
+    return jsonify(ok=True, message="Envase cancelado e embalagens devolvidas ao estoque.",
+                   reload_url=url_for("plant_workspace.tab_sessions", plant_id=plant_id,
+                                      session_id=session_id, envase_id=envase_id))
 
 
 @plant_workspace_bp.route("/<int:plant_id>/sessions/<int:session_id>/prepare-envase", methods=["GET"])

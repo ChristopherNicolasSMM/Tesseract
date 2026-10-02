@@ -44,3 +44,13 @@ reserva estoque: composição e custos são conferidos no registro.
 
 Para estornar, use o detalhe de envase existente. A integração do estorno
 dentro da sessão e a consolidação da precificação são próximas etapas.
+
+
+### Continuidade de envase no lote
+
+Na aba Sessões do workspace, o registro de envase (2A.2) agora é acompanhado
+por detalhes e estorno (2B). A abertura dos detalhes é somente leitura e usa
+custos/saídas registrados. O estorno exige motivo e confirmação, devolve
+embalagens pelo estoque central e preserva ingredientes/custo do lote.
+A precificação continua em sua tela própria e seu alinhamento aos snapshots
+permanece uma etapa posterior.

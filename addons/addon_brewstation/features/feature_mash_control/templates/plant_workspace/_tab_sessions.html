@@ -183,6 +183,24 @@
 // da casca (window.__workspaceLoadUrl), o mesmo usado por qualquer
 // sub-navegação dentro de uma aba.
 (function () {
+  const envaseDetail = document.getElementById('pwEnvaseDetail');
+  if (envaseDetail) envaseDetail.addEventListener('submit', async function (event) {
+    const form = event.target.closest('.pw-envase-reverse-form');
+    if (!form) return;
+    event.preventDefault();
+    const button = form.querySelector('button[type="submit"]');
+    if (button.disabled || !form.reportValidity()) return;
+    button.disabled = true;
+    try {
+      if (!window.__tesseractConfirm) throw new Error('Confirmação indisponível. Recarregue a página.');
+      const confirmed = await window.__tesseractConfirm({key: 'brewstation_mashctrl.workspace.confirm_reverse_envase', params: {id: form.dataset.envaseId}});
+      if (confirmed && form.isConnected) await window.__workspaceSubmitForm(form);
+    } catch (error) {
+      if (window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
+    } finally {
+      button.disabled = false;
+    }
+  });
   const alarmFilterForm = document.getElementById('pwAlarmFilterForm');
   if (alarmFilterForm) alarmFilterForm.addEventListener('submit', function (event) {
     event.preventDefault();

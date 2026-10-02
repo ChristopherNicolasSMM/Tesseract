@@ -165,10 +165,14 @@ body.pw-kiosk-mode #main { margin-left: 0 !important; padding-top: 12px !importa
 
   // Abre a aba solicitada após o cadastro, ou Dashboard ao entrar.
   const firstEnabled = document.querySelector('#pwTabBar .nav-link.active:not(.disabled)');
+  const initialEnvaseId = {{ initial_envase_id | tojson_utf8 }};
   const initialSessionId = {{ initial_session_id | tojson_utf8 }};
   const initialRecipeId = {{ initial_recipe_id | tojson_utf8 }};
-  if (firstEnabled && firstEnabled.dataset.tabKey === 'sessions' && initialSessionId !== null) {
-    loadUrl(tabUrls.sessions + '?session_id=' + encodeURIComponent(initialSessionId));
+  if (firstEnabled && firstEnabled.dataset.tabKey === 'sessions' && (initialSessionId !== null || initialEnvaseId !== null)) {
+    const query = new URLSearchParams();
+    if (initialSessionId !== null) query.set('session_id', initialSessionId);
+    if (initialEnvaseId !== null) query.set('envase_id', initialEnvaseId);
+    loadUrl(tabUrls.sessions + '?' + query.toString());
   } else if (firstEnabled && firstEnabled.dataset.tabKey === 'recipe' && initialRecipeId !== null) {
     loadUrl(tabUrls.recipe + '?recipe_id=' + encodeURIComponent(initialRecipeId));
   } else if (firstEnabled) loadTab(firstEnabled.dataset.tabKey);

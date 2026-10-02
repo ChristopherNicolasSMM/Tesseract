@@ -116,3 +116,15 @@ reserva estoque: composição e custos são conferidos no registro.
 
 Para estornar, use o detalhe de envase existente. A integração do estorno
 dentro da sessão e a consolidação da precificação são próximas etapas.
+
+
+## Detalhes e estorno no workspace (2B)
+
+O número do envase na aba Sessões abre os detalhes dentro do lote. Consulte
+os snapshots de embalagens/custos e de devoluções, incluindo registros
+cancelados. O formulário de estorno requer `envases.update`, motivo e
+confirmação no modal padrão. A consulta requer `envases.list` e
+`envases.detail`, além do acesso a sessões. O estorno e seu log são gravados
+na mesma transação; falha desfaz as devoluções. Ingredientes não são estornados.
+Os acessos existentes de detalhe/estorno continuam disponíveis. Envases sem
+snapshot não ganham baixa ou estorno baseado na composição atual.

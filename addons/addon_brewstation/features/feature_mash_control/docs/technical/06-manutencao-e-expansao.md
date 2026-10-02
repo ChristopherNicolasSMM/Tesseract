@@ -211,3 +211,22 @@ o escopo de IDs do combo renderizado, consultar a API e validar seleção real.
 Consultas manuais por PK usam db.session.get; manter validações de apagamento,
 permissão e pertencimento existentes. Detalhes na raiz em
 `docs/patches/brewstation-testes-combos-sqlalchemy.md`.
+
+
+## Workspace 2B — detalhes e estorno de envase
+
+`tab_sessions` aceita `envase_id` junto de `session_id`, valida exclusão e
+pertencimento ao lote e exige `envases.detail`/`envases.list` para o detalhe.
+Links internos usam `__workspaceLoadUrl`; a casca conserva esses parâmetros
+na abertura direta. A seleção explícita inválida não escolhe outro envase.
+O partial `_envase_detail.html` usa os snapshots persistidos, sem simular
+custos ou consultar composição atual para reconstruir consumos.
+
+POST `/<plant_id>/sessions/<session_id>/envases/<envase_id>/reverse` exige
+`brew_sessions.list`, `envases.list`, `envases.detail` e `envases.update`.
+Valida todos os vínculos antes de chamar `estornar_envase`. Esse serviço
+manual conserva a reserva condicional do status e as movimentações centrais
+com `commit=False`, acrescentando `BrewSessionLog` antes do commit único.
+A falha no log também desfaz devoluções/status. O retorno AJAX mantém o lote
+e o envase selecionados; callbacks ficam no fragmento removido ao trocar aba.
+Não altera tabelas, timers, etapas ou a limpeza `__tabCleanup` do Dashboard.

@@ -254,6 +254,13 @@ def estornar_envase(envase_id: int, motivo: str, *, usuario_id: int | None = Non
         envase.motivo_cancelamento = motivo.strip()
         envase.cancelado_por_id = usuario_id
         envase.estorno_snapshot = devolucoes
+        from addons.addon_brewstation.features.feature_mash_control.model.brew_session_log import BrewSessionLog
+        db.session.add(BrewSessionLog(
+            session_id=envase.lote_id, log_level="info", source="envase",
+            message=f"Envase #{envase.id} estornado: {motivo.strip()}",
+            detail_json={"envase_id": envase.id, "usuario_id": usuario_id,
+                         "devolucoes": devolucoes},
+        ))
         db.session.commit()
     except Exception:
         db.session.rollback()

@@ -2062,3 +2062,143 @@ def test_workspace_envase_insumos_confirmados_nao_exige_update_nem_recalcula(app
     assert response.status_code == 200
     with app.app_context():
         assert db.session.get(BrewSession, sid).custo_total_insumos == 99
+
+
+# 2B: histórico e estorno no lote, sem baixa em consultas.
+def _workspace_reverse_data(app):
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+    from addons.addon_estoque.root.services import estoque_service
+    pid, _, _, mid = _workspace_sanitation_data(app)
+    with app.app_context():
+        session = BrewSession(name='Lote histórico para estorno', plant_id=pid, status='completed', custo_total_insumos=12)
+        db.session.add(session)
+        db.session.flush()
+        estoque_service.registrar_movimentacao(mid, 'entrada', 10, custo_unitario=2)
+        result = estoque_service.registrar_movimentacao(mid, 'saida', 2, custo_unitario=2)
+        envase = Envase(lote_id=session.id, material_resultante_id=mid, quantidade_litros=1,
+                        componentes_snapshot=[{'material_componente_id': mid, 'quantidade_total': 2,
+                            'custo_medio': 2, 'custo_linha': 4, 'movimentacao_id': result['movimentacao']['id']}])
+        db.session.add(envase)
+        db.session.commit()
+        return pid, session.id, envase.id, mid
+
+
+def test_workspace_envase_detalhes_estorna_repete_preserva_lote_e_historico(app, client):
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_session_log import BrewSessionLog
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+    from addons.addon_estoque.root.services import material_lookup
+    _login_admin(app, client)
+    pid, sid, eid, mid = _workspace_reverse_data(app)
+    tab = f'/brewstation/plant-workspace/{pid}/tab/sessions?session_id={sid}&envase_id={eid}'
+    path = f'/brewstation/plant-workspace/{pid}/sessions/{sid}/envases/{eid}/reverse'
+    with app.app_context():
+        before = db.session.get(BrewSession, sid).to_dict()
+        snapshot = db.session.get(Envase, eid).componentes_snapshot
+        count = Movimentacao.query.count()
+    for _ in range(2):
+        html = client.get(tab).data.decode()
+        assert f'Detalhes do envase #{eid}' in html and 'pwEnvaseReverseReason' in html
+        assert 'confirm_reverse_envase' in html and 'data-workspace-history-link' in html
+    with app.app_context():
+        assert Movimentacao.query.count() == count
+    response = client.post(path, data={'motivo': 'Embalagem danificada'})
+    assert response.status_code == 200 and f'envase_id={eid}' in response.get_json()['reload_url']
+    with app.app_context():
+        envase = db.session.get(Envase, eid)
+        first = (envase.cancelado_em, envase.cancelado_por_id, envase.motivo_cancelamento, envase.estorno_snapshot)
+        assert envase.componentes_snapshot == snapshot
+        assert db.session.get(BrewSession, sid).to_dict() == before
+        assert Movimentacao.query.count() == count + 1
+        assert material_lookup.get_saldo(mid)['quantidade_atual'] == 10
+        assert BrewSessionLog.query.filter_by(session_id=sid, source='envase').count() == 1
+    assert client.post(path, data={'motivo': 'Segunda tentativa'}).status_code == 400
+    html = client.get(tab).data.decode()
+    assert 'Estorno registrado' in html and 'pwEnvaseReverseReason' not in html
+    with app.app_context():
+        envase = db.session.get(Envase, eid)
+        assert (envase.cancelado_em, envase.cancelado_por_id, envase.motivo_cancelamento, envase.estorno_snapshot) == first
+        assert Movimentacao.query.count() == count + 1
+
+
+@pytest.mark.parametrize('permission', ['brew_sessions.list', 'envases.list', 'envases.detail', 'envases.update'])
+def test_workspace_estorno_respeita_permissoes(app, client, monkeypatch, permission):
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+    _login_admin(app, client)
+    pid, sid, eid, _ = _workspace_reverse_data(app)
+    with app.app_context():
+        count = Movimentacao.query.count()
+    monkeypatch.setattr(User, 'has_permission', lambda self, code: code != permission)
+    assert client.post(f'/brewstation/plant-workspace/{pid}/sessions/{sid}/envases/{eid}/reverse', data={'motivo': 'Teste'}).status_code == 403
+    if permission == 'envases.update':
+        assert 'pwEnvaseReverseReason' not in client.get(f'/brewstation/plant-workspace/{pid}/tab/sessions?session_id={sid}&envase_id={eid}').data.decode()
+    else:
+        assert client.get(f'/brewstation/plant-workspace/{pid}/tab/sessions?session_id={sid}&envase_id={eid}').status_code == 403
+    with app.app_context():
+        assert Movimentacao.query.count() == count
+
+
+@pytest.mark.parametrize('context', ['plant', 'session', 'envase', 'foreign', 'other_lot', 'missing'])
+def test_workspace_envase_estorno_valida_pertencimento_e_apagados(app, client, context):
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+    _login_admin(app, client)
+    pid, sid, eid, _ = _workspace_reverse_data(app)
+    with app.app_context():
+        if context == 'plant': db.session.get(BrewPlant, pid).is_deleted = True
+        elif context == 'session': db.session.get(BrewSession, sid).is_deleted = True
+        elif context == 'envase': db.session.get(Envase, eid).is_deleted = True
+        elif context == 'foreign':
+            other = BrewPlant(name='Planta estrangeira'); db.session.add(other); db.session.flush()
+            db.session.get(BrewSession, sid).plant_id = other.id
+        elif context == 'other_lot':
+            other = BrewSession(name='Outro lote', plant_id=pid); db.session.add(other); db.session.flush()
+            db.session.get(Envase, eid).lote_id = other.id
+        else: eid = 999999
+        db.session.commit()
+    assert client.get(f'/brewstation/plant-workspace/{pid}/tab/sessions?session_id={sid}&envase_id={eid}').status_code == 404
+    assert client.post(f'/brewstation/plant-workspace/{pid}/sessions/{sid}/envases/{eid}/reverse', data={'motivo': 'Teste'}).status_code == 404
+
+
+@pytest.mark.parametrize('reason', ['', '   ', 'x' * 1001])
+def test_workspace_envase_estorno_exige_motivo(app, client, reason):
+    _login_admin(app, client)
+    pid, sid, eid, _ = _workspace_reverse_data(app)
+    assert client.post(f'/brewstation/plant-workspace/{pid}/sessions/{sid}/envases/{eid}/reverse', data={'motivo': reason}).status_code == 400
+
+
+def test_workspace_envase_estorno_falha_log_desfaz_devolucao(app, client, monkeypatch):
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_session_log import BrewSessionLog
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+    _login_admin(app, client)
+    pid, sid, eid, mid = _workspace_reverse_data(app)
+    with app.app_context():
+        count = Movimentacao.query.count()
+        original_add = db.session.add
+        def fail_log(obj, *args, **kwargs):
+            if isinstance(obj, BrewSessionLog): raise RuntimeError('detalhe interno sensível')
+            return original_add(obj, *args, **kwargs)
+        monkeypatch.setattr(db.session, 'add', fail_log)
+    response = client.post(f'/brewstation/plant-workspace/{pid}/sessions/{sid}/envases/{eid}/reverse', data={'motivo': 'Teste'})
+    assert response.status_code == 500 and 'sensível' not in response.get_json()['error']
+    with app.app_context():
+        envase = db.session.get(Envase, eid)
+        assert envase.status == 'registrado' and envase.estorno_snapshot is None and envase.cancelado_em is None
+        assert Movimentacao.query.count() == count
+        from addons.addon_estoque.root.services import material_lookup
+        assert material_lookup.get_saldo(mid)['quantidade_atual'] == 8
+        assert BrewSessionLog.query.filter_by(session_id=sid).count() == 0
+
+
+def test_workspace_envase_legado_sem_snapshot_so_consulta(app, client):
+    from addons.addon_brewstation.features.feature_envase.model.envase import Envase
+    _login_admin(app, client)
+    pid, sid, eid, _ = _workspace_reverse_data(app)
+    with app.app_context():
+        db.session.get(Envase, eid).componentes_snapshot = None
+        db.session.commit()
+    html = client.get(f'/brewstation/plant-workspace/{pid}/tab/sessions?session_id={sid}&envase_id={eid}').data.decode()
+    assert 'reconciliação manual' in html and 'pwEnvaseReverseReason' not in html
+    assert client.post(f'/brewstation/plant-workspace/{pid}/sessions/{sid}/envases/{eid}/reverse', data={'motivo': 'Legado'}).status_code == 400
+    assert client.get(f'/brewstation/plant-workspace/{pid}/tab/sessions?session_id={sid}&envase_id=abc').status_code == 404
+    assert client.get(f'/brewstation/plant-workspace/{pid}?tab=sessions&session_id={sid}&envase_id={eid}').status_code == 200
