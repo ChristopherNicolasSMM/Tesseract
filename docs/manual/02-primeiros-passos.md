@@ -34,3 +34,18 @@ Se a ordem ou o agrupamento padrão do menu não for do seu gosto, vá em
 "Meu Perfil" → "Preferências de Menu" — dá pra reordenar itens dentro
 do mesmo grupo e escolher quais grupos ficam recolhidos por padrão,
 só pra você, sem afetar os outros usuários.
+
+
+## Validação de atualização — migrations
+
+Se a suíte informar dois heads depois de um `upgrade` bem-sucedido, confira
+`flask db heads`: o teste passou a usar o grafo real do Alembic em vez de
+interpretar aspas por regex. Não criar merge nem usar `stamp` apenas para
+contornar essa expectativa antiga.
+
+O teste `tests/test_migrations_idempotent.py` executa upgrade e downgrade em
+SQLite temporário. Seu comando de downgrade é um teste de manutenção, não
+uma etapa para aplicar no banco de uso. A correção histórica não exige novo
+`db upgrade`; a migration do registro de envase entregue em 2A.2 continua
+necessária se ainda não foi aplicada. Roteiro em
+[correção das migrations](../patches/migrations-downgrade-testes.md).

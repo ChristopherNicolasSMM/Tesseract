@@ -259,3 +259,15 @@ passaram na execução curta. O registro integrado de envase foi implementado
 com confirmação padrão, token contextual e chave única persistente. Exige
 migration; validação do incremento funcional ainda pendente. 2B/precificação
 e demais etapas não são consideradas concluídas.
+
+
+## Retorno da suíte após 2A.2 — 02/10/2026
+
+Execução local informada pelo usuário: **498 passed, 2 failed, 2 warnings**.
+Os fluxos funcionais da seleção executada passaram; a validação global ainda
+pendia da suíte de migrations. O head falso era causado pelo parser regex do
+teste (aspas duplas ignoradas), e o downgrade pressupunha nomes de constraints
+históricas em esquema criado pelos models. Correção e comando focado em
+[migrations-downgrade-testes.md](migrations-downgrade-testes.md).
+O aviso de `slow` foi corrigido com registro da marca, sem ocultar warnings.
+2B/precificação e etapas seguintes permanecem pendentes.

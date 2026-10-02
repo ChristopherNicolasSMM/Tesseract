@@ -47,6 +47,5 @@ def upgrade():
 
 def downgrade():
     if _table_exists(_TABLE) and _column_exists(_TABLE, 'container_id'):
-        with op.batch_alter_table(_TABLE) as batch_op:
-            batch_op.drop_constraint('fk_bank_item_container_id', type_='foreignkey')
-            batch_op.drop_column('container_id')
+        from migrations.schema_compat import drop_columns_with_references
+        drop_columns_with_references(op, _TABLE, ['container_id'])

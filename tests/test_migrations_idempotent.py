@@ -20,30 +20,19 @@ passa sem erro, terminando na revision HEAD. Também confirma que o
 downgrade completo (HEAD -> base) funciona.
 """
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+from alembic.script import ScriptDirectory
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _head_revision() -> str:
-    """Mesma lógica usada em várias sessões desta conversa pra achar o
-    head da cadeia de migrations, sem depender do alembic já estar
-    rodando."""
-    versions_dir = _PROJECT_ROOT / "migrations" / "versions"
-    revs = {}
-    for f in versions_dir.glob("*.py"):
-        text = f.read_text(encoding="utf-8")
-        rid = re.search(r"revision = '([^']+)'", text)
-        down = re.search(r"down_revision = '?([^'\n]+)'?", text)
-        if rid:
-            revs[rid.group(1)] = down.group(1) if down else None
-    downs = set(revs.values())
-    heads = [r for r in revs if r not in downs]
+    """Usa o grafo do Alembic, inclusive revisões com aspas duplas/merge."""
+    heads = ScriptDirectory(str(_PROJECT_ROOT / "migrations")).get_heads()
     assert len(heads) == 1, f"Esperava 1 head, achou {heads}"
     return heads[0]
 
@@ -116,11 +105,13 @@ def test_flask_db_downgrade_completo_ate_a_base_nao_falha(tmp_path):
     env = dict(os.environ)
     env["DATABASE_URL"] = f"sqlite:///{db_path}"
     env["FLASK_ENV"] = "development"
-    subprocess.run(
+    result = subprocess.run(
         [sys.executable, "-c", create_script],
         cwd=str(_PROJECT_ROOT), env=env, capture_output=True, text=True, timeout=60,
     )
-    _run_flask_db(["upgrade"], db_path)
+    assert result.returncode == 0, f"db.create_all() falhou:\n{result.stdout}\n{result.stderr}"
+    result = _run_flask_db(["upgrade"], db_path)
+    assert result.returncode == 0, f"upgrade preparatório falhou:\n{result.stdout}\n{result.stderr}"
 
     result = _run_flask_db(["downgrade", "091f87025ce4"], db_path)
     assert result.returncode == 0, (
@@ -132,3 +123,20 @@ def test_flask_db_downgrade_completo_ate_a_base_nao_falha(tmp_path):
     version = con.execute("SELECT version_num FROM alembic_version").fetchone()[0]
     con.close()
     assert version == "091f87025ce4"
+
+
+def test_head_revision_usa_grafo_com_aspas_anotacoes_e_merge(tmp_path, monkeypatch):
+    versions = tmp_path / 'migrations' / 'versions'
+    versions.mkdir(parents=True)
+    for name, content in {
+        'base': "revision = 'base'\ndown_revision = None\n",
+        'left': 'revision: str = "left"\ndown_revision: str = "base"\n',
+        'right': 'revision = "right"\ndown_revision = "base"\n',
+        'merge': 'revision = "merge"\ndown_revision = ("left", "right")\n',
+    }.items():
+        (versions / f'{name}.py').write_text(content, encoding='utf-8')
+    monkeypatch.setattr(sys.modules[__name__], '_PROJECT_ROOT', tmp_path)
+    assert _head_revision() == 'merge'
+    (versions / 'merge.py').unlink()
+    with pytest.raises(AssertionError, match='Esperava 1 head'):
+        _head_revision()

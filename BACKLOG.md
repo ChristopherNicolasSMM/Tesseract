@@ -27,8 +27,11 @@ Sessões aplicada e validada pelo usuário; sem baixa/reserva.
 Ver [workspace-preparacao-envase.md](docs/patches/workspace-preparacao-envase.md).
 Correção intermediária de seletores e layout implementada, aguardando validação local.
 Ver [seletores e layout](docs/patches/brewstation-seletores-layout.md).
-2A.2 (registro com idempotência), 2B (detalhes/estorno) e etapas 3–6 continuam
-pendentes; menus e cadastros avançados preservados. Custo de embalagem e
+2A.2 (registro com idempotência) implementado; a execução local informou
+498 testes aprovados e duas falhas na suíte histórica de migrations, tratadas
+no patch [correção das migrations](docs/patches/migrations-downgrade-testes.md).
+Validação local dessa correção pendente. 2B (detalhes/estorno) e etapas 3–6
+continuam pendentes; menus e cadastros avançados preservados. Custo de embalagem e
 insumos na precificação existente também precisa ser alinhado aos snapshots
 e custo confirmado antes de considerar o processo todo consolidado.
 

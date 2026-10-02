@@ -35,3 +35,37 @@ def current_model_schema():
             if bool(actual[column.name]['nullable']) != bool(column.nullable):
                 return False
     return True
+
+
+def drop_columns_with_references(operations, table_name, column_names):
+    """Remove as referências reais das colunas, também em SQLite/create_all.
+
+    Nomes de FK e índices dos models podem diferir dos históricos. A
+    convenção só nomeia FKs sem nome durante a reflexão do modo batch.
+    As demais referências/índices da tabela permanecem intactos.
+    """
+    inspector = sa.inspect(operations.get_bind())
+    columns = set(column_names)
+    foreign_keys = [fk for fk in inspector.get_foreign_keys(table_name)
+                    if columns.intersection(fk["constrained_columns"])]
+    indexes = [index for index in inspector.get_indexes(table_name)
+               if columns.intersection(index["column_names"])]
+    uniques = [constraint for constraint in inspector.get_unique_constraints(table_name)
+               if columns.intersection(constraint["column_names"])]
+    convention = {
+        "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+        "uq": "uq_%(table_name)s_%(column_0_name)s",
+    }
+    with operations.batch_alter_table(table_name, naming_convention=convention) as batch:
+        for fk in foreign_keys:
+            name = fk["name"] or (
+                f"fk_{table_name}_{fk['constrained_columns'][0]}_{fk['referred_table']}"
+            )
+            batch.drop_constraint(name, type_="foreignkey")
+        for constraint in uniques:
+            name = constraint["name"] or f"uq_{table_name}_{constraint['column_names'][0]}"
+            batch.drop_constraint(name, type_="unique")
+        for index in indexes:
+            batch.drop_index(index["name"])
+        for column in column_names:
+            batch.drop_column(column)

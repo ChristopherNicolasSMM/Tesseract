@@ -414,3 +414,22 @@ função privada `_set_config()`/similar — nunca ler/escrever
 | Playground retorna 404 numa API que funciona no Postman | Query Params colados à mão dentro da própria `url`, sem encoding — v1 não tinha campo dedicado | Usar o campo "Query Params" da v2 (`params_json`), não colar na URL |
 | OData: "Falha ao conectar" mesmo com a URL certa | `base_url` cadastrada já era a própria URL de `$metadata` — a descoberta antiga concatenava sufixo em cima | Corrigido: `_strip_metadata_suffix()` tenta a URL crua primeiro |
 | OData: navegar uma entidade dá 404 mesmo ela existindo no servidor | Nome usado na rota era o `EntityType` (singular) em vez do `EntitySet` (plural, real) | Corrigido para EDMX real; para o formato customizado sem `EntitySet`, usar o campo editável de "nome da rota" na tela "Ver entidades" |
+
+
+## Downgrade em esquema iniciado pelos models (02/10/2026)
+
+`db.create_all()` pode criar FKs sem nome e índices com nomes diferentes dos
+históricos. `migrations/schema_compat.drop_columns_with_references` recebe
+as operações e remove somente FKs, uniques e índices que referenciam as
+colunas retiradas, refletindo o esquema real. A convenção de nomes do batch
+permite atingir constraints sem nome em SQLite; referências restantes são
+preservadas. Ao excluir uma tabela inteira, `drop_table` já exclui seus
+índices e não depende de nomes de índices antigos.
+
+As revisões afetadas de estoque e YeastBank usam esse mecanismo no downgrade.
+ItemCotacao recupera material/unidade e quantidade ofertada (ou pedida quando
+não ofertada) antes de remover o vínculo; vínculo órfão interrompe antes do
+DDL. Categoria recupera `nome` de `descricao`. Isso não torna o downgrade
+completo um mecanismo de backup: outras revisões removem tabelas/dados.
+O head é lido por `ScriptDirectory.get_heads()`, sem alteração da cadeia.
+Ver [validação e limites](../patches/migrations-downgrade-testes.md).

@@ -62,11 +62,7 @@ def upgrade():
 def downgrade():
     if not _table_exists(_TABLE):
         return
-
-    for col_name, (_, tem_fk) in _NEW_COLUMNS.items():
-        if not _column_exists(_TABLE, col_name):
-            continue
-        with op.batch_alter_table(_TABLE) as batch_op:
-            if tem_fk:
-                batch_op.drop_constraint('fk_cell_count_history_bank_event_id', type_='foreignkey')
-            batch_op.drop_column(col_name)
+    from migrations.schema_compat import drop_columns_with_references
+    columns = [name for name in _NEW_COLUMNS if _column_exists(_TABLE, name)]
+    if columns:
+        drop_columns_with_references(op, _TABLE, columns)

@@ -114,6 +114,5 @@ def downgrade():
             batch_op.add_column(sa.Column('strain_id', sa.Integer(), nullable=True))
 
     if _column_exists(_TABLE, 'cell_count_id'):
-        with op.batch_alter_table(_TABLE) as batch_op:
-            batch_op.drop_constraint('fk_bank_event_cell_count_id', type_='foreignkey')
-            batch_op.drop_column('cell_count_id')
+        from migrations.schema_compat import drop_columns_with_references
+        drop_columns_with_references(op, _TABLE, ['cell_count_id'])
