@@ -65,7 +65,9 @@ def _build_dashboard_view_context(layout: DashboardLayout, *, is_fragment: bool 
     actuator_functions = DeviceFunction.query.filter_by(category="actuator", is_deleted=False).order_by(DeviceFunction.display_name).all()
     device_functions = DeviceFunction.query.filter_by(is_deleted=False).order_by(DeviceFunction.category, DeviceFunction.display_name).all()
 
+    from addons.addon_brewstation.features.feature_mash_control.services.dashboard_workspace_actions import render_background
     return dict(
+        **render_background(layout),
         layout=layout,
         widgets=widgets,
         vessels_by_id=vessels_by_id,

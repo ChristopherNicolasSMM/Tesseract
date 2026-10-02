@@ -4,18 +4,19 @@ Planejamento técnico de 30/09/2026, conferido no commit `b3d3bab`.
 Este documento registra cobertura e próximos incrementos; itens planejados
 não são funcionalidades implementadas. O planejamento inicial não alterou
 banco, menus ou runtime; os incrementos abaixo registram a evolução real.
-Os testes recentes foram aprovados pelo usuário; nesta análise não foi
-executado pytest nem realizada validação visual em uma aplicação em execução.
+Na análise inicial de 30/09, os testes recentes haviam sido aprovados pelo
+usuário; não foi executado pytest nem feita validação visual naquela análise.
+Os incrementos abaixo registram as execuções posteriores e pendências locais.
 
 ## Estado verificado
 
 | Etapa | Estado da integração | Evidência e lacuna real | Próximo incremento | Dependências |
 | --- | --- | --- | --- | --- |
 | Planta, tanques e mapeamentos | Parcial | `plant_workspace.py` tem criação/edição e validações; manutenção completa ainda depende de cadastros | Inventariar lixeira, restauração e configuração avançada antes de ocultar acessos | Permissões, pertencimento e funcionalidades dos cadastros |
-| Receita e ingredientes | Parcial | `_tab_recipe_detail.html` reúne conferência/custo, vínculo local, revisão e dados planejados; cadastro avançado preservado | 1C validado; 2A.1 prepara envase | Serviço de resolução, conversão, referências públicas e proteção de receitas usadas |
+| Receita e ingredientes | Parcial | `_tab_recipe_detail.html` reúne conferência/custo, vínculo local, revisão e dados planejados; cadastro avançado preservado | Preservar proteção de receitas usadas; operações adicionais na etapa 4 | Serviço de resolução, conversão, referências públicas e proteção de receitas usadas |
 | Sessões, histórico e alarmes | Concluída no escopo dos patches recentes | Busca/paginação, edição básica, confirmação de insumos e reconhecimento rastreável estão no código | Preservar; operações adicionais ficam na etapa 4 | Suítes de workspace, runtime e estoque |
 | Envase e precificação | Parcial | Prévia/registro na aba; detalhes/estorno 2B validados; custos registrados 2C.1 implementados | Validar 2C.1/2C.2; etapas avançadas restantes | Saneamento, composição, snapshots e transação de estoque |
-| Dashboards | Parcial | Seleção/criação/edição básica integradas; fundo, standby, padrão e manutenção usam cadastro completo | 3A: opções avançadas; 3B: manutenção | Widgets/tubulação existentes e limpeza de listeners/timers |
+| Dashboards | Parcial | Seleção/criação/edição básica integradas; fundo/padrão 3A.1 implementados; standby sem comportamento no runtime | Validar 3A.1; 3A.2: standby; 3B: manutenção | Widgets/tubulação existentes e limpeza de listeners/timers |
 | Etapas e automação | Parcial | Timeline e geração já integradas; Automação lista regras e últimos 20 logs, com criação/edição no CRUD | 4A: inventário de operações; 4B: incremento das regras e histórico | Runtime existente, permissões e escopo global/por sessão |
 | Menus | Parcial | Sete códigos configurados no comando de ocultação; não prova cobertura de toda manutenção | 5: matriz de cobertura e ocultação seletiva | Validação funcional dos incrementos anteriores |
 | Brewfather e YeastBank | Radar posterior | Portal Brewfather e painel YeastBank já existem; não reconstruir como novidades | 6: auditorias específicas e novas lacunas | Estabilização do fluxo prioritário |
@@ -306,3 +307,22 @@ Requer migration `f8c214ab709e`; sem backfill. Unidades antigas estimadas ou
 indisponíveis ficam identificadas. Sem preço unitário do lote sem envase.
 Entrega: [precificacao-rateio-unidade-2c2.md](precificacao-rateio-unidade-2c2.md).
 Validação visual/local pendente; não considerar demais etapas concluídas.
+
+## Incremento 3A.1 — fundo e painel padrão
+
+Implementados cor/imagem de fundo e padrão por planta, em formulário próprio
+no workspace. A imagem passa a ser renderizada também na view própria, atrás
+de widgets e tubulação, sem capturar eventos. Sanitização de cor/URL na
+escrita e leitura; legados inválidos não são gravados durante consulta.
+Padrão substitui somente outros layouts não apagados da mesma planta, na
+mesma transação. Sem padrão, permanece fallback para o primeiro cadastrado.
+O acesso global continua resolvendo seu padrão disponível; não foi criada
+nova configuração global nem migrados padrões antigos. CRUD avançado pode
+ter padrões duplicados; esta ação os consolida na planta escolhida.
+
+Sem migration. Retorno normal e AJAX preservam o painel editado.
+Standby tem campos no model, sem runtime encontrado: 3A.2 deve definir e
+implementar o comportamento antes de expor controle funcional.
+3B (lixeira/restauração), etapas 4–6 e validações locais 2C.1/2C.2 continuam
+pendentes; pedido de continuidade não foi interpretado como aprovação visual.
+Entrega: [workspace-dashboard-fundo-padrao-3a1.md](workspace-dashboard-fundo-padrao-3a1.md).

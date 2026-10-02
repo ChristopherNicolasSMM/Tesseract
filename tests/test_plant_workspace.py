@@ -2224,3 +2224,118 @@ def test_precificacao_contexto_envase_preserva_retorno_e_rejeita_estrangeiro(app
         item.lote_id, item.status = sid, 'cancelado'
         db.session.commit()
     assert client.get(url).status_code == 404
+
+
+def _appearance_layouts(app):
+    with app.app_context():
+        plant = BrewPlant(name='Planta aparência')
+        other = BrewPlant(name='Outra aparência')
+        db.session.add_all([plant, other]); db.session.flush()
+        layouts = [DashboardLayout(name='Padrão anterior', plant_id=plant.id, is_default=True),
+                   DashboardLayout(name='Painel aparência', plant_id=plant.id, layout_data='{"original":true}', is_standby_enabled=True, standby_duration_seconds=45),
+                   DashboardLayout(name='Padrão externo', plant_id=other.id, is_default=True),
+                   DashboardLayout(name='Padrão apagado', plant_id=plant.id, is_default=True, is_deleted=True)]
+        db.session.add_all(layouts); db.session.flush()
+        widget = DashboardWidget(layout_id=layouts[1].id, widget_type='text', config_json={'content': 'Intacto'})
+        db.session.add(widget); db.session.commit()
+        return plant.id, other.id, [row.id for row in layouts], widget.id
+
+
+def test_dashboard_aparencia_padrao_preserva_widgets_outros_campos_e_escopo(app, client):
+    _login_admin(app, client)
+    plant, other, ids, widget = _appearance_layouts(app)
+    url = f'/brewstation/plant-workspace/{plant}/dashboard-layouts/{ids[1]}/appearance'
+    headers = {'X-Requested-With': 'XMLHttpRequest'}
+    payload = {'background_color': '#123456', 'background_image_url': '/static/img/fundo.png', 'is_default': 'on',
+               'plant_id': other, 'layout_data': 'alterado', 'standby_duration_seconds': '0'}
+    assert client.post(url, data=payload, headers=headers).status_code == 200
+    with app.app_context():
+        selected = db.session.get(DashboardLayout, ids[1])
+        assert selected.is_default and selected.background_color == '#123456'
+        assert selected.background_image_url == '/static/img/fundo.png'
+        assert selected.plant_id == plant and selected.layout_data == '{"original":true}'
+        assert selected.is_standby_enabled and selected.standby_duration_seconds == 45
+        assert not db.session.get(DashboardLayout, ids[0]).is_default
+        assert db.session.get(DashboardLayout, ids[2]).is_default
+        assert db.session.get(DashboardLayout, ids[3]).is_default
+        assert db.session.get(DashboardWidget, widget).config_json == {'content': 'Intacto'}
+    html = client.get(f'/brewstation/plant-workspace/{plant}/tab/dashboard').get_data(as_text=True)
+    assert '<h1>Painel aparência</h1>' in html
+    assert 'id="dbBackgroundImage"' in html and 'pointer-events:none; z-index:0' in html
+    assert 'pwLayoutAppearanceForm' in html
+    full = client.get(f'/brewstation/dashboards/{ids[1]}/view').get_data(as_text=True)
+    assert 'id="dbBackgroundImage"' in full
+    assert 'pwLayoutAppearanceForm' not in full
+    assert client.post(url, data={**payload, 'is_default': '', 'background_image_url': ''}, headers=headers).status_code == 200
+    with app.app_context():
+        selected = db.session.get(DashboardLayout, ids[1])
+        assert not selected.is_default and selected.background_image_url is None
+    html = client.get(f'/brewstation/plant-workspace/{plant}/tab/dashboard').get_data(as_text=True)
+    assert '<h1>Padrão anterior</h1>' in html
+
+
+@pytest.mark.parametrize('field,value', [('background_color', 'red;display:none'), ('background_color', '#12345'),
+    ('background_image_url', 'javascript:alert(1)'), ('background_image_url', '//outside/image.png'),
+    ('background_image_url', 'data:image/svg+xml,xxx'), ('background_image_url', 'https://host/x\n.png')])
+def test_dashboard_aparencia_rejeita_dados_invalidos_sem_alterar_padrao(app, client, field, value):
+    _login_admin(app, client)
+    plant, other, ids, widget = _appearance_layouts(app)
+    payload = {'background_color': '#abc', 'background_image_url': '', 'is_default': 'on', field: value}
+    response = client.post(f'/brewstation/plant-workspace/{plant}/dashboard-layouts/{ids[1]}/appearance',
+                           data=payload, headers={'X-Requested-With': 'XMLHttpRequest'})
+    assert response.status_code == 400
+    with app.app_context():
+        assert db.session.get(DashboardLayout, ids[0]).is_default
+        assert not db.session.get(DashboardLayout, ids[1]).is_default
+
+
+def test_dashboard_aparencia_recusa_externo_apagado_e_sem_permissao(app, client, monkeypatch):
+    _login_admin(app, client)
+    plant, other, ids, widget = _appearance_layouts(app)
+    payload = {'background_color': '#abc'}
+    for layout in (ids[2], ids[3], 999999):
+        assert client.post(f'/brewstation/plant-workspace/{plant}/dashboard-layouts/{layout}/appearance', data=payload,
+                           headers={'X-Requested-With': 'XMLHttpRequest'}).status_code == 404
+    monkeypatch.setattr(User, 'has_permission', lambda self, code: code != 'dashboard_layouts.update')
+    assert client.post(f'/brewstation/plant-workspace/{plant}/dashboard-layouts/{ids[1]}/appearance', data=payload).status_code == 403
+
+
+def test_dashboard_aparencia_rollback_preserva_primeiro_padrao(app, monkeypatch):
+    from addons.addon_brewstation.features.feature_mash_control.services.dashboard_workspace_actions import configure_layout
+    plant, other, ids, widget = _appearance_layouts(app)
+    with app.app_context():
+        def fail():
+            raise RuntimeError('Falha de gravação')
+        monkeypatch.setattr(db.session, 'commit', fail)
+        with pytest.raises(RuntimeError):
+            configure_layout(plant, ids[1], color='#abc', image='/static/img/test.png', is_default=True)
+        assert db.session.get(DashboardLayout, ids[0]).is_default
+        selected = db.session.get(DashboardLayout, ids[1])
+        assert not selected.is_default and selected.background_image_url is None
+
+
+def test_dashboard_fundo_legado_invalido_nao_renderiza_script_nem_altera_dados(app, client):
+    _login_admin(app, client)
+    plant, other, ids, widget = _appearance_layouts(app)
+    with app.app_context():
+        selected = db.session.get(DashboardLayout, ids[1])
+        selected.background_color = 'red;display:none'
+        selected.background_image_url = 'javascript:alert(1)'
+        db.session.commit()
+    html = client.get(f'/brewstation/dashboards/{ids[1]}/view').get_data(as_text=True)
+    assert 'background-color:#0f1117' in html
+    assert 'id="dbBackgroundImage"' not in html
+    with app.app_context():
+        assert db.session.get(DashboardLayout, ids[1]).background_image_url == 'javascript:alert(1)'
+
+
+def test_dashboard_aparencia_retorno_normal_preserva_layout(app, client):
+    _login_admin(app, client)
+    plant, other, ids, widget = _appearance_layouts(app)
+    response = client.post(f'/brewstation/plant-workspace/{plant}/dashboard-layouts/{ids[1]}/appearance',
+                           data={'background_color': '#abc', 'background_image_url': ''})
+    assert response.status_code == 302
+    assert f'layout_id={ids[1]}' in response.location
+    html = client.get(response.location).get_data(as_text=True)
+    assert f'const initialLayoutId = "{ids[1]}";' in html
+    assert 'encodeURIComponent(initialLayoutId)' in html

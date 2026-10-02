@@ -230,3 +230,29 @@ com `commit=False`, acrescentando `BrewSessionLog` antes do commit único.
 A falha no log também desfaz devoluções/status. O retorno AJAX mantém o lote
 e o envase selecionados; callbacks ficam no fragmento removido ao trocar aba.
 Não altera tabelas, timers, etapas ou a limpeza `__tabCleanup` do Dashboard.
+
+## Configuração local de dashboards 3A.1
+
+POST `/brewstation/plant-workspace/<plant_id>/dashboard-layouts/<layout_id>/appearance`
+é manual e autenticado, exige `dashboard_layouts.update`. Aceita apenas
+`background_color`, `background_image_url` e checkbox `is_default`; os
+demais campos recebidos não são aplicados. `dashboard_workspace_actions`
+confere painel/planta não apagados, valida formato e salva na mesma
+transação que limpa padrões de outros layouts ativos da mesma planta.
+Falha faz rollback. Outras plantas, layouts sem planta e lixeira preservados.
+A ação não redefine regras do CRUD avançado: duplicatas legadas são
+consolidadas quando explicitamente escolhido novo padrão no workspace.
+
+`render_background` valida também dados legados antes de renderizar, sem
+reescrevê-los. Cores inválidas usam #0f1117; URLs inválidas não geram imagem.
+URL aceita HTTP/HTTPS sem credenciais, ou caminho local absoluto; rejeita
+protocol-relative, data/javascript, espaços e caracteres de controle.
+Imagem decorativa usa src escapado, object-fit cover, z-index 0 e
+pointer-events none. Canvas/widgets/tubulação mantêm seus IDs e camadas.
+
+Contexto compartilhado no dashboard_runtime fornece cor/URL seguros para
+fragmento e view. Helpers AJAX existentes carregam o painel retornado por
+`layout_id`, executando `__tabCleanup` normalmente. Casca aceita layout_id
+para retorno não AJAX; fragmento valida pertencimento e seleção inválida.
+Não há migrations nem edição de artefatos gerados. Standby existe apenas
+como campos persistidos no código conferido; runtime permanece pendente.

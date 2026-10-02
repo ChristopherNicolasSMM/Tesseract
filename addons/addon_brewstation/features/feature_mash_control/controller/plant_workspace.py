@@ -286,6 +286,29 @@ def update_layout(plant_id, layout_id):
     return _workspace_form_result(result, plant_id=plant_id, tab="dashboard", status=200)
 
 
+@plant_workspace_bp.route("/<int:plant_id>/dashboard-layouts/<int:layout_id>/appearance", methods=["POST"])
+@login_required
+@permission_required("dashboard_layouts.update")
+def configure_layout_appearance(plant_id, layout_id):
+    from addons.addon_brewstation.features.feature_mash_control.services.dashboard_workspace_actions import configure_layout
+    try:
+        layout = configure_layout(plant_id, layout_id,
+            color=request.form.get("background_color"), image=request.form.get("background_image_url"),
+            is_default=request.form.get("is_default") == "on")
+    except LookupError as exc:
+        return _workspace_form_error(str(exc), 404, plant_id=plant_id, tab="dashboard")
+    except ValueError as exc:
+        return _workspace_form_error(str(exc), 400, plant_id=plant_id, tab="dashboard")
+    except Exception:
+        current_app.logger.exception("Falha ao configurar fundo/padrão do painel %s", layout_id)
+        return _workspace_form_error("Não foi possível salvar o painel. Alterações desfeitas.", 500,
+                                     plant_id=plant_id, tab="dashboard")
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "id": layout.id, "layout_id": layout.id, "message": "Fundo e painel padrão salvos."})
+    flash("Fundo e painel padrão salvos.", "success")
+    return redirect(url_for("plant_workspace.shell", plant_id=plant_id, tab="dashboard", layout_id=layout.id))
+
+
 @plant_workspace_bp.route("/<int:plant_id>", methods=["GET"])
 @login_required
 @permission_required("brew_plants.list")
@@ -300,7 +323,8 @@ def shell(plant_id: int):
     return render_template("plant_workspace/shell.html", plant=plant, tabs=_TABS, initial_tab=initial_tab,
                            initial_session_id=request.args.get("session_id"),
                            initial_envase_id=request.args.get("envase_id"),
-                           initial_recipe_id=request.args.get("recipe_id"))
+                           initial_recipe_id=request.args.get("recipe_id"),
+                           initial_layout_id=request.args.get("layout_id"))
 
 
 @plant_workspace_bp.route("/<int:plant_id>/tab/dashboard", methods=["GET"])

@@ -5571,3 +5571,15 @@ unidades estimadas pelo cadastro atual ou indica indisponibilidade.
 Simular não grava nem movimenta estoque. Requer `flask db upgrade`.
 Ver [entrega 2C.2](docs/patches/precificacao-rateio-unidade-2c2.md).
 Implementado; validação visual/local do usuário pendente.
+
+### Dashboards 3A.1 — fundo e padrão no workspace (02/10/2026)
+
+Configuração local de cor/imagem e painel padrão da planta, com permissão
+`dashboard_layouts.update`, pertencimento e rollback. Exclusividade limitada
+aos layouts ativos da mesma planta; outras plantas e lixeira preservadas.
+Renderização segura compartilhada com view própria; consulta não grava.
+Sem alteração de widgets, tubulação, dimensões, proprietário ou estoque.
+Sem migration. Implementado, validação visual/local pendente.
+Standby: campos existem, mas não há comportamento identificado no runtime;
+avaliar contrato/implementação em 3A.2. Lixeira/restauração fica em 3B.
+Ver [entrega 3A.1](docs/patches/workspace-dashboard-fundo-padrao-3a1.md).

@@ -14,6 +14,19 @@
         <textarea id="pwLayoutDescription" name="description" class="form-control" maxlength="500">{{ layout.description or '' }}</textarea></div>
       <div class="col-12"><button type="submit" class="btn btn-primary">Salvar painel</button></div>
     </form>
+    <hr>
+    <form id="pwLayoutAppearanceForm" method="post" action="{{ url_for('plant_workspace.configure_layout_appearance', plant_id=layout.plant_id, layout_id=layout.id) }}" class="row g-3">
+      <div class="col-md-4"><label for="pwLayoutColor" class="form-label">Cor de fundo</label>
+        <input id="pwLayoutColor" name="background_color" class="form-control" maxlength="9" value="{{ dashboard_background_color }}" required aria-describedby="pwLayoutColorHint">
+        <div id="pwLayoutColorHint" class="form-text">Hexadecimal: #RGB, #RRGGBB ou #RRGGBBAA.</div></div>
+      <div class="col-md-8"><label for="pwLayoutImage" class="form-label">Imagem de fundo (URL)</label>
+        <input id="pwLayoutImage" name="background_image_url" class="form-control" maxlength="500" value="{{ layout.background_image_url or '' }}" aria-describedby="pwLayoutImageHint">
+        <div id="pwLayoutImageHint" class="form-text">HTTP/HTTPS ou caminho iniciado por /. Deixe vazio para remover. Imagens externas dependem do servidor de origem.</div></div>
+      <div class="col-12 form-check ms-2"><input id="pwLayoutDefault" name="is_default" type="checkbox" class="form-check-input"{% if layout.is_default %} checked{% endif %}>
+        <label for="pwLayoutDefault" class="form-check-label">Painel padrão desta planta</label></div>
+      <p class="small mb-0">Ao definir como padrão, os outros painéis ativos desta planta deixam de ser padrão. Sem padrão, abre o primeiro painel cadastrado. O acesso global continua seguindo sua seleção existente.</p>
+      <div class="col-12"><button type="submit" class="btn btn-primary">Salvar fundo e padrão</button></div>
+    </form>
     {% else %}<p class="small text-muted">Solicite alterações a quem administra os layouts.</p>{% endif %}
     {% if current_user.has_permission('dashboard_layouts.create') %}
     <hr>
@@ -27,7 +40,7 @@
 </details>
 <script>
 (function () {
-  ['pwLayoutEditForm', 'pwLayoutAdditionalForm'].forEach(function (id) {
+  ['pwLayoutEditForm', 'pwLayoutAdditionalForm', 'pwLayoutAppearanceForm'].forEach(function (id) {
     const form = document.getElementById(id);
     if (form) form.addEventListener('submit', function (event) {
       event.preventDefault();

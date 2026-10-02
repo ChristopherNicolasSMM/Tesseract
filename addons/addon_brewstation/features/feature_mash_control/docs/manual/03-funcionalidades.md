@@ -370,3 +370,26 @@ Vincular posteriormente um cálculo do lote a um envase mantém sua base
 original; faça novo cálculo com o envase selecionado para aplicar rateio.
 Cálculos antigos sem snapshot permanecem históricos, sem reconstrução.
 Simular e consultar não movimentam estoque.
+
+## Fundo e painel padrão no workspace (3A.1)
+
+Na aba **Dashboard**, escolha o painel e abra **Configurar layouts**.
+O formulário **Salvar fundo e padrão** permite escolher cor hexadecimal
+(#RGB, #RRGGBB ou #RRGGBBAA) e imagem de fundo por URL HTTP/HTTPS ou caminho
+iniciado por /. Deixar a imagem vazia remove o fundo ilustrado. A cor fica
+atrás da imagem; use fundo que mantenha as leituras visíveis. Imagens
+externas dependem da disponibilidade do servidor de origem. Não há upload
+ou biblioteca de imagens neste incremento.
+
+Marque **Painel padrão desta planta** para abrir esse painel ao entrar na
+aba sem seleção explícita. Os demais painéis não apagados desta planta
+deixam de ser padrão; outras plantas ficam intactas. Se nenhum for padrão,
+abre o primeiro cadastrado. O atalho global de dashboards continua seguindo
+a seleção global existente. Ao salvar, o painel editado permanece aberto.
+
+A imagem aparece no workspace e na visualização própria, atrás dos widgets
+e da tubulação. Nome/dimensões continuam no formulário **Salvar painel**;
+o Modo Edição continua cuidando dos elementos e conexões. Configurações
+de fundo não alteram widgets, controles, sessão ou estoque. Alterações
+exigem permissão de atualização de layouts. Standby e manutenção por
+lixeira/restauração ainda não foram incorporados neste formulário.

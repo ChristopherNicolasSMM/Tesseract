@@ -116,7 +116,12 @@
 
     <div id="dbCanvas" class="position-relative mx-auto"
          style="width:{{ layout.canvas_width }}px; max-width:100%; min-height:{{ layout.canvas_height }}px;
-                background-color:{{ layout.background_color }}; border-radius:12px; overflow:hidden;">
+                background-color:{{ dashboard_background_color }}; border-radius:12px; overflow:hidden;">
+
+      {% if dashboard_background_image_url %}
+      <img id="dbBackgroundImage" src="{{ dashboard_background_image_url }}" alt="" aria-hidden="true"
+           style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; pointer-events:none; z-index:0;">
+      {% endif %}
 
       <svg id="dbPipesLayer" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:1;"></svg>
 

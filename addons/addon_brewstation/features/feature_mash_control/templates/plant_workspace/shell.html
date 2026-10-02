@@ -134,6 +134,7 @@ body.pw-kiosk-mode #main { margin-left: 0 !important; padding-top: 12px !importa
       }
       if (window.__tesseractToast) window.__tesseractToast.show(result.message || 'Alterações salvas.', 'success');
       if (result.recipe_id) window.__workspaceOpenTab('recipe', '?recipe_id=' + encodeURIComponent(result.recipe_id));
+      else if (result.layout_id) window.__workspaceOpenTab('dashboard', '?layout_id=' + encodeURIComponent(result.layout_id));
       else window.__workspaceReloadCurrent();
     } catch (error) {
       if (window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
@@ -168,7 +169,10 @@ body.pw-kiosk-mode #main { margin-left: 0 !important; padding-top: 12px !importa
   const initialEnvaseId = {{ initial_envase_id | tojson_utf8 }};
   const initialSessionId = {{ initial_session_id | tojson_utf8 }};
   const initialRecipeId = {{ initial_recipe_id | tojson_utf8 }};
-  if (firstEnabled && firstEnabled.dataset.tabKey === 'sessions' && (initialSessionId !== null || initialEnvaseId !== null)) {
+  const initialLayoutId = {{ initial_layout_id | tojson_utf8 }};
+  if (firstEnabled && firstEnabled.dataset.tabKey === 'dashboard' && initialLayoutId !== null) {
+    loadUrl(tabUrls.dashboard + '?layout_id=' + encodeURIComponent(initialLayoutId));
+  } else if (firstEnabled && firstEnabled.dataset.tabKey === 'sessions' && (initialSessionId !== null || initialEnvaseId !== null)) {
     const query = new URLSearchParams();
     if (initialSessionId !== null) query.set('session_id', initialSessionId);
     if (initialEnvaseId !== null) query.set('envase_id', initialEnvaseId);
