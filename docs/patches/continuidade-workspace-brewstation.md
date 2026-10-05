@@ -17,7 +17,7 @@ Os incrementos abaixo registram as execuções posteriores e pendências locais.
 | Sessões, histórico e alarmes | Concluída no escopo dos patches recentes | Busca/paginação, edição básica, confirmação de insumos e reconhecimento rastreável estão no código | Preservar; operações adicionais ficam na etapa 4 | Suítes de workspace, runtime e estoque |
 | Envase e precificação | Parcial | Prévia/registro na aba; detalhes/estorno 2B validados; custos registrados 2C.1 implementados | Validar 2C.1/2C.2; etapas avançadas restantes | Saneamento, composição, snapshots e transação de estoque |
 | Dashboards | Parcial | Seleção/criação/edição básica, fundo/padrão e manutenção 3B implementados; standby sem runtime | Validar 3A.1/3B; 3A.2: definir standby | Widgets/tubulação existentes e limpeza de listeners/timers |
-| Etapas e automação | Parcial | Timeline e geração já integradas; Automação tem filtros e paginação de regras/disparos (4B.1); criação/edição no CRUD | Validar 4B.1; revisar execução e criação/edição antes de 4B.2 | Runtime existente, permissões e escopo global/por sessão |
+| Etapas e automação | Parcial | Timeline e geração já integradas; Automação tem filtros e paginação de regras/disparos (4B.1); criação/edição no CRUD | 4B.1 validado; validar guarda 4B.2a e revisar criação/edição | Runtime existente, permissões e escopo global/por sessão |
 | Menus | Parcial | Sete códigos configurados no comando de ocultação; não prova cobertura de toda manutenção | 5: matriz de cobertura e ocultação seletiva | Validação funcional dos incrementos anteriores |
 | Brewfather e YeastBank | Radar posterior | Portal Brewfather e painel YeastBank já existem; não reconstruir como novidades | 6: auditorias específicas e novas lacunas | Estabilização do fluxo prioritário |
 
@@ -366,3 +366,15 @@ ativa, sem restringir execução pelo `session_id`. Vínculo de cadastro não
 é isolamento de execução. Logs não possuem planta/sessão de origem.
 Criação/edição seguem no CRUD; não fechar a etapa 4 nem ocultar seus menus.
 Validação deste novo patch permanece pendente; não há migration.
+
+
+### 05/10/2026 — 4B.1 validado e guarda 4B.2a
+
+O usuário validou filtros/paginação/histórico 4B.1. Novo patch 4B.2a implementa
+restrição de novos disparos por sessão ativa e planta disponível; globais
+preservam comportamento. Isso substitui a ausência de guarda descrita acima.
+Não desliga atuadores nem define isolamento físico por mapeamentos.
+Sem migration; testes locais do usuário pendentes. Ver
+[workspace-automacao-execucao-4b2a.md](workspace-automacao-execucao-4b2a.md).
+Criação/edição/ativação local, proveniência do sensor, standby e menus permanecem
+pendentes; etapa 4 não está encerrada.

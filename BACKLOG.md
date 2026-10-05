@@ -5607,3 +5607,13 @@ Inventário 4A e roteiro em [workspace-automacao-historico-4b1.md](docs/patches/
 Sem migration. 4B.1 implementado, aguardando validação do usuário.
 Pendente: 4B.2 criação/edição contextual após revisar a execução (o motor
 não restringe regras por sessão), standby 3A.2 e matriz final de menus.
+
+
+## Workspace — guarda de automação 4B.2a (05/10/2026)
+
+4B.1 validado pelo usuário. Regras vinculadas agora exigem sessão ativa,
+não apagada e planta disponível antes de novos disparos; globais preservadas.
+Pausa bloqueia novos acionamentos, sem desligamento nem reset de cooldown.
+Sem migration. Ver [roteiro 4B.2a](docs/patches/workspace-automacao-execucao-4b2a.md).
+Teste de execução local pendente. Criação/edição/ativação no workspace,
+isolamento físico por mapeamentos e demais pendências seguem em aberto.

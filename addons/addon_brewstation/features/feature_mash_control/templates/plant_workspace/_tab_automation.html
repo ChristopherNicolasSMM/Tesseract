@@ -22,7 +22,7 @@
         {% if can_view_logs %}<div class="col-md-4"><label for="pwAutomationOutcome" class="form-label">Resultado do disparo</label><select id="pwAutomationOutcome" name="outcome" class="form-select">{% for value, label in [('', 'Todos'), ('success', 'Sucesso'), ('error', 'Erro')] %}<option value="{{ value }}" {% if outcome_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>{% endif %}
         <div class="col-md-4 d-flex gap-2"><button class="btn btn-primary" type="submit">Filtrar</button><a data-automation-page class="btn btn-outline-secondary" href="{{ url_for('plant_workspace.tab_automation', plant_id=plant.id) }}">Limpar</a></div>
       </div>
-      <p class="small text-muted mt-3 mb-0">Os filtros de regra também limitam o histórico. O vínculo com uma sessão identifica o cadastro; não restringe a execução do motor atual. Regras globais e seu histórico são compartilhados entre plantas; os disparos não registram a planta de origem.</p>
+      <p class="small text-muted mt-3 mb-0">Os filtros de regra também limitam o histórico. Regras vinculadas só disparam com sessão ativa e planta disponível. Pausar impede novos disparos dessas regras; não desliga atuadores já ligados. Regras globais e seu histórico são compartilhados entre plantas; os disparos não registram a planta de origem.</p>
     </div>
   </form>
   <div class="card mb-3">

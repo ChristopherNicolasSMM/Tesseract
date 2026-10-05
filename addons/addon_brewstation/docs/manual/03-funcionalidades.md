@@ -152,10 +152,25 @@ Limpe o combo para consultar todas as regras permitidas da planta e globais.
 
 Histórico exige `automation_rule_logs.list`; criar e consultar detalhes
 exigem as permissões respectivas. Cadastro avançado continua acessível.
-Vínculo de sessão identifica o cadastro: o motor atual executa por sensor,
-sem restringir pelo vínculo. Regras globais/histórico são compartilhados
+Regras vinculadas só disparam quando a sessão está ativa, não apagada e
+com planta disponível. Pausar bloqueia novos disparos, sem desligar atuadores. Regras globais/histórico são compartilhados
 entre plantas; logs não identificam a planta do disparo. Consultar ou
 filtrar não aciona dispositivos nem altera sessões/estoque.
 
 Etapas anteriores de custos/rateio e manutenção de painéis foram validadas
 pelo usuário em 05/10/2026. Standby continua pendente.
+
+
+### Automação vinculada à sessão — guarda de execução (4B.2a)
+
+Regras globais continuam avaliadas por sensor/condição/cooldown. Regras com
+sessão vinculada exigem status interno `active`, sessão não apagada e planta
+existente/não apagada. Rascunho, pausa, conclusão e aborto impedem novos
+acionamentos. Vínculos incompletos/órfãos também são bloqueados.
+
+Retomar permite avaliar as próximas leituras, respeitando o cooldown anterior;
+não reproduz leituras recebidas durante a pausa. Bloqueio não registra disparo,
+não aumenta contador e não muda último disparo, timers ou estoque. Pausar não
+é um comando de desligamento; atuadores já ligados permanecem em seu estado.
+Funções configuradas continuam resolvidas por nome; esta guarda não identifica
+a planta física do sensor nem valida mapeamentos. Cadastro/edição seguem no CRUD.

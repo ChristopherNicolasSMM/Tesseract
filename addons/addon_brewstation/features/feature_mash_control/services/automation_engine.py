@@ -34,6 +34,8 @@ from core.db import db
 from core.event_bus import event_bus
 from addons.addon_brewstation.features.feature_mash_control.model.automation_rule import AutomationRule
 from addons.addon_brewstation.features.feature_mash_control.model.automation_rule_log import AutomationRuleLog
+from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
+from addons.addon_brewstation.features.feature_mash_control.model.brew_plant import BrewPlant
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +86,24 @@ def _on_device_value_changed(function_name: str | None = None, value=None) -> No
         _evaluate_rule(rule, value)
 
 
+def _session_allows_execution(rule: AutomationRule) -> bool:
+    """Globais independem de sessão; vinculadas exigem sessão/planta disponíveis.
+
+    Esta guarda limita novos disparos, sem escrever estado ou desligar atores.
+    Funções continuam sendo resolvidas pelos nomes configurados na regra.
+    """
+    if rule.session_id is None:
+        return True
+    session = db.session.get(BrewSession, rule.session_id)
+    if not session or session.is_deleted or session.status != "active" or session.plant_id is None:
+        return False
+    plant = db.session.get(BrewPlant, session.plant_id)
+    return plant is not None and not plant.is_deleted
+
+
 def _evaluate_rule(rule: AutomationRule, sensor_value) -> None:
+    if not _session_allows_execution(rule):
+        return
     if _in_cooldown(rule):
         return
 

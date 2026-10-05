@@ -202,3 +202,86 @@ def test_multiplas_regras_para_o_mesmo_sensor_disparam_juntas(app):
         assert rule_b.trigger_count == 1
         assert device_service.get_value("heater10") is True
         assert device_service.get_value("alarm10") is True
+
+
+@pytest.mark.parametrize('state', ['draft', 'paused', 'completed', 'aborted', 'deleted_session',
+                                   'deleted_plant', 'missing_session', 'missing_plant', 'no_plant'])
+def test_regra_vinculada_bloqueada_nao_aciona_nem_escreve(app, monkeypatch, state):
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_plant import BrewPlant
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
+    from addons.addon_brewstation.features.feature_mash_control.services import automation_engine
+    with app.app_context():
+        plant = BrewPlant(name="Planta guarda automação")
+        db.session.add(plant)
+        db.session.flush()
+        session = BrewSession(name="Sessão guarda", plant_id=plant.id, status="active")
+        db.session.add(session)
+        db.session.flush()
+        rule = _criar_rule(sensor_function_name="sensor_guarda", actor_function_name="ator_guarda")
+        rule.session_id = session.id
+        if state in ('draft', 'paused', 'completed', 'aborted'):
+            session.status = state
+        elif state == 'deleted_session':
+            session.is_deleted = True
+        elif state == 'deleted_plant':
+            plant.is_deleted = True
+        elif state == 'no_plant':
+            session.plant_id = None
+        db.session.commit()
+        # Simula referências órfãs sem inserir dados inválidos ou desativar FKs.
+        original_get = db.session.get
+        def scoped_get(model, identity, **kwargs):
+            if state == 'missing_session' and model is BrewSession:
+                return None
+            if state == 'missing_plant' and model is BrewPlant:
+                return None
+            return original_get(model, identity, **kwargs)
+        monkeypatch.setattr(db.session, 'get', scoped_get)
+        def forbidden(*args, **kwargs):
+            pytest.fail('Regra bloqueada não pode acionar dispositivo ou resolver ação')
+        monkeypatch.setattr(device_service, 'set_value', forbidden)
+        monkeypatch.setattr(automation_engine, '_resolve_target_value', forbidden)
+        before = (rule.trigger_count, rule.last_triggered_at, AutomationRuleLog.query.count())
+        automation_engine._on_device_value_changed(function_name="sensor_guarda", value=1)
+        assert (rule.trigger_count, rule.last_triggered_at, AutomationRuleLog.query.count()) == before
+        assert session.status == (state if state in ('draft', 'paused', 'completed', 'aborted') else 'active')
+
+
+def test_regra_vinculada_pause_resume_preserva_cooldown_e_historico(app):
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_plant import BrewPlant
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
+    with app.app_context():
+        sensor = _criar_actor(name="sensor_session_guard", function_name="sensor_session_guard")
+        _criar_actor(name="heater_session_guard", function_name="heater_session_guard",
+                     category="actuator", actor_type="actuator")
+        plant = BrewPlant(name="Planta runtime")
+        db.session.add(plant)
+        db.session.flush()
+        session = BrewSession(name="Sessão runtime", plant_id=plant.id, status="active")
+        db.session.add(session)
+        db.session.flush()
+        rule = _criar_rule(sensor_function_name="sensor_session_guard", actor_function_name="heater_session_guard",
+                           action="ON", cooldown=0)
+        rule.session_id = session.id
+        db.session.commit()
+        device_service.update_from_mqtt(sensor, 1)
+        db.session.refresh(rule)
+        assert rule.trigger_count == 1
+        first_trigger = rule.last_triggered_at
+        session.status = 'paused'
+        db.session.commit()
+        device_service.update_from_mqtt(sensor, 2)
+        db.session.refresh(rule)
+        assert rule.trigger_count == 1 and rule.last_triggered_at == first_trigger
+        assert device_service.get_value('heater_session_guard') is True  # Pausar não desliga.
+        session.status = 'active'
+        db.session.commit()
+        device_service.update_from_mqtt(sensor, 3)
+        db.session.refresh(rule)
+        assert rule.trigger_count == 2
+        assert AutomationRuleLog.query.filter_by(rule_id=rule.id).count() == 2
+        rule.cooldown_seconds = 9999
+        db.session.commit()
+        device_service.update_from_mqtt(sensor, 4)
+        db.session.refresh(rule)
+        assert rule.trigger_count == 2

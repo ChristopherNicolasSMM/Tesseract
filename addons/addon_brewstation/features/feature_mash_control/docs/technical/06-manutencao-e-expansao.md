@@ -311,3 +311,19 @@ O filtro contextual não modifica `automation_engine.py`: seu despacho por
 sensor considera atividade/exclusão, não `session_id`. Não confundir vínculo
 com isolamento de execução. Logs têm `rule_id`, não planta/sessão de origem.
 Revisar essa semântica antes de integrar ativação/edição. Sem migration.
+
+
+### Guarda de execução 4B.2a
+
+`automation_engine._evaluate_rule` verifica `_session_allows_execution` antes
+de cooldown/condição/resolução do ator. Globais (`session_id is None`) seguem
+sem essa restrição; vinculadas exigem sessão ativa/não apagada com planta
+existente/não apagada. Referências ausentes são recusadas. Leitura via
+`db.session.get`, somente modelos do próprio addon; dispositivos continuam
+pelo serviço público. Nenhuma migration ou alteração de controllers gerados.
+
+Bloqueio não chama `_trigger_rule`: sem log de disparo/contador/horário novo,
+sem alteração de status, estoque ou temporização. Retomar não zera cooldown.
+A condição de sessão não prova pertencimento físico das funções ao equipamento:
+mapeamento por planta e proveniência dos eventos ainda precisam de revisão.
+Atualiza a observação de 4B.1 acima sobre ausência de guarda por sessão.
