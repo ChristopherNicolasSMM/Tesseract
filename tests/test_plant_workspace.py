@@ -2601,3 +2601,335 @@ def test_automation_consulta_nao_aciona_motor_nem_altera_dados(app, client, monk
         assert client.get(f"/brewstation/plant-workspace/{plant_id}/tab/automation{query}").status_code == 200
     with app.app_context():
         assert snapshot() == before
+
+
+# Patch combinado 4B.3/4B.4/4C.
+def _workspace_rule_form(app):
+    with app.app_context():
+        for name, category in [('ws_rule_sensor', 'sensor'), ('ws_rule_actor', 'actuator')]:
+            if not DeviceFunction.query.filter_by(name=name).first():
+                db.session.add(DeviceFunction(name=name, display_name=name, category=category))
+        plant = BrewPlant(name='Planta edição de regras')
+        other = BrewPlant(name='Planta externa edição')
+        db.session.add_all([plant, other])
+        db.session.flush()
+        session = BrewSession(name='Sessão regras', plant_id=plant.id, status='active')
+        external = BrewSession(name='Sessão externa regras', plant_id=other.id, status='active')
+        db.session.add_all([session, external])
+        db.session.commit()
+        return plant.id, session.id, external.id, dict(name='Regra editável', description='Descrição',
+            sensor_function_name='ws_rule_sensor', actor_function_name='ws_rule_actor', sensor_metric='temperature',
+            condition_operator='<=', condition_value='65.5', condition_unit='°C', actor_action='SET_VALUE',
+            actor_value='40', cooldown_seconds='30', session_id='')
+
+
+def test_workspace_cria_edita_regra_preserva_execucao_e_ignora_campos_protegidos(app, client):
+    _login_admin(app, client)
+    plant_id, _, _, data = _workspace_rule_form(app)
+    url = f'/brewstation/plant-workspace/{plant_id}/automation-rules'
+    data.update(is_active='true', trigger_count='999', last_triggered_at='2026-10-01', is_deleted='true')
+    response = client.post(url, data=data)
+    assert response.status_code == 200
+    rule_id = response.get_json()['rule_id']
+    with app.app_context():
+        rule = db.session.get(AutomationRule, rule_id)
+        assert not rule.is_active and not rule.is_deleted and rule.trigger_count == 0
+        assert rule.last_triggered_at is None
+        rule.trigger_count = 5
+        log = AutomationRuleLog(rule_id=rule_id, success=True, action_taken='ON')
+        db.session.add(log)
+        db.session.commit()
+    data['name'] = 'Regra renomeada'
+    assert client.post(url + f'/{rule_id}/edit', data=data).status_code == 200
+    with app.app_context():
+        rule = db.session.get(AutomationRule, rule_id)
+        assert rule.name == 'Regra renomeada' and rule.trigger_count == 5
+        assert AutomationRuleLog.query.filter_by(rule_id=rule_id).count() == 1
+        rule.is_active = True
+        db.session.commit()
+    assert client.post(url + f'/{rule_id}/edit', data={**data, 'name': 'Não alterar'}).status_code == 400
+    with app.app_context():
+        assert db.session.get(AutomationRule, rule_id).name == 'Regra renomeada'
+
+
+@pytest.mark.parametrize('field,value', [('name', ''), ('name', 'x'*201), ('condition_value', 'nan'),
+    ('condition_value', 'inf'), ('actor_value', ''), ('cooldown_seconds', '-1'), ('cooldown_seconds', '1.5'),
+    ('cooldown_seconds', '9'*400), ('condition_operator', 'BAD'), ('actor_action', 'BAD'),
+    ('sensor_function_name', 'ws_rule_actor'), ('actor_function_name', 'missing')])
+def test_workspace_regras_validacao_sem_gravacao_parcial(app, client, field, value):
+    _login_admin(app, client)
+    plant_id, _, _, data = _workspace_rule_form(app)
+    data[field] = value
+    with app.app_context():
+        before = AutomationRule.query.count()
+    assert client.post(f'/brewstation/plant-workspace/{plant_id}/automation-rules', data=data).status_code == 400
+    with app.app_context():
+        assert AutomationRule.query.count() == before
+
+
+def test_workspace_regra_vinculo_escopo_e_guarda_ativacao(app, client):
+    _login_admin(app, client)
+    plant_id, session_id, external_id, data = _workspace_rule_form(app)
+    url = f'/brewstation/plant-workspace/{plant_id}/automation-rules'
+    assert client.post(url, data={**data, 'session_id': external_id}).status_code == 400
+    result = client.post(url, data={**data, 'session_id': session_id}).get_json()
+    rule_id = result['rule_id']
+    # Funções sem mapeamento/ator único não podem ser ativadas.
+    assert client.post(url + f'/{rule_id}/activate').status_code == 400
+    with app.app_context():
+        assert not db.session.get(AutomationRule, rule_id).is_active
+        db.session.get(AutomationRule, rule_id).session_id = external_id
+        db.session.commit()
+    for action in ['activate', 'deactivate', 'trash', 'restore', 'edit']:
+        assert client.post(url + f'/{rule_id}/{action}', data=data).status_code == 404
+
+
+def test_workspace_regra_lixeira_restauracao_idempotente_preserva_historico(app, client):
+    _login_admin(app, client)
+    plant_id, _, _, data = _workspace_rule_form(app)
+    url = f'/brewstation/plant-workspace/{plant_id}/automation-rules'
+    rule_id = client.post(url, data=data).get_json()['rule_id']
+    assert client.post(url + f'/{rule_id}/activate').status_code == 200  # Global válida.
+    with app.app_context():
+        db.session.add(AutomationRuleLog(rule_id=rule_id, success=True, action_taken='ON'))
+        db.session.commit()
+    assert client.post(url + f'/{rule_id}/trash').status_code == 200
+    with app.app_context():
+        first_deleted_at = db.session.get(AutomationRule, rule_id).deleted_at
+    assert client.post(url + f'/{rule_id}/trash').status_code == 200
+    with app.app_context():
+        rule = db.session.get(AutomationRule, rule_id)
+        assert not rule.is_active and rule.deleted_at == first_deleted_at
+    html = client.get(f'/brewstation/plant-workspace/{plant_id}/tab/automation').get_data(as_text=True)
+    assert 'Restaurar inativa' in html and 'Regra editável' in html
+    assert client.post(url + f'/{rule_id}/activate').status_code == 400
+    assert client.post(url + f'/{rule_id}/restore').status_code == 200
+    assert client.post(url + f'/{rule_id}/restore').status_code == 200
+    with app.app_context():
+        rule = db.session.get(AutomationRule, rule_id)
+        assert not rule.is_active and not rule.is_deleted
+        assert AutomationRuleLog.query.filter_by(rule_id=rule_id).count() == 1
+
+
+@pytest.mark.parametrize('action,permission', [('edit', 'automation_rules.update'), ('activate', 'automation_rules.update'),
+    ('deactivate', 'automation_rules.update'), ('trash', 'automation_rules.trash'), ('restore', 'automation_rules.restore')])
+def test_workspace_regra_manutencao_permissoes(app, client, monkeypatch, action, permission):
+    _login_admin(app, client)
+    plant_id, _, _, data = _workspace_rule_form(app)
+    url = f'/brewstation/plant-workspace/{plant_id}/automation-rules'
+    rule_id = client.post(url, data=data).get_json()['rule_id']
+    monkeypatch.setattr(User, 'has_permission', lambda self, code: code != permission)
+    assert client.post(url + f'/{rule_id}/{action}', data=data).status_code == 403
+
+
+def test_workspace_regra_rollback_e_criacao_sem_permissao(app, client, monkeypatch):
+    _login_admin(app, client)
+    plant_id, _, _, data = _workspace_rule_form(app)
+    url = f'/brewstation/plant-workspace/{plant_id}/automation-rules'
+    rule_id = client.post(url, data=data).get_json()['rule_id']
+    original_commit = db.session.commit
+    def fail():
+        raise RuntimeError('falha simulada')
+    monkeypatch.setattr(db.session, 'commit', fail)
+    assert client.post(url + f'/{rule_id}/edit', data={**data, 'name': 'Alteração parcial'}).status_code == 500
+    assert client.post(url + f'/{rule_id}/trash').status_code == 500
+    monkeypatch.setattr(db.session, 'commit', original_commit)
+    with app.app_context():
+        rule = db.session.get(AutomationRule, rule_id)
+        assert rule.name == data['name'] and not rule.is_deleted
+    monkeypatch.setattr(User, 'has_permission', lambda self, code: code != 'automation_rules.create')
+    assert client.post(url, data=data).status_code == 403
+
+
+def _workspace_runtime_data(app):
+    with app.app_context():
+        plant = BrewPlant(name='Runtime workspace')
+        other = BrewPlant(name='Runtime externo')
+        db.session.add_all([plant, other])
+        db.session.flush()
+        session = BrewSession(name='Runtime sessão antiga', plant_id=plant.id, status='active')
+        external = BrewSession(name='Runtime sessão externa', plant_id=other.id, status='active')
+        db.session.add_all([session, external])
+        db.session.flush()
+        first = BrewSessionStep(session_id=session.id, step_index=0, name='Primeira', step_type='mash', status='active', duration_seconds=60)
+        second = BrewSessionStep(session_id=session.id, step_index=1, name='Segunda', step_type='boil', status='pending', duration_seconds=60)
+        db.session.add_all([first, second])
+        db.session.commit()
+        return plant.id, session.id, external.id, first.id, second.id
+
+
+def test_workspace_runtime_reutiliza_avanco_rejeita_reenvio_e_sessao_externa(app, client):
+    _login_admin(app, client)
+    plant_id, session_id, external_id, first_id, second_id = _workspace_runtime_data(app)
+    url = f'/brewstation/plant-workspace/{plant_id}/sessions/{session_id}/runtime'
+    data = dict(expected_status='active', expected_step_id=first_id)
+    assert client.post(url + '/advance-step', data=data).status_code == 200
+    assert client.post(url + '/advance-step', data=data).status_code == 409
+    with app.app_context():
+        assert db.session.get(BrewSessionStep, first_id).status == 'completed'
+        assert db.session.get(BrewSessionStep, second_id).status == 'active'
+    assert client.post(url + '/go-back-step', data={**data, 'expected_step_id': second_id}).status_code == 200
+    assert client.post(f'/brewstation/plant-workspace/{plant_id}/sessions/{external_id}/runtime/stop', data=data).status_code == 404
+
+
+def test_workspace_runtime_pausa_retomada_conclusao_e_estado_desatualizado(app, client):
+    _login_admin(app, client)
+    plant_id, session_id, _, first_id, _ = _workspace_runtime_data(app)
+    url = f'/brewstation/plant-workspace/{plant_id}/sessions/{session_id}/runtime'
+    assert client.post(url + '/toggle-pause', data={'expected_status': 'active'}).status_code == 200
+    assert client.post(url + '/toggle-pause', data={'expected_status': 'active'}).status_code == 409
+    assert client.post(url + '/advance-step', data={'expected_status': 'paused', 'expected_step_id': first_id}).status_code == 400
+    assert client.post(url + '/toggle-pause', data={'expected_status': 'paused'}).status_code == 200
+    assert client.post(url + '/stop', data={'expected_status': 'active'}).status_code == 200
+    assert client.post(url + '/advance-step', data={'expected_status': 'completed'}).status_code == 400
+    with app.app_context():
+        assert db.session.get(BrewSession, session_id).status == 'completed'
+
+
+@pytest.mark.parametrize('action,permission', [('advance-step', 'dashboard_layouts.update'),
+    ('go-back-step', 'dashboard_layouts.update'), ('resync-steps', 'dashboard_layouts.update'),
+    ('toggle-pause', 'brew_sessions.update'), ('stop', 'brew_sessions.update')])
+def test_workspace_runtime_permissoes(app, client, monkeypatch, action, permission):
+    _login_admin(app, client)
+    plant_id, session_id, _, first_id, _ = _workspace_runtime_data(app)
+    monkeypatch.setattr(User, 'has_permission', lambda self, code: code != permission)
+    response = client.post(f'/brewstation/plant-workspace/{plant_id}/sessions/{session_id}/runtime/{action}',
+                           data={'expected_status': 'active', 'expected_step_id': first_id})
+    assert response.status_code == 403
+
+
+def test_workspace_controles_combos_e_confirmacao_padrao(app, client):
+    _login_admin(app, client)
+    plant_id, _, external_id, _ = _workspace_rule_form(app)
+    html = client.get(f'/brewstation/plant-workspace/{plant_id}/tab/automation').get_data(as_text=True)
+    assert 'data-weakref-source="device_functions"' in html and 'data-weakref-value-field="name"' in html
+    assert 'data-weakref-source="brew_sessions"' in html and 'window.__tesseractConfirm' in html
+    assert 'Sessão externa regras' not in html
+    assert 'Salvar inativa' in html
+    plant_id, session_id, _, _, _ = _workspace_runtime_data(app)
+    html = client.get(f'/brewstation/plant-workspace/{plant_id}/tab/sessions?session_id={session_id}').get_data(as_text=True)
+    assert 'Concluir e avançar etapa' in html and 'Ressincronizar etapas' not in html  # Sem receita.
+    assert 'expected_step_id' in html and 'data-session-confirm' in html
+
+
+def test_workspace_runtime_resync_preserva_etapa_completa(app, client):
+    _login_admin(app, client)
+    plant_id, session_id, _, first_id, _ = _workspace_runtime_data(app)
+    with app.app_context():
+        recipe = MashRecipe(name='Receita resync workspace', origem_receita='Manual', versao=1)
+        db.session.add(recipe)
+        db.session.flush()
+        planned = RecipeStep(recipe_id=recipe.id, nome='Planejada nova', step_type='mash', ordem=3, tempo_min=10)
+        db.session.add(planned)
+        db.session.get(BrewSession, session_id).recipe_id = recipe.id
+        db.session.get(BrewSessionStep, first_id).status = 'completed'
+        db.session.commit()
+    url = f'/brewstation/plant-workspace/{plant_id}/sessions/{session_id}/runtime/resync-steps'
+    assert client.post(url, data={'expected_status': 'active'}).status_code == 200
+    assert client.post(url, data={'expected_status': 'active'}).status_code == 200
+    with app.app_context():
+        assert db.session.get(BrewSessionStep, first_id).status == 'completed'
+        assert BrewSessionStep.query.filter_by(session_id=session_id, name='Planejada nova', is_deleted=False).count() == 1
+
+
+def test_workspace_runtime_rollback_desfaz_avanco(app, client, monkeypatch):
+    _login_admin(app, client)
+    plant_id, session_id, _, first_id, second_id = _workspace_runtime_data(app)
+    def fail():
+        raise RuntimeError('Falha commit runtime')
+    monkeypatch.setattr(db.session, 'commit', fail)
+    response = client.post(f'/brewstation/plant-workspace/{plant_id}/sessions/{session_id}/runtime/advance-step',
+                           data={'expected_status': 'active', 'expected_step_id': first_id})
+    assert response.status_code == 500
+    with app.app_context():
+        assert db.session.get(BrewSessionStep, first_id).status == 'active'
+        assert db.session.get(BrewSessionStep, second_id).status == 'pending'
+
+
+def test_workspace_ajuste_etapa_registra_operador_preserva_receita_e_repeticao(app, client):
+    _login_admin(app, client)
+    plant_id, session_id, _, first_id, _ = _workspace_runtime_data(app)
+    url = f'/brewstation/plant-workspace/{plant_id}/sessions/{session_id}/steps/{first_id}/adjust'
+    with app.app_context():
+        before = BrewSessionLog.query.filter_by(session_id=session_id).count()
+        user_id = User.query.filter_by(username='admin').first().id
+    data = {'field': 'duration_seconds', 'value': '120'}
+    assert client.post(url, data=data).status_code == 200
+    assert client.post(url, data=data).status_code == 200
+    with app.app_context():
+        step = db.session.get(BrewSessionStep, first_id)
+        assert step.duration_seconds == 120 and step.status == 'active'
+        assert db.session.get(BrewSession, session_id).recipe_id is None
+        logs = BrewSessionLog.query.filter_by(session_id=session_id, step_id=first_id).all()
+        assert len(logs) == before + 1
+        assert logs[-1].detail_json['user_id'] == user_id
+
+
+@pytest.mark.parametrize('field,value', [('status', 'completed'), ('duration_seconds', '-1'),
+    ('duration_seconds', '1.5'), ('target_temp', 'nan'), ('name', '')])
+def test_workspace_ajuste_recusa_dados_invalidos(app, client, field, value):
+    _login_admin(app, client)
+    plant_id, session_id, _, first_id, _ = _workspace_runtime_data(app)
+    response = client.post(f'/brewstation/plant-workspace/{plant_id}/sessions/{session_id}/steps/{first_id}/adjust',
+                           data={'field': field, 'value': value})
+    assert response.status_code == 400
+    with app.app_context():
+        assert db.session.get(BrewSessionStep, first_id).duration_seconds == 60
+
+
+def test_workspace_ajuste_escopo_permissao_historico_e_rollback(app, client, monkeypatch):
+    _login_admin(app, client)
+    plant_id, session_id, external_id, first_id, _ = _workspace_runtime_data(app)
+    path = f'/brewstation/plant-workspace/{plant_id}/sessions'
+    data = {'field': 'name', 'value': 'Novo nome'}
+    assert client.post(f'{path}/{external_id}/steps/{first_id}/adjust', data=data).status_code == 404
+    url = f'{path}/{session_id}/steps/{first_id}/adjust'
+    monkeypatch.setattr(User, 'has_permission', lambda self, code: code != 'brew_session_steps.update')
+    assert client.post(url, data=data).status_code == 403
+    monkeypatch.setattr(User, 'has_permission', lambda self, code: True)
+    def fail():
+        raise RuntimeError('Falha ao gravar ajuste e histórico')
+    monkeypatch.setattr(db.session, 'commit', fail)
+    assert client.post(url, data=data).status_code == 500
+    with app.app_context():
+        assert db.session.get(BrewSessionStep, first_id).name == 'Primeira'
+        assert BrewSessionLog.query.filter_by(session_id=session_id).count() == 0
+
+
+def test_workspace_lixeira_regras_paginada_sem_vazar_outro_escopo(app, client, monkeypatch):
+    _login_admin(app, client)
+    plant_id, _, foreign_id, _, _ = _automation_history_data(app, 23)
+    with app.app_context():
+        for rule in AutomationRule.query.filter(AutomationRule.name.contains('Regra paginada')).all():
+            rule.is_deleted = True
+        db.session.get(AutomationRule, foreign_id).is_deleted = True
+        db.session.commit()
+    url = f'/brewstation/plant-workspace/{plant_id}/tab/automation?trash_page=2'
+    html = client.get(url).get_data(as_text=True)
+    assert 'Lixeira de regras (23)' in html and 'Regra paginada 00' in html
+    assert 'Regra paginada 22' not in html and 'Regra externa secreta' not in html
+    assert html.count('Restaurar inativa</button>') == 3
+    monkeypatch.setattr(User, 'has_permission', lambda self, code: code != 'automation_rules.restore')
+    html = client.get(url).get_data(as_text=True)
+    assert 'Lixeira de regras' not in html and 'Regra paginada 00' not in html
+
+
+@pytest.mark.parametrize('blocked', ['completed_step', 'completed_session', 'deleted_step', 'deleted_plant'])
+def test_workspace_ajuste_etapa_bloqueia_historico_fechado_e_exclusao(app, client, blocked):
+    _login_admin(app, client)
+    plant_id, session_id, _, first_id, _ = _workspace_runtime_data(app)
+    with app.app_context():
+        if blocked == 'completed_step':
+            db.session.get(BrewSessionStep, first_id).status = 'completed'
+        elif blocked == 'completed_session':
+            db.session.get(BrewSession, session_id).status = 'completed'
+        elif blocked == 'deleted_step':
+            db.session.get(BrewSessionStep, first_id).is_deleted = True
+        else:
+            db.session.get(BrewPlant, plant_id).is_deleted = True
+        db.session.commit()
+    response = client.post(f'/brewstation/plant-workspace/{plant_id}/sessions/{session_id}/steps/{first_id}/adjust',
+                           data={'field': 'name', 'value': 'Não alterar'})
+    assert response.status_code == (404 if blocked.startswith('deleted') else 400)
+    with app.app_context():
+        assert db.session.get(BrewSessionStep, first_id).name == 'Primeira'

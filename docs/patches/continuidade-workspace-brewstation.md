@@ -15,9 +15,9 @@ Os incrementos abaixo registram as execuções posteriores e pendências locais.
 | Planta, tanques e mapeamentos | Parcial | `plant_workspace.py` tem criação/edição e validações; manutenção completa ainda depende de cadastros | Inventariar lixeira, restauração e configuração avançada antes de ocultar acessos | Permissões, pertencimento e funcionalidades dos cadastros |
 | Receita e ingredientes | Parcial | `_tab_recipe_detail.html` reúne conferência/custo, vínculo local, revisão e dados planejados; cadastro avançado preservado | Preservar proteção de receitas usadas; operações adicionais na etapa 4 | Serviço de resolução, conversão, referências públicas e proteção de receitas usadas |
 | Sessões, histórico e alarmes | Concluída no escopo dos patches recentes | Busca/paginação, edição básica, confirmação de insumos e reconhecimento rastreável estão no código | Preservar; operações adicionais ficam na etapa 4 | Suítes de workspace, runtime e estoque |
-| Envase e precificação | Parcial | Prévia/registro na aba; detalhes/estorno 2B validados; custos registrados 2C.1 implementados | Validar 2C.1/2C.2; etapas avançadas restantes | Saneamento, composição, snapshots e transação de estoque |
-| Dashboards | Parcial | Seleção/criação/edição básica, fundo/padrão e manutenção 3B implementados; standby sem runtime | Validar 3A.1/3B; 3A.2: definir standby | Widgets/tubulação existentes e limpeza de listeners/timers |
-| Etapas e automação | Parcial | Timeline e geração já integradas; Automação tem filtros e paginação de regras/disparos (4B.1); criação/edição no CRUD | 4B.1 validado; validar guarda 4B.2a e revisar criação/edição | Runtime existente, permissões e escopo global/por sessão |
+| Envase e precificação | Parcial | Prévia/registro na aba; detalhes/estorno 2B validados; custos e rateio 2C.1/2C.2 validados | 2C.1/2C.2 validados; etapas avançadas restantes | Saneamento, composição, snapshots e transação de estoque |
+| Dashboards | Parcial | Seleção/criação/edição básica, fundo/padrão e manutenção 3B implementados; standby sem runtime | 3A.1/3B validados; 3A.2: definir standby | Widgets/tubulação existentes e limpeza de listeners/timers |
+| Etapas e automação | Parcial | Timeline e geração já integradas; Automação tem filtros, edição/manutenção; sessões têm controles e ajustes no patch combinado | 4B.3/4B.4/4C reunidos em patch combinado; validar controles e manutenção | Runtime existente, permissões e escopo global/por sessão |
 | Menus | Parcial | Sete códigos configurados no comando de ocultação; não prova cobertura de toda manutenção | 5: matriz de cobertura e ocultação seletiva | Validação funcional dos incrementos anteriores |
 | Brewfather e YeastBank | Radar posterior | Portal Brewfather e painel YeastBank já existem; não reconstruir como novidades | 6: auditorias específicas e novas lacunas | Estabilização do fluxo prioritário |
 
@@ -44,7 +44,7 @@ a área funcional. A quantidade final de patches pode mudar ao conferir dependê
 - Correção intermediária: seletores e layout implementados; validação local pendente.
   Ver [inventário e testes](brewstation-seletores-layout.md).
 - 2A.2 (registro): suíte funcional passou; correção das migrations validada localmente.
-- 2B (detalhes/estorno): validado pelo usuário. 2C.1 (custos registrados): implementado, validação local pendente; 2C.2 implementado, aguardando validação local; etapas 3–6 permanecem pendentes.
+- 2B (detalhes/estorno): validado pelo usuário. 2C.1 (custos registrados) e 2C.2 (rateio): validados pelo usuário; etapas 3–6 permanecem pendentes.
   As proteções locais não alteram o comportamento
   do de-para global, dos importadores ou das ações avançadas do CRUD/runtime.
 
@@ -387,3 +387,23 @@ pendentes; etapa 4 não está encerrada.
 vinculadas. Evento continua por nome/valor: não é autenticação de origem física.
 Ver [roteiro 4B.2b](workspace-automacao-isolamento-4b2b.md). Sem migration;
 validação local pendente. Edição/ativação, standby e menus continuam pendentes.
+
+
+### 05/10/2026 — Entrega combinada 4B.3 / 4B.4 / 4C
+
+Por solicitação do usuário, estas frentes passam a ser entregues juntas para
+uma única rodada local de testes. Implementados: criação/edição inativa de
+regras, ativação/desativação, lixeira/restauração sem reativação, paginação da
+lixeira, controles contextualizados de sessão e ajuste auditado de etapa.
+GET permanece consulta; mutações exigem permissões próprias e modal do Core.
+
+Operações de sessões delegam ao runtime existente após validar planta/sessão,
+status e estado esperado da tela. Não foram duplicados timers/motores/estoque.
+Ajuste usa serviço de timeline existente e registra operador; receita e campos
+não ajustáveis permanecem preservados. Ver
+[workspace-automacao-sessoes-consolidacao-4b3-4c.md](workspace-automacao-sessoes-consolidacao-4b3-4c.md).
+
+Sem migration. Nova entrega ainda precisa de validação do usuário. Não presume
+validação separada dos patches 4B.2a/4B.2b. Permanecem: revisão de proveniência
+física de eventos, exclusão permanente no cadastro avançado, PID contínuo,
+standby 3A.2, eventual manutenção adicional de sessões e revisão dos menus.

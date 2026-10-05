@@ -1,6 +1,6 @@
 {% from '_reference_combo.html' import reference %}
 {% macro page_link(argument, page) -%}
-{{ url_for('plant_workspace.tab_automation', plant_id=plant.id, q=search, active=active_filter, scope=scope_filter, outcome=outcome_filter, rule_id=selected_rule.id if selected_rule else '', rules_page=page if argument == 'rules_page' else rules_page, logs_page=page if argument == 'logs_page' else logs_page) }}
+{{ url_for('plant_workspace.tab_automation', plant_id=plant.id, q=search, active=active_filter, scope=scope_filter, outcome=outcome_filter, rule_id=selected_rule.id if selected_rule else '', trash_page=trash_page, rules_page=page if argument == 'rules_page' else rules_page, logs_page=page if argument == 'logs_page' else logs_page) }}
 {%- endmacro %}
 {% macro pagination(argument, page, pages, total) %}
 <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -12,6 +12,7 @@
 </div>
 {% endmacro %}
 <div id="pwAutomation">
+  {% include 'plant_workspace/_automation_editors.html' %}
   <form id="pwAutomationFilters" method="get" action="{{ url_for('plant_workspace.tab_automation', plant_id=plant.id) }}" class="card mb-3">
     <div class="card-body pt-3">
       <div class="row g-3 align-items-end">
@@ -26,7 +27,7 @@
     </div>
   </form>
   <div class="card mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><span>Regras de Automação</span>{% if current_user.has_permission('automation_rules.create') %}<a href="{{ url_for('automation_rules.manage') }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success">Nova Regra</a>{% endif %}</div>
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><span>Regras de Automação</span>{% if current_user.has_permission('automation_rules.create') %}<a href="{{ url_for('automation_rules.manage') }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success">Cadastro avançado</a>{% endif %}</div>
     <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Nome e vínculo</th><th>Condição</th><th>Ação</th><th>Status</th><th>Disparos</th><th>Último disparo</th><th></th></tr></thead><tbody>
       {% for rule in rules %}<tr data-automation-rule-id="{{ rule.id }}">
         <td>{{ rule.name }}<div class="small text-muted">{% if rule.session_id %}Sessão: {{ rule.session.name }} (#{{ rule.session_id }}){% else %}Global — compartilhada entre plantas{% endif %}</div></td>
@@ -34,7 +35,7 @@
         <td class="small">{{ rule.actor_function_name }} → {{ rule.actor_action }}{{ (' (' ~ rule.actor_value ~ ')') if rule.actor_value is not none else '' }}</td>
         <td><span class="badge {{ 'bg-success' if rule.is_active else 'bg-secondary' }}">{{ 'Ativa' if rule.is_active else 'Inativa' }}</span></td><td>{{ rule.trigger_count or 0 }}</td>
         <td class="small text-muted">{{ rule.last_triggered_at.strftime('%d/%m/%Y %H:%M:%S') if rule.last_triggered_at else '—' }}</td>
-        <td>{% if current_user.has_permission('automation_rules.detail') %}<a href="{{ url_for('automation_rules.detail', id=rule.id) }}" target="_blank" rel="noopener" class="small">Detalhes</a>{% endif %}</td>
+        <td>{% include 'plant_workspace/_automation_actions.html' %}{% if current_user.has_permission('automation_rules.detail') %}<a href="{{ url_for('automation_rules.detail', id=rule.id) }}" target="_blank" rel="noopener" class="small">Detalhes</a>{% endif %}</td>
       </tr>{% else %}<tr><td colspan="7" class="text-muted small">{% if search or active_filter or scope_filter or selected_rule %}Nenhuma regra encontrada com estes filtros.{% else %}Nenhuma regra de automação cadastrada para esta planta ou globalmente.{% endif %}</td></tr>{% endfor %}
     </tbody></table></div>
     {{ pagination('rules_page', rules_page, rules_pages, rules_total) }}
@@ -46,11 +47,28 @@
     </div>{{ pagination('logs_page', logs_page, logs_pages, logs_total) }}
     {% else %}<div class="card-body pt-3 text-muted">Sem permissão para consultar o histórico de disparos.</div>{% endif %}
   </div>
+  {% include 'plant_workspace/_automation_trash.html' %}
 </div>
 <script>
 (function () {
   const root = document.getElementById('pwAutomation');
   if (!root) return;
+  root.addEventListener('submit', async function (event) {
+    const form = event.target.closest('.pw-automation-mutation');
+    if (!form) return;
+    event.preventDefault();
+    const button = form.querySelector('button[type="submit"]');
+    if (button.disabled || root.dataset.mutationBusy === '1') return;
+    root.dataset.mutationBusy = '1';
+    const buttons = root.querySelectorAll('.pw-automation-mutation button[type="submit"]');
+    buttons.forEach(item => { item.disabled = true; });
+    try {
+      if (!window.__tesseractConfirm) throw new Error('Confirmação indisponível. Recarregue a página.');
+      if (await window.__tesseractConfirm({key: form.dataset.ruleConfirmKey, params: {name: form.dataset.ruleName}}) && form.isConnected) await window.__workspaceSubmitForm(form);
+    } catch (error) {
+      if (window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
+    } finally { delete root.dataset.mutationBusy; buttons.forEach(item => { item.disabled = false; }); }
+  });
   root.querySelector('#pwAutomationFilters').addEventListener('submit', function (event) {
     if (!window.__workspaceLoadUrl) return;
     event.preventDefault();

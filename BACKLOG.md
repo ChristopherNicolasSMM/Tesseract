@@ -33,9 +33,10 @@ no patch [correção das migrations](docs/patches/migrations-downgrade-testes.md
 Correção de migrations validada pelo usuário. 2B (detalhes/estorno)
 validado pelo usuário; ver
 [workspace-envase-detalhes-estorno-2b.md](docs/patches/workspace-envase-detalhes-estorno-2b.md).
-Precificação 2C.1 (custos registrados) implementada, aguardando validação local;
-rateio/preço por unidade 2C.2 implementado, aguardando validação local.
-Etapas 3–6 continuam pendentes; menus e cadastros avançados preservados.
+Precificação 2C.1 (custos registrados) e rateio/preço por unidade 2C.2
+validados pelo usuário em 05/10/2026.
+3A.1/3B validados; standby e incrementos restantes das etapas 4–6 pendentes.
+Menus e cadastros avançados preservados.
 
 ## Fase 0 — Scaffold
 
@@ -5626,3 +5627,19 @@ um único ator por função. Ausência/compartilhamento/ambiguidade bloqueiam
 novos disparos; globais mantidas. Sem migration. Validação local pendente;
 ver [roteiro](docs/patches/workspace-automacao-isolamento-4b2b.md).
 O evento não contém origem física; essa limitação permanece explícita.
+
+
+## Workspace — patch combinado 4B.3 / 4B.4 / 4C (05/10/2026)
+
+Criação/edição de regras inativas, ativação separada, desativação,
+lixeira/restauração preservando histórico e sem reativar. Sessões recebem
+avançar/voltar, pausar/retomar, concluir e ressincronizar pelo runtime existente;
+ajustes de nome/alvo/permanência da etapa usam serviço com log do operador.
+Validação de escopo, RBAC, valores finitos, rollback e estado esperado da tela.
+Sem migration. Entrega única para reduzir rodadas de testes locais.
+Ver [roteiro combinado](docs/patches/workspace-automacao-sessoes-consolidacao-4b3-4c.md).
+Não encerra proveniência física, PID contínuo, standby ou revisão de menus.
+
+Validação executada desta entrega: 407 testes na regressão conjunta, 6 testes
+finais e verificação JavaScript aprovados; validação visual/local do usuário
+permanece pendente.

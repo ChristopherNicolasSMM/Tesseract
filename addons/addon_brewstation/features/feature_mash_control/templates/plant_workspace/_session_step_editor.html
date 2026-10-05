@@ -1,0 +1,8 @@
+{% if current_user.has_permission('brew_session_steps.update') and selected_session.status in ['draft', 'active', 'paused'] and step.status in ['pending', 'active'] %}
+<form id="pwStepAdjust{{ step.id }}" method="post" class="row g-2 mt-2" action="{{ url_for('plant_workspace.workspace_adjust_step', plant_id=plant.id, session_id=selected_session.id, step_id=step.id) }}">
+<div class="col-md-5"><label for="pwStepField{{ step.id }}" class="form-label">Campo a ajustar</label><select id="pwStepField{{ step.id }}" name="field" class="form-select"><option value="name" data-value="{{ step.name }}">Nome</option><option value="target_temp" data-value="{{ step.target_temp if step.target_temp is not none else '' }}">Temperatura alvo (°C)</option><option value="duration_seconds" data-value="{{ step.duration_seconds or 0 }}">Permanência (s)</option></select></div>
+<div class="col-md-5"><label for="pwStepValue{{ step.id }}" class="form-label">Novo valor</label><input id="pwStepValue{{ step.id }}" name="value" class="form-control" value="{{ step.name }}"></div>
+<div class="col-md-2 d-flex align-items-end"><button type="submit" class="btn btn-sm btn-outline-primary">Registrar ajuste</button></div>
+<div class="col-12 small text-muted">Altera somente esta etapa do lote e registra o operador no histórico. Não modifica a receita nem confirma ingredientes.</div>
+</form>
+{% endif %}

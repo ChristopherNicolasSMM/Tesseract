@@ -1,0 +1,7 @@
+{% from 'plant_workspace/_automation_action_form.html' import action with context %}
+
+{% if current_user.has_permission('automation_rules.update') %}
+<a data-automation-page class="btn btn-sm btn-outline-primary" href="{{ url_for('plant_workspace.tab_automation', plant_id=plant.id, rule_id=rule.id) }}">Editar</a>
+{{ action(rule, 'deactivate' if rule.is_active else 'activate', 'Desativar' if rule.is_active else 'Ativar') }}
+{% endif %}
+{% if current_user.has_permission('automation_rules.trash') %}{{ action(rule, 'trash', 'Mover para lixeira') }}{% endif %}

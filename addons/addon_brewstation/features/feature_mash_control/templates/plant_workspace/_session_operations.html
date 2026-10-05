@@ -1,0 +1,40 @@
+{% set operational = steps|selectattr('step_type', 'in', ['mash', 'boil'])|list %}
+{% set current = (operational|selectattr('status', 'equalto', 'active')|first) or (operational|selectattr('status', 'equalto', 'pending')|first) %}
+<div id="pwSessionOperations" class="card mb-3"><div class="card-body pt-3"><h5>Operações da sessão</h5>
+<p class="small text-muted">As operações usam o runtime existente. Pausar/concluir não são comandos de desligamento dos atuadores. Ressincronizar atualiza etapas pendentes a partir da receita; não confirma ingredientes.</p>
+<div class="d-flex flex-wrap gap-2">
+{% for operation, label, permission, states in [
+ ('advance-step', 'Concluir e avançar etapa', 'dashboard_layouts.update', ['active']),
+ ('go-back-step', 'Voltar etapa', 'dashboard_layouts.update', ['active']),
+ ('toggle-pause', 'Retomar' if selected_session.status == 'paused' else 'Pausar', 'brew_sessions.update', ['active', 'paused']),
+ ('stop', 'Concluir sessão', 'brew_sessions.update', ['active', 'paused']),
+ ('resync-steps', 'Ressincronizar etapas', 'dashboard_layouts.update', ['draft', 'active', 'paused'])
+] %}
+{% if current_user.has_permission(permission) and selected_session.status in states and (operation != 'resync-steps' or selected_session.recipe_id) %}
+<form method="post" action="{{ url_for('plant_workspace.workspace_session_runtime', plant_id=plant.id, session_id=selected_session.id, action=operation) }}" data-session-confirm="{{ 'brewstation_mashctrl.workspace.session_' ~ operation|replace('-', '_') }}"><input type="hidden" name="expected_status" value="{{ selected_session.status }}"><input type="hidden" name="expected_step_id" value="{{ current.id if current else 0 }}"><button type="submit" class="btn btn-sm btn-outline-primary">{{ label }}</button></form>
+{% endif %}{% endfor %}
+</div></div></div>
+<script>
+(function () {
+  const root = document.getElementById('pwSessionOperations');
+  if (!root) return;
+  root.addEventListener('submit', async function (event) {
+    const form = event.target.closest('form[data-session-confirm]');
+    if (!form) return;
+    event.preventDefault();
+    if (root.dataset.busy === '1') return;
+    root.dataset.busy = '1';
+    const buttons = root.querySelectorAll('button[type="submit"]');
+    buttons.forEach(button => { button.disabled = true; });
+    try {
+      if (!window.__tesseractConfirm) throw new Error('Confirmação indisponível. Recarregue a página.');
+      if (await window.__tesseractConfirm({key: form.dataset.sessionConfirm}) && form.isConnected) await window.__workspaceSubmitForm(form);
+    } catch (error) {
+      if (window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
+    } finally {
+      delete root.dataset.busy;
+      buttons.forEach(button => { button.disabled = false; });
+    }
+  });
+})();
+</script>

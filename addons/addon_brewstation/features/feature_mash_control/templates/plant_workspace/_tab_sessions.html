@@ -68,6 +68,7 @@
 </div>
 {% if selected_session %}
 <div id="pwSessionDetails" class="mt-3">
+    {% include 'plant_workspace/_session_operations.html' %}
     {% include 'plant_workspace/_session_management.html' %}
 
     <div class="card bg-dark border-secondary mb-3">
@@ -94,6 +95,7 @@
                   <div>Duração realizada: {{ step.actual_duration_s or 0 }} s</div>
                   <div>Início: {{ step.started_at.strftime('%d/%m/%Y %H:%M:%S') if step.started_at else 'Não iniciado' }}</div>
                   <div>Conclusão: {{ step.completed_at.strftime('%d/%m/%Y %H:%M:%S') if step.completed_at else 'Não concluído' }}</div>
+                  {% include 'plant_workspace/_session_step_editor.html' %}
                   <div>PID: {{ 'Ativo' if step.pid_enabled else 'Inativo' }} · Kp: {{ step.pid_kp }} · Ki: {{ step.pid_ki }} · Kd: {{ step.pid_kd }}</div>
                   {% if step.trigger_at_seconds is not none %}<div>Alerta em {{ step.trigger_at_seconds }} s · {{ 'Disparado' if step.alarm_fired else 'Não disparado' }}</div>{% endif %}
                   {% if step.notes %}<p style="white-space: pre-wrap;">{{ step.notes }}</p>{% endif %}
@@ -183,6 +185,27 @@
 // da casca (window.__workspaceLoadUrl), o mesmo usado por qualquer
 // sub-navegação dentro de uma aba.
 (function () {
+  const stepRoot = document.getElementById('pwSessionDetails');
+  if (stepRoot) {
+    stepRoot.addEventListener('change', function (event) {
+      const select = event.target.closest('form[id^="pwStepAdjust"] select[name="field"]');
+      if (select) select.form.elements.namedItem('value').value = select.selectedOptions[0].dataset.value;
+    });
+    stepRoot.addEventListener('submit', async function (event) {
+      const form = event.target.closest('form[id^="pwStepAdjust"]');
+      if (!form) return;
+      event.preventDefault();
+      const button = form.querySelector('button[type="submit"]');
+      if (button.disabled) return;
+      button.disabled = true;
+      try {
+        if (!window.__tesseractConfirm) throw new Error('Confirmação indisponível. Recarregue a página.');
+        if (await window.__tesseractConfirm({key: 'brewstation_mashctrl.workspace.step_adjust'}) && form.isConnected) await window.__workspaceSubmitForm(form);
+      } catch (error) {
+        if (window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
+      } finally { button.disabled = false; }
+    });
+  }
   const envaseDetail = document.getElementById('pwEnvaseDetail');
   if (envaseDetail) envaseDetail.addEventListener('submit', async function (event) {
     const form = event.target.closest('.pw-envase-reverse-form');

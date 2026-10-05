@@ -936,11 +936,153 @@ def tab_automation(plant_id: int):
     rules_by_id = {rule.id: rule for rule in rules}
     if logs:
         rules_by_id.update({rule.id: rule for rule in base.filter(AutomationRule.id.in_([log.rule_id for log in logs])).all()})
+    can_restore = current_user.has_permission("automation_rules.restore")
+    trash_query = AutomationRule.query.filter(AutomationRule.is_deleted.is_(True),
+        db.or_(AutomationRule.session_id.is_(None), AutomationRule.session_id.in_(session_ids)))
+    trash_rules, trash_page, trash_pages, trash_total = [], 1, 1, 0
+    if can_restore:
+        trash_rules, trash_page, trash_pages, trash_total = paginate(trash_query.order_by(AutomationRule.id.desc()), "trash_page")
+    session_options = BrewSession.query.filter_by(plant_id=plant_id, is_deleted=False).order_by(BrewSession.id).all()
     return render_template(
         "plant_workspace/_tab_automation.html", plant=plant, rules=rules, logs=logs,
         rules_by_id=rules_by_id, selected_rule=selected_rule,
         rule_option_ids=[row[0] for row in base.with_entities(AutomationRule.id).order_by(AutomationRule.id).all()],
         search=search, active_filter=active, scope_filter=scope, outcome_filter=outcome,
+        session_options=session_options, trash_rules=trash_rules, trash_page=trash_page, trash_pages=trash_pages, trash_total=trash_total,
         can_view_logs=can_view_logs, rules_page=rules_page, rules_pages=rules_pages,
         rules_total=rules_total, logs_page=logs_page, logs_pages=logs_pages, logs_total=logs_total,
     )
+
+
+@plant_workspace_bp.route('/<int:plant_id>/automation-rules', methods=['POST'])
+@login_required
+@permission_required('automation_rules.create')
+def create_workspace_rule(plant_id):
+    return _save_workspace_rule(plant_id)
+
+
+@plant_workspace_bp.route('/<int:plant_id>/automation-rules/<int:rule_id>/edit', methods=['POST'])
+@login_required
+@permission_required('automation_rules.update')
+def edit_workspace_rule(plant_id, rule_id):
+    return _save_workspace_rule(plant_id, rule_id)
+
+
+def _save_workspace_rule(plant_id, rule_id=None):
+    from addons.addon_brewstation.features.feature_mash_control.services import workspace_automation_service as service
+    try:
+        saved = service.save_rule(plant_id, request.form, rule_id)
+    except service.WorkspaceAutomationError as exc:
+        db.session.rollback()
+        return jsonify(ok=False, error=str(exc)), exc.code
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception('Falha ao salvar regra no workspace')
+        return jsonify(ok=False, error='Não foi possível salvar a regra.'), 500
+    return jsonify(ok=True, automation_reload=True, rule_id=saved.id, message='Regra salva inativa. Ative separadamente após conferir sua configuração.')
+
+
+@plant_workspace_bp.route('/<int:plant_id>/automation-rules/<int:rule_id>/<action>', methods=['POST'])
+@login_required
+def maintain_workspace_rule(plant_id, rule_id, action):
+    permissions = {'activate': 'automation_rules.update', 'deactivate': 'automation_rules.update',
+                   'trash': 'automation_rules.trash', 'restore': 'automation_rules.restore'}
+    if action not in permissions:
+        return jsonify(ok=False, error='Ação inválida.'), 400
+    if not current_user.has_permission(permissions[action]):
+        return jsonify(ok=False, error='Sem permissão para esta ação.'), 403
+    from addons.addon_brewstation.features.feature_mash_control.services import workspace_automation_service as service
+    try:
+        maintained = service.maintain_rule(plant_id, rule_id, action)
+    except service.WorkspaceAutomationError as exc:
+        db.session.rollback()
+        return jsonify(ok=False, error=str(exc)), exc.code
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception('Falha na manutenção de regra')
+        return jsonify(ok=False, error='Não foi possível alterar a regra.'), 500
+    return jsonify(ok=True, automation_reload=True, rule_id=rule_id if action != 'trash' else None, message=('Regra já estava fora da lixeira; seu estado atual foi preservado.' if maintained.is_active else 'Regra restaurada inativa.') if action == 'restore' else 'Regra atualizada.')
+
+
+@plant_workspace_bp.route('/<int:plant_id>/sessions/<int:session_id>/runtime/<action>', methods=['POST'])
+@login_required
+def workspace_session_runtime(plant_id, session_id, action):
+    from addons.addon_brewstation.features.feature_mash_control.controller import dashboard_runtime as runtime
+    operations = {'advance-step': runtime.advance_step, 'go-back-step': runtime.go_back_step,
+                  'resync-steps': runtime.resync_steps, 'toggle-pause': runtime.toggle_pause_session,
+                  'stop': runtime.stop_session}
+    if action not in operations:
+        return jsonify(ok=False, error='Operação inválida.'), 400
+    permission = 'brew_sessions.update' if action in ('toggle-pause', 'stop') else 'dashboard_layouts.update'
+    if not current_user.has_permission(permission):
+        return jsonify(ok=False, error='Sem permissão para esta operação.'), 403
+    plant = db.session.get(BrewPlant, plant_id)
+    session = db.session.get(BrewSession, session_id)
+    if not plant or plant.is_deleted or not session or session.is_deleted or session.plant_id != plant_id:
+        return jsonify(ok=False, error='Sessão desta planta não encontrada.'), 404
+    if action == 'resync-steps':
+        recipe = db.session.get(MashRecipe, session.recipe_id) if session.recipe_id else None
+        if not recipe or recipe.is_deleted:
+            return jsonify(ok=False, error='Receita disponível não encontrada para ressincronizar.'), 400
+    allowed = ('draft', 'active', 'paused') if action == 'resync-steps' else ('active', 'paused') if action in ('toggle-pause', 'stop') else ('active',)
+    if session.status not in allowed:
+        return jsonify(ok=False, error='Operação indisponível para o status desta sessão.'), 400
+    if request.form.get('expected_status') != session.status:
+        return jsonify(ok=False, error='O status mudou. Atualize a sessão antes de repetir a operação.'), 409
+    if action in ('advance-step', 'go-back-step'):
+        operational = BrewSessionStep.query.filter_by(session_id=session_id, is_deleted=False).filter(
+            BrewSessionStep.step_type.in_(('mash', 'boil'))).order_by(BrewSessionStep.step_index).all()
+        current = next((step for step in operational if step.status == 'active'), None)
+        if current is None:
+            current = next((step for step in operational if step.status == 'pending'), None)
+        if request.form.get('expected_step_id', type=int) != (current.id if current else 0):
+            return jsonify(ok=False, error='A etapa mudou. Atualize a sessão antes de repetir a operação.'), 409
+    try:
+        response = current_app.make_response(operations[action](session_id))
+        result = response.get_json(silent=True)
+        if response.status_code >= 400 or not result or not result.get('ok'):
+            db.session.rollback()
+            return response
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception('Falha na operação da sessão')
+        return jsonify(ok=False, error='Não foi possível concluir a operação.'), 500
+    return jsonify(ok=True, message='Operação da sessão concluída.')
+
+
+@plant_workspace_bp.route('/<int:plant_id>/sessions/<int:session_id>/steps/<int:step_id>/adjust', methods=['POST'])
+@login_required
+@permission_required('brew_session_steps.update')
+def workspace_adjust_step(plant_id, session_id, step_id):
+    import math
+    from addons.addon_brewstation.features.feature_mash_control.services import recipe_timeline_service as timeline
+    plant = db.session.get(BrewPlant, plant_id)
+    session = db.session.get(BrewSession, session_id)
+    step = db.session.get(BrewSessionStep, step_id)
+    if not plant or plant.is_deleted or not session or session.is_deleted or session.plant_id != plant_id or not step or step.is_deleted or step.session_id != session_id:
+        return jsonify(ok=False, error='Etapa desta sessão/planta não encontrada.'), 404
+    if session.status not in ('draft', 'active', 'paused') or step.status not in ('pending', 'active'):
+        return jsonify(ok=False, error='Somente etapas pendentes ou ativas de sessões abertas podem ser ajustadas.'), 400
+    field = request.form.get('field')
+    raw = (request.form.get('value') or '').strip()
+    if field == 'name':
+        if not raw or len(raw) > 100:
+            return jsonify(ok=False, error='Informe nome de até 100 caracteres.'), 400
+        value = raw
+    elif field in ('target_temp', 'duration_seconds'):
+        try:
+            value = None if field == 'target_temp' and not raw else int(raw) if field == 'duration_seconds' else float(raw)
+        except ValueError:
+            return jsonify(ok=False, error='Informe um valor numérico válido.'), 400
+        if (field == 'duration_seconds' and (value < 0 or value > 2147483647)) or (field == 'target_temp' and value is not None and not math.isfinite(value)):
+            return jsonify(ok=False, error='Valor fora do intervalo permitido.'), 400
+    else:
+        return jsonify(ok=False, error='Campo não ajustável.'), 400
+    try:
+        if getattr(step, field) != value:
+            timeline.adjust_session_step(step_id, field=field, new_value=value, user_id=current_user.id)
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception('Falha ao ajustar etapa')
+        return jsonify(ok=False, error='Não foi possível ajustar a etapa. Nenhuma alteração foi confirmada.'), 500
+    return jsonify(ok=True, message='Ajuste da etapa registrado.')

@@ -11,5 +11,20 @@
   "brewstation_mashctrl.workspace.confirm_register_envase": "Registrar {liters} L de {product}? Esta ação grava o envase e movimenta o estoque. {ingredients} Custos e composição serão conferidos no momento do registro.",
   "brewstation_mashctrl.workspace.confirm_reverse_envase": "Estornar o envase #{id}? As embalagens identificadas serão devolvidas ao estoque. O consumo e o custo registrado dos ingredientes do lote serão preservados.",
   "brewstation_mashctrl.workspace.confirm_trash_layout": "Enviar o painel \"{name}\" à lixeira? Seus widgets e configurações serão preservados para restauração. Sessões e controles não serão interrompidos.",
-  "brewstation_mashctrl.workspace.confirm_restore_layout": "Restaurar o painel \"{name}\"? O painel padrão atual da planta será preservado."
+  "brewstation_mashctrl.workspace.confirm_restore_layout": "Restaurar o painel \"{name}\"? O painel padrão atual da planta será preservado.",
+  "brewstation_mashctrl.workspace.rule_save": "Salvar esta configuração inativa? Regra sem sessão é global e fica disponível em todas as plantas.",
+  "brewstation_mashctrl.workspace.step_adjust": "Registrar este ajuste na etapa do lote? A receita será preservada.",
+  "brewstation_mashctrl.workspace.session_advance_step": "Concluir a etapa atual e avançar? O tempo planejado não impede a confirmação.",
+  "brewstation_mashctrl.workspace.session_go_back_step": "Reativar a etapa operacional anterior com timer reiniciado?",
+  "brewstation_mashctrl.workspace.session_toggle_pause": "Pausar ou retomar esta sessão? Atuadores não serão desligados.",
+  "brewstation_mashctrl.workspace.session_stop": "Concluir esta sessão? Ela será marcada como concluída; atuadores não serão desligados.",
+  "brewstation_mashctrl.workspace.session_resync_steps": "Ressincronizar etapas pendentes a partir da receita atual? Etapas completas serão preservadas.",
+  "brewstation_mashctrl.workspace.rule_activate": "Ativar a regra \"{name}\"? Ela poderá avaliar as próximas leituras; nenhum acionamento será feito agora.",
+  "brewstation_mashctrl.workspace.rule_activate_global": "Ativar a regra \"{name}\"? Ela poderá avaliar as próximas leituras; nenhum acionamento será feito agora. Esta regra é global; a mudança afeta todas as plantas.",
+  "brewstation_mashctrl.workspace.rule_deactivate": "Desativar a regra \"{name}\"? Novos disparos serão bloqueados; atuadores não serão desligados.",
+  "brewstation_mashctrl.workspace.rule_deactivate_global": "Desativar a regra \"{name}\"? Novos disparos serão bloqueados; atuadores não serão desligados. Esta regra é global; a mudança afeta todas as plantas.",
+  "brewstation_mashctrl.workspace.rule_trash": "Mover a regra \"{name}\" para lixeira e desativar? O histórico será preservado; atuadores não serão desligados.",
+  "brewstation_mashctrl.workspace.rule_trash_global": "Mover a regra \"{name}\" para lixeira e desativar? O histórico será preservado; atuadores não serão desligados. Esta regra é global; a mudança afeta todas as plantas.",
+  "brewstation_mashctrl.workspace.rule_restore": "Restaurar a regra \"{name}\" sem ativar? O histórico anterior será preservado.",
+  "brewstation_mashctrl.workspace.rule_restore_global": "Restaurar a regra \"{name}\" sem ativar? O histórico anterior será preservado. Esta regra é global; a mudança afeta todas as plantas."
 }

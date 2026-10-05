@@ -1,0 +1,5 @@
+{% macro action(rule, operation, label) %}
+<form method="post" class="pw-automation-mutation d-inline-block" action="{{ url_for('plant_workspace.maintain_workspace_rule', plant_id=plant.id, rule_id=rule.id, action=operation) }}" data-rule-confirm-key="{{ 'brewstation_mashctrl.workspace.rule_' ~ operation ~ ('_global' if rule.session_id is none else '') }}" data-rule-name="{{ rule.name }}">
+<button type="submit" class="btn btn-sm btn-outline-secondary">{{ label }}</button>
+</form>
+{% endmacro %}

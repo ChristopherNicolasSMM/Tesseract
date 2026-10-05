@@ -1,0 +1,24 @@
+{% from '_reference_combo.html' import reference %}
+{% macro editor(rule=none) %}
+{% set prefix = 'pwRuleEdit' if rule else 'pwRuleNew' %}
+<details class="card mb-3"><summary class="card-header">{{ 'Editar regra: ' ~ rule.name if rule else 'Criar regra de automação' }}</summary>
+<div class="card-body pt-3">
+{% if rule and rule.is_active %}<p>Desative a regra antes de editar sua configuração.</p>{% else %}
+<form class="row g-3 pw-automation-mutation" method="post" action="{{ url_for('plant_workspace.edit_workspace_rule', plant_id=plant.id, rule_id=rule.id) if rule else url_for('plant_workspace.create_workspace_rule', plant_id=plant.id) }}" data-rule-confirm-key="brewstation_mashctrl.workspace.rule_save">
+  <div class="col-md-6"><label class="form-label" for="{{ prefix }}Name">Nome</label><input id="{{ prefix }}Name" name="name" class="form-control" maxlength="200" value="{{ rule.name if rule else '' }}" required></div>
+  <div class="col-md-6"><label class="form-label" for="{{ prefix }}SessionSearch">Sessão desta planta (vazio = global)</label>{{ reference(prefix ~ 'Session', 'brew_sessions', value=rule.session_id if rule else '', text=rule.session.name if rule and rule.session else '', name='session_id', ids=session_options|map(attribute='id')|list) }}</div>
+  <div class="col-md-6"><label class="form-label" for="{{ prefix }}SensorSearch">Função do sensor</label>{{ reference(prefix ~ 'Sensor', 'device_functions', value=rule.sensor_function_name if rule else '', text=rule.sensor_function_name if rule else '', name='sensor_function_name', value_field='name', required=true) }}</div>
+  <div class="col-md-6"><label class="form-label" for="{{ prefix }}ActorSearch">Função do atuador</label>{{ reference(prefix ~ 'Actor', 'device_functions', value=rule.actor_function_name if rule else '', text=rule.actor_function_name if rule else '', name='actor_function_name', value_field='name', required=true) }}</div>
+  <div class="col-md-3"><label class="form-label" for="{{ prefix }}Operator">Condição</label><select id="{{ prefix }}Operator" name="condition_operator" class="form-select">{% for value in ['<=', '>=', '==', '!=', '<', '>'] %}<option value="{{ value }}" {% if rule and rule.condition_operator == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></div>
+  <div class="col-md-3"><label class="form-label" for="{{ prefix }}Threshold">Valor da condição</label><input id="{{ prefix }}Threshold" name="condition_value" type="number" step="any" class="form-control" value="{{ rule.condition_value if rule else '' }}" required></div>
+  <div class="col-md-3"><label class="form-label" for="{{ prefix }}Unit">Unidade exibida</label><input id="{{ prefix }}Unit" name="condition_unit" maxlength="20" class="form-control" value="{{ rule.condition_unit or '' if rule else '°C' }}"></div>
+  <div class="col-md-3"><label class="form-label" for="{{ prefix }}Metric">Métrica do sensor</label><input id="{{ prefix }}Metric" name="sensor_metric" maxlength="50" class="form-control" value="{{ rule.sensor_metric or '' if rule else 'temperature' }}"><small class="text-muted">Informativa; o motor recebe o valor publicado pela função.</small></div>
+  <div class="col-md-4"><label class="form-label" for="{{ prefix }}Action">Ação</label><select id="{{ prefix }}Action" name="actor_action" class="form-select">{% for value, label in [('ON', 'Ligar'), ('OFF', 'Desligar'), ('TOGGLE', 'Alternar'), ('SET_VALUE', 'Definir valor')] %}<option value="{{ value }}" {% if rule and rule.actor_action == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="col-md-4"><label class="form-label" for="{{ prefix }}Value">Valor da ação (obrigatório em Definir valor)</label><input id="{{ prefix }}Value" name="actor_value" type="number" step="any" class="form-control" value="{{ rule.actor_value if rule and rule.actor_value is not none else '' }}"></div>
+  <div class="col-md-4"><label class="form-label" for="{{ prefix }}Cooldown">Intervalo mínimo entre disparos (s)</label><input id="{{ prefix }}Cooldown" name="cooldown_seconds" type="number" min="0" max="2147483647" step="1" class="form-control" value="{{ rule.cooldown_seconds if rule and rule.cooldown_seconds is not none else 30 }}" required></div>
+  <div class="col-12"><label class="form-label" for="{{ prefix }}Description">Descrição</label><textarea id="{{ prefix }}Description" name="description" maxlength="1000" class="form-control">{{ rule.description or '' if rule else '' }}</textarea></div>
+  <div class="col-12"><button type="submit" class="btn btn-primary">Salvar inativa</button></div>
+</form>{% endif %}</div></details>
+{% endmacro %}
+{% if current_user.has_permission('automation_rules.create') %}{{ editor() }}{% endif %}
+{% if selected_rule and current_user.has_permission('automation_rules.update') %}{{ editor(selected_rule) }}{% endif %}

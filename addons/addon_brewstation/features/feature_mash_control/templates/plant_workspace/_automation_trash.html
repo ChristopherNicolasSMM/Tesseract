@@ -1,0 +1,6 @@
+{% if current_user.has_permission('automation_rules.restore') %}
+<details class="card mt-3"><summary class="card-header">Lixeira de regras ({{ trash_total }})</summary><div class="card-body pt-3">
+{% from 'plant_workspace/_automation_action_form.html' import action with context %}
+{% for rule in trash_rules %}<div class="d-flex justify-content-between gap-2 mb-2"><span>{{ rule.name }} · {{ 'Global' if rule.session_id is none else 'Sessão #' ~ rule.session_id }}</span>{{ action(rule, 'restore', 'Restaurar inativa') }}</div>{% else %}<p class="text-muted">Nenhuma regra disponível na lixeira.</p>{% endfor %}
+<div class="d-flex align-items-center gap-2"><span>Página {{ trash_page }} de {{ trash_pages }}</span>{% for page, label in [(trash_page-1, 'Anterior'), (trash_page+1, 'Próxima')] %}{% if page >= 1 and page <= trash_pages %}<a data-automation-page class="btn btn-sm btn-outline-secondary" href="{{ url_for('plant_workspace.tab_automation', plant_id=plant.id, q=search, active=active_filter, scope=scope_filter, outcome=outcome_filter, rule_id=selected_rule.id if selected_rule else '', rules_page=rules_page, logs_page=logs_page, trash_page=page) }}">{{ label }}</a>{% endif %}{% endfor %}</div>
+</div></details>{% endif %}

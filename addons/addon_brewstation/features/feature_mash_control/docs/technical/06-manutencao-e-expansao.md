@@ -343,3 +343,28 @@ sem mapeamentos exclusivos deixam de disparar regras vinculadas. Isso não
 altera dados nem desliga atuadores. O isolamento é pela configuração: o evento
 continua contendo nome/valor, sem identificar planta física ou autenticar origem.
 Logs também não passam a armazenar origem. Não há migration.
+
+
+### Consolidação combinada 4B.3 / 4B.4 / 4C
+
+`workspace_automation_service.py` é manual e valida uma whitelist de configuração.
+Não aceita alterações de contador, horário, atividade ou lixeira no formulário.
+Funções resolvidas pelo serviço público do DeviceManager (categoria compatível).
+Sessão deve pertencer à planta; sessão vazia significa global. Criar/restaurar
+mantém inativa; editar exige inativa. Manutenção por permissões próprias,
+soft delete/idempotência de ações e rollback em falhas. Sem excluir logs.
+
+`plant_workspace.py` delega controles ao controller manual `dashboard_runtime`
+após RBAC e pertencimento; não recria lógica de timer/etapas. Os novos endpoints
+pedem `expected_status`; avançar/voltar pedem também `expected_step_id`, conferido
+com etapa ativa ou primeira operacional pendente. Conflito retorna 409. Isso
+protege reenvio sequencial desatualizado, não é trava distribuída entre processos.
+Avançar/voltar só active; pausa/conclusão active/paused; resync draft/active/paused.
+Ajuste de etapa aberta usa `recipe_timeline_service.adjust_session_step`,
+com ID do usuário e log na mesma transação, sem editar receita/status/timers.
+
+Partials novos são manuais; referências usam weakref-combo, enums form-select.
+Modais por chaves i18n via `__tesseractConfirm`, listeners locais delegados, AJAX/mensagens pelo `__workspaceSubmitForm`.
+`automation_reload` na casca abre a regra salva/restaurada ou limpa a seleção
+após lixo, evitando recarregar seleção apagada. Lixeira tem paginação própria.
+Nada muda no catálogo de menus ou no schema. Rotas legadas seguem acessíveis.

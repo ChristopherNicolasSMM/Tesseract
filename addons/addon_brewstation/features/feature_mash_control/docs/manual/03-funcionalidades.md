@@ -450,7 +450,7 @@ não reproduz leituras recebidas durante a pausa. Bloqueio não registra disparo
 não aumenta contador e não muda último disparo, timers ou estoque. Pausar não
 é um comando de desligamento; atuadores já ligados permanecem em seu estado.
 Funções configuradas continuam resolvidas por nome; esta guarda não identifica
-a planta física do sensor nem valida mapeamentos. Cadastro/edição seguem no CRUD.
+a planta física do sensor nem valida mapeamentos. Criação/edição básicas estão integradas; o cadastro avançado continua acessível.
 
 
 ### Automação — isolamento por configuração (4B.2b)
@@ -467,3 +467,37 @@ sem mapeamentos exclusivos deixam de disparar regras vinculadas. Isso não
 altera dados nem desliga atuadores. O isolamento é pela configuração: o evento
 continua contendo nome/valor, sem identificar planta física ou autenticar origem.
 Logs também não passam a armazenar origem. Não há migration.
+
+
+### Automação e sessões — manutenção integrada (4B.3 / 4B.4 / 4C)
+
+Em Automação, expanda Criar regra. As funções de sensor/atuador e a sessão são
+combos pesquisáveis; sessão vazia cria regra global, disponível em todas as
+plantas. Condição e ação usam opções fixas. Definir valor exige valor numérico;
+intervalo mínimo entre disparos é dado em segundos. Métrica é informativa:
+o motor recebe o valor publicado pela função. Criar não aciona equipamentos.
+
+Selecione Editar na linha da regra. Desative antes de editar. Salvar preserva
+contador, último disparo e histórico; a regra continua inativa. Ativar é ação
+separada e não dispara imediatamente: permite avaliar próximas leituras.
+Regras vinculadas precisam de mapeamentos exclusivos e ator único por função;
+execução também depende da sessão ativa e planta disponível. Alterações de
+regras globais afetam todas as plantas. Desativar/mover para lixeira não
+desliga atuadores. Lixeira tem 20 itens por página; restaurar preserva histórico
+e mantém inativa. Exclusão permanente continua no cadastro avançado.
+
+Em Sessões, escolha inclusive um lote antigo. Operações disponíveis conforme
+status/permissão: concluir e avançar etapa, voltar etapa, pausar/retomar,
+concluir sessão e ressincronizar etapas da receita. Voltar reinicia a etapa
+anterior; não recupera seu tempo original. Ressincronizar atualiza pendentes e
+preserva completas, usando o serviço existente. Concluir marca completed pelo
+runtime; não registra envase ou confirma ingredientes. Não é desligamento.
+
+Nos detalhes de uma etapa pendente/ativa de sessão aberta, ajuste Nome,
+Temperatura alvo ou Permanência (s). Temperatura vazia remove o alvo. O ajuste
+registra operador/antes/depois no histórico do lote; não muda a receita,
+rampa, status, confirmação de ingredientes ou custo congelado.
+
+Ações usam confirmação do Core e mensagens do projeto. Se status/etapa mudou,
+recarregue a aba antes de reenviar controles. Timers/listeners do Dashboard
+continuam limpos pela navegação existente. Não há migration.
