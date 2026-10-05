@@ -27,6 +27,13 @@
       <p class="small mb-0">Ao definir como padrão, os outros painéis ativos desta planta deixam de ser padrão. Sem padrão, abre o primeiro painel cadastrado. O acesso global continua seguindo sua seleção existente.</p>
       <div class="col-12"><button type="submit" class="btn btn-primary">Salvar fundo e padrão</button></div>
     </form>
+    <hr>
+    <form id="pwLayoutStandbyForm" method="post" action="{{ url_for('plant_workspace.configure_dashboard_standby', plant_id=layout.plant_id, layout_id=layout.id) }}" class="row g-3">
+      <div class="col-md-6"><div class="form-check"><input id="pwStandbyEnabled" name="is_standby_enabled" type="checkbox" class="form-check-input"{% if layout.is_standby_enabled %} checked{% endif %}><label class="form-check-label" for="pwStandbyEnabled">Descanso visual após inatividade</label></div></div>
+      <div class="col-md-6"><label class="form-label" for="pwStandbySeconds">Tempo sem interação (segundos)</label><input id="pwStandbySeconds" name="standby_duration_seconds" type="number" min="10" max="86400" step="1" class="form-control" value="{{ dashboard_standby_seconds }}" required></div>
+      <p class="small mb-0">Suaviza o painel após o tempo configurado. Mouse, toque ou teclado restauram a aparência. Leituras, alarmes e controles continuam funcionando. Não alterna painéis nem pausa a sessão. Durante edição, o descanso fica suspenso.</p>
+      <div class="col-12"><button type="submit" class="btn btn-primary">Salvar descanso visual</button></div>
+    </form>
     {% else %}<p class="small text-muted">Solicite alterações a quem administra os layouts.</p>{% endif %}
     {% if current_user.has_permission('dashboard_layouts.create') %}
     <hr>
@@ -41,7 +48,7 @@
 </details>
 <script>
 (function () {
-  ['pwLayoutEditForm', 'pwLayoutAdditionalForm', 'pwLayoutAppearanceForm'].forEach(function (id) {
+  ['pwLayoutEditForm', 'pwLayoutAdditionalForm', 'pwLayoutAppearanceForm', 'pwLayoutStandbyForm'].forEach(function (id) {
     const form = document.getElementById(id);
     if (form) form.addEventListener('submit', function (event) {
       event.preventDefault();

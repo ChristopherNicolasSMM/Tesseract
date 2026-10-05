@@ -41,7 +41,11 @@ def render_background(layout):
         image = background_image(layout.background_image_url)
     except ValueError:
         image = None
-    return {'dashboard_background_color': color, 'dashboard_background_image_url': image}
+    duration = layout.standby_duration_seconds
+    valid_duration = isinstance(duration, int) and not isinstance(duration, bool) and 10 <= duration <= 86400
+    return {'dashboard_background_color': color, 'dashboard_background_image_url': image,
+            'dashboard_standby_enabled': bool(layout.is_standby_enabled and valid_duration),
+            'dashboard_standby_seconds': duration if valid_duration else 30}
 
 
 def configure_layout(plant_id, layout_id, *, color, image, is_default):
@@ -106,3 +110,25 @@ def maintain_layout(plant_id, layout_id, action):
     remaining = DashboardLayout.query.filter_by(plant_id=plant_id, is_deleted=False)
     return (remaining.filter_by(is_default=True).order_by(DashboardLayout.id).first()
             or remaining.order_by(DashboardLayout.id).first())
+
+
+def configure_standby(plant_id, layout_id, *, enabled, seconds):
+    layout = (DashboardLayout.query.join(BrewPlant).filter(
+        DashboardLayout.id == layout_id, DashboardLayout.plant_id == plant_id,
+        DashboardLayout.is_deleted.is_(False), BrewPlant.is_deleted.is_(False)).first())
+    if layout is None:
+        raise LookupError('Painel desta planta não encontrado.')
+    try:
+        duration = int(seconds)
+        if str(duration) != str(seconds).strip() or not 10 <= duration <= 86400:
+            raise ValueError
+    except (TypeError, ValueError):
+        raise ValueError('Informe segundos inteiros entre 10 e 86400.') from None
+    try:
+        layout.is_standby_enabled = enabled
+        layout.standby_duration_seconds = duration
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return layout

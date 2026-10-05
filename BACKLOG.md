@@ -35,7 +35,8 @@ validado pelo usuário; ver
 [workspace-envase-detalhes-estorno-2b.md](docs/patches/workspace-envase-detalhes-estorno-2b.md).
 Precificação 2C.1 (custos registrados) e rateio/preço por unidade 2C.2
 validados pelo usuário em 05/10/2026.
-3A.1/3B validados; standby e incrementos restantes das etapas 4–6 pendentes.
+3A.1/3B validados; descanso visual 3A.2 implementado, aguardando validação.
+Patch combinado 4B.3/4B.4/4C e revisão/hints de menus validados pelo usuário.
 Menus e cadastros avançados preservados.
 
 ## Fase 0 — Scaffold
@@ -5664,3 +5665,12 @@ exibida como tooltip Bootstrap no menu lateral. Sem migration. Roteiro em
 Ajuda de Função do dispositivo na aba Planta transferida para ícone com
 tooltip hover/foco e limpeza AJAX. Cores explícitas para hints nos temas.
 Sem migration; ver docs/patches/workspace-planta-hint-contraste.md.
+
+
+### 3A.2 — descanso visual implementado
+
+Usuário validou revisão de menus e correções de hints. Standby agora significa
+suavização visual após inatividade, sem alternância de painéis nem pausa de
+runtime. Configuração manual no workspace; mesma execução na view própria.
+Sem migration. Nova entrega aguarda validação local; auditoria integrada é o
+próximo pacote. Ver docs/patches/workspace-dashboard-standby-3a2.md.

@@ -2933,3 +2933,70 @@ def test_workspace_ajuste_etapa_bloqueia_historico_fechado_e_exclusao(app, clien
     assert response.status_code == (404 if blocked.startswith('deleted') else 400)
     with app.app_context():
         assert db.session.get(BrewSessionStep, first_id).name == 'Primeira'
+
+
+def test_standby_workspace_salva_preserva_campos_e_renderiza_views(app, client):
+    _login_admin(app, client)
+    plant, other, ids, widget = _appearance_layouts(app)
+    url = f'/brewstation/plant-workspace/{plant}/dashboard-layouts/{ids[1]}/standby'
+    payload = {'is_standby_enabled': 'on', 'standby_duration_seconds': '10', 'plant_id': other, 'is_default': 'on'}
+    response = client.post(url, data=payload, headers={'X-Requested-With': 'XMLHttpRequest'})
+    assert response.status_code == 200
+    assert response.json['layout_id'] == ids[1]
+    with app.app_context():
+        layout = db.session.get(DashboardLayout, ids[1])
+        assert layout.is_standby_enabled and layout.standby_duration_seconds == 10
+        assert layout.plant_id == plant and not layout.is_default
+        assert layout.layout_data == '{"original":true}'
+        assert db.session.get(DashboardWidget, widget).config_json == {'content': 'Intacto'}
+    for view in (f'/brewstation/plant-workspace/{plant}/tab/dashboard?layout_id={ids[1]}', f'/brewstation/dashboards/{ids[1]}/view'):
+        html = client.get(view).get_data(as_text=True)
+        if '/view' in view:
+            assert 'dashboard_standby.js' in html
+        assert 'enabled: true' in html and 'seconds: 10' in html
+        assert 'standbyCleanup();' in html
+    response = client.post(url, data={'standby_duration_seconds': '30'})
+    assert response.status_code == 302 and f'layout_id={ids[1]}' in response.location
+    with app.app_context():
+        assert not db.session.get(DashboardLayout, ids[1]).is_standby_enabled
+
+
+@pytest.mark.parametrize('seconds', ['', '0', '9', '86401', '10.5', 'nan', '999999999999999999999999'])
+def test_standby_workspace_valida_duracao(app, client, seconds):
+    _login_admin(app, client)
+    plant, _, ids, _ = _appearance_layouts(app)
+    response = client.post(f'/brewstation/plant-workspace/{plant}/dashboard-layouts/{ids[1]}/standby',
+        data={'is_standby_enabled': 'on', 'standby_duration_seconds': seconds}, headers={'X-Requested-With': 'XMLHttpRequest'})
+    assert response.status_code == 400
+    with app.app_context():
+        assert db.session.get(DashboardLayout, ids[1]).standby_duration_seconds == 45
+
+
+def test_standby_workspace_escopo_permissao_e_rollback(app, client, monkeypatch):
+    _login_admin(app, client)
+    plant, _, ids, _ = _appearance_layouts(app)
+    payload = {'is_standby_enabled': 'on', 'standby_duration_seconds': '10'}
+    for layout in (ids[2], ids[3], 999999):
+        assert client.post(f'/brewstation/plant-workspace/{plant}/dashboard-layouts/{layout}/standby', data=payload, headers={'X-Requested-With': 'XMLHttpRequest'}).status_code == 404
+    with app.app_context():
+        from addons.addon_brewstation.features.feature_mash_control.services.dashboard_workspace_actions import configure_standby
+        with monkeypatch.context() as patch:
+            patch.setattr(db.session, 'commit', lambda: (_ for _ in ()).throw(RuntimeError('falha')))
+            with pytest.raises(RuntimeError):
+                configure_standby(plant, ids[1], enabled=False, seconds='10')
+        assert db.session.get(DashboardLayout, ids[1]).standby_duration_seconds == 45
+        assert db.session.get(DashboardLayout, ids[1]).is_standby_enabled
+    monkeypatch.setattr(User, 'has_permission', lambda self, code: code != 'dashboard_layouts.update')
+    assert client.post(f'/brewstation/plant-workspace/{plant}/dashboard-layouts/{ids[1]}/standby', data=payload).status_code == 403
+
+
+def test_standby_legado_invalido_consulta_sem_gravar(app, client):
+    _login_admin(app, client)
+    plant, _, ids, _ = _appearance_layouts(app)
+    with app.app_context():
+        db.session.get(DashboardLayout, ids[1]).standby_duration_seconds = 0
+        db.session.commit()
+    html = client.get(f'/brewstation/dashboards/{ids[1]}/view').get_data(as_text=True)
+    assert 'enabled: false' in html and 'seconds: 30' in html
+    with app.app_context():
+        assert db.session.get(DashboardLayout, ids[1]).standby_duration_seconds == 0

@@ -1086,3 +1086,26 @@ def workspace_adjust_step(plant_id, session_id, step_id):
         current_app.logger.exception('Falha ao ajustar etapa')
         return jsonify(ok=False, error='Não foi possível ajustar a etapa. Nenhuma alteração foi confirmada.'), 500
     return jsonify(ok=True, message='Ajuste da etapa registrado.')
+
+
+@plant_workspace_bp.route('/<int:plant_id>/dashboard-layouts/<int:layout_id>/standby', methods=['POST'])
+@login_required
+@permission_required('dashboard_layouts.update')
+def configure_dashboard_standby(plant_id, layout_id):
+    from addons.addon_brewstation.features.feature_mash_control.services.dashboard_workspace_actions import configure_standby
+    try:
+        layout = configure_standby(plant_id, layout_id,
+            enabled=request.form.get('is_standby_enabled') == 'on',
+            seconds=request.form.get('standby_duration_seconds'))
+    except LookupError as exc:
+        return _workspace_form_error(str(exc), 404, plant_id=plant_id, tab='dashboard')
+    except ValueError as exc:
+        return _workspace_form_error(str(exc), 400, plant_id=plant_id, tab='dashboard')
+    except Exception:
+        current_app.logger.exception('Falha ao salvar descanso visual do painel %s', layout_id)
+        return _workspace_form_error('Não foi possível salvar o descanso visual. Alterações desfeitas.',
+                                     500, plant_id=plant_id, tab='dashboard')
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify(ok=True, layout_id=layout.id, message='Descanso visual salvo.')
+    flash('Descanso visual salvo.', 'success')
+    return redirect(url_for('plant_workspace.shell', plant_id=plant_id, tab='dashboard', layout_id=layout.id))

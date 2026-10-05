@@ -1401,6 +1401,11 @@
   });
 
   refresh();
+  const standbyCleanup = window.TesseractDashboardStandby.mount({
+    canvas: canvas, enabled: {{ dashboard_standby_enabled|default(false)|tojson }},
+    seconds: {{ dashboard_standby_seconds|default(30)|tojson }},
+    suspended: function () { return editMode; }
+  });
   const dbPollHandle = setInterval(refresh, 3000);
 
   // Achado da conversa (workspace consolidado em abas): quando esta tela
@@ -1409,6 +1414,7 @@
   // setInterval continua rodando escondido pra sempre a cada vez que a
   // aba Dashboard é reaberta. Convenção: window.__tabCleanup.
   window.__tabCleanup = function () {
+    standbyCleanup();
     clearInterval(dbPollHandle);
     auxPollHandles.forEach(function (h) { clearInterval(h); });
   };

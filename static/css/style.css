@@ -1304,3 +1304,6 @@ html[data-theme="dark"] .tooltip {
   --bs-tooltip-color: var(--dark-text, #e5e7eb);
   --hint-border: var(--dark-border, #334155);
 }
+
+/* Visual standby leaves content visible and controls usable. */
+#dbCanvas.db-visual-standby { filter: brightness(0.8); }

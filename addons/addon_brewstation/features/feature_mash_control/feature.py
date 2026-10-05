@@ -304,7 +304,7 @@ class FeatureMashControl(FeatureBase):
                 "code": "TX_DASHBOARD_LAYOUTS",
                 "label": "Layouts de Dashboard",
                 "parent_code": "TX_GROUP_MASH_PLANT_SESSION",
-                "description": "Cadastro avançado de painéis; configuração de standby ainda não possui runtime integrado.",
+                "description": "Cadastro avançado de painéis; fundo, padrão e descanso visual disponíveis no workspace.",
                 "icon": "bi-grid-1x2",
                 "route": "/brewstation/dashboard-layouts",
                 "permission_required": "dashboard_layouts.list",

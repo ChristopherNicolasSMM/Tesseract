@@ -390,3 +390,13 @@ exibida como tooltip Bootstrap no menu lateral. Sem migration. Roteiro em
 Ajuda de Função do dispositivo na aba Planta transferida para ícone com
 tooltip hover/foco e limpeza AJAX. Cores explícitas para hints nos temas.
 Sem migration; ver docs/patches/workspace-planta-hint-contraste.md.
+
+
+## Standby 3A.2 — descanso visual
+
+Campos existentes passam a ser configurados via rota manual /standby, com
+escopo, RBAC, duração 10..86400 e rollback. render_background também fornece
+configuração segura de standby para ambas as views, sem corrigir legados na
+consulta. static/js/dashboard_standby.js não faz requests; lifecycle delegado
+à limpeza do runtime. Sem migration. Roteiro e limites em
+`docs/patches/workspace-dashboard-standby-3a2.md`.

@@ -240,8 +240,8 @@ manutenção ainda não incorporada às abas. Os cadastros de água e de-para
 compartilhado continuam separados do saneamento local da receita.
 
 Ocultar atalhos redundantes não apaga registros ou telas. A configuração do
-menu pode ser revertida na administração. Standby dos painéis ainda depende
-de implementação; a existência do campo no cadastro não garante seu funcionamento.
+menu pode ser revertida na administração. O descanso visual dos painéis pode ser configurado no workspace, conforme
+a seção Descanso visual do dashboard.
 
 As descrições dos itens do menu aparecem como dicas ao passar o mouse.
 Os nomes permanecem curtos; a dica informa o uso avançado ou global.
@@ -250,3 +250,16 @@ Os nomes permanecem curtos; a dica informa o uso avançado ou global.
 Na aba Planta, a ajuda de Função do dispositivo fica no ícone ao lado do
 rótulo. Passe o mouse ou use Tab para ler a orientação. As dicas acompanham
 o tema claro ou escuro e desaparecem ao trocar de aba.
+
+
+## Descanso visual do dashboard
+
+Abra Dashboard → Configuração dos dashboards desta planta. Ative **Descanso
+visual após inatividade**, informe de 10 a 86400 segundos e salve. Sem interação,
+o painel fica suavizado; mouse, toque, teclado, foco ou rolagem restauram a
+aparência. O cabeçalho permanece normal e as leituras continuam atualizando.
+O descanso suspende durante o Modo Edição. Desative a opção para manter a
+aparência normal. A configuração vale também para o acesso próprio ao painel.
+
+Esse descanso não alterna painéis, pausa a sessão ou desliga dispositivos.
+É uma opção visual; alarmes, automação e controles continuam funcionando.
