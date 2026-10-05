@@ -245,3 +245,8 @@ de implementação; a existência do campo no cadastro não garante seu funciona
 
 As descrições dos itens do menu aparecem como dicas ao passar o mouse.
 Os nomes permanecem curtos; a dica informa o uso avançado ou global.
+
+
+Na aba Planta, a ajuda de Função do dispositivo fica no ícone ao lado do
+rótulo. Passe o mouse ou use Tab para ler a orientação. As dicas acompanham
+o tema claro ou escuro e desaparecem ao trocar de aba.

@@ -111,11 +111,12 @@
           <option value="actor_flow">Atuador de fluxo</option>
         </select></div>
       <div class="col-md-3"><label class="form-label" for="pwMappingFunction">Função do dispositivo</label>
+        <button type="button" class="btn btn-sm btn-link p-0 ms-1" data-plant-hint data-bs-toggle="tooltip" title="Selecione um sensor para temperatura ou um atuador para aquecimento/fluxo." aria-label="Ajuda sobre função do dispositivo"><i class="bi bi-question-circle" aria-hidden="true"></i></button>
         <div class="weakref-combo" data-weakref-source="device_functions" data-weakref-value-field="name">
           <input type="hidden" class="weakref-combo-value" name="device_function_name">
           <input class="form-control weakref-combo-search" id="pwMappingFunction" autocomplete="off" placeholder="Buscar função..." required>
           <ul class="list-group weakref-combo-results"></ul>
-        </div><small class="text-muted">Selecione um sensor para temperatura ou um atuador para aquecimento/fluxo.</small></div>
+        </div></div>
       <div class="col-md-auto"><div class="form-check mb-2"><input class="form-check-input" id="pwMappingRequired" type="checkbox" name="is_required" checked><label class="form-check-label" for="pwMappingRequired">Obrigatório</label></div></div>
       <div class="col-md-auto"><button type="submit" class="btn btn-primary">Adicionar vínculo</button></div>
     </form>
@@ -125,6 +126,15 @@
 </div>
 <script>
 (function () {
+  const root = document.getElementById('pwTabContent');
+  const hints = window.bootstrap && root ? Array.from(root.querySelectorAll('[data-plant-hint]')).map(function (element) {
+    return bootstrap.Tooltip.getOrCreateInstance(element, {container: 'body', trigger: 'hover focus'});
+  }) : [];
+  const previousCleanup = window.__tabCleanup;
+  window.__tabCleanup = function () {
+    hints.forEach(function (hint) { hint.dispose(); });
+    if (previousCleanup) previousCleanup();
+  };
   ['pwVesselForm', 'pwMappingForm'].forEach(function (id) {
     const form = document.getElementById(id);
     if (form) form.addEventListener('submit', function (event) {

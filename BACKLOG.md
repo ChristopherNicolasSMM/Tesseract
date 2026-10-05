@@ -5659,3 +5659,8 @@ listada na matriz continua pendente; não declarar todo o workspace concluído.
 Correção de apresentação dos menus: nomes curtos preservados; description
 exibida como tooltip Bootstrap no menu lateral. Sem migration. Roteiro em
 `docs/patches/workspace-menu-hints.md`.
+
+
+Ajuda de Função do dispositivo na aba Planta transferida para ícone com
+tooltip hover/foco e limpeza AJAX. Cores explícitas para hints nos temas.
+Sem migration; ver docs/patches/workspace-planta-hint-contraste.md.
