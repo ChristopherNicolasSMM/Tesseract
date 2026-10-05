@@ -17,7 +17,7 @@ Os incrementos abaixo registram as execuções posteriores e pendências locais.
 | Sessões, histórico e alarmes | Concluída no escopo dos patches recentes | Busca/paginação, edição básica, confirmação de insumos e reconhecimento rastreável estão no código | Preservar; operações adicionais ficam na etapa 4 | Suítes de workspace, runtime e estoque |
 | Envase e precificação | Parcial | Prévia/registro na aba; detalhes/estorno 2B validados; custos registrados 2C.1 implementados | Validar 2C.1/2C.2; etapas avançadas restantes | Saneamento, composição, snapshots e transação de estoque |
 | Dashboards | Parcial | Seleção/criação/edição básica, fundo/padrão e manutenção 3B implementados; standby sem runtime | Validar 3A.1/3B; 3A.2: definir standby | Widgets/tubulação existentes e limpeza de listeners/timers |
-| Etapas e automação | Parcial | Timeline e geração já integradas; Automação lista regras e últimos 20 logs, com criação/edição no CRUD | 4A: inventário de operações; 4B: incremento das regras e histórico | Runtime existente, permissões e escopo global/por sessão |
+| Etapas e automação | Parcial | Timeline e geração já integradas; Automação tem filtros e paginação de regras/disparos (4B.1); criação/edição no CRUD | Validar 4B.1; revisar execução e criação/edição antes de 4B.2 | Runtime existente, permissões e escopo global/por sessão |
 | Menus | Parcial | Sete códigos configurados no comando de ocultação; não prova cobertura de toda manutenção | 5: matriz de cobertura e ocultação seletiva | Validação funcional dos incrementos anteriores |
 | Brewfather e YeastBank | Radar posterior | Portal Brewfather e painel YeastBank já existem; não reconstruir como novidades | 6: auditorias específicas e novas lacunas | Estabilização do fluxo prioritário |
 
@@ -347,3 +347,22 @@ Sem migration, exclusão permanente, menu novo ou alteração de controles/
 sessões/estoque. Standby 3A.2 continua exigindo definição; etapas 4–6 e
 validação local dos incrementos recentes continuam pendentes.
 Entrega: [workspace-dashboard-lixeira-restauracao-3b.md](workspace-dashboard-lixeira-restauracao-3b.md).
+
+
+### 05/10/2026 — Validação anterior e Automação 4B.1
+
+O usuário confirmou as etapas anteriores como aplicadas e validadas:
+2C.1, 2C.2, 3A.1 e 3B. Essa confirmação atualiza os apontamentos históricos
+de validação pendente acima. Standby 3A.2 não foi implementado.
+
+4A: inventário dos controles de sessões/etapas registrado em
+[workspace-automacao-historico-4b1.md](workspace-automacao-historico-4b1.md).
+4B.1: filtros e paginação de 20 regras e disparos implementados; histórico
+exige `automation_rule_logs.list`. Consulta não aciona dispositivos.
+A seleção explícita de regra externa/apagada/inválida devolve erro.
+
+Achado para revisão antes de 4B.2: o motor atual filtra por sensor e regra
+ativa, sem restringir execução pelo `session_id`. Vínculo de cadastro não
+é isolamento de execução. Logs não possuem planta/sessão de origem.
+Criação/edição seguem no CRUD; não fechar a etapa 4 nem ocultar seus menus.
+Validação deste novo patch permanece pendente; não há migration.

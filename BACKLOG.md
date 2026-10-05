@@ -5595,3 +5595,15 @@ Sem exclusão permanente, alteração de estoque/runtime ou ocultação de menus
 Sem migration; implementado, validação visual/local pendente. Standby 3A.2
 e etapas 4–6 permanecem pendentes.
 Ver [entrega 3B](docs/patches/workspace-dashboard-lixeira-restauracao-3b.md).
+
+
+## Workspace — Automação 4B.1 (05/10/2026)
+
+Etapas anteriores 2C.1, 2C.2, 3A.1 e 3B validadas pelo usuário nesta conversa;
+essa confirmação substitui suas pendências de validação anteriores.
+Filtros por nome literal, regra, status e vínculo; histórico por resultado;
+paginação independente de 20 itens, seleção escopada e RBAC do histórico.
+Inventário 4A e roteiro em [workspace-automacao-historico-4b1.md](docs/patches/workspace-automacao-historico-4b1.md).
+Sem migration. 4B.1 implementado, aguardando validação do usuário.
+Pendente: 4B.2 criação/edição contextual após revisar a execução (o motor
+não restringe regras por sessão), standby 3A.2 e matriz final de menus.

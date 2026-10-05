@@ -2459,3 +2459,145 @@ def test_workspace_lixeira_layout_paginada_sem_misturar_plantas(app, client):
     assert 'Lixeira local 00' in second and 'Lixeira local 24' not in second
     assert '<h1>Painel aparência</h1>' in second
     assert 'Página 2 de 2' in second
+
+
+# Automação 4B.1: consulta paginada, sem acionamento ou escrita.
+def _automation_history_data(app, count=23):
+    from datetime import datetime
+    with app.app_context():
+        plant = BrewPlant(name="Automação paginada")
+        other = BrewPlant(name="Outra planta automação")
+        db.session.add_all([plant, other])
+        db.session.flush()
+        session = BrewSession(name="Sessão vinculada", plant_id=plant.id, status="paused")
+        foreign_session = BrewSession(name="Sessão externa", plant_id=other.id)
+        db.session.add_all([session, foreign_session])
+        db.session.flush()
+        rules = []
+        for index in range(count):
+            rule = AutomationRule(name=f"Regra paginada {index:02d}", sensor_function_name="sensor",
+                                  condition_operator=">", condition_value=60, actor_function_name="actor",
+                                  actor_action="OFF", session_id=session.id, trigger_count=7)
+            db.session.add(rule)
+            db.session.flush()
+            rules.append(rule)
+        foreign = AutomationRule(name="Regra externa secreta", sensor_function_name="sensor",
+                                 condition_operator=">", condition_value=60, actor_function_name="actor",
+                                 actor_action="OFF", session_id=foreign_session.id)
+        global_rule = AutomationRule(name="Regra global 100%", sensor_function_name="sensor",
+                                    condition_operator=">", condition_value=60, actor_function_name="actor",
+                                    actor_action="OFF", is_active=False)
+        db.session.add_all([foreign, global_rule])
+        db.session.flush()
+        for index in range(count):
+            db.session.add(AutomationRuleLog(rule_id=rules[0].id, triggered_at=datetime(2026, 1, 1),
+                                            success=False, error_message=f"Falha única {index:02d}", action_taken="OFF"))
+        db.session.add(AutomationRuleLog(rule_id=foreign.id, success=False, error_message="Erro externo secreto"))
+        db.session.commit()
+        return plant.id, rules[0].id, foreign.id, global_rule.id, session.id
+
+
+def test_automation_paginas_independentes_e_historico_antigo(app, client):
+    from urllib.parse import urlparse, parse_qs
+    _login_admin(app, client)
+    plant_id, rule_id, _, _, _ = _automation_history_data(app)
+    url = f"/brewstation/plant-workspace/{plant_id}/tab/automation"
+    html = client.get(url + "?scope=session&outcome=error&rules_page=2&logs_page=2").get_data(as_text=True)
+    assert html.count('data-automation-rule-id=') == 3
+    assert html.count('data-automation-log-id=') == 3
+    assert "Falha única 00" in html and "Falha única 22" not in html
+    assert "Regra paginada 00" in html  # Nome do log mesmo fora da primeira página de regras.
+    assert "Erro externo secreto" not in html
+    class Links(HTMLParser):
+        urls = []
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            if tag == 'a' and 'data-automation-page' in attrs:
+                self.urls.append(attrs['href'])
+    parser = Links()
+    parser.feed(html)
+    paged = [parse_qs(urlparse(link).query) for link in parser.urls if 'rules_page=' in link]
+    assert any(q['rules_page'] == ['1'] and q['logs_page'] == ['2'] for q in paged)
+    assert any(q['rules_page'] == ['2'] and q['logs_page'] == ['1'] for q in paged)
+    assert all(q['scope'] == ['session'] and q['outcome'] == ['error'] for q in paged)
+    selected = client.get(url + f"?rule_id={rule_id}&logs_page=999").get_data(as_text=True)
+    assert selected.count('data-automation-rule-id=') == 1
+    assert selected.count('data-automation-log-id=') == 3
+    assert "Página 2 de 2" in selected
+
+
+@pytest.mark.parametrize('selection', ['foreign', 'deleted', 'deleted_session', 'invalid'])
+def test_automation_selecao_explicita_invalida_nao_escolhe_outra(app, client, selection):
+    _login_admin(app, client)
+    plant_id, rule_id, foreign_id, _, session_id = _automation_history_data(app, 1)
+    with app.app_context():
+        if selection == 'deleted':
+            db.session.get(AutomationRule, rule_id).is_deleted = True
+        elif selection == 'deleted_session':
+            db.session.get(BrewSession, session_id).is_deleted = True
+        db.session.commit()
+    selected = foreign_id if selection == 'foreign' else 'abc' if selection == 'invalid' else rule_id
+    response = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/automation?rule_id={selected}")
+    assert response.status_code == 404
+    assert b'data-automation-rule-id=' not in response.data
+
+
+@pytest.mark.parametrize('parameter', ['active=bogus', 'scope=bogus', 'outcome=bogus'])
+def test_automation_rejeita_enum_desconhecido(app, client, parameter):
+    _login_admin(app, client)
+    plant_id, *_ = _automation_history_data(app, 1)
+    assert client.get(f"/brewstation/plant-workspace/{plant_id}/tab/automation?{parameter}").status_code == 400
+
+
+def test_automation_busca_literal_combo_escopado_e_filtros(app, client):
+    _login_admin(app, client)
+    plant_id, rule_id, foreign_id, global_id, _ = _automation_history_data(app, 1)
+    html = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/automation?q=%25&active=inactive&scope=global").get_data(as_text=True)
+    assert html.count('data-automation-rule-id=') == 1
+    assert 'Regra global 100%' in html
+    assert 'Global — compartilhada entre plantas' in html
+    class Combo(HTMLParser):
+        ids = None
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            if attrs.get('data-weakref-source') == 'automation_rules':
+                self.ids = {int(x) for x in attrs['data-weakref-ids'].split(',') if x}
+    parser = Combo()
+    parser.feed(html)
+    assert parser.ids == {rule_id, global_id}
+    assert foreign_id not in parser.ids
+    assert 'class="form-select"' in html
+
+
+def test_automation_permissoes_nao_expoem_logs_nem_atalhos(app, client, monkeypatch):
+    _login_admin(app, client)
+    plant_id, *_ = _automation_history_data(app, 1)
+    denied = {'automation_rule_logs.list', 'automation_rules.create', 'automation_rules.detail'}
+    monkeypatch.setattr(User, 'has_permission', lambda self, code: code not in denied)
+    html = client.get(f"/brewstation/plant-workspace/{plant_id}/tab/automation").get_data(as_text=True)
+    assert 'Sem permissão para consultar' in html
+    assert 'Falha única' not in html and 'data-automation-log-id=' not in html
+    assert 'Nova Regra' not in html and '>Detalhes</a>' not in html
+    assert 'Regra paginada 00' in html
+    monkeypatch.setattr(User, 'has_permission', lambda self, code: code != 'automation_rules.list')
+    assert client.get(f"/brewstation/plant-workspace/{plant_id}/tab/automation").status_code == 403
+
+
+def test_automation_consulta_nao_aciona_motor_nem_altera_dados(app, client, monkeypatch):
+    from addons.addon_device_manager.root.services import device_service
+    _login_admin(app, client)
+    plant_id, rule_id, _, global_id, session_id = _automation_history_data(app, 1)
+    def forbidden(*args, **kwargs):
+        pytest.fail('Consulta não pode acionar dispositivos')
+    monkeypatch.setattr(device_service, 'set_value', forbidden)
+    def snapshot():
+        rule = db.session.get(AutomationRule, rule_id)
+        session = db.session.get(BrewSession, session_id)
+        return (rule.trigger_count, rule.last_triggered_at, rule.is_active, session.status,
+                AutomationRuleLog.query.count())
+    with app.app_context():
+        before = snapshot()
+    for query in ['', '?outcome=error', f'?rule_id={global_id}', '?rules_page=999&logs_page=999']:
+        assert client.get(f"/brewstation/plant-workspace/{plant_id}/tab/automation{query}").status_code == 200
+    with app.app_context():
+        assert snapshot() == before

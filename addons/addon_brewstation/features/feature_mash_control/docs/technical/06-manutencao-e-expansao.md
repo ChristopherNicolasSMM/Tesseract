@@ -288,3 +288,26 @@ não usar data-confirm-key, pois o listener global em captura confirmaria e
 enviaria POST nativo além do fluxo AJAX. Teste Node inclui essa delegação real.
 Após aplicar, reiniciar app/recarregar workspace para catálogo i18n em cache.
 Sem migration ou delete_permanent no workspace; CRUD avançado preservado.
+
+
+### Automação 4B.1 — consulta contextual
+
+Extensão manual em `controller/plant_workspace.py` e
+`templates/plant_workspace/_tab_automation.html`; sem alteração do CrudGen.
+GET `/<plant_id>/tab/automation`: `q`, `rule_id`, `active` (vazio/active/inactive),
+`scope` (vazio/global/session), `outcome` (vazio/success/error), `rules_page`,
+`logs_page`. Enum desconhecido: 400; seleção explícita sem regra disponível:
+404. Sessões apagadas e regras apagadas/externas são excluídas. Busca contém
+literal com escape de curingas. Ordenação de logs por horário e ID decrescentes.
+Páginas limitadas a 20 e normalizadas para o intervalo disponível.
+
+Combo padrão `automation_rules`, IDs das regras permitidas da planta e globais.
+`automation_rules.list` protege a aba; `automation_rule_logs.list` protege
+consulta/conteúdo do histórico. Atalhos usam create/detail, respectivamente.
+Eventos locais do fragmento usam `__workspaceLoadUrl`; sem timers/listeners
+globais novos, preservando a limpeza do Dashboard feita pela casca.
+
+O filtro contextual não modifica `automation_engine.py`: seu despacho por
+sensor considera atividade/exclusão, não `session_id`. Não confundir vínculo
+com isolamento de execução. Logs têm `rule_id`, não planta/sessão de origem.
+Revisar essa semântica antes de integrar ativação/edição. Sem migration.

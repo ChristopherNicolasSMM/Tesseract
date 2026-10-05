@@ -139,3 +139,23 @@ consultar layouts vê a lista; sem permissão de restauração, não recebe o
 botão. Exclusão permanente continua no cadastro completo e não está neste
 fluxo. Uma URL que aponta explicitamente para painel apagado/externo retorna
 erro; as ações locais é que encaminham para a seleção disponível.
+
+
+### Automação no workspace — filtros e histórico (4B.1)
+
+Em `/brewstation/plant-workspace/<ID_PLANTA>`, abra Automação. Busque por
+nome ou pelo combo de regra; filtre status e vínculo global/sessão.
+Os mesmos filtros limitam os disparos; Resultado filtra somente o histórico.
+Regras e disparos têm páginas independentes de 20 itens. Filtrar/limpar
+reinicia as páginas; Anterior/Próxima conserva os filtros e a outra página.
+Limpe o combo para consultar todas as regras permitidas da planta e globais.
+
+Histórico exige `automation_rule_logs.list`; criar e consultar detalhes
+exigem as permissões respectivas. Cadastro avançado continua acessível.
+Vínculo de sessão identifica o cadastro: o motor atual executa por sensor,
+sem restringir pelo vínculo. Regras globais/histórico são compartilhados
+entre plantas; logs não identificam a planta do disparo. Consultar ou
+filtrar não aciona dispositivos nem altera sessões/estoque.
+
+Etapas anteriores de custos/rateio e manutenção de painéis foram validadas
+pelo usuário em 05/10/2026. Standby continua pendente.

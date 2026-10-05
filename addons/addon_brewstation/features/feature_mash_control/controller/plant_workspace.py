@@ -880,40 +880,67 @@ def tab_recipe(plant_id: int):
 @login_required
 @permission_required("automation_rules.list")
 def tab_automation(plant_id: int):
-    """Aba Automação (conversa): consolida Regras de Automação +
-    Histórico de disparo. `AutomationRule` não tem `plant_id` direto
-    — só `session_id` (opcional, nullable). Filtro: regra "global"
-    (sem sessão vinculada, vale pra qualquer sessão desta Planta) OU
-    vinculada a uma sessão desta Planta especificamente."""
+    """Consulta contextual; o vínculo da regra não muda o motor de execução."""
     plant = db.session.get(BrewPlant, plant_id)
     if not plant or plant.is_deleted:
         return render_template("plant_workspace/_tab_error.html", message="Planta não encontrada.")
 
-    session_ids = [
-        s.id for s in BrewSession.query.filter_by(plant_id=plant_id, is_deleted=False).all()
-    ]
-    rules = (
-        AutomationRule.query.filter(
-            AutomationRule.is_deleted == False,  # noqa: E712
-            db.or_(AutomationRule.session_id.is_(None), AutomationRule.session_id.in_(session_ids)),
-        )
-        .order_by(AutomationRule.id.desc())
-        .all()
+    search = request.args.get("q", "").strip()
+    active = request.args.get("active", "")
+    scope = request.args.get("scope", "")
+    outcome = request.args.get("outcome", "")
+    if active not in ("", "active", "inactive") or scope not in ("", "global", "session") or outcome not in ("", "success", "error"):
+        return render_template("plant_workspace/_tab_error.html", message="Filtro de automação inválido."), 400
+    session_ids = BrewSession.query.with_entities(BrewSession.id).filter_by(plant_id=plant_id, is_deleted=False)
+    base = AutomationRule.query.filter(
+        AutomationRule.is_deleted.is_(False),
+        db.or_(AutomationRule.session_id.is_(None), AutomationRule.session_id.in_(session_ids)),
     )
-    rule_ids = [r.id for r in rules]
-    logs = []
-    if rule_ids:
-        logs = (
-            AutomationRuleLog.query.filter(
-                AutomationRuleLog.rule_id.in_(rule_ids), AutomationRuleLog.is_deleted == False,  # noqa: E712
-            )
-            .order_by(AutomationRuleLog.triggered_at.desc())
-            .limit(20)
-            .all()
-        )
-    rules_by_id = {r.id: r for r in rules}
+    selected_rule = None
+    raw_rule_id = request.args.get("rule_id", "")
+    if raw_rule_id:
+        try:
+            selected_rule = base.filter(AutomationRule.id == int(raw_rule_id)).first()
+        except ValueError:
+            pass
+        if selected_rule is None:
+            return render_template("plant_workspace/_tab_error.html", message="Regra não encontrada nesta planta."), 404
+    filtered = base
+    if search:
+        filtered = filtered.filter(AutomationRule.name.contains(search, autoescape=True))
+    if active:
+        filtered = filtered.filter(AutomationRule.is_active.is_(active == "active"))
+    if scope:
+        filtered = filtered.filter(AutomationRule.session_id.is_(None) if scope == "global" else AutomationRule.session_id.is_not(None))
+    if selected_rule:
+        filtered = filtered.filter(AutomationRule.id == selected_rule.id)
 
+    def paginate(query, argument):
+        total = query.count()
+        pages = max(1, (total + 19) // 20)
+        page = min(max(1, request.args.get(argument, 1, type=int)), pages)
+        return query.offset((page - 1) * 20).limit(20).all(), page, pages, total
+
+    rules, rules_page, rules_pages, rules_total = paginate(filtered.order_by(AutomationRule.id.desc()), "rules_page")
+    can_view_logs = current_user.has_permission("automation_rule_logs.list")
+    logs, logs_page, logs_pages, logs_total = [], 1, 1, 0
+    if can_view_logs:
+        log_query = AutomationRuleLog.query.filter(
+            AutomationRuleLog.is_deleted.is_(False),
+            AutomationRuleLog.rule_id.in_(filtered.with_entities(AutomationRule.id)),
+        )
+        if outcome:
+            log_query = log_query.filter(AutomationRuleLog.success.is_(outcome == "success"))
+        logs, logs_page, logs_pages, logs_total = paginate(
+            log_query.order_by(AutomationRuleLog.triggered_at.desc(), AutomationRuleLog.id.desc()), "logs_page")
+    rules_by_id = {rule.id: rule for rule in rules}
+    if logs:
+        rules_by_id.update({rule.id: rule for rule in base.filter(AutomationRule.id.in_([log.rule_id for log in logs])).all()})
     return render_template(
-        "plant_workspace/_tab_automation.html",
-        plant=plant, rules=rules, logs=logs, rules_by_id=rules_by_id,
+        "plant_workspace/_tab_automation.html", plant=plant, rules=rules, logs=logs,
+        rules_by_id=rules_by_id, selected_rule=selected_rule,
+        rule_option_ids=[row[0] for row in base.with_entities(AutomationRule.id).order_by(AutomationRule.id).all()],
+        search=search, active_filter=active, scope_filter=scope, outcome_filter=outcome,
+        can_view_logs=can_view_logs, rules_page=rules_page, rules_pages=rules_pages,
+        rules_total=rules_total, logs_page=logs_page, logs_pages=logs_pages, logs_total=logs_total,
     )
