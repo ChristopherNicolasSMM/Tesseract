@@ -51,9 +51,7 @@ def test_hide_legacy_menu_preserva_cadastros_e_historicos():
 
 
 def test_hide_legacy_menu_nao_mexe_em_transacoes_fora_do_escopo():
-    """Fermentação, Perfis de Água, Histórico de Receitas, De-Para de
-    Ingredientes — nenhum foi absorvido por nenhuma aba, continuam
-    ativas."""
+    """Consulta contextual não substitui a manutenção global destes cadastros."""
     app = create_app(env="testing")
     runner = app.test_cli_runner()
     runner.invoke(args=["hide-legacy-mash-control-menu"])
@@ -140,3 +138,35 @@ def test_hide_legacy_menu_rotas_continuam_funcionando_depois():
     client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
     resp = client.get("/brewstation/brew-sessions/")
     assert resp.status_code == 200
+
+
+def test_fluxo_automacao_sincroniza_sem_reativar_menus():
+    from addons.addon_brewstation.features.feature_mash_control.feature import FeatureMashControl
+    from core.transactions_sync import sync_transaction
+    import json
+    from pathlib import Path
+
+    manifest = json.loads((Path(__file__).resolve().parents[1] /
+        "addons/addon_brewstation/features/feature_mash_control/feature.json").read_text(encoding="utf-8"))
+    feature = FeatureMashControl(manifest, "tesseract_brewstation")
+
+    app = create_app(env="testing")
+    with app.app_context():
+        flow = Transaction.query.filter_by(code="TX_AUTOMATION_FLOW").one()
+        assert flow.route == "/brewstation/plant-workspace/?tab=automation"
+        assert flow.permission_required == "brew_plants.list"
+        assert flow.parent.code == "TX_GROUP_MASH_AUTOMATION"
+        assert flow.is_active
+        flow.is_active = False
+        advanced = Transaction.query.filter_by(code="TX_AUTOMATION_RULES").one()
+        advanced.is_active = False
+        db.session.commit()
+        for entry in feature.get_transactions():
+            sync_transaction(entry)
+        db.session.commit()
+        assert not flow.is_active
+        assert not advanced.is_active
+    result = app.test_cli_runner().invoke(args=["hide-legacy-mash-control-menu", "--dry-run"])
+    assert result.exit_code == 0, result.output
+    with app.app_context():
+        assert not Transaction.query.filter_by(code="TX_AUTOMATION_FLOW").one().is_active

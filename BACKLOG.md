@@ -5643,3 +5643,14 @@ Não encerra proveniência física, PID contínuo, standby ou revisão de menus.
 Validação executada desta entrega: 407 testes na regressão conjunta, 6 testes
 finais e verificação JavaScript aprovados; validação visual/local do usuário
 permanece pendente.
+
+
+## Revisão do workspace e menus — etapa 5
+
+Patch combinado 4B.3/4B.4/4C aprovado nos testes pelo usuário. Inventário de
+menus concluído no escopo de navegação; entrega da revisão aguarda validação
+local. Novo acesso ao fluxo de automação, cadastros avançados identificados e
+sete ocultações anteriores mantidas. Sem migration. Matriz e limites em
+[workspace-revisao-menus.md](docs/patches/workspace-revisao-menus.md).
+Próximos: standby e validação integrada ponta a ponta. Manutenção adicional
+listada na matriz continua pendente; não declarar todo o workspace concluído.

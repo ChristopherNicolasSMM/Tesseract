@@ -240,6 +240,8 @@ def register_cli_commands(app) -> None:
         from core.db import db
         from model.core.transaction import Transaction
 
+        # Cobertura revisada em docs/patches/workspace-revisao-menus.md.
+        # Cadastros com manutenção ainda externa permanecem fora desta lista.
         # As rotas de edição continuam acessíveis pelos fluxos.
         codes_to_hide = {
             "TX_RECIPE_INGREDIENTS": "aba Receita Mash",

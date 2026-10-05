@@ -368,3 +368,15 @@ Modais por chaves i18n via `__tesseractConfirm`, listeners locais delegados, AJA
 `automation_reload` na casca abre a regra salva/restaurada ou limpa a seleção
 após lixo, evitando recarregar seleção apagada. Lixeira tem paginação própria.
 Nada muda no catálogo de menus ou no schema. Rotas legadas seguem acessíveis.
+
+
+## Revisão de navegação — etapa 5
+
+Inventário em `docs/patches/workspace-revisao-menus.md`. A lista de ocultação
+em `core/cli.py` mantém sete códigos: manutenção adicional ainda requer CRUD.
+O catálogo manual `feature.py` acrescenta TX_AUTOMATION_FLOW, apontando para
+landing com tab=automation e brew_plants.list; aba exige automation_rules.list.
+Sync preserva is_active existente; metadados de regras/layouts/histórico são
+atualizados no boot. Sem migration ou alteração de controllers gerados.
+Testar comando, idempotência e preservação de estados com
+`python -m pytest tests/test_hide_legacy_mash_control_menu.py -q`.

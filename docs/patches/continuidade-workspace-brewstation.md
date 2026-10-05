@@ -17,8 +17,8 @@ Os incrementos abaixo registram as execuções posteriores e pendências locais.
 | Sessões, histórico e alarmes | Concluída no escopo dos patches recentes | Busca/paginação, edição básica, confirmação de insumos e reconhecimento rastreável estão no código | Preservar; operações adicionais ficam na etapa 4 | Suítes de workspace, runtime e estoque |
 | Envase e precificação | Parcial | Prévia/registro na aba; detalhes/estorno 2B validados; custos e rateio 2C.1/2C.2 validados | 2C.1/2C.2 validados; etapas avançadas restantes | Saneamento, composição, snapshots e transação de estoque |
 | Dashboards | Parcial | Seleção/criação/edição básica, fundo/padrão e manutenção 3B implementados; standby sem runtime | 3A.1/3B validados; 3A.2: definir standby | Widgets/tubulação existentes e limpeza de listeners/timers |
-| Etapas e automação | Parcial | Timeline e geração já integradas; Automação tem filtros, edição/manutenção; sessões têm controles e ajustes no patch combinado | 4B.3/4B.4/4C reunidos em patch combinado; validar controles e manutenção | Runtime existente, permissões e escopo global/por sessão |
-| Menus | Parcial | Sete códigos configurados no comando de ocultação; não prova cobertura de toda manutenção | 5: matriz de cobertura e ocultação seletiva | Validação funcional dos incrementos anteriores |
+| Etapas e automação | Parcial | Timeline e geração já integradas; Automação tem filtros, edição/manutenção; sessões têm controles e ajustes no patch combinado | 4B.3/4B.4/4C aprovados nos testes pelo usuário; inventário avançado permanece | Runtime existente, permissões e escopo global/por sessão |
+| Menus | Parcial | Sete códigos configurados no comando de ocultação; não prova cobertura de toda manutenção | 5: matriz revisada; manter sete ocultações e preservar manutenção externa | Validação funcional dos incrementos anteriores |
 | Brewfather e YeastBank | Radar posterior | Portal Brewfather e painel YeastBank já existem; não reconstruir como novidades | 6: auditorias específicas e novas lacunas | Estabilização do fluxo prioritário |
 
 Concluída nesta tabela significa o escopo explicitamente descrito, não toda
@@ -407,3 +407,14 @@ Sem migration. Nova entrega ainda precisa de validação do usuário. Não presu
 validação separada dos patches 4B.2a/4B.2b. Permanecem: revisão de proveniência
 física de eventos, exclusão permanente no cadastro avançado, PID contínuo,
 standby 3A.2, eventual manutenção adicional de sessões e revisão dos menus.
+
+
+### 05/10/2026 — Patch combinado validado e revisão de menus
+
+Usuário informou aprovação dos testes do patch combinado 4B.3/4B.4/4C.
+Isso atualiza sua pendência histórica de validação acima, sem afirmar testes
+separados dos incrementos de execução. Revisão de navegação mantém sete
+ocultações: candidatos adicionais ainda têm manutenção externa. Novo acesso
+à aba Automação e identificação dos cadastros avançados/global. Sem migration.
+Ver [matriz e roteiro](workspace-revisao-menus.md). Este novo patch aguarda
+validação local. Standby e auditoria integrada continuam próximos trabalhos.

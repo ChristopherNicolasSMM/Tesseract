@@ -270,17 +270,26 @@ class FeatureMashControl(FeatureBase):
 
             # ── Automação ────────────────────────────────────────────
             {
-                "code": "TX_AUTOMATION_RULES",
-                "label": "Regras de Automação",
+                "code": "TX_AUTOMATION_FLOW",
+                "label": "Abrir fluxo de automação",
                 "parent_code": "TX_GROUP_MASH_AUTOMATION",
-                "description": "Definição de regras sensor->ação (sem motor de execução ainda).",
+                "description": "Escolha a planta e abra a aba Automação; regras exigem suas permissões próprias.",
+                "icon": "bi-lightning-charge",
+                "route": "/brewstation/plant-workspace/?tab=automation",
+                "permission_required": "brew_plants.list",
+            },
+            {
+                "code": "TX_AUTOMATION_RULES",
+                "label": "Regras de Automação — avançado",
+                "parent_code": "TX_GROUP_MASH_AUTOMATION",
+                "description": "Cadastro completo de regras; edição e manutenção também disponíveis na aba Automação.",
                 "icon": "bi-cpu",
                 "route": "/brewstation/automation-rules",
                 "permission_required": "automation_rules.list",
             },
             {
                 "code": "TX_AUTOMATION_RULE_LOGS",
-                "label": "Histórico de Regras",
+                "label": "Histórico de Regras — global",
                 "parent_code": "TX_GROUP_MASH_AUTOMATION",
                 "description": "Histórico de avaliação de regras de automação.",
                 "icon": "bi-clock-history",
@@ -293,9 +302,9 @@ class FeatureMashControl(FeatureBase):
             # editor visual de widgets já está acessível no Dashboard.
             {
                 "code": "TX_DASHBOARD_LAYOUTS",
-                "label": "Layouts de Dashboard",
+                "label": "Layouts de Dashboard — avançado",
                 "parent_code": "TX_GROUP_MASH_PLANT_SESSION",
-                "description": "Layouts visuais de acompanhamento (em construção).",
+                "description": "Cadastro completo de painéis; configuração de standby ainda não possui runtime integrado.",
                 "icon": "bi-grid-1x2",
                 "route": "/brewstation/dashboard-layouts",
                 "permission_required": "dashboard_layouts.list",

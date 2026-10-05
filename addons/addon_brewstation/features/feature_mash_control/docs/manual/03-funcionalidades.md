@@ -501,3 +501,21 @@ rampa, status, confirmação de ingredientes ou custo congelado.
 Ações usam confirmação do Core e mensagens do projeto. Se status/etapa mudou,
 recarregue a aba antes de reenviar controles. Timers/listeners do Dashboard
 continuam limpos pela navegação existente. Não há migration.
+
+
+## Navegação consolidada e cadastros avançados
+
+Use **Abrir planta**, **Abrir fluxo de sessões** ou **Abrir fluxo de automação**
+para escolher a planta e trabalhar nas abas. O novo acesso de automação abre
+regras, edição e manutenção no mesmo processo, conforme suas permissões.
+
+**Regras de Automação — avançado**, **Layouts de Dashboard — avançado** e
+**Histórico de Regras — global** continuam disponíveis para operações que
+não cabem no contexto de uma planta. Tanques, mapeamentos, sessões, passos,
+registros e alarmes também mantêm seus cadastros completos, incluindo a
+manutenção ainda não incorporada às abas. Os cadastros de água e de-para
+compartilhado continuam separados do saneamento local da receita.
+
+Ocultar atalhos redundantes não apaga registros ou telas. A configuração do
+menu pode ser revertida na administração. Standby dos painéis ainda depende
+de implementação; a existência do campo no cadastro não garante seu funcionamento.
