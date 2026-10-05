@@ -418,3 +418,8 @@ ocultações: candidatos adicionais ainda têm manutenção externa. Novo acesso
 à aba Automação e identificação dos cadastros avançados/global. Sem migration.
 Ver [matriz e roteiro](workspace-revisao-menus.md). Este novo patch aguarda
 validação local. Standby e auditoria integrada continuam próximos trabalhos.
+
+
+Correção de apresentação dos menus: nomes curtos preservados; description
+exibida como tooltip Bootstrap no menu lateral. Sem migration. Roteiro em
+`docs/patches/workspace-menu-hints.md`.

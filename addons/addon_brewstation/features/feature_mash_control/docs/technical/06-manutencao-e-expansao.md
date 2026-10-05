@@ -380,3 +380,8 @@ Sync preserva is_active existente; metadados de regras/layouts/histórico são
 atualizados no boot. Sem migration ou alteração de controllers gerados.
 Testar comando, idempotência e preservação de estados com
 `python -m pytest tests/test_hide_legacy_mash_control_menu.py -q`.
+
+
+Correção de apresentação dos menus: nomes curtos preservados; description
+exibida como tooltip Bootstrap no menu lateral. Sem migration. Roteiro em
+`docs/patches/workspace-menu-hints.md`.

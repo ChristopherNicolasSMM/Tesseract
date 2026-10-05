@@ -154,7 +154,7 @@
         </li>
       {% else %}
         <li data-menu-node="{{ tx.code }}">
-          <a href="{{ tx.route }}">
+          <a href="{{ tx.route }}"{% if tx.description %} data-bs-toggle="tooltip" data-bs-placement="right" title="{{ tx.description }}"{% endif %}>
             {% if show_icon %}<i class="{{ tx.icon or 'bi-app' }}"></i>{% endif %}
             <span>{{ tx.label }}</span>
           </a>

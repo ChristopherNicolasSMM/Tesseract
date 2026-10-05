@@ -138,6 +138,10 @@ def test_hide_legacy_menu_rotas_continuam_funcionando_depois():
     client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
     resp = client.get("/brewstation/brew-sessions/")
     assert resp.status_code == 200
+    html = resp.get_data(as_text=True)
+    assert 'data-bs-toggle="tooltip"' in html
+    assert 'title="Histórico global de avaliação de regras de automação."' in html
+    assert 'Regras de Automação — avançado' not in html
 
 
 def test_fluxo_automacao_sincroniza_sem_reativar_menus():

@@ -232,8 +232,8 @@ Use **Abrir planta**, **Abrir fluxo de sessões** ou **Abrir fluxo de automaçã
 para escolher a planta e trabalhar nas abas. O novo acesso de automação abre
 regras, edição e manutenção no mesmo processo, conforme suas permissões.
 
-**Regras de Automação — avançado**, **Layouts de Dashboard — avançado** e
-**Histórico de Regras — global** continuam disponíveis para operações que
+**Regras de Automação**, **Layouts de Dashboard** e
+**Histórico de Regras** continuam disponíveis para operações que
 não cabem no contexto de uma planta. Tanques, mapeamentos, sessões, passos,
 registros e alarmes também mantêm seus cadastros completos, incluindo a
 manutenção ainda não incorporada às abas. Os cadastros de água e de-para
@@ -242,3 +242,6 @@ compartilhado continuam separados do saneamento local da receita.
 Ocultar atalhos redundantes não apaga registros ou telas. A configuração do
 menu pode ser revertida na administração. Standby dos painéis ainda depende
 de implementação; a existência do campo no cadastro não garante seu funcionamento.
+
+As descrições dos itens do menu aparecem como dicas ao passar o mouse.
+Os nomes permanecem curtos; a dica informa o uso avançado ou global.

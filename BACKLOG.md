@@ -5654,3 +5654,8 @@ sete ocultações anteriores mantidas. Sem migration. Matriz e limites em
 [workspace-revisao-menus.md](docs/patches/workspace-revisao-menus.md).
 Próximos: standby e validação integrada ponta a ponta. Manutenção adicional
 listada na matriz continua pendente; não declarar todo o workspace concluído.
+
+
+Correção de apresentação dos menus: nomes curtos preservados; description
+exibida como tooltip Bootstrap no menu lateral. Sem migration. Roteiro em
+`docs/patches/workspace-menu-hints.md`.
