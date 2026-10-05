@@ -90,6 +90,21 @@ def get_actor_meta(identifier: str) -> dict | None:
     }
 
 
+def find_unique_actor_external_id_by_function_name(function_name: str) -> str | None:
+    """Acesso público: só resolve funções disponíveis com um único ator vivo.
+
+    Ambiguidade/ausência devolve None, sem escolher o primeiro ou expor ORM.
+    Não modifica o resolvedor legado usado por regras globais.
+    """
+    from addons.addon_device_manager.root.model.device_function import DeviceFunction
+    actors = (DeviceActor.query
+              .join(DeviceFunction, DeviceActor.function_id == DeviceFunction.id)
+              .filter(DeviceFunction.name == function_name,
+                      DeviceFunction.is_deleted.is_(False), DeviceActor.is_deleted.is_(False))
+              .limit(2).all())
+    return actors[0].external_id if len(actors) == 1 else None
+
+
 def find_actor_external_id_by_function_name(function_name: str) -> str | None:
     """
     Resolve o external_id do primeiro DeviceActor ativo cuja

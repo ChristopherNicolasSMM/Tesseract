@@ -257,6 +257,15 @@ def test_regra_vinculada_pause_resume_preserva_cooldown_e_historico(app):
         plant = BrewPlant(name="Planta runtime")
         db.session.add(plant)
         db.session.flush()
+        from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_vessel import BrewPlantVessel
+        from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_mapping import BrewPlantMapping
+        vessel = BrewPlantVessel(plant_id=plant.id, label_text="Tanque runtime", vessel_type="mash_tun")
+        db.session.add(vessel)
+        db.session.flush()
+        db.session.add_all([
+            BrewPlantMapping(vessel_id=vessel.id, role_key="sensor_temp", device_function_name="sensor_session_guard"),
+            BrewPlantMapping(vessel_id=vessel.id, role_key="actor_heat", device_function_name="heater_session_guard"),
+        ])
         session = BrewSession(name="Sessão runtime", plant_id=plant.id, status="active")
         db.session.add(session)
         db.session.flush()
@@ -285,3 +294,65 @@ def test_regra_vinculada_pause_resume_preserva_cooldown_e_historico(app):
         device_service.update_from_mqtt(sensor, 4)
         db.session.refresh(rule)
         assert rule.trigger_count == 2
+
+
+@pytest.mark.parametrize('invalid', ['unmapped_sensor', 'unmapped_actor', 'shared_sensor', 'shared_actor',
+                                    'deleted_mapping', 'deleted_vessel', 'duplicate_sensor',
+                                    'duplicate_actor', 'deleted_function'])
+def test_regra_vinculada_exige_funcoes_exclusivas_e_atores_unicos(app, monkeypatch, invalid):
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_plant import BrewPlant
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_vessel import BrewPlantVessel
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_mapping import BrewPlantMapping
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
+    from addons.addon_brewstation.features.feature_mash_control.services import automation_engine
+    with app.app_context():
+        _criar_actor(name='isolation_sensor', function_name='isolation_sensor')
+        _criar_actor(name='isolation_actor', function_name='isolation_actor', category='actuator', actor_type='actuator')
+        plant = BrewPlant(name='Planta isolada')
+        other = BrewPlant(name='Planta externa')
+        db.session.add_all([plant, other])
+        db.session.flush()
+        vessel = BrewPlantVessel(plant_id=plant.id, label_text='Tanque', vessel_type='mash_tun')
+        external = BrewPlantVessel(plant_id=other.id, label_text='Tanque externo', vessel_type='mash_tun')
+        db.session.add_all([vessel, external])
+        db.session.flush()
+        for role, name in [('sensor_temp', 'isolation_sensor'), ('actor_heat', 'isolation_actor')]:
+            if invalid == 'unmapped_sensor' and role == 'sensor_temp' or invalid == 'unmapped_actor' and role == 'actor_heat':
+                continue
+            db.session.add(BrewPlantMapping(vessel_id=vessel.id, role_key=role, device_function_name=name,
+                                           is_deleted=invalid == 'deleted_mapping'))
+        if invalid.startswith('shared_'):
+            name = 'isolation_sensor' if invalid == 'shared_sensor' else 'isolation_actor'
+            db.session.add(BrewPlantMapping(vessel_id=external.id, role_key='sensor_temp', device_function_name=name))
+        vessel.is_deleted = invalid == 'deleted_vessel'
+        session = BrewSession(name='Sessão isolada', plant_id=plant.id, status='active')
+        db.session.add(session)
+        db.session.flush()
+        rule = _criar_rule(sensor_function_name='isolation_sensor', actor_function_name='isolation_actor')
+        rule.session_id = session.id
+        db.session.commit()
+        if invalid.startswith('duplicate_'):
+            name = 'isolation_sensor' if invalid == 'duplicate_sensor' else 'isolation_actor'
+            _criar_actor(name='duplicate_isolation', function_name=name)
+        if invalid == 'deleted_function':
+            DeviceFunction.query.filter_by(name='isolation_sensor').first().is_deleted = True
+            db.session.commit()
+        def forbidden(*args, **kwargs):
+            pytest.fail('Função ausente/compartilhada/ambígua não pode acionar')
+        monkeypatch.setattr(device_service, 'set_value', forbidden)
+        automation_engine._on_device_value_changed(function_name='isolation_sensor', value=1)
+        assert rule.trigger_count == 0
+        assert rule.last_triggered_at is None
+        assert AutomationRuleLog.query.filter_by(rule_id=rule.id).count() == 0
+
+
+def test_resolvedor_publico_unico_exclui_apagados_e_nao_escolhe_primeiro(app):
+    with app.app_context():
+        first = _criar_actor(name='unique_first', function_name='unique_function')
+        assert device_service.find_unique_actor_external_id_by_function_name('unique_function') == first.external_id
+        second = _criar_actor(name='unique_second', function_name='unique_function')
+        assert device_service.find_unique_actor_external_id_by_function_name('unique_function') is None
+        second.is_deleted = True
+        db.session.commit()
+        assert device_service.find_unique_actor_external_id_by_function_name('unique_function') == first.external_id
+        assert device_service.find_unique_actor_external_id_by_function_name('absent') is None

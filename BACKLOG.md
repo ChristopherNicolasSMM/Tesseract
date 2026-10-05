@@ -5617,3 +5617,12 @@ Pausa bloqueia novos acionamentos, sem desligamento nem reset de cooldown.
 Sem migration. Ver [roteiro 4B.2a](docs/patches/workspace-automacao-execucao-4b2a.md).
 Teste de execução local pendente. Criação/edição/ativação no workspace,
 isolamento físico por mapeamentos e demais pendências seguem em aberto.
+
+
+## Automação — isolamento de configuração 4B.2b (05/10/2026)
+
+Funções de regras vinculadas exigem mapeamentos exclusivamente na planta e
+um único ator por função. Ausência/compartilhamento/ambiguidade bloqueiam
+novos disparos; globais mantidas. Sem migration. Validação local pendente;
+ver [roteiro](docs/patches/workspace-automacao-isolamento-4b2b.md).
+O evento não contém origem física; essa limitação permanece explícita.

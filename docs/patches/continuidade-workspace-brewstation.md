@@ -378,3 +378,12 @@ Sem migration; testes locais do usuário pendentes. Ver
 [workspace-automacao-execucao-4b2a.md](workspace-automacao-execucao-4b2a.md).
 Criação/edição/ativação local, proveniência do sensor, standby e menus permanecem
 pendentes; etapa 4 não está encerrada.
+
+
+### 05/10/2026 — Isolamento de configuração 4B.2b
+
+4B.2a foi entregue; sua validação ainda não foi informada explicitamente.
+4B.2b implementa guarda de mapeamento exclusivo e ator único para regras
+vinculadas. Evento continua por nome/valor: não é autenticação de origem física.
+Ver [roteiro 4B.2b](workspace-automacao-isolamento-4b2b.md). Sem migration;
+validação local pendente. Edição/ativação, standby e menus continuam pendentes.

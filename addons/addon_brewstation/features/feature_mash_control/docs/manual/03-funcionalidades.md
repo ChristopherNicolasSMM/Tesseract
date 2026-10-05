@@ -451,3 +451,19 @@ não aumenta contador e não muda último disparo, timers ou estoque. Pausar nã
 é um comando de desligamento; atuadores já ligados permanecem em seu estado.
 Funções configuradas continuam resolvidas por nome; esta guarda não identifica
 a planta física do sensor nem valida mapeamentos. Cadastro/edição seguem no CRUD.
+
+
+### Automação — isolamento por configuração (4B.2b)
+
+Regras vinculadas exigem que sensor e atuador estejam mapeados somente na
+planta da sessão, por mapeamentos/tanques/plantas não apagados. Cada função
+precisa resolver exatamente um ator não apagado, com função disponível.
+Ausência, compartilhamento entre plantas ou múltiplos atores bloqueiam novos
+disparos sem gravar contador/horário/log de disparo. Regras globais preservam
+o comportamento anterior e continuam compartilhadas.
+
+Antes de operar, confira os mapeamentos na aba Planta. Configurações antigas
+sem mapeamentos exclusivos deixam de disparar regras vinculadas. Isso não
+altera dados nem desliga atuadores. O isolamento é pela configuração: o evento
+continua contendo nome/valor, sem identificar planta física ou autenticar origem.
+Logs também não passam a armazenar origem. Não há migration.

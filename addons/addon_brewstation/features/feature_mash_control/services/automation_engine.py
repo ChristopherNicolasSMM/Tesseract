@@ -36,6 +36,8 @@ from addons.addon_brewstation.features.feature_mash_control.model.automation_rul
 from addons.addon_brewstation.features.feature_mash_control.model.automation_rule_log import AutomationRuleLog
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
 from addons.addon_brewstation.features.feature_mash_control.model.brew_plant import BrewPlant
+from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_vessel import BrewPlantVessel
+from addons.addon_brewstation.features.feature_mash_control.model.brew_plant_mapping import BrewPlantMapping
 
 logger = logging.getLogger(__name__)
 
@@ -101,8 +103,31 @@ def _session_allows_execution(rule: AutomationRule) -> bool:
     return plant is not None and not plant.is_deleted
 
 
+def _plant_allows_functions(rule: AutomationRule) -> bool:
+    """Vinculadas exigem funções mapeadas exclusivamente na planta da sessão."""
+    if rule.session_id is None:
+        return True
+    session = db.session.get(BrewSession, rule.session_id)
+    if not session or session.plant_id is None:
+        return False
+    from addons.addon_device_manager.root.services import device_service
+    for name in {rule.sensor_function_name, rule.actor_function_name}:
+        plants = {row[0] for row in db.session.query(BrewPlantVessel.plant_id)
+                  .join(BrewPlantMapping, BrewPlantMapping.vessel_id == BrewPlantVessel.id)
+                  .join(BrewPlant, BrewPlant.id == BrewPlantVessel.plant_id)
+                  .filter(BrewPlantMapping.device_function_name == name,
+                          BrewPlantMapping.is_deleted.is_(False),
+                          BrewPlantVessel.is_deleted.is_(False), BrewPlant.is_deleted.is_(False))
+                  .distinct().all()}
+        if plants != {session.plant_id}:
+            return False
+        if device_service.find_unique_actor_external_id_by_function_name(name) is None:
+            return False
+    return True
+
+
 def _evaluate_rule(rule: AutomationRule, sensor_value) -> None:
-    if not _session_allows_execution(rule):
+    if not _session_allows_execution(rule) or not _plant_allows_functions(rule):
         return
     if _in_cooldown(rule):
         return
@@ -156,7 +181,9 @@ def _trigger_rule(rule: AutomationRule, sensor_value: float) -> None:
     action_taken = f"{rule.actor_action}"
 
     try:
-        target_identifier = device_service.find_actor_external_id_by_function_name(rule.actor_function_name)
+        target_identifier = (device_service.find_unique_actor_external_id_by_function_name(rule.actor_function_name)
+                             if rule.session_id is not None else
+                             device_service.find_actor_external_id_by_function_name(rule.actor_function_name))
         if target_identifier is None:
             raise ValueError(f"Nenhum DeviceActor encontrado para a function '{rule.actor_function_name}'.")
 
