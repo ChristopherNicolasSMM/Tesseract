@@ -10,7 +10,7 @@ NÃO é gerado pelo CrudGen — mesmo padrão de dashboard_runtime.py.
 """
 from __future__ import annotations
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import current_app, Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 
 from core.db import db
@@ -179,6 +179,15 @@ def generate_session(recipe_id: int):
             return jsonify({"ok": False, "error": str(exc)}), 400
         flash(str(exc), "error")
         return redirect(url_for("recipe_timeline.view", recipe_id=recipe_id))
+
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception('Falha ao gerar sessão da receita %s', recipe_id)
+        error = 'Não foi possível gerar a sessão. Nenhuma cópia parcial foi confirmada.'
+        if ajax:
+            return jsonify(ok=False, error=error), 500
+        flash(error, 'error')
+        return redirect(url_for('recipe_timeline.view', recipe_id=recipe_id))
 
     if ajax:
         return jsonify({"ok": True, "session_id": session.id, "plant_id": session.plant_id,

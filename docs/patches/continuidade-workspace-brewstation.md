@@ -16,7 +16,7 @@ Os incrementos abaixo registram as execuções posteriores e pendências locais.
 | Receita e ingredientes | Parcial | `_tab_recipe_detail.html` reúne conferência/custo, vínculo local, revisão e dados planejados; cadastro avançado preservado | Preservar proteção de receitas usadas; operações adicionais na etapa 4 | Serviço de resolução, conversão, referências públicas e proteção de receitas usadas |
 | Sessões, histórico e alarmes | Concluída no escopo dos patches recentes | Busca/paginação, edição básica, confirmação de insumos e reconhecimento rastreável estão no código | Preservar; operações adicionais ficam na etapa 4 | Suítes de workspace, runtime e estoque |
 | Envase e precificação | Parcial | Prévia/registro na aba; detalhes/estorno 2B validados; custos e rateio 2C.1/2C.2 validados | 2C.1/2C.2 validados; etapas avançadas restantes | Saneamento, composição, snapshots e transação de estoque |
-| Dashboards | Parcial | Seleção/criação/edição básica, fundo/padrão, manutenção 3B e descanso visual 3A.2 implementados | 3A.1/3B validados; 3A.2 aguarda validação local | Widgets/tubulação existentes e limpeza de listeners/timers |
+| Dashboards | Parcial | Seleção/criação/edição básica, fundo/padrão, manutenção 3B e descanso visual 3A.2 implementados | 3A.1/3B/3A.2 validados; preservar runtime e limpeza | Widgets/tubulação existentes e limpeza de listeners/timers |
 | Etapas e automação | Parcial | Timeline e geração já integradas; Automação tem filtros, edição/manutenção; sessões têm controles e ajustes no patch combinado | 4B.3/4B.4/4C aprovados nos testes pelo usuário; inventário avançado permanece | Runtime existente, permissões e escopo global/por sessão |
 | Menus | Parcial | Sete códigos configurados no comando de ocultação; não prova cobertura de toda manutenção | 5: matriz revisada; manter sete ocultações e preservar manutenção externa | Validação funcional dos incrementos anteriores |
 | Brewfather e YeastBank | Radar posterior | Portal Brewfather e painel YeastBank já existem; não reconstruir como novidades | 6: auditorias específicas e novas lacunas | Estabilização do fluxo prioritário |
@@ -437,3 +437,13 @@ suavização visual após inatividade, sem alternância de painéis nem pausa de
 runtime. Configuração manual no workspace; mesma execução na view própria.
 Sem migration. Nova entrega aguarda validação local; auditoria integrada é o
 próximo pacote. Ver docs/patches/workspace-dashboard-standby-3a2.md.
+
+
+### Revisão integrada — 05/10/2026
+
+Descanso visual 3A.2 validado pelo usuário. Novo pacote corrige atomicidade da
+cópia de sessão, validações no serviço, reserva/releitura de confirmação de
+insumos e geração AJAX contextual. Teste de percurso até estorno e concorrência
+SQLite real adicionados. Sem migration. Nova entrega aguarda validação local;
+não encerra manutenção avançada, PID, proveniência física ou auditorias dos
+portais Brewfather/YeastBank. Ver docs/patches/workspace-revisao-integrada-processo.md.

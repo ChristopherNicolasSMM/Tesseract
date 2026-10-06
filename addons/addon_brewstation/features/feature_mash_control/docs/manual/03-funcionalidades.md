@@ -540,3 +540,27 @@ aparência normal. A configuração vale também para o acesso próprio ao paine
 
 Esse descanso não alterna painéis, pausa a sessão ou desliga dispositivos.
 É uma opção visual; alarmes, automação e controles continuam funcionando.
+
+
+## Percurso da receita ao envase
+
+1. Abra uma planta e escolha a receita na aba Receita. Confira ingredientes,
+   materiais e unidades. Corrija pendências; para receita já usada, crie uma
+   revisão para preservar os lotes anteriores.
+2. Confira a timeline e gere uma sessão. A tela abre a sessão criada com suas
+   etapas copiadas. Enquanto aguarda, não é possível reenviar pelo formulário.
+   Uma nova geração após concluir cria outra sessão.
+3. Na aba Sessões, confira ingredientes e custo estimado. Confirmar ingredientes
+   movimenta o estoque e congela o custo registrado. Repetir não baixa novamente.
+4. Prepare o envase e confira a prévia de embalagens; consultar/simular não baixa
+   estoque. Registre o envase somente após conferir os dados e a confirmação.
+5. Abra a precificação pelo lote/envase. Confira custo, origem, rateio e preço
+   por unidade. O retorno mantém o lote selecionado, inclusive lotes antigos.
+6. Para estornar um envase, informe motivo e confirme. São devolvidas as
+   embalagens registradas; ingredientes da brassagem continuam consumidos.
+   O histórico e os custos registrados são preservados.
+
+Se a geração falhar, nenhuma sessão parcial fica confirmada. Uma nova
+confirmação de ingredientes exige que a receita continue disponível. Se houver
+falha de consumo, a tentativa é desfeita e pode ser repetida após corrigir a
+causa. Unidades de pacote não recebem conversões inventadas: use o cadastro.

@@ -181,3 +181,14 @@ Vincular posteriormente um cálculo do lote a um envase mantém sua base
 original; faça novo cálculo com o envase selecionado para aplicar rateio.
 Cálculos antigos sem snapshot permanecem históricos, sem reconstrução.
 Simular e consultar não movimentam estoque.
+
+
+## Continuidade com o lote da planta
+
+Na aba Sessões da planta, prepare e registre o envase, confira detalhes e
+snapshots e abra a precificação. Retorne ao mesmo lote pelo atalho da tela.
+Prévia/simulação não movimentam estoque. Estorno com motivo devolve embalagens
+registradas e mantém ingredientes da brassagem consumidos e custo congelado.
+Repetir registro com a mesma confirmação não duplica baixa; novo envase exige
+nova confirmação. Envases antigos sem movimentos identificados precisam de
+reconciliação própria e não recebem um estorno inventado.

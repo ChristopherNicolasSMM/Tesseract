@@ -175,6 +175,8 @@
   if (!form) return;
   form.addEventListener('submit', async function (event) {
     event.preventDefault();
+    if (form.dataset.submitting === 'true') return;
+    form.dataset.submitting = 'true';
     const button = form.querySelector('button[type="submit"]');
     button.disabled = true;
     try {
@@ -188,10 +190,13 @@
       }
       const result = await response.json();
       if (!response.ok || !result.ok) throw new Error(result.error || 'Não foi possível gerar a sessão.');
+      if (!form.isConnected) return;
       if (window.__tesseractToast) window.__tesseractToast.show('Sessão criada: ' + result.name, 'success');
       window.__workspaceOpenTab('sessions', '?session_id=' + encodeURIComponent(result.session_id));
     } catch (error) {
-      if (window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
+      if (form.isConnected && window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
+    } finally {
+      form.dataset.submitting = 'false';
       button.disabled = false;
     }
   });

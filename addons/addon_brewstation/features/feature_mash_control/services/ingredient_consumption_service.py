@@ -19,6 +19,8 @@ from datetime import datetime, timezone
 from math import isfinite
 
 from core.db import db
+from sqlalchemy import update
+from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
 from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
 from addons.addon_brewstation.features.feature_mash_control.model.recipe_ingredient import RecipeIngredient
 from addons.addon_estoque.root.services import estoque_service, material_lookup
@@ -157,7 +159,7 @@ def calcular_custo_insumos_receita(recipe_id: int) -> dict:
     }
 
 
-def confirmar_consumo_ingredientes(brew_session_id: int, *, commit: bool = True) -> dict:
+def _confirmar_consumo_ingredientes(brew_session_id: int, *, commit: bool = True) -> dict:
     """
     Baixa real de estoque dos insumos da receita vinculada ao lote —
     idempotente via `BrewSession.insumos_baixados_em` (chamar de novo
@@ -167,7 +169,7 @@ def confirmar_consumo_ingredientes(brew_session_id: int, *, commit: bool = True)
     Todas as saídas e a marcação do lote são confirmadas juntas.
     Qualquer falha desfaz as saídas, permitindo tentar novamente.
     """
-    lote = BrewSession.query.filter_by(id=brew_session_id, is_deleted=False).first()
+    lote = BrewSession.query.filter_by(id=brew_session_id, is_deleted=False).populate_existing().first()
     if lote is None:
         raise LoteNaoEncontradoError(f"BrewSession id={brew_session_id} não encontrada ou removida")
 
@@ -180,6 +182,9 @@ def confirmar_consumo_ingredientes(brew_session_id: int, *, commit: bool = True)
 
     if not lote.recipe_id:
         raise ReceitaNaoVinculadaError(f"BrewSession id={brew_session_id} não tem receita vinculada")
+
+    if not MashRecipe.query.filter_by(id=lote.recipe_id, is_deleted=False).first():
+        raise ReceitaNaoVinculadaError('Receita do lote não encontrada ou removida.')
 
     conferencia = conferir_ingredientes(lote.recipe_id)
     if conferencia["pendencias"]:
@@ -225,3 +230,25 @@ def confirmar_consumo_ingredientes(brew_session_id: int, *, commit: bool = True)
         "custo_total_insumos": custo_total,
         "confirmacao_completa": True,
     }
+
+
+def confirmar_consumo_ingredientes(brew_session_id: int, *, commit: bool = True) -> dict:
+    """Reserva escrita antes de reler confirmação; todas as baixas seguem centrais.
+
+    SQLite serializa escritores pelo UPDATE sem alterar custo/data. O estado
+    é relido mesmo quando a tentativa aguardou outro escritor. commit=False
+    mantém reserva, baixas e confirmação na transação externa de envase.
+    """
+    try:
+        lote = BrewSession.query.filter_by(id=brew_session_id, is_deleted=False).populate_existing().first()
+        if lote is None or lote.insumos_baixados_em is not None:
+            return _confirmar_consumo_ingredientes(brew_session_id, commit=commit)
+        db.session.execute(update(BrewSession).where(
+            BrewSession.id == brew_session_id, BrewSession.is_deleted.is_(False),
+            BrewSession.insumos_baixados_em.is_(None)).values(
+                custo_total_insumos=BrewSession.custo_total_insumos,
+                updated_at=BrewSession.updated_at).execution_options(synchronize_session=False))
+        return _confirmar_consumo_ingredientes(brew_session_id, commit=commit)
+    except Exception:
+        db.session.rollback()
+        raise

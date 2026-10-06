@@ -1008,3 +1008,146 @@ def test_envase_falha_log_reverte_movimentos_e_chave(app, monkeypatch):
             svc.registrar_envase(lote.id, produto.id, 3, idempotency_key=uuid4().hex)
         assert Movimentacao.query.count() == before and Envase.query.count() == 0
         assert db.session.get(BrewSession, lote.id).insumos_baixados_em is None
+
+
+def test_confirmacao_rejeita_receita_apagada_sem_congelar_custo(app):
+    with app.app_context():
+        material = _criar_material_com_estoque(nome='Malte receita apagada', quantidade_inicial=100)
+        lote = _criar_lote(com_ingrediente=(material, 5))
+        db.session.get(MashRecipe, lote.recipe_id).is_deleted = True
+        db.session.commit()
+        count = Movimentacao.query.count()
+        with pytest.raises(ingredient_consumption_service.ReceitaNaoVinculadaError):
+            ingredient_consumption_service.confirmar_consumo_ingredientes(lote.id)
+        assert Movimentacao.query.count() == count
+        assert db.session.get(BrewSession, lote.id).insumos_baixados_em is None
+        assert material_movement_service.consultar_saldo(material.id)['quantidade_atual'] == 100
+
+
+def test_confirmacao_commit_externo_rollback_e_retentativa(app):
+    with app.app_context():
+        material = _criar_material_com_estoque(nome='Malte transação externa', quantidade_inicial=100, custo_unitario=8)
+        lote = _criar_lote(com_ingrediente=(material, 5))
+        lote_id, material_id = lote.id, material.id
+        count = Movimentacao.query.count()
+        ingredient_consumption_service.confirmar_consumo_ingredientes(lote_id, commit=False)
+        assert Movimentacao.query.count() == count + 1
+        db.session.rollback()
+        assert Movimentacao.query.count() == count
+        assert db.session.get(BrewSession, lote_id).insumos_baixados_em is None
+        assert material_movement_service.consultar_saldo(material_id)['quantidade_atual'] == 100
+        ingredient_consumption_service.confirmar_consumo_ingredientes(lote_id)
+        assert material_movement_service.consultar_saldo(material_id)['quantidade_atual'] == 95
+
+
+def test_percurso_integrado_receita_sessao_custos_envase_estorno(app, client):
+    from uuid import uuid4
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_plant import BrewPlant
+    from addons.addon_brewstation.features.feature_mash_control.model.recipe_step import RecipeStep
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_session_step import BrewSessionStep
+    from addons.addon_brewstation.features.feature_mash_control.services import recipe_timeline_service
+    from addons.addon_brewstation.features.feature_envase.services import envase_preparation_service, precificacao_service
+    _login_admin(app, client)
+    with app.app_context():
+        material = _criar_material_com_estoque(nome='Insumo percurso completo', quantidade_inicial=100, custo_unitario=8)
+        embalagem = _criar_material_com_estoque(nome='Embalagem percurso completo', quantidade_inicial=100, custo_unitario=2)
+        produto = _criar_material_resultante(nome='Produto percurso completo', volume_real=1, componentes=[(embalagem, 1)])
+        recipe = MashRecipe(name='Receita percurso completo', volume_planejado_litros=10)
+        plant = BrewPlant(name='Planta percurso completo')
+        db.session.add_all([recipe, plant]); db.session.flush()
+        db.session.add_all([RecipeIngredient(recipe_id=recipe.id, descricao_origem=material.nome,
+            material_id=material.id, quantidade=5, status_resolucao='resolvido'),
+            RecipeStep(recipe_id=recipe.id, step_type='mash', nome='Mostura auditada', temperatura=67, tempo_min=40, ordem=0)])
+        db.session.commit()
+        lote = recipe_timeline_service.generate_session_from_recipe(recipe.id, plant_id=plant.id, name='Sessão percurso completo')
+        lote.volume_real_litros = 10
+        db.session.commit()
+        plant_id, lote_id = plant.id, lote.id
+        assert BrewSessionStep.query.filter_by(session_id=lote_id).one().name == 'Mostura auditada'
+        count = Movimentacao.query.count()
+        envase_preparation_service.preparar_envase(lote_id, produto.id, 5)
+        precificacao_service.simular(lote_id, None, 20, 0, 0)
+        assert Movimentacao.query.count() == count
+        assert lote.insumos_baixados_em is None
+        ingredient_consumption_service.confirmar_consumo_ingredientes(lote_id)
+        assert lote.custo_total_insumos == 40
+        ingredient_consumption_service.confirmar_consumo_ingredientes(lote_id)
+        assert Movimentacao.query.count() == count + 1
+        key = uuid4().hex
+        result = svc.registrar_envase(lote_id, produto.id, 5, idempotency_key=key)
+        envase_id = result['envase']['id']
+        count = Movimentacao.query.count()
+        assert svc.registrar_envase(lote_id, produto.id, 5, idempotency_key=key)['envase']['id'] == envase_id
+        assert Movimentacao.query.count() == count
+        snapshot = db.session.get(Envase, envase_id).componentes_snapshot
+        precificacao_service.simular(lote_id, envase_id, 20, 0, 0)
+        assert Movimentacao.query.count() == count
+        svc.estornar_envase(envase_id, 'Validação do percurso')
+        assert db.session.get(Envase, envase_id).componentes_snapshot == snapshot
+        assert lote.custo_total_insumos == 40
+        assert material_movement_service.consultar_saldo(material.id)['quantidade_atual'] == 95
+        assert material_movement_service.consultar_saldo(embalagem.id)['quantidade_atual'] == 100
+        count = Movimentacao.query.count()
+        with pytest.raises(svc.EnvaseNaoEstornavelError):
+            svc.estornar_envase(envase_id, 'Repetição')
+        assert Movimentacao.query.count() == count
+    assert client.get(f'/brewstation/plant-workspace/{plant_id}/tab/sessions?session_id={lote_id}&envase_id={envase_id}').status_code == 200
+    assert client.get(f'/brewstation/precificacao-envase/?lote_id={lote_id}').status_code == 200
+
+
+def test_confirmacao_concorrente_sqlite_baixa_uma_vez(app, tmp_path, monkeypatch):
+    """Duas sessões/conexões reais; banco sintético copiado para arquivo temporário."""
+    import sqlite3
+    import threading
+    from sqlalchemy import create_engine
+    results, errors = [], []
+    barrier = threading.Barrier(2)
+    first_read = threading.Event()
+    with app.app_context():
+        material = _criar_material_com_estoque(nome='Insumo concorrência integrada', quantidade_inicial=100, custo_unitario=8)
+        lote = _criar_lote(com_ingrediente=(material, 5))
+        lote_id, material_id = lote.id, material.id
+        count = Movimentacao.query.count()
+        db.session.remove()
+        original_engine = db.engines[None]
+        path = tmp_path / 'confirmacao-concorrente.db'
+        raw = original_engine.raw_connection()
+        destination = sqlite3.connect(path)
+        try:
+            raw.driver_connection.backup(destination)
+        finally:
+            destination.close(); raw.close()
+        engine = create_engine('sqlite:///' + path.as_posix(), connect_args={'timeout': 10})
+        db.engines[None] = engine
+    original_conference = ingredient_consumption_service.conferir_ingredientes
+    def conference(recipe_id):
+        first_read.set()
+        return original_conference(recipe_id)
+    monkeypatch.setattr(ingredient_consumption_service, 'conferir_ingredientes', conference)
+    def worker():
+        try:
+            with app.app_context():
+                # Aquecer o identity map antes de ambos tentarem confirmar.
+                assert db.session.get(BrewSession, lote_id).insumos_baixados_em is None
+                barrier.wait(timeout=10)
+                results.append(ingredient_consumption_service.confirmar_consumo_ingredientes(lote_id))
+        except Exception as exc:
+            errors.append(exc)
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    try:
+        for thread in threads: thread.start()
+        for thread in threads: thread.join(timeout=15)
+        assert not any(thread.is_alive() for thread in threads)
+        assert not errors, errors
+        assert first_read.is_set()
+        assert sorted(result['ja_confirmado'] for result in results) == [False, True]
+        with app.app_context():
+            assert Movimentacao.query.count() == count + 1
+            assert material_movement_service.consultar_saldo(material_id)['quantidade_atual'] == 95
+            assert db.session.get(BrewSession, lote_id).custo_total_insumos == 40
+    finally:
+        for thread in threads: thread.join(timeout=15)
+        with app.app_context():
+            db.session.remove()
+            db.engines[None] = original_engine
+        engine.dispose()

@@ -1063,3 +1063,70 @@ def test_get_step_card_data_expoe_session_status(app):
 
         data = svc.get_step_card_data(session)
         assert data["session_status"] == "active"
+
+
+@pytest.mark.parametrize('name', ['', '   ', 'x' * 101])
+def test_generate_session_rejeita_nome_sem_gravar(app, name):
+    with app.app_context():
+        recipe = _criar_receita()
+        _criar_timeline_completa(recipe)
+        plant = BrewPlant(name='Planta geração auditada')
+        db.session.add(plant); db.session.commit()
+        with pytest.raises(svc.RecipeTimelineError):
+            svc.generate_session_from_recipe(recipe.id, plant_id=plant.id, name=name)
+        assert BrewSession.query.count() == 0
+
+
+@pytest.mark.parametrize('target', ['planta_inativa', 'planta_apagada', 'receita_apagada'])
+def test_generate_session_valida_cadastros_no_servico(app, target):
+    with app.app_context():
+        recipe = _criar_receita()
+        _criar_timeline_completa(recipe)
+        plant = BrewPlant(name='Planta validação geração')
+        db.session.add(plant); db.session.commit()
+        if target == 'planta_inativa': plant.is_active = False
+        if target == 'planta_apagada': plant.is_deleted = True
+        if target == 'receita_apagada': recipe.is_deleted = True
+        db.session.commit()
+        with pytest.raises(svc.RecipeTimelineError):
+            svc.generate_session_from_recipe(recipe.id, plant_id=plant.id, name='Sessão válida')
+        assert BrewSession.query.count() == 0
+
+
+@pytest.mark.parametrize('failure', ['flush', 'commit'])
+def test_generate_session_falha_desfaz_copia_completa(app, monkeypatch, failure):
+    with app.app_context():
+        recipe = _criar_receita()
+        _criar_timeline_completa(recipe)
+        plant = BrewPlant(name='Planta rollback geração')
+        db.session.add(plant); db.session.commit()
+        recipe_id, plant_id = recipe.id, plant.id
+        with monkeypatch.context() as patch:
+            patch.setattr(db.session, failure, lambda *a, **kw: (_ for _ in ()).throw(RuntimeError('falha de geração')))
+            with pytest.raises(RuntimeError):
+                svc.generate_session_from_recipe(recipe_id, plant_id=plant_id, name='Sessão rollback')
+        assert BrewSession.query.count() == 0
+        assert BrewSessionStep.query.count() == 0
+        assert RecipeStep.query.filter_by(recipe_id=recipe_id).count() == 3
+        session = svc.generate_session_from_recipe(recipe_id, plant_id=plant_id, name='Nova tentativa')
+        assert BrewSessionStep.query.filter_by(session_id=session.id).count() == 3
+
+
+def test_generate_session_rota_falha_responde_mensagem_e_sem_copia(app, client, monkeypatch):
+    _login_admin(app, client)
+    with app.app_context():
+        recipe = _criar_receita()
+        _criar_timeline_completa(recipe)
+        plant = BrewPlant(name='Planta falha rota geração')
+        db.session.add(plant); db.session.commit()
+        recipe_id, plant_id = recipe.id, plant.id
+    with monkeypatch.context() as patch:
+        patch.setattr(db.session, 'commit', lambda: (_ for _ in ()).throw(RuntimeError('falha')))
+        response = client.post(f'/brewstation/recipe-timeline/{recipe_id}/generate-session',
+            data={'plant_id': plant_id, 'name': 'Sessão falha'}, headers={'X-Requested-With': 'XMLHttpRequest'})
+        assert response.status_code == 500
+        assert not response.json['ok']
+        assert 'Nenhuma cópia parcial' in response.json['error']
+    with app.app_context():
+        assert BrewSession.query.count() == 0
+        assert BrewSessionStep.query.count() == 0

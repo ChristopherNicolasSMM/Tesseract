@@ -227,50 +227,63 @@ def generate_session_from_recipe(recipe_id: int, *, plant_id: int, name: str, st
     if status not in ("draft", "active"):
         raise RecipeTimelineError("Status inicial precisa ser 'draft' ou 'active'.")
 
+    if not MashRecipe.query.filter_by(id=recipe_id, is_deleted=False).first():
+        raise RecipeTimelineError('Receita não encontrada ou removida.')
     timeline = get_timeline(recipe_id)
     if not timeline:
         raise RecipeTimelineError("Esta receita não tem nenhuma etapa na timeline ainda.")
 
-    started_at = datetime.now(timezone.utc) if status == "active" else None
-    session = BrewSession(
-        name=name, plant_id=plant_id, recipe_id=recipe_id, status=status, started_at=started_at,
-        operator_id=created_by_user_id,
-    )
-    db.session.add(session)
-    db.session.flush()
+    name = (name or '').strip()
+    if not name or len(name) > 100:
+        raise RecipeTimelineError('Informe nome da sessão com até 100 caracteres.')
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_plant import BrewPlant
+    if not BrewPlant.query.filter_by(id=plant_id, is_deleted=False, is_active=True).first():
+        raise RecipeTimelineError('Planta ativa não encontrada.')
+    try:
+        started_at = datetime.now(timezone.utc) if status == "active" else None
+        session = BrewSession(
+            name=name, plant_id=plant_id, recipe_id=recipe_id, status=status, started_at=started_at,
+            operator_id=created_by_user_id,
+        )
+        db.session.add(session)
+        db.session.flush()
 
-    cumulative_min = 0.0
-    end_offset_by_step_id: dict[int, float] = {}
-    step_index = 0
+        cumulative_min = 0.0
+        end_offset_by_step_id: dict[int, float] = {}
+        step_index = 0
 
-    for step in timeline:
-        if step.step_type in ("mash", "boil"):
-            ramp = step.ramp_time_min or 0
-            hold = step.tempo_min or 0
-            cumulative_min += ramp + hold
-            end_offset_by_step_id[step.id] = cumulative_min
-            db.session.add(BrewSessionStep(
-                session_id=session.id, step_index=step_index, name=step.nome or step.step_type,
-                step_type=step.step_type, target_temp=step.temperatura,
-                duration_seconds=int(hold * 60), ramp_seconds=int(ramp * 60),
-                source_recipe_step_id=step.id,
-            ))
-            step_index += 1
+        for step in timeline:
+            if step.step_type in ("mash", "boil"):
+                ramp = step.ramp_time_min or 0
+                hold = step.tempo_min or 0
+                cumulative_min += ramp + hold
+                end_offset_by_step_id[step.id] = cumulative_min
+                db.session.add(BrewSessionStep(
+                    session_id=session.id, step_index=step_index, name=step.nome or step.step_type,
+                    step_type=step.step_type, target_temp=step.temperatura,
+                    duration_seconds=int(hold * 60), ramp_seconds=int(ramp * 60),
+                    source_recipe_step_id=step.id,
+                ))
+                step_index += 1
 
-    for step in timeline:
-        if step.step_type == "alert":
-            parent_end = end_offset_by_step_id.get(step.parent_step_id, cumulative_min)
-            trigger_min = parent_end - (step.trigger_minutes_remaining or 0)
-            trigger_seconds = max(0, int(trigger_min * 60))
-            db.session.add(BrewSessionStep(
-                session_id=session.id, step_index=step_index, name=step.nome or "Alerta",
-                step_type="alert", duration_seconds=0, trigger_at_seconds=trigger_seconds,
-                source_recipe_step_id=step.id,
-            ))
-            step_index += 1
+        for step in timeline:
+            if step.step_type == "alert":
+                parent_end = end_offset_by_step_id.get(step.parent_step_id, cumulative_min)
+                trigger_min = parent_end - (step.trigger_minutes_remaining or 0)
+                trigger_seconds = max(0, int(trigger_min * 60))
+                db.session.add(BrewSessionStep(
+                    session_id=session.id, step_index=step_index, name=step.nome or "Alerta",
+                    step_type="alert", duration_seconds=0, trigger_at_seconds=trigger_seconds,
+                    source_recipe_step_id=step.id,
+                ))
+                step_index += 1
 
-    db.session.commit()
-    return session
+        db.session.commit()
+        return session
+    except Exception:
+        db.session.rollback()
+        raise
+
 
 
 # ── Disparo automático de alerta (chamado a cada snapshot do Dashboard) ─────

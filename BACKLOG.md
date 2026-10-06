@@ -35,7 +35,7 @@ validado pelo usuário; ver
 [workspace-envase-detalhes-estorno-2b.md](docs/patches/workspace-envase-detalhes-estorno-2b.md).
 Precificação 2C.1 (custos registrados) e rateio/preço por unidade 2C.2
 validados pelo usuário em 05/10/2026.
-3A.1/3B validados; descanso visual 3A.2 implementado, aguardando validação.
+3A.1/3B validados; descanso visual 3A.2 implementado e validado pelo usuário.
 Patch combinado 4B.3/4B.4/4C e revisão/hints de menus validados pelo usuário.
 Menus e cadastros avançados preservados.
 
@@ -5674,3 +5674,13 @@ suavização visual após inatividade, sem alternância de painéis nem pausa de
 runtime. Configuração manual no workspace; mesma execução na view própria.
 Sem migration. Nova entrega aguarda validação local; auditoria integrada é o
 próximo pacote. Ver docs/patches/workspace-dashboard-standby-3a2.md.
+
+
+### Revisão integrada — 05/10/2026
+
+Descanso visual 3A.2 validado pelo usuário. Novo pacote corrige atomicidade da
+cópia de sessão, validações no serviço, reserva/releitura de confirmação de
+insumos e geração AJAX contextual. Teste de percurso até estorno e concorrência
+SQLite real adicionados. Sem migration. Nova entrega aguarda validação local;
+não encerra manutenção avançada, PID, proveniência física ou auditorias dos
+portais Brewfather/YeastBank. Ver docs/patches/workspace-revisao-integrada-processo.md.

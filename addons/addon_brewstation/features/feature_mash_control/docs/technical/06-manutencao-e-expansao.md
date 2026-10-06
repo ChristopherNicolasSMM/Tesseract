@@ -400,3 +400,15 @@ configuração segura de standby para ambas as views, sem corrigir legados na
 consulta. static/js/dashboard_standby.js não faz requests; lifecycle delegado
 à limpeza do runtime. Sem migration. Roteiro e limites em
 `docs/patches/workspace-dashboard-standby-3a2.md`.
+
+
+## Revisão integrada do processo
+
+Geração manual de sessão tem rollback explícito na cópia e validação de nome,
+planta e receita no serviço. Erros inesperados retornam mensagem na rota.
+Consumo público reserva escrita SQLite e relê confirmação antes de baixar;
+UPDATE mantém custo/updated_at. commit=False participa da transação externa.
+Nenhuma atualização direta de saldo; ledger continua via serviço de estoque.
+AJAX de geração bloqueia reenvio e ignora navegação após fragmento removido.
+Sem migration. Inventário, testes e limites em
+`docs/patches/workspace-revisao-integrada-processo.md`.
