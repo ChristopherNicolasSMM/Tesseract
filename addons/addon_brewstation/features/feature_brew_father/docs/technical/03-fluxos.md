@@ -48,3 +48,18 @@ O status "apagada — pendente de reimportar" depende da correção feita
 na skill 25 (`_importar_receita` passou a filtrar `is_deleted=False`
 na deduplicação) — sem ela, uma receita apagada nunca seria
 reimportada de verdade, mesmo marcada de novo aqui.
+
+
+## Continuidade contextual e preservação de versões
+
+O hook manual valida workspace_plant_id antes da API; destinos são construídos
+com url_for, sem return_url livre. O importador escolhe a versão mais recente
+por versao/id e não apaga versões anteriores na ressincronização. O par
+name/versao continua único; renomear remotamente não reinicia a progressão
+da origem. Cada importação efetiva grava snapshot com o ID da versão de origem.
+
+A identidade conservadora do ingrediente é descrição/tipo/uso; decisões
+locais únicas precedem o cache global na nova versão. Material é verificado
+pelo lookup público do estoque. Duplicatas com decisões locais ou material
+inativo geram pendência. Valores remotos permanecem remotos; ajustes locais
+continuam consultáveis na versão anterior. Conversões não são alteradas.

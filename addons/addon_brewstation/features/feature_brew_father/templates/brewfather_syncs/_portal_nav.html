@@ -1,9 +1,11 @@
 <nav aria-label="Áreas do portal Brewfather" class="mb-3">
   <div class="d-flex flex-wrap gap-2">
-    <a class="btn btn-sm {{ 'btn-primary' if aba_portal == 'receitas' else 'btn-outline-primary' }}" href="{{ url_for('brewfather_syncs.portal') }}" {% if aba_portal == 'receitas' %}aria-current="page"{% endif %}>Receitas</a>
-    <a class="btn btn-sm {{ 'btn-primary' if aba_portal == 'lotes' else 'btn-outline-primary' }}" href="{{ url_for('brewfather_syncs.portal_lotes') }}" {% if aba_portal == 'lotes' %}aria-current="page"{% endif %}>Lotes</a>
+    <a class="btn btn-sm {{ 'btn-primary' if aba_portal == 'receitas' else 'btn-outline-primary' }}" href="{{ url_for('brewfather_syncs.portal', workspace_plant_id=workspace_plant_id|default(none)) }}" {% if aba_portal == 'receitas' %}aria-current="page"{% endif %}>Receitas</a>
+    <a class="btn btn-sm {{ 'btn-primary' if aba_portal == 'lotes' else 'btn-outline-primary' }}" href="{{ url_for('brewfather_syncs.portal_lotes', workspace_plant_id=workspace_plant_id|default(none)) }}" {% if aba_portal == 'lotes' %}aria-current="page"{% endif %}>Lotes</a>
     {% for chave, nome in [('fermentables', 'Fermentáveis'), ('hops', 'Lúpulos'), ('yeasts', 'Leveduras'), ('miscs', 'Outros ingredientes')] %}
-    <a class="btn btn-sm {{ 'btn-primary' if aba_portal == chave else 'btn-outline-primary' }}" href="{{ url_for('brewfather_syncs.portal_inventario', categoria=chave) }}" {% if aba_portal == chave %}aria-current="page"{% endif %}>{{ nome }}</a>
+    <a class="btn btn-sm {{ 'btn-primary' if aba_portal == chave else 'btn-outline-primary' }}" href="{{ url_for('brewfather_syncs.portal_inventario', categoria=chave, workspace_plant_id=workspace_plant_id|default(none)) }}" {% if aba_portal == chave %}aria-current="page"{% endif %}>{{ nome }}</a>
     {% endfor %}
   </div>
 </nav>
+
+{% if workspace_plant_id %}<a class="btn btn-sm btn-outline-secondary mb-3" href="{{ url_for('plant_workspace.shell', plant_id=workspace_plant_id, tab='recipe') }}">{{ t('brewstation_brewfather.continuity.return_workspace') }}</a>{% endif %}

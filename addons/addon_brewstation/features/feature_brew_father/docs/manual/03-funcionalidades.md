@@ -26,7 +26,8 @@ as receitas carregadas. Escolha a ação e marque até 50 receitas:
 - **Ressincronizar importadas** busca novamente o detalhe e cria outra
   versão no BrewStation. Lotes existentes continuam ligados à versão anterior.
 - **Mover importadas para lixeira** oculta as receitas locais escolhidas;
-  não exclui os lotes nem altera a conta Brewfather.
+  não altera a conta Brewfather. Grupos contendo receita usada por lote são
+  recusados integralmente, preservando as versões vinculadas.
 
 Os botões de ações gerais operam sobre **todas as receitas importadas**
 no Tesseract, mesmo fora da página exibida. A ressincronização geral
@@ -71,3 +72,23 @@ Atalho pra quem não quer resolver ingrediente por ingrediente —
 cadastra um Material novo pra cada ingrediente ainda pendente, de uma
 vez só. Os materiais criados assim ficam marcados como "pendente de
 revisão" no Estoque (ver manual do Estoque).
+
+
+## Retorno ao workspace e ressincronização (06/10/2026)
+
+Abra o Portal Brewfather pelo atalho da aba Receita para conservar a planta
+de retorno. Importar uma receita abre seu planejamento no workspace; várias
+receitas ou erros retornam ao portal contextual. Filtros e navegação principal
+conservam a planta; cadastros auxiliares têm navegação própria.
+
+Ressincronizar cria uma nova versão com o planejamento remoto e conserva a
+versão anterior com os ajustes locais e lotes vinculados. Quantidades, água e
+fermentação locais não são mescladas automaticamente. Descrição, volume
+planejado e configuração de equipamento são conservados na nova versão.
+Vínculos de ingredientes e decisões Não consumir só são reaproveitados se
+a correspondência for única. Duplicatas ou materiais inativos exigem revisão.
+As conversões existentes continuam no material, sem movimentação de estoque.
+
+Excluir um grupo que inclua receita usada por lote é recusado integralmente.
+Não apague receitas de lotes para forçar importação; use Ressincronizar.
+Detalhes e testes: docs/patches/workspace-consolidacao-receita-planta-brewfather.md.

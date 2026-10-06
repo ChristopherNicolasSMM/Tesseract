@@ -1,3 +1,4 @@
+{% if current_user.has_permission('brewfather_syncs.list') %}<a class="btn btn-sm btn-outline-primary mb-3" href="{{ url_for('brewfather_syncs.portal', workspace_plant_id=plant.id) }}">{{ t('brewstation_brewfather.continuity.portal') }}</a>{% endif %}
 {# A receita é global; a planta selecionada apenas preenche o destino da sessão. #}
 <div class="row g-3 mb-3">
   <div class="col-lg-8">
@@ -82,27 +83,7 @@
   </div>
 </div>
 
-<div class="row g-3 mb-3">
-  <div class="col-lg-6">
-    <div class="card h-100"><div class="card-body">
-      <h5 class="card-title">Água</h5>
-      <a class="btn btn-sm btn-outline-primary mb-2" href="{{ url_for('water_workspace.detail', recipe_id=recipe.id) }}" target="_blank" rel="noopener">Consultar todos os contextos em cards</a>
-      {% for perfil in agua %}
-      <div class="small mb-1"><strong>{{ {'source': 'Água de origem', 'target': 'Perfil alvo', 'mash': 'Mostura', 'sparge': 'Lavagem', 'total': 'Mistura total'}.get(perfil.contexto, perfil.contexto) }}</strong> · pH {{ perfil.ph if perfil.ph is not none else '—' }} · Ca {{ perfil.calcio if perfil.calcio is not none else '—' }} · Cl {{ perfil.cloreto if perfil.cloreto is not none else '—' }} · SO₄ {{ perfil.sulfato if perfil.sulfato is not none else '—' }} ppm
-        <a href="{{ url_for('water_profiles.detail', id=perfil.id) }}" target="_blank" rel="noopener">Detalhes</a></div>
-      {% else %}<div class="text-muted small">Nenhum perfil de água importado.</div>{% endfor %}
-    </div></div>
-  </div>
-  <div class="col-lg-6">
-    <div class="card h-100"><div class="card-body">
-      <h5 class="card-title">Fermentação planejada</h5>
-      {% for etapa in fermentacao %}
-      <div class="small mb-1">{{ etapa.ordem + 1 }}. {{ etapa.nome or 'Etapa' }} · {{ (etapa.temperatura ~ ' °C') if etapa.temperatura is not none else 'temperatura não informada' }} · {{ (etapa.tempo_dias ~ ' dias') if etapa.tempo_dias is not none else 'duração não informada' }}
-        <a href="{{ url_for('fermentation_steps.detail', id=etapa.id) }}" target="_blank" rel="noopener">Detalhes</a></div>
-      {% else %}<div class="text-muted small">Nenhuma etapa de fermentação cadastrada.</div>{% endfor %}
-    </div></div>
-  </div>
-</div>
+{% include "plant_workspace/_recipe_preparation.html" %}
 
 <div class="card mb-3"><div class="card-body">
   <h5 class="card-title">Histórico de versões</h5>
@@ -207,3 +188,5 @@
 </script>
 
 {% include "plant_workspace/_ingredient_conversion_scripts.html" %}
+
+{% include "plant_workspace/_process_mutation_scripts.html" %}

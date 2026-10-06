@@ -4,9 +4,13 @@
 > Cada item referencia a Fase do plano de construção (ver
 > `README.md` → seção Fases) e a skill/doc relevante quando aplicável.
 
-Incremento de 06/10/2026: conversões de ingredientes pelo material implementadas;
-aguarda validação local. Revisão integrada anterior validada pelo usuário.
+Incremento de 06/10/2026: conversões de ingredientes pelo material aplicadas
+e validadas pelo usuário. Revisão integrada anterior validada pelo usuário.
 Ver [conversões no workspace](docs/patches/workspace-conversoes-ingredientes-material.md).
+
+Pacote consolidado de receita/planta/Brewfather implementado; aguardando aplicação
+e validação local. Sem migration. Ver [escopo e testes](docs/patches/workspace-consolidacao-receita-planta-brewfather.md).
+Após validação: auditoria do YeastBank, depois auditoria de estoque.
 
 ## Continuidade BrewStation — plano atual (2026-09-30)
 

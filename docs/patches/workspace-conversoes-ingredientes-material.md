@@ -1,6 +1,6 @@
 # Conversões de ingredientes pelo material no workspace
 
-Implementado em 06/10/2026; aguarda aplicação e validação local. O patch
+Implementado, aplicado e validado pelo usuário em 06/10/2026. O patch
 anterior de revisão integrada foi validado pelo usuário.
 
 ## Problema e comportamento

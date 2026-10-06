@@ -11,6 +11,7 @@
     {% else %}
       {% if limitado %}<div class="alert alert-warning" role="status">Foram consultados até 500 itens desta categoria. Pode haver outros; os filtros alcançam somente os itens carregados.</div>{% endif %}
       <form method="get" action="{{ url_for('brewfather_syncs.portal_inventario', categoria=categoria) }}" class="row g-2 align-items-end mb-3">
+        {% if workspace_plant_id %}<input type="hidden" name="workspace_plant_id" value="{{ workspace_plant_id }}">{% endif %}
         <div class="col-md-5"><label class="form-label" for="inventario-q">Nome ou fabricante</label><input id="inventario-q" name="q" class="form-control" value="{{ filtros.q }}"></div>
         <div class="col-md-3"><label class="form-label" for="inventario-stock">Quantidade no Brewfather</label>
           <select id="inventario-stock" name="stock" class="form-select">
@@ -19,9 +20,9 @@
             <option value="other" {% if filtros.stock == 'other' %}selected{% endif %}>Zero, negativa ou não informada</option>
           </select></div>
         <div class="col-md-auto"><button class="btn btn-primary" type="submit">Filtrar</button></div>
-        <div class="col-md-auto"><a class="btn btn-outline-secondary" href="{{ url_for('brewfather_syncs.portal_inventario', categoria=categoria) }}">Limpar</a></div>
+        <div class="col-md-auto"><a class="btn btn-outline-secondary" href="{{ url_for('brewfather_syncs.portal_inventario', workspace_plant_id=workspace_plant_id, categoria=categoria) }}">Limpar</a></div>
       </form>
-      <a class="btn btn-outline-secondary btn-sm mb-3" href="{{ url_for('brewfather_syncs.portal_inventario', categoria=categoria, refresh=1) }}">Atualizar lista do Brewfather</a>
+      <a class="btn btn-outline-secondary btn-sm mb-3" href="{{ url_for('brewfather_syncs.portal_inventario', workspace_plant_id=workspace_plant_id, categoria=categoria, refresh=1) }}">Atualizar lista do Brewfather</a>
       <p class="small text-muted" role="status">{{ itens|length }} exibido(s) de {{ total }} carregado(s)</p>
       {% if itens %}<div class="table-responsive"><table class="table table-hover align-middle">
         <thead><tr><th scope="col">Nome</th><th scope="col">Tipo</th><th scope="col">Fabricante</th><th scope="col">Brewfather</th>{% if categoria in ('fermentables', 'hops') %}<th scope="col">Material vinculado</th><th scope="col">Saldo Tesseract</th><th scope="col">Diferença</th><th scope="col">Conciliação</th>{% endif %}</tr></thead>

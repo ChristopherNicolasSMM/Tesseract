@@ -6,7 +6,9 @@ Cadastro de receitas de brassagem — etapas de mostura, perfil de
 água, etapas de fermentação e os ingredientes usados (ligados a um
 Material do Estoque). A ressincronização da receita do Brewfather cria
 uma versão nova; os snapshots existentes ficam disponíveis no histórico.
-A edição manual pelo formulário atual ainda altera a versão existente.
+No workspace, a preparação edita apenas receitas sem lotes. Receita usada,
+inclusive por lote apagado, exige Criar revisão. Cadastros avançados continuam
+com suas regras próprias.
 
 ### Conferir uma receita antes de gerar a sessão
 
@@ -576,3 +578,24 @@ material, não edita ingredientes e não movimenta estoque. É permitido em
 receitas usadas; o custo registrado de lotes confirmados permanece congelado.
 Requer permissão de criar unidades do material. Cancelamento não grava;
 conversões existentes com outro fator exigem manutenção no cadastro completo.
+
+
+## Pacote consolidado: receita, planta e Brewfather (06/10/2026)
+
+Na aba Receita, dados gerais planejados, fermentação e água podem ser
+preparados sem sair do processo. Lixeira/restauração está disponível para
+etapas e perfis. Receita usada por qualquer lote exige Criar revisão antes
+da edição; alterações efetivas têm snapshot e operador no histórico.
+
+Na aba Planta, manutenção de tanques/mapeamentos tem lixeira paginada e
+restauração com confirmação. Referências em sessões, widgets, etapas,
+tubulações e regras impedem operações incompatíveis. Não há remoção em cascata.
+
+O Portal Brewfather aberto pela receita conserva a planta de retorno.
+Ressincronização cria nova versão remota; os ajustes locais ficam preservados
+na versão anterior. Vínculos únicos e decisões Não consumir são reaproveitados;
+ambiguidades precisam de saneamento. Conversões permanecem no material.
+
+Cadastros globais/avançados continuam disponíveis. Não há migration, baixa de
+estoque ou mudança de custos dos lotes. YeastBank e estoque serão auditados
+depois da validação local deste pacote.

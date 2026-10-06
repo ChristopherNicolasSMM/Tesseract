@@ -1,0 +1,42 @@
+{% macro preparation_form(kind, row=none) %}
+{% set fields = {'recipe': ['name', 'description', 'volume_planejado_litros'], 'fermentation': ['nome', 'temperatura', 'tempo_dias', 'ordem'], 'water': ['contexto', 'calcio', 'magnesio', 'sodio', 'cloreto', 'sulfato', 'bicarbonato', 'ph']}[kind] %}
+<form method="post" class="pw-process-mutation row g-2 my-2" action="{{ url_for('plant_workspace.prepare_workspace_recipe', plant_id=plant.id, recipe_id=recipe.id, kind=kind, row_id=row.id if row and kind != 'recipe' else none, action='save') }}" data-confirm-key="brewstation_mashctrl.preparation.confirm_save" data-confirm-missing="{{ t('brewstation_mashctrl.conversion.confirm_missing') }}">
+  {% for field in fields %}{% set value = row[field] if row else none %}
+  <div class="{{ 'col-12' if field == 'description' else 'col-md-4' }}">
+    <label class="form-label" for="pwPlan{{ kind }}{{ row.id if row else 'New' }}{{ field }}">{{ t('brewstation_mashctrl.preparation.field_' ~ field) }}</label>
+    {% if field == 'contexto' %}
+    <select name="contexto" class="form-select" id="pwPlan{{ kind }}{{ row.id if row else 'New' }}{{ field }}" required {{ 'disabled' if row else '' }}>
+      {% for code in ['source', 'target', 'mash', 'sparge', 'total'] %}<option value="{{ code }}" {{ 'selected' if value == code else '' }}>{{ t('brewstation_mashctrl.preparation.context_' ~ code) }}</option>{% endfor %}
+    </select>
+    {% if row %}<input type="hidden" name="contexto" value="{{ row.contexto }}"><div class="form-text">{{ t("brewstation_mashctrl.preparation.fixed_context") }}</div>{% endif %}
+    {% elif field == 'description' %}<textarea class="form-control" name="{{ field }}" id="pwPlan{{ kind }}{{ row.id if row else 'New' }}{{ field }}" rows="2">{{ value or '' }}</textarea>
+    {% else %}<input class="form-control" name="{{ field }}" id="pwPlan{{ kind }}{{ row.id if row else 'New' }}{{ field }}" type="{{ 'text' if field in ['name', 'nome'] else 'number' }}" value="{{ value if value is not none else (0 if field == 'ordem' else '') }}" {% if field in ['name', 'nome'] %}maxlength="100"{% else %}step="{{ 1 if field == 'ordem' else 'any' }}" min="{{ -5 if field == 'temperatura' else 0 }}" {% if field == 'ph' %}max="14"{% endif %}{% endif %} {{ 'required' if field in ['name', 'ordem'] else '' }}>{% endif %}
+  </div>{% endfor %}
+  <div class="col-12"><button type="submit" class="btn btn-primary btn-sm">{{ t('brewstation_mashctrl.preparation.save') }}</button></div>
+</form>
+{% endmacro %}
+{% macro lifecycle(kind, row, action) %}
+<form method="post" class="pw-process-mutation d-inline-block" action="{{ url_for('plant_workspace.prepare_workspace_recipe', plant_id=plant.id, recipe_id=recipe.id, kind=kind, row_id=row.id, action=action) }}" data-confirm-key="brewstation_mashctrl.preparation.confirm_{{ action }}" data-confirm-missing="{{ t('brewstation_mashctrl.conversion.confirm_missing') }}"><button type="submit" class="btn btn-sm btn-outline-secondary">{{ t('brewstation_mashctrl.preparation.' ~ action) }}</button></form>
+{% endmacro %}
+<div class="card mb-3"><div class="card-body">
+  <h5 class="card-title">{{ t('brewstation_mashctrl.preparation.general') }}</h5>
+  {% if receita_em_uso %}<p class="text-warning small">{{ t('brewstation_mashctrl.preparation.used') }}</p>
+  {% elif current_user.has_permission('mash_recipes.update') %}{{ preparation_form('recipe', recipe) }}{% endif %}
+  {% if recipe_versions|length > 1 %}<div class="d-flex flex-wrap gap-2 mt-2"><span>{{ t('brewstation_mashctrl.preparation.versions') }}</span>{% for version in recipe_versions %}<a href="{{ url_for('plant_workspace.shell', plant_id=plant.id, tab='recipe', recipe_id=version.id) }}" class="btn btn-sm btn-outline-secondary" {{ 'aria-current=page' if version.id == recipe.id else '' }}>{{ version.name }} · v{{ version.versao }}</a>{% endfor %}</div>{% endif %}
+</div></div>
+<div class="row g-3 mb-3">
+{% for kind, rows, trash_rows, plural, title in [('fermentation', fermentacao, fermentation_trash, 'fermentation_steps', 'fermentation'), ('water', agua, water_trash, 'water_profiles', 'water')] %}
+<div class="col-lg-6"><div class="card h-100"><div class="card-body">
+  <h5 class="card-title">{{ t('brewstation_mashctrl.preparation.' ~ title) }}</h5>
+  {% if kind == 'water' %}<a class="btn btn-sm btn-outline-secondary mb-2" href="{{ url_for('water_workspace.detail', recipe_id=recipe.id) }}">{{ t('brewstation_mashctrl.preparation.water_portal') }}</a>{% endif %}
+  {% for row in rows %}<details class="border rounded p-2 mb-2"><summary>{{ row.nome or ('Etapa ' ~ (row.ordem + 1)) if kind == 'fermentation' else t('brewstation_mashctrl.preparation.context_' ~ row.contexto) }}</summary>
+    {% if kind == 'fermentation' %}<p class="small mt-2">{{ row.temperatura if row.temperatura is not none else '—' }} °C · {{ row.tempo_dias if row.tempo_dias is not none else '—' }} {{ t('brewstation_mashctrl.preparation.days') }}</p>
+    {% else %}<p class="small mt-2">pH {{ row.ph if row.ph is not none else '—' }} · Ca {{ row.calcio if row.calcio is not none else '—' }} · Mg {{ row.magnesio if row.magnesio is not none else '—' }} · Na {{ row.sodio if row.sodio is not none else '—' }} · Cl {{ row.cloreto if row.cloreto is not none else '—' }} · SO₄ {{ row.sulfato if row.sulfato is not none else '—' }} · HCO₃ {{ row.bicarbonato if row.bicarbonato is not none else '—' }} ppm</p>{% endif %}
+    {% if not receita_em_uso and current_user.has_permission(plural ~ '.update') %}{{ preparation_form(kind, row) }}{% endif %}
+    {% if not receita_em_uso and current_user.has_permission(plural ~ '.trash') %}{{ lifecycle(kind, row, 'trash') }}{% endif %}
+  </details>{% else %}<p class="small text-muted">{{ t('brewstation_mashctrl.preparation.empty') }}</p>{% endfor %}
+  {% if not receita_em_uso and current_user.has_permission(plural ~ '.create') %}<details><summary>{{ t('brewstation_mashctrl.preparation.new') }}</summary>{{ preparation_form(kind) }}</details>{% endif %}
+  {% if not receita_em_uso and current_user.has_permission(plural ~ '.restore') and trash_rows %}<details class="mt-3"><summary>{{ t('brewstation_mashctrl.preparation.trash') }}</summary>{% for row in trash_rows %}<div class="my-2">{{ row.nome or ('Etapa ' ~ (row.ordem + 1)) if kind == 'fermentation' else t('brewstation_mashctrl.preparation.context_' ~ row.contexto) }} {{ lifecycle(kind, row, 'restore') }}</div>{% endfor %}</details>{% endif %}
+</div></div></div>
+{% endfor %}
+</div>

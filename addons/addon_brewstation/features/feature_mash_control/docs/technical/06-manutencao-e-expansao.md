@@ -424,3 +424,24 @@ A consulta verifica linhas únicas/ativas e fatores finitos positivos.
 O custo congelado e a confirmação central de insumos permanecem preservados.
 ModuleManager.active_features permite ao i18n carregar traduções das features
 registradas. Ver documentação do patch em docs/patches/workspace-conversoes-ingredientes-material.md.
+
+
+## Consolidação de preparação e manutenção (06/10/2026)
+
+Extensões manuais: `workspace_recipe_preparation.py`,
+`workspace_plant_maintenance.py` e partials contextuais em plant_workspace.
+Não regenerar essas operações como CRUD paralelo. Preparação usa whitelist,
+reserva de escrita SQLite, snapshot e commit único; qualquer lote vinculado
+bloqueia a versão, inclusive lote apagado. Repetições sem alteração não
+duplicam histórico. Manutenção valida escopo, referências e compatibilidade
+antes do soft delete/restauração, sem cascata ou comandos físicos.
+
+O hook manual Brewfather valida workspace_plant_id antes de chamadas remotas.
+O importador preserva versões locais, registra snapshot da nova versão e só
+reaproveita decisões de ingrediente por correspondência única. Não mesclar
+quantidades/etapas locais no plano remoto nem alterar conversões de materiais.
+
+Detalhes, comandos e roteiro estão em
+`docs/patches/workspace-consolidacao-receita-planta-brewfather.md`.
+Sem migration. A proteção descrita é dos caminhos integrados; cadastros
+avançados preservados continuam com suas regras próprias.

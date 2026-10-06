@@ -1,4 +1,8 @@
 {
   "brewstation_bf.depara.confirm_create_materials": "Criar um Material no estoque para cada ingrediente pendente? Os dados de spec (EBC, alpha, etc.) do BrewFather serão usados.",
-  "brewstation_bf.syncs.confirm_sincronizar_tudo": "Sincronizar TODAS as receitas do BrewFather de uma vez? Prefira \"Selecionar Receitas pra Sincronizar\" se quiser escolher — isso importa tudo."
+  "brewstation_bf.syncs.confirm_sincronizar_tudo": "Sincronizar TODAS as receitas do BrewFather de uma vez? Prefira \"Selecionar Receitas pra Sincronizar\" se quiser escolher — isso importa tudo.",
+  "brewstation_brewfather.continuity.portal": "Importar ou revisar no Brewfather",
+  "brewstation_brewfather.continuity.open_recipe": "Abrir versão local no workspace",
+  "brewstation_brewfather.continuity.return_workspace": "Voltar ao workspace da planta",
+  "brewstation_brewfather.continuity.resync_policy": "Ressincronizar cria uma nova versão com o planejamento remoto. As versões e alterações locais anteriores continuam preservadas para consulta e revisão. Vínculos locais são reutilizados somente por correspondência única; conversões permanecem no material."
 }

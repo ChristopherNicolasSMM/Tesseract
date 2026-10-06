@@ -1,0 +1,27 @@
+{% from 'plant_workspace/_plant_maintenance_action.html' import maintenance_action with context %}
+<div class="card mt-3"><div class="card-body">
+<h5 class="card-title">{{ t('brewstation_mashctrl.maintenance.title') }}</h5>
+<p class="small text-muted">{{ t('brewstation_mashctrl.maintenance.scope') }}</p>
+<div class="d-flex flex-wrap gap-2 mb-3">
+{% if current_user.has_permission('brew_plant_vessels.list') %}<a class="btn btn-sm btn-outline-secondary" href="{{ url_for('brew_plant_vessels.manage') }}">{{ t('brewstation_mashctrl.maintenance.vessels_advanced') }}</a>{% endif %}
+{% if current_user.has_permission('brew_plant_mappings.list') %}<a class="btn btn-sm btn-outline-secondary" href="{{ url_for('brew_plant_mappings.manage') }}">{{ t('brewstation_mashctrl.maintenance.mappings_advanced') }}</a>{% endif %}
+</div>
+{% for kind, page, plural, key in [('vessels', vessel_trash, 'brew_plant_vessels', 'vessels_trash_page'), ('mappings', mapping_trash, 'brew_plant_mappings', 'mappings_trash_page')] %}
+{% if current_user.has_permission(plural ~ '.restore') %}
+<details class="mb-2"><summary>{{ t('brewstation_mashctrl.maintenance.trash_' ~ kind) }} ({{ page.total }})</summary>
+{% for row in page.items %}<div class="border-bottom py-2 d-flex justify-content-between gap-2 flex-wrap">
+<span>{{ row.label_text or row.role_key if kind == 'mappings' else row.label_text }}{% if kind == 'mappings' %} · {{ row.device_function_name }}{% if row.vessel.is_deleted %}<span class="small text-warning">{{ t('brewstation_mashctrl.maintenance.restore_vessel') }}</span>{% endif %}{% endif %}</span>
+{{ maintenance_action(kind, row, 'restore', kind == 'mappings' and row.vessel.is_deleted) }}</div>
+{% else %}<p class="small text-muted mt-2">{{ t('brewstation_mashctrl.preparation.empty') }}</p>{% endfor %}
+<div class="d-flex gap-2 my-2">
+{% if page.has_prev %}<a class="btn btn-sm btn-outline-secondary pw-maintenance-page" href="{{ url_for('plant_workspace.tab_plant', plant_id=plant.id, **{key: page.prev_num}) }}">{{ t('brewstation_mashctrl.preparation.previous') }}</a>{% endif %}
+{% if page.has_next %}<a class="btn btn-sm btn-outline-secondary pw-maintenance-page" href="{{ url_for('plant_workspace.tab_plant', plant_id=plant.id, **{key: page.next_num}) }}">{{ t('brewstation_mashctrl.preparation.next') }}</a>{% endif %}
+</div></details>{% endif %}
+{% endfor %}
+</div></div>
+<script>
+document.querySelectorAll('.pw-maintenance-page').forEach(function (link) {
+  link.addEventListener('click', function (event) { event.preventDefault(); window.__workspaceLoadUrl(link.href); });
+});
+</script>
+{% include 'plant_workspace/_process_mutation_scripts.html' %}

@@ -1,0 +1,30 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const path = require('node:path');
+const root = path.join(__dirname, '../../addons/addon_brewstation/features/feature_mash_control');
+const script = fs.readFileSync(path.join(root, 'templates/plant_workspace/_process_mutation_scripts.html'), 'utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
+(async () => {
+  let handler, resolve, sends = 0;
+  const button = {disabled: false};
+  const form = {dataset: {confirmKey: 'brewstation_mashctrl.preparation.confirm_save', confirmMissing:'Confirmação indisponível'}, isConnected:true, querySelector:()=>button, addEventListener:(_,cb)=>handler=cb};
+  const messages=[];
+  const window = {__tesseractConfirm: options => {
+    const catalog=JSON.parse(fs.readFileSync(path.join(root, 'i18n/pt_BR.json')));
+    assert.ok(catalog[options.key]);
+    return new Promise(r=>resolve=r);
+  }, __workspaceSubmitForm: async()=>{sends++;}, __tesseractToast:{show:m=>messages.push(m)}};
+  vm.runInNewContext(script,{window,document:{querySelectorAll:()=>[form]}});
+  const event={preventDefault(){}};
+  let pending=handler(event);
+  assert.ok(button.disabled);await handler(event);assert.equal(sends,0);
+  resolve(false);await pending;assert.equal(sends,0);assert.equal(button.disabled,false);
+  pending=handler(event);resolve(true);await pending;assert.equal(sends,1);
+  pending=handler(event);form.isConnected=false;resolve(true);await pending;assert.equal(sends,1);
+  form.isConnected=true;window.__tesseractConfirm=undefined;
+  await handler(event);assert.equal(messages.length,1);assert.equal(button.disabled,false);
+  window.__tesseractConfirm=async()=>true;
+  window.__workspaceSubmitForm=async()=>{throw new Error('Falha de envio');};
+  await handler(event);assert.equal(messages.at(-1),'Falha de envio');assert.equal(button.disabled,false);
+  console.log('OK: confirmação, cancelamento, reenvio, fragmento removido e recuperação');
+})().catch(error=>{console.error(error);process.exitCode=1;});

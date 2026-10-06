@@ -13,6 +13,28 @@ from addons.addon_brewstation.features.feature_brew_father.services import brewf
 from addons.addon_brewstation.features.feature_brew_father.services import inventory_reconciliation_service as reconciliation
 
 
+def _portal_workspace_id():
+    raw = request.values.get("workspace_plant_id")
+    if not raw: return None
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_plant import BrewPlant
+    try: plant_id = int(raw)
+    except (ValueError, TypeError): abort(400)
+    if plant_id <= 0: abort(400)
+    if not current_user.has_permission("brew_plants.list") or not current_user.has_permission("recipe_steps.list"):
+        abort(403)
+    if not BrewPlant.query.filter_by(id=plant_id, is_deleted=False).first(): abort(404)
+    return plant_id
+
+
+def _portal_return(endpoint, recipe_ids=()):
+    plant_id = _portal_workspace_id()
+    if plant_id and len(recipe_ids) == 1:
+        return redirect(url_for("plant_workspace.shell", plant_id=plant_id, tab="recipe", recipe_id=recipe_ids[0]))
+    if plant_id:
+        return redirect(url_for("brewfather_syncs.portal", workspace_plant_id=plant_id))
+    return redirect(url_for(endpoint))
+
+
 @brewfather_syncs_bp.route("/sincronizar", methods=["POST"])
 @login_required
 @permission_required("brewfather_syncs.create")
@@ -55,6 +77,7 @@ def portal():
     uma (nova/já importada/apagada-pendente), pra escolher o que
     sincronizar em vez de tudo de uma vez.
     """
+    workspace_plant_id = _portal_workspace_id()
     try:
         filtros = {key: request.args.get(key, "").strip() for key in ("q", "estilo", "tipo", "status", "pasta", "tag")}
         dados = sync_service.listar_portal_receitas(filtros, atualizar=request.args.get("refresh") == "1")
@@ -63,7 +86,7 @@ def portal():
         dados = {"receitas": [], "total": 0, "limitado": False, "estilos": [], "tipos": [], "pastas": [], "tags": []}
         erro = str(exc)
 
-    return render_template("brewfather_syncs/portal.html", **dados, filtros=filtros, erro=erro)
+    return render_template("brewfather_syncs/portal.html", **dados, filtros=filtros, erro=erro, workspace_plant_id=workspace_plant_id)
 
 
 @brewfather_syncs_bp.route("/portal/lotes", methods=["GET"])
@@ -73,13 +96,14 @@ def portal_lotes():
     filtros = {"q": request.args.get("q", "").strip(), "status": request.args.get("status", "").strip()}
     if filtros["status"] not in ("", "Planning", "Brewing", "Fermenting", "Conditioning", "Completed", "Archived"):
         abort(400)
+    workspace_plant_id = _portal_workspace_id()
     try:
         dados = sync_service.listar_portal_lotes(filtros, atualizar=request.args.get("refresh") == "1")
         erro = None
     except (brewfather_client.BrewFatherDisabledError, brewfather_client.BrewFatherAPIError) as exc:
         dados = {"lotes": [], "total": 0, "limitado": False}
         erro = str(exc)
-    return render_template("brewfather_syncs/portal_lotes.html", **dados, filtros=filtros, erro=erro)
+    return render_template("brewfather_syncs/portal_lotes.html", **dados, filtros=filtros, erro=erro, workspace_plant_id=workspace_plant_id)
 
 
 @brewfather_syncs_bp.route("/portal/inventario/<categoria>", methods=["GET"])
@@ -91,6 +115,7 @@ def portal_inventario(categoria: str):
     filtros = {"q": request.args.get("q", "").strip(), "stock": request.args.get("stock", "").strip()}
     if filtros["stock"] not in ("", "positive", "other"):
         abort(400)
+    workspace_plant_id = _portal_workspace_id()
     try:
         dados = sync_service.listar_portal_inventario(categoria, filtros, atualizar=request.args.get("refresh") == "1")
         erro = None
@@ -106,7 +131,7 @@ def portal_inventario(categoria: str):
             item["conciliacao"] = reconciliation.visualizar_item(categoria, item, vinculo)
             item["vinculado"] = bool(vinculo)
     return render_template("brewfather_syncs/portal_inventario.html", **dados,
-                           categoria=categoria, filtros=filtros, erro=erro)
+                           categoria=categoria, filtros=filtros, erro=erro, workspace_plant_id=workspace_plant_id)
 
 
 @brewfather_syncs_bp.route("/portal/inventario/<categoria>/vincular/<remote_id>", methods=["GET", "POST"])
@@ -140,10 +165,11 @@ def vincular_inventario(categoria: str, remote_id: str):
 @permission_required("brewfather_syncs.create")
 def sincronizar_selecionadas():
     """Recebe os ids marcados na tela de seleção e importa só esses."""
+    _portal_workspace_id()
     origem_ids = request.form.getlist("origem_ids")
     if not origem_ids:
         flash("Selecione ao menos uma receita.", "error")
-        return redirect(url_for("brewfather_syncs.portal"))
+        return _portal_return("brewfather_syncs.portal")
 
     try:
         acao = request.form.get("acao", "sincronizar")
@@ -154,13 +180,13 @@ def sincronizar_selecionadas():
                 abort(403)
             quantidade = sync_service.apagar_receitas_importadas(origem_ids)
             flash(f"{quantidade} receita(s) importada(s) movida(s) para a lixeira.", "success")
-            return redirect(url_for("brewfather_syncs.portal"))
+            return _portal_return("brewfather_syncs.portal")
         resultado = sync_service.sincronizar_selecionadas(
             origem_ids, ressincronizar=acao == "ressincronizar"
         )
     except ValueError as exc:
         flash(str(exc), "error")
-        return redirect(url_for("brewfather_syncs.portal"))
+        return _portal_return("brewfather_syncs.portal")
     status = resultado.get("status", "?")
     processadas = resultado.get("quantidade_processada", 0)
     erros = resultado.get("quantidade_erro", 0)
@@ -172,13 +198,14 @@ def sincronizar_selecionadas():
     else:
         flash(f"Erro ao sincronizar: {resultado.get('mensagem_erro') or 'veja o log.'}", "error")
 
-    return redirect(url_for("brewfather_syncs.manage"))
+    return _portal_return("brewfather_syncs.manage", resultado.get("recipe_ids", []))
 
 
 @brewfather_syncs_bp.route("/portal/receitas/em-massa", methods=["POST"])
 @login_required
 @permission_required("brewfather_syncs.create")
 def receitas_em_massa():
+    _portal_workspace_id()
     acao = request.form.get("acao")
     try:
         if acao == "ressincronizar_todas":
@@ -194,7 +221,7 @@ def receitas_em_massa():
             abort(400)
     except ValueError as exc:
         flash(str(exc), "error")
-    return redirect(url_for("brewfather_syncs.portal"))
+    return _portal_return("brewfather_syncs.portal")
 
 
 @brewfather_syncs_bp.route("/pendentes", methods=["GET"])

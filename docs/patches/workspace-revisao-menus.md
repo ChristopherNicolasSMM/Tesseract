@@ -12,7 +12,7 @@ avançada integrada. Não altera schema, estoque, runtime ou permissões.
 | TX_RECIPE_INGREDIENTS | Conferência, vínculo local e dados planejados; revisão protege receitas usadas | Operações avançadas pelo contexto da receita; de-para compartilhado separado | Manter ocultação existente |
 | TX_RECIPE_STEPS / TX_FERMENTATION_STEPS / TX_RECIPE_TIMELINE | Timeline e edição contextual da receita | Editor existente permanece acessível pelo fluxo | Manter ocultação existente |
 | TX_DASHBOARD_VIEW / TX_DASHBOARD_WIDGETS | Dashboard, editor visual, widgets e tubulação | Editor visual existente é reutilizado | Manter ocultação existente |
-| TX_BREW_PLANT_VESSELS / TX_BREW_PLANT_MAPPINGS | Criar/editar com validação de pertencimento | Lixeira/restauração e manutenção completa fora da aba | Preservar menu |
+| TX_BREW_PLANT_VESSELS / TX_BREW_PLANT_MAPPINGS | Criar/editar com validação de pertencimento | Lixeira/restauração contextual no pacote de 06/10; administração global e exclusão permanente permanecem no cadastro | Preservar menu |
 | TX_DASHBOARD_LAYOUTS | Criar/editar, fundo/padrão, lixeira/restauração por planta | Cadastro completo e exclusão permanente; standby sem runtime | Preservar; identificar como avançado |
 | TX_BREW_SESSIONS | Histórico, edição básica, ingredientes, custos, envase e controles | Lixeira/restauração e manutenção global | Preservar menu e link ao cadastro da sessão |
 | TX_BREW_SESSION_STEPS | Consultar, ajustar nome/temperatura/duração e controles existentes | Demais campos/manutenção no cadastro | Preservar menu |
@@ -20,7 +20,7 @@ avançada integrada. Não altera schema, estoque, runtime ou permissões.
 | TX_AUTOMATION_RULES | Criar/editar inativas, ativar/desativar, lixeira/restauração | Cadastro completo e exclusão permanente | Preservar; identificar como avançado |
 | TX_AUTOMATION_RULE_LOGS | Histórico filtrado/paginado no contexto da planta | Histórico global, inclusive fora das sessões disponíveis no workspace | Preservar; identificar como global |
 | TX_MASH_RECIPES / TX_RECIPE_HISTORYS | Consulta/revisão no contexto da receita | Cadastro e histórico global | Preservar menu |
-| TX_WATER_PROFILES / TX_INGREDIENT_MAPPINGS | Água por receita e saneamento local | Manutenção dos perfis e de-para compartilhado | Preservar menu |
+| TX_WATER_PROFILES / TX_INGREDIENT_MAPPINGS | Água por receita e saneamento local | Preparação contextual de água no pacote de 06/10; administração global e de-para compartilhado preservados | Preservar menu |
 | Envase e precificação | Registro/detalhes/estorno no lote; retorno da precificação | Cadastros globais e tela própria de precificação | Preservar menus |
 | Brewfather / YeastBank | Portais próprios existentes | Auditorias específicas futuras | Fora da ocultação |
 
@@ -85,3 +85,12 @@ Executado no ambiente do assistente: suíte de menus **8 passed**; recorte
 Patch gerado por `git format-patch` e aplicação conferida em checkout isolado.
 Não foi executada validação visual em navegador nem a suíte funcional inteira,
 pois não houve mudanças de serviços, templates ou runtime.
+
+
+### Revisão de cobertura — pacote consolidado de 06/10/2026
+
+Tanques/mapeamentos agora têm lixeira/restauração contextual; fermentação e
+água têm preparação local. Permanece administração global, cadastro completo
+e exclusão permanente. Nenhum código adicional foi ocultado. Os sete códigos
+de core/cli.py foram conferidos e mantidos; não se presume o estado do menu
+no banco do operador. Ver workspace-consolidacao-receita-planta-brewfather.md.

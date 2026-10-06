@@ -617,6 +617,8 @@ def tab_plant(plant_id: int):
         "plant_workspace/_tab_plant.html",
         plant=plant, vessels=vessels, mappings=mappings, vessels_by_id=vessels_by_id,
         device_functions=list_functions_for_mapping(),
+        vessel_trash=BrewPlantVessel.query.filter_by(plant_id=plant_id, is_deleted=True).order_by(BrewPlantVessel.id).paginate(page=max(1, request.args.get("vessels_trash_page", 1, type=int) or 1), per_page=20, error_out=False),
+        mapping_trash=BrewPlantMapping.query.join(BrewPlantVessel).filter(BrewPlantVessel.plant_id == plant_id, BrewPlantMapping.is_deleted.is_(True)).order_by(BrewPlantMapping.id).paginate(page=max(1, request.args.get("mappings_trash_page", 1, type=int) or 1), per_page=20, error_out=False),
     )
 
 
@@ -862,6 +864,68 @@ def configure_recipe_ingredient_conversion(plant_id, recipe_id, ingredient_id):
     return _recipe_workspace_response(plant_id, recipe_id, t("brewstation_mashctrl.conversion.saved"))
 
 
+@plant_workspace_bp.route("/<int:plant_id>/recipes/<int:recipe_id>/preparation/<kind>/<action>", defaults={"row_id": None}, methods=["POST"])
+@plant_workspace_bp.route("/<int:plant_id>/recipes/<int:recipe_id>/preparation/<kind>/<int:row_id>/<action>", methods=["POST"])
+@login_required
+@permission_required("recipe_steps.list")
+def prepare_workspace_recipe(plant_id, recipe_id, kind, action, row_id):
+    from services.core.i18n_service import translate as t
+    from addons.addon_brewstation.features.feature_mash_control.services import workspace_recipe_preparation as preparation
+    if kind not in preparation.FIELDS or action not in ("save", "trash", "restore"):
+        return _recipe_workspace_response(plant_id, recipe_id, t("brewstation_mashctrl.preparation.invalid_action"), 400)
+    plural = {"recipe": "mash_recipes", "fermentation": "fermentation_steps", "water": "water_profiles"}[kind]
+    permission = "update" if kind == "recipe" or row_id else "create"
+    if action != "save": permission = action
+    if not current_user.has_permission(plural + "." + permission):
+        return _recipe_workspace_response(plant_id, recipe_id, t("brewstation_mashctrl.preparation.forbidden"), 403)
+    if not BrewPlant.query.filter_by(id=plant_id, is_deleted=False).first():
+        return _recipe_workspace_response(plant_id, recipe_id, t("brewstation_mashctrl.conversion.plant_missing"), 404)
+    try:
+        preparation.save_preparation(recipe_id, kind, action,
+            {field: request.form.get(field) for field in preparation.FIELDS[kind]} if action == "save" else {},
+            row_id=row_id, user_id=current_user.id)
+    except preparation.PreparationNotFound as exc:
+        return _recipe_workspace_response(plant_id, recipe_id, str(exc), 404)
+    except preparation.PreparationConflict as exc:
+        return _recipe_workspace_response(plant_id, recipe_id, str(exc), 409)
+    except ValueError as exc:
+        return _recipe_workspace_response(plant_id, recipe_id, str(exc), 400)
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Falha na preparação da receita %s", recipe_id)
+        return _recipe_workspace_response(plant_id, recipe_id, t("brewstation_mashctrl.preparation.failed"), 500)
+    return _recipe_workspace_response(plant_id, recipe_id, t("brewstation_mashctrl.preparation.saved"), recipe_id=recipe_id)
+
+
+@plant_workspace_bp.route("/<int:plant_id>/maintenance/<kind>/<int:record_id>/<action>", methods=["POST"])
+@login_required
+@permission_required("brew_plants.list")
+def maintain_workspace_configuration(plant_id, kind, record_id, action):
+    from services.core.i18n_service import translate as t
+    from addons.addon_brewstation.features.feature_mash_control.services import workspace_plant_maintenance as maintenance
+    if kind not in ("vessels", "mappings") or action not in ("trash", "restore"):
+        return _workspace_form_error(t("brewstation_mashctrl.maintenance.invalid_action"), 400, plant_id=plant_id, tab="plant")
+    plural = "brew_plant_vessels" if kind == "vessels" else "brew_plant_mappings"
+    if not current_user.has_permission(plural + "." + action):
+        return _workspace_form_error(t("brewstation_mashctrl.preparation.forbidden"), 403, plant_id=plant_id, tab="plant")
+    try:
+        maintenance.maintain(plant_id, kind, record_id, action)
+    except maintenance.MaintenanceNotFound as exc:
+        return _workspace_form_error(str(exc), 404, plant_id=plant_id, tab="plant")
+    except maintenance.MaintenanceConflict as exc:
+        return _workspace_form_error(str(exc), 409, plant_id=plant_id, tab="plant")
+    except ValueError as exc:
+        return _workspace_form_error(str(exc), 400, plant_id=plant_id, tab="plant")
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Falha na manutenção %s/%s", kind, record_id)
+        return _workspace_form_error(t("brewstation_mashctrl.preparation.failed"), 500, plant_id=plant_id, tab="plant")
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify(ok=True, message=t("brewstation_mashctrl.maintenance.saved"))
+    flash(t("brewstation_mashctrl.maintenance.saved"), "success")
+    return redirect(url_for("plant_workspace.shell", plant_id=plant_id, tab="plant"))
+
+
 @plant_workspace_bp.route("/<int:plant_id>/tab/recipe", methods=["GET"])
 @login_required
 @permission_required("recipe_steps.list")
@@ -896,6 +960,9 @@ def tab_recipe(plant_id: int):
             fermentacao=FermentationStep.query.filter_by(recipe_id=recipe.id, is_deleted=False).order_by(FermentationStep.ordem).all(),
             agua=WaterProfile.query.filter_by(recipe_id=recipe.id, is_deleted=False).order_by(WaterProfile.contexto).all(),
             historico=RecipeHistory.query.filter_by(recipe_id=recipe.id, is_deleted=False).order_by(RecipeHistory.alterado_em.desc()).all(),
+            fermentation_trash=FermentationStep.query.filter_by(recipe_id=recipe.id, is_deleted=True).order_by(FermentationStep.ordem).all(),
+            water_trash=WaterProfile.query.filter_by(recipe_id=recipe.id, is_deleted=True).all(),
+            recipe_versions=MashRecipe.query.filter_by(origem_receita=recipe.origem_receita, origem_receita_id=recipe.origem_receita_id, is_deleted=False).order_by(MashRecipe.versao.desc(), MashRecipe.id.desc()).all() if recipe.origem_receita_id else MashRecipe.query.filter_by(name=recipe.name, is_deleted=False).order_by(MashRecipe.versao.desc()).all(),
             conferencia=conferir_ingredientes(recipe.id),
             custo=calcular_custo_insumos_receita(recipe.id),
         )

@@ -9,12 +9,16 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
+from collections import Counter, defaultdict
 
 from core.db import db
 from addons.addon_brewstation.features.feature_brew_father.model.brew_father_sync import BrewFatherSync
 from addons.addon_brewstation.features.feature_brew_father.services import brewfather_client
 from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
 from addons.addon_brewstation.features.feature_mash_control.model.recipe_step import RecipeStep
+from addons.addon_brewstation.features.feature_mash_control.model.recipe_ingredient import RecipeIngredient
+from addons.addon_brewstation.features.feature_mash_control.model.recipe_history import RecipeHistory
+from addons.addon_estoque.root.services import material_lookup
 from addons.addon_brewstation.features.feature_mash_control.model.fermentation_step import FermentationStep
 from addons.addon_brewstation.features.feature_mash_control.model.water_profile import WaterProfile
 from addons.addon_brewstation.features.feature_mash_control.services import ingredient_resolution_service
@@ -102,17 +106,19 @@ def listar_receitas_disponiveis() -> list[dict]:
 def _classificar_receitas(receitas: list[dict]) -> list[dict]:
     ids = [r.get("_id") for r in receitas if r.get("_id")]
     estados: dict[str, str] = {}
+    local_ids = {}
     if ids:
         existentes = MashRecipe.query.filter(
             MashRecipe.origem_receita == "BrewFather",
             MashRecipe.origem_receita_id.in_(ids),
-        ).all()
+        ).order_by(MashRecipe.versao.desc(), MashRecipe.id.desc()).all()
         for existente in existentes:
             origem_id = existente.origem_receita_id
             if not origem_id:
                 continue
             if not existente.is_deleted:
                 estados[origem_id] = "ja_importada"
+                local_ids.setdefault(origem_id, existente.id)
             elif estados.get(origem_id) != "ja_importada":
                 estados[origem_id] = "apagada_pendente_reimportar"
 
@@ -131,6 +137,7 @@ def _classificar_receitas(receitas: list[dict]) -> list[dict]:
         "path": r.get("path") if isinstance(r.get("path"), str) and r["path"] else "/",
         "tags": [tag for tag in tags_da_receita(r) if isinstance(tag, str) and tag],
         "status": estados.get(r["_id"], "nova"),
+        "local_recipe_id": local_ids.get(r["_id"]),
     } for r in receitas if r.get("_id")]
 
 
@@ -243,6 +250,7 @@ def sincronizar_selecionadas(origem_ids: list[str], *, ressincronizar: bool = Fa
     processadas = 0
     erros = 0
     raw_capturado = []
+    recipe_ids = []
 
     for origem_id in origem_ids:
         try:
@@ -250,7 +258,8 @@ def sincronizar_selecionadas(origem_ids: list[str], *, ressincronizar: bool = Fa
             if receita_externa.get("id") != origem_id:
                 raise ValueError("O detalhe retornado não corresponde à receita solicitada.")
             raw_capturado.append(receita_externa)
-            _importar_receita(receita_externa, ressincronizar=ressincronizar)
+            imported = _importar_receita(receita_externa, ressincronizar=ressincronizar)
+            recipe_ids.append(imported.id)
             processadas += 1
         except Exception as exc:  # noqa: BLE001
             db.session.rollback()
@@ -264,7 +273,7 @@ def sincronizar_selecionadas(origem_ids: list[str], *, ressincronizar: bool = Fa
     log.finalizado_em = datetime.now(timezone.utc)
     db.session.commit()
 
-    return log.to_dict()
+    return {**log.to_dict(), "recipe_ids": recipe_ids}
 
 
 def ressincronizar_todas_importadas() -> dict:
@@ -288,6 +297,9 @@ def apagar_receitas_importadas(origem_ids: list[str] | None = None) -> int:
             raise ValueError("Selecione ao menos uma receita importada.")
         query = query.filter(MashRecipe.origem_receita_id.in_(ids))
     receitas = query.all()
+    from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
+    if any(BrewSession.query.filter_by(recipe_id=row.id).first() for row in receitas):
+        raise ValueError("Há receitas vinculadas a lotes. Preserve essas versões e selecione apenas receitas sem lotes para enviar à lixeira.")
     agora = datetime.now(timezone.utc)
     for receita in receitas:
         receita.is_deleted = True
@@ -296,7 +308,19 @@ def apagar_receitas_importadas(origem_ids: list[str] | None = None) -> int:
     return len(receitas)
 
 
+def _ingredient_identity(description, kind, use):
+    return tuple((value or "").strip().casefold() for value in (description, kind, use))
+
+
 def _importar_receita(receita_externa: dict, *, ressincronizar: bool = False) -> MashRecipe:
+    try:
+        return _importar_receita_impl(receita_externa, ressincronizar=ressincronizar)
+    except Exception:
+        db.session.rollback()
+        raise
+
+
+def _importar_receita_impl(receita_externa: dict, *, ressincronizar: bool = False) -> MashRecipe:
     origem_id = receita_externa["id"]
 
     # Correção (skill 25, seção 3.1): sem is_deleted=False aqui, uma
@@ -306,19 +330,20 @@ def _importar_receita(receita_externa: dict, *, ressincronizar: bool = False) ->
     # correção.
     versoes_ativas = MashRecipe.query.filter_by(
         origem_receita="BrewFather", origem_receita_id=origem_id, is_deleted=False,
-    ).all()
+    ).order_by(MashRecipe.versao.desc(), MashRecipe.id.desc()).all()
     ja_existe = versoes_ativas[0] if versoes_ativas else None
     if ja_existe is not None and not ressincronizar:
         return ja_existe
 
-    # A versão antiga e os seus vínculos permanecem consultáveis.
-    # A troca é feita na mesma transação que cria a nova versão; uma
-    # falha na importação reverte a marcação de lixeira.
-    if versoes_ativas:
-        agora = datetime.now(timezone.utc)
-        for versao in versoes_ativas:
-            versao.is_deleted = True
-            versao.deleted_at = agora
+    # Ressincronização cria uma nova versão remota, preservando todas as
+    # versões locais (inclusive ingredientes editados e lotes vinculados).
+    # Nunca enviar automaticamente uma receita de lote para a lixeira.
+    previous = defaultdict(list)
+    if ja_existe:
+        for item in RecipeIngredient.query.filter_by(recipe_id=ja_existe.id, is_deleted=False).all():
+            previous[_ingredient_identity(item.descricao_origem, item.tipo_ingrediente, item.uso_detalhado)].append(item)
+    incoming = Counter(_ingredient_identity(item.get("name"), item.get("tipo_ingrediente"), item.get("uso_detalhado"))
+                       for item in receita_externa.get("ingredients", []))
 
     # Correção adicional (skill 25 — achado ao testar a correção
     # acima): MashRecipe tem UniqueConstraint(name, versao) — uma
@@ -333,13 +358,16 @@ def _importar_receita(receita_externa: dict, *, ressincronizar: bool = False) ->
     ultima_versao = db.session.query(
         db.func.max(MashRecipe.versao)
     ).filter_by(name=receita_externa["name"]).scalar()
-    proxima_versao = (ultima_versao or 0) + 1
+    proxima_versao = max(ultima_versao or 0, ja_existe.versao if ja_existe else 0) + 1
 
     receita = MashRecipe(
         name=receita_externa["name"],
         versao=proxima_versao,
         origem_receita="BrewFather",
         origem_receita_id=origem_id,
+        description=ja_existe.description if ja_existe else None,
+        equipment_mapping=ja_existe.equipment_mapping if ja_existe else None,
+        volume_planejado_litros=ja_existe.volume_planejado_litros if ja_existe else None,
     )
     db.session.add(receita)
     db.session.flush()
@@ -350,7 +378,7 @@ def _importar_receita(receita_externa: dict, *, ressincronizar: bool = False) ->
             (ingrediente.get("use") or "").lower(),
             ingrediente.get("use"),
         )
-        ingredient_resolution_service.resolver_ingrediente(
+        result = ingredient_resolution_service.resolver_ingrediente(
             receita.id,
             "BrewFather",
             ingrediente["name"],
@@ -366,6 +394,23 @@ def _importar_receita(receita_externa: dict, *, ressincronizar: bool = False) ->
             atenuacao=ingrediente.get("atenuacao"),
             commit=False,
         )
+
+
+        key = _ingredient_identity(ingrediente.get("name"), ingrediente.get("tipo_ingrediente"), ingrediente.get("uso_detalhado"))
+        candidates = previous.get(key, [])
+        decisions = [item for item in candidates if item.status_resolucao in ("resolvido", "ignorado")]
+        if decisions:
+            item = db.session.get(RecipeIngredient, result["id"])
+            if len(candidates) != 1 or incoming[key] != 1:
+                item.material_id = None
+                item.status_resolucao = "pendente_depara"
+            elif candidates[0].status_resolucao == "ignorado":
+                item.material_id = None
+                item.status_resolucao = "ignorado"
+            else:
+                material = material_lookup.get_material(candidates[0].material_id)
+                item.material_id = candidates[0].material_id if material and material.get("ativo") else None
+                item.status_resolucao = "resolvido" if item.material_id else "pendente_depara"
 
     # Passos de mostura
     for step_data in receita_externa.get("mash_steps", []):
@@ -409,6 +454,12 @@ def _importar_receita(receita_externa: dict, *, ressincronizar: bool = False) ->
             ph=perfil.get("ph"),
         ))
 
+    db.session.flush()
+    history = RecipeHistory(recipe_id=receita.id, observacao="Nova versão remota Brewfather; versões locais preservadas.")
+    snapshot = ingredient_resolution_service.build_recipe_snapshot(receita)
+    snapshot["brewfather_import"] = {"source_recipe_id": ja_existe.id if ja_existe else None, "remote_id": origem_id}
+    history.set_snapshot(snapshot)
+    db.session.add(history)
     db.session.commit()
     return receita
 

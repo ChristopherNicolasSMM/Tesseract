@@ -809,14 +809,14 @@ def test_ressincronizar_em_massa_cria_versao_e_preserva_lote(app, client, mock_c
     assert resposta.status_code == 200
     with app.app_context():
         anteriores = MashRecipe.query.filter_by(id=anterior_id).one()
-        atual = MashRecipe.query.filter_by(origem_receita_id="bf-sel-001", is_deleted=False).one()
-        assert anteriores.is_deleted is True
+        atual = MashRecipe.query.filter_by(origem_receita_id="bf-sel-001", is_deleted=False).order_by(MashRecipe.versao.desc()).first()
+        assert anteriores.is_deleted is False
         assert atual.id != anterior_id
         assert atual.versao > anteriores.versao
         assert db.session.get(BrewSession, lote_id).recipe_id == anterior_id
 
 
-def test_apagar_todas_nao_afeta_receita_manual_ou_lote(app, client, mock_client_basico):
+def test_apagar_todas_bloqueia_pacote_com_receita_usada(app, client, mock_client_basico):
     from addons.addon_brewstation.features.feature_mash_control.model.brew_session import BrewSession
     _login_admin(app, client)
     with app.app_context():
@@ -830,7 +830,7 @@ def test_apagar_todas_nao_afeta_receita_manual_ou_lote(app, client, mock_client_
                            data={"acao": "apagar_todas"}, follow_redirects=True)
     assert resposta.status_code == 200
     with app.app_context():
-        assert MashRecipe.query.filter_by(origem_receita="BrewFather", is_deleted=False).count() == 0
+        assert MashRecipe.query.filter_by(origem_receita="BrewFather", is_deleted=False).count() == 2
         assert MashRecipe.query.filter_by(origem_receita="Manual", is_deleted=False).count() == 1
         assert BrewSession.query.count() == 1
 

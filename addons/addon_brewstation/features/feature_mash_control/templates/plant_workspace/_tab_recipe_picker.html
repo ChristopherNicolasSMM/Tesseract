@@ -1,3 +1,4 @@
+{% if current_user.has_permission('brewfather_syncs.list') %}<a class="btn btn-sm btn-outline-primary mb-3" href="{{ url_for('brewfather_syncs.portal', workspace_plant_id=plant.id) }}">{{ t('brewstation_brewfather.continuity.portal') }}</a>{% endif %}
 {# Fragmento AJAX da aba Receita Mash — picker (sem receita
    selecionada ainda). Ao escolher uma, o fragmento inteiro é trocado
    pelo editor de timeline completo (recipe_timeline/_fragment.html),

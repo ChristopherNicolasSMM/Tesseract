@@ -1,0 +1,22 @@
+<script>
+(function () {
+  document.querySelectorAll('.pw-process-mutation').forEach(function (form) {
+    const button = form.querySelector('button[type="submit"]');
+    let pending = false;
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      if (pending || button.disabled) return;
+      pending = true;
+      button.disabled = true;
+      try {
+        if (!window.__tesseractConfirm) throw new Error(form.dataset.confirmMissing);
+        if (await window.__tesseractConfirm({key: form.dataset.confirmKey}) && form.isConnected) {
+          await window.__workspaceSubmitForm(form);
+        }
+      } catch (error) {
+        if (form.isConnected && window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
+      } finally { pending = false; button.disabled = false; }
+    });
+  });
+})();
+</script>

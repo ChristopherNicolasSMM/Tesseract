@@ -1,3 +1,4 @@
+{% from 'plant_workspace/_plant_maintenance_action.html' import maintenance_action with context %}
 {% from '_reference_combo.html' import reference %}
 {# Fragmento AJAX da aba Planta (conversa — workspace consolidado):
    consolida os dados da própria Planta + Tanques + Mapeamentos de
@@ -41,6 +42,7 @@
             {% if current_user.has_permission('brew_plant_vessels.update') %}<a href="#pwEditVessel{{ vessel.id }}" class="small" data-open-editor="pwEditVessel{{ vessel.id }}">
               <i class="bi bi-pencil"></i>
             </a>{% endif %}
+            {% if current_user.has_permission('brew_plant_vessels.trash') %}{{ maintenance_action('vessels', vessel, 'trash') }}{% endif %}
           </td>
         </tr>
         {% else %}
@@ -87,6 +89,7 @@
             {% if current_user.has_permission('brew_plant_mappings.update') %}<a href="#pwEditMapping{{ mapping.id }}" class="small" data-open-editor="pwEditMapping{{ mapping.id }}">
               <i class="bi bi-pencil"></i>
             </a>{% endif %}
+          {% if current_user.has_permission('brew_plant_mappings.trash') %}{{ maintenance_action('mappings', mapping, 'trash') }}{% endif %}
           </td>
         </tr>
         {% else %}
@@ -154,3 +157,5 @@ document.querySelectorAll('[data-open-editor]').forEach(function (link) {
   });
 });
 </script>
+
+{% include "plant_workspace/_plant_maintenance.html" %}

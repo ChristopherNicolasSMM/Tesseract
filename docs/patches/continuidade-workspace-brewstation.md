@@ -12,14 +12,15 @@ Os incrementos abaixo registram as execuções posteriores e pendências locais.
 
 | Etapa | Estado da integração | Evidência e lacuna real | Próximo incremento | Dependências |
 | --- | --- | --- | --- | --- |
-| Planta, tanques e mapeamentos | Parcial | `plant_workspace.py` tem criação/edição e validações; manutenção completa ainda depende de cadastros | Inventariar lixeira, restauração e configuração avançada antes de ocultar acessos | Permissões, pertencimento e funcionalidades dos cadastros |
-| Receita e ingredientes | Parcial | `_tab_recipe_detail.html` reúne conferência/custo, vínculo local, revisão e dados planejados; cadastro avançado preservado | Preservar proteção de receitas usadas; operações adicionais na etapa 4 | Serviço de resolução, conversão, referências públicas e proteção de receitas usadas |
+| Planta, tanques e mapeamentos | Parcial | Criação/edição e manutenção contextual implementadas; cadastros globais preservados | Validar o pacote único de receita/planta/Brewfather | Permissões, pertencimento e funcionalidades dos cadastros |
+| Receita e ingredientes | Parcial | Conferência/custo, vínculo local e revisão; dados gerais, fermentação e água no pacote único | Validar preparação integrada e proteção das versões usadas | Serviço de resolução, conversão, referências públicas e proteção de receitas usadas |
 | Sessões, histórico e alarmes | Concluída no escopo dos patches recentes | Busca/paginação, edição básica, confirmação de insumos e reconhecimento rastreável estão no código | Preservar; operações adicionais ficam na etapa 4 | Suítes de workspace, runtime e estoque |
 | Envase e precificação | Parcial | Prévia/registro na aba; detalhes/estorno 2B validados; custos e rateio 2C.1/2C.2 validados | 2C.1/2C.2 validados; etapas avançadas restantes | Saneamento, composição, snapshots e transação de estoque |
 | Dashboards | Parcial | Seleção/criação/edição básica, fundo/padrão, manutenção 3B e descanso visual 3A.2 implementados | 3A.1/3B/3A.2 validados; preservar runtime e limpeza | Widgets/tubulação existentes e limpeza de listeners/timers |
 | Etapas e automação | Parcial | Timeline e geração já integradas; Automação tem filtros, edição/manutenção; sessões têm controles e ajustes no patch combinado | 4B.3/4B.4/4C aprovados nos testes pelo usuário; inventário avançado permanece | Runtime existente, permissões e escopo global/por sessão |
 | Menus | Parcial | Sete códigos configurados no comando de ocultação; não prova cobertura de toda manutenção | 5: matriz revisada; manter sete ocultações e preservar manutenção externa | Validação funcional dos incrementos anteriores |
-| Brewfather e YeastBank | Radar posterior | Portal Brewfather e painel YeastBank já existem; não reconstruir como novidades | 6: auditorias específicas e novas lacunas | Estabilização do fluxo prioritário |
+| Brewfather | Pacote único implementado | Portal contextual e ressincronização preservam versões/decisões locais | Aplicação e validação local | Integração remota configurada e saneamento |
+| YeastBank e estoque | Auditorias posteriores | Painel e serviços existentes serão inventariados | Auditar YeastBank, depois estoque, após validar o pacote único | Validação do pacote atual |
 
 Concluída nesta tabela significa o escopo explicitamente descrito, não toda
 a área funcional. A quantidade final de patches pode mudar ao conferir dependências.
@@ -452,6 +453,38 @@ portais Brewfather/YeastBank. Ver docs/patches/workspace-revisao-integrada-proce
 
 Revisão integrada anterior validada pelo usuário. Novo incremento implementa
 cadastro de conversão na receita, plural item/items e acesso público ao
-estoque. Aguarda aplicação e validação local; não fecha manutenção avançada
-de unidades ou materiais. Sem migration. Ver
+estoque. Aplicado e validado pelo usuário em 06/10/2026; não fecha manutenção
+avançada de unidades ou materiais. Sem migration. Ver
 [documentação, comandos e roteiro](workspace-conversoes-ingredientes-material.md).
+
+### Planejamento após conversões validadas — 06/10/2026
+
+Registro da proposta inicial. O usuário autorizou reunir os três escopos
+em um único pacote, implementado e descrito na seção seguinte. YeastBank
+e estoque continuam posteriores à validação local.
+
+| Pacote proposto | Lacuna conferida | Escopo e critério de conclusão |
+| --- | --- | --- |
+| 1 — Preparação completa da receita | Dados gerais dependem do cadastro completo; água e fermentação têm consulta e links externos | Editar dados planejados básicos, criar/editar etapas de fermentação e perfis de água no contexto da receita. Conferir campos, permissões e serviços antes de implementar. Receita usada exige revisão; snapshots e lotes anteriores preservados. Não repetir timeline, saneamento ou conversões já integrados. |
+| 2 — Manutenção da planta e configuração | A aba Planta oferece criação/edição de tanques e mapeamentos, mas não manutenção por lixeira/restauração | Integrar manutenção reversível após inventariar referências em widgets, sessões e automação. Definir bloqueios de configuração em uso, sem cascata destrutiva. Avaliar manutenção de sessões somente após conferir seus vínculos de estoque/envase. Atualizar matriz de menus; ocultar apenas cobertura demonstrada. |
+| 3 — Continuidade Brewfather e YeastBank | Portais existentes permanecem no radar, sem auditoria completa nesta etapa | Auditar primeiro Brewfather: retorno ao workspace, preservação de vínculos/conversões em ressincronização e dados planejados. Não refazer filtros/pastas/ações em massa existentes. YeastBank tem auditoria separada antes de qualquer escopo funcional novo. |
+
+Frentes condicionais: manutenção de fator existente/base do material,
+identificação física da origem de eventos de automação e PID contínuo.
+Exigem desenho específico; não prometer conversão histórica, redefinição de
+saldo ou execução física antes de validar modelos, contratos e hardware.
+Não são requisitos para encerrar os pacotes de preparação/consulta acima.
+
+A sequência acima foi substituída pelo pacote único abaixo. Manuais, limites,
+rotas e comandos de validação acompanham essa entrega consolidada.
+
+
+## Pacote único autorizado — receita, planta e Brewfather
+
+Implementado em 06/10/2026; aguardando aplicação/validação local. Reúne
+planejamento geral, fermentação/água, lixeira/restauração de tanques e
+mapeamentos e retorno/versionamento Brewfather. Não altera a lista de menus
+ocultados; acessos globais/avançados continuam disponíveis.
+Ver [escopo, limites e roteiro](workspace-consolidacao-receita-planta-brewfather.md).
+Depois da validação, auditar o painel YeastBank para identificar lacunas;
+por último, revisar estoque. Essas auditorias ainda não foram executadas.

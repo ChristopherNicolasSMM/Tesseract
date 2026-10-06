@@ -16,12 +16,14 @@
   <div class="card">
     <div class="card-body">
       <h2 class="card-title">Receitas</h2>
+      <p class="small text-muted">{{ t("brewstation_brewfather.continuity.resync_policy") }}</p>
       <p class="small text-muted">A lista é consultada no Brewfather; os filtros são aplicados às receitas carregadas. A importação preserva receitas já existentes; use Ressincronizar para criar uma nova versão.</p>
       {% if erro %}
       <div class="alert alert-danger" role="alert">{{ erro }}</div>
       {% else %}
       {% if limitado %}<div class="alert alert-warning" role="status">Foram consultadas até 500 receitas. Pode haver outras; os filtros abaixo abrangem somente as receitas carregadas.</div>{% endif %}
       <form method="get" action="{{ url_for('brewfather_syncs.portal') }}" class="row g-2 align-items-end mb-3">
+        {% if workspace_plant_id %}<input type="hidden" name="workspace_plant_id" value="{{ workspace_plant_id }}">{% endif %}
         <div class="col-md-4">
           <label class="form-label" for="bf-q">Nome</label>
           <input id="bf-q" name="q" class="form-control" value="{{ filtros.q }}" placeholder="Buscar receita">
@@ -65,25 +67,28 @@
         </div>
         <div class="col-md-2 d-flex gap-2">
           <button class="btn btn-primary" type="submit">Filtrar</button>
-          <a class="btn btn-outline-secondary" href="{{ url_for('brewfather_syncs.portal') }}" aria-label="Limpar filtros">Limpar</a>
+          <a class="btn btn-outline-secondary" href="{{ url_for('brewfather_syncs.portal', workspace_plant_id=workspace_plant_id) }}" aria-label="Limpar filtros">Limpar</a>
         </div>
       </form>
 
-      <a href="{{ url_for('brewfather_syncs.portal', refresh=1) }}" class="btn btn-outline-secondary btn-sm mb-3">Atualizar lista do Brewfather</a>
+      <a href="{{ url_for('brewfather_syncs.portal', refresh=1, workspace_plant_id=workspace_plant_id) }}" class="btn btn-outline-secondary btn-sm mb-3">Atualizar lista do Brewfather</a>
 
       <p class="small text-muted" role="status">{{ receitas|length }} exibida(s) de {{ total }} carregada(s)</p>
       <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
         <form method="post" action="{{ url_for('brewfather_syncs.receitas_em_massa') }}" data-confirm-message="Ressincronizar todas as receitas importadas? Será criada uma nova versão para cada receita atualizada.">
+        {% if workspace_plant_id %}<input type="hidden" name="workspace_plant_id" value="{{ workspace_plant_id }}">{% endif %}
           <input type="hidden" name="acao" value="ressincronizar_todas">
           <button class="btn btn-outline-primary btn-sm" type="submit">Ressincronizar todas as importadas</button>
         </form>
         {% if current_user.has_permission('mash_recipes.trash') %}<form method="post" action="{{ url_for('brewfather_syncs.receitas_em_massa') }}" data-confirm-message="Mover TODAS as receitas importadas do Brewfather para a lixeira do Tesseract? Os lotes e o Brewfather permanecem intactos.">
+        {% if workspace_plant_id %}<input type="hidden" name="workspace_plant_id" value="{{ workspace_plant_id }}">{% endif %}
           <input type="hidden" name="acao" value="apagar_todas">
           <button class="btn btn-outline-danger btn-sm" type="submit">Mover todas as importadas para lixeira</button>
         </form>{% endif %}
       </div>
       {% if receitas %}
       <form method="post" action="{{ url_for('brewfather_syncs.sincronizar_selecionadas') }}" id="bf-selecao-form">
+        {% if workspace_plant_id %}<input type="hidden" name="workspace_plant_id" value="{{ workspace_plant_id }}">{% endif %}
         <div class="d-flex flex-wrap gap-3 align-items-center mb-2">
           <div class="form-check">
             <input id="bf-todas" class="form-check-input" type="checkbox">
@@ -106,7 +111,7 @@
               {% for receita in receitas %}
               <tr>
                 <td><input class="form-check-input bf-item" type="checkbox" name="origem_ids" value="{{ receita.id }}" data-status="{{ receita.status }}" aria-label="Selecionar {{ receita.name }}"></td>
-                <td>{{ receita.name }}</td>
+                <td>{{ receita.name }}{% if workspace_plant_id and receita.local_recipe_id %}<div><a class="small" href="{{ url_for('plant_workspace.shell', plant_id=workspace_plant_id, tab='recipe', recipe_id=receita.local_recipe_id) }}">{{ t('brewstation_brewfather.continuity.open_recipe') }}</a></div>{% endif %}</td>
                 <td>{{ 'Padrão' if receita.path == '/' else receita.path }}</td>
                 <td>{{ receita.tags|join(', ') if receita.tags else '—' }}</td>
                 <td>{{ receita.style or '—' }}</td>
