@@ -74,6 +74,7 @@ class ModuleManager:
     def __init__(self, app):
         self.app = app
         self._registered_modules: dict[str, object] = {}
+        self._registered_features: dict[str, object] = {}
         self._pending_model_classes: list = []
         self._pending_permission_sync: list = []  # [(model_cls, plural), ...]
         self._pending_transactions: list = []  # [(tx_dict, source_module), ...]
@@ -140,6 +141,7 @@ class ModuleManager:
             for tx in feature.get_transactions():
                 self._pending_transactions.append((tx, module.name))
 
+            self._registered_features[f"{module.name}/{feature.name}"] = feature
             feature_template_dir = _template_dir_for(feature)
             if feature_template_dir:
                 self._template_dirs.append(feature_template_dir)
@@ -347,3 +349,8 @@ class ModuleManager:
     @property
     def active_modules(self) -> dict:
         return dict(self._registered_modules)
+
+    @property
+    def active_features(self) -> dict:
+        """Features efetivamente registradas; não reinstancia nem redescobre módulos."""
+        return dict(self._registered_features)

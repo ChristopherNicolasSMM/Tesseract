@@ -4,6 +4,9 @@ Base: descanso visual 3A.2 validado pelo usuário. Esta entrega reúne correçõ
 de geração/consumo/navegação e testes do percurso. Não reimplementa fluxos já
 validados e não declara todos os cadastros avançados incorporados.
 
+Aplicado e validado pelo usuário em 06/10/2026. A pendência posterior de
+items → UN é tratada em pacote separado de conversões por material.
+
 ## Inventário e correções
 
 | Frente | Código/evidência conferida | Resultado desta revisão |

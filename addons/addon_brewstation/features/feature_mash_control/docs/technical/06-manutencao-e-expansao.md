@@ -412,3 +412,15 @@ Nenhuma atualização direta de saldo; ledger continua via serviço de estoque.
 AJAX de geração bloqueia reenvio e ignora navegação após fragmento removido.
 Sem migration. Inventário, testes e limites em
 `docs/patches/workspace-revisao-integrada-processo.md`.
+
+### Conversões por material — 06/10/2026
+
+Novo POST manual `/<plant>/recipes/<recipe>/ingredients/<ingredient>/conversion`
+usa `material_conversion_service` público do estoque, sem ORM entre addons.
+Normalização item/items -> ITEM só padroniza rótulo; o fator é explícito.
+O serviço cria catálogo ITEM/base legada/unidade adicional na mesma transação,
+sem sobrescrever base ou fator existente. Não chama movimentação de estoque.
+A consulta verifica linhas únicas/ativas e fatores finitos positivos.
+O custo congelado e a confirmação central de insumos permanecem preservados.
+ModuleManager.active_features permite ao i18n carregar traduções das features
+registradas. Ver documentação do patch em docs/patches/workspace-conversoes-ingredientes-material.md.

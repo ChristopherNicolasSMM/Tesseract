@@ -4,6 +4,10 @@
 > Cada item referencia a Fase do plano de construção (ver
 > `README.md` → seção Fases) e a skill/doc relevante quando aplicável.
 
+Incremento de 06/10/2026: conversões de ingredientes pelo material implementadas;
+aguarda validação local. Revisão integrada anterior validada pelo usuário.
+Ver [conversões no workspace](docs/patches/workspace-conversoes-ingredientes-material.md).
+
 ## Continuidade BrewStation — plano atual (2026-09-30)
 
 O plano de consolidação conferido no commit `b3d3bab` está em
@@ -5681,6 +5685,6 @@ próximo pacote. Ver docs/patches/workspace-dashboard-standby-3a2.md.
 Descanso visual 3A.2 validado pelo usuário. Novo pacote corrige atomicidade da
 cópia de sessão, validações no serviço, reserva/releitura de confirmação de
 insumos e geração AJAX contextual. Teste de percurso até estorno e concorrência
-SQLite real adicionados. Sem migration. Nova entrega aguarda validação local;
+SQLite real adicionados. Sem migration. Validado pelo usuário em 06/10/2026;
 não encerra manutenção avançada, PID, proveniência física ou auditorias dos
 portais Brewfather/YeastBank. Ver docs/patches/workspace-revisao-integrada-processo.md.

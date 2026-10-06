@@ -173,3 +173,36 @@ def editar_dados_ingrediente(recipe_id: int, ingredient_id: int, dados: dict, *,
     except Exception:
         db.session.rollback()
         raise
+
+
+def ingredient_conversion_context(ingrediente):
+    """Consulta pública de unidades; inclusive para receita já usada em lote."""
+    from addons.addon_estoque.root.services.material_conversion_service import normalizar_unidade
+    material = material_lookup.get_material(ingrediente.material_id)
+    if not material or not material.get("ativo") or ingrediente.status_resolucao != "resolvido":
+        return None
+    base = material_lookup.get_unidade_base(ingrediente.material_id)
+    origem = normalizar_unidade(ingrediente.unidade_medida)
+    destino = normalizar_unidade(base["unidade"] if base else material.get("unidade_medida"))
+    if not origem or not destino or origem == destino:
+        return None
+    from addons.addon_brewstation.features.feature_envase.services.unidade_conversao import converter_quantidade
+    _, confiavel = converter_quantidade(1, origem, destino, ingrediente.material_id)
+    return {"material_id": ingrediente.material_id, "material": material["display"],
+            "origem": origem, "destino": destino, "necessita_conversao": not confiavel}
+
+
+def configure_ingredient_conversion(recipe_id, ingredient_id, *, material_id_esperado,
+                                    unidade_base_esperada, unidade_origem_esperada, fator):
+    """Não edita receita/vínculo nem consumo; registra conversão no estoque."""
+    from services.core.i18n_service import translate as t
+    from addons.addon_estoque.root.services.material_conversion_service import cadastrar_conversao
+    receita = MashRecipe.query.filter_by(id=recipe_id, is_deleted=False).first()
+    ingrediente = RecipeIngredient.query.filter_by(id=ingredient_id, recipe_id=recipe_id, is_deleted=False).first()
+    if receita is None or ingrediente is None:
+        raise IngredienteNaoEncontradoError(t("brewstation_mashctrl.conversion.not_found"))
+    context = ingredient_conversion_context(ingrediente)
+    if context is None or context["material_id"] != material_id_esperado or context["origem"] != unidade_origem_esperada:
+        raise ValueError(t("brewstation_mashctrl.conversion.stale_material"))
+    return cadastrar_conversao(context["material_id"], context["origem"], fator,
+                              unidade_base_esperada=unidade_base_esperada)

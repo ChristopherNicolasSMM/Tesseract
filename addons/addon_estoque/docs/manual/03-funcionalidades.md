@@ -184,3 +184,15 @@ aparece pra **Apagar** ou **Inativar** de uma vez, em vez de linha por
 linha. Em Materiais, a mesma barra também tem os atalhos de
 Movimentar Estoque, Criar Cotação, Criar Pedido e Modificação em
 Massa (campo por campo, em várias linhas de uma vez).
+
+### Conversões de ingredientes no workspace — 06/10/2026
+
+A receita oferece **Ajustar conversão do material** para unidades pendentes
+com material vinculado. O modal mostra origem, base, fator e prévia. Para
+Whirlfloc em `items`, mantenha `UN` como base e cadastre `ITEM` com fator 1
+somente quando cada item representar uma unidade real. ITEM não possui
+conversão automática para UN, KG ou L. O ajuste vale para outras receitas do
+material, não edita ingredientes e não movimenta estoque. É permitido em
+receitas usadas; o custo registrado de lotes confirmados permanece congelado.
+Requer permissão de criar unidades do material. Cancelamento não grava;
+conversões existentes com outro fator exigem manutenção no cadastro completo.

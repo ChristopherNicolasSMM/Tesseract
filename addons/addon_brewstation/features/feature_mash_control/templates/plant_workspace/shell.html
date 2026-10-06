@@ -129,6 +129,7 @@ body.pw-kiosk-mode #main { margin-left: 0 !important; padding-top: 12px !importa
       }
       const result = await response.json();
       if (!response.ok || !result.ok) throw new Error(result.error || 'Não foi possível salvar.');
+      if (!form.isConnected) return result;
       if (result.plant_name) {
         document.getElementById('pwPlantTitle').textContent = result.plant_name;
         document.title = result.plant_name + ' - Workspace';
@@ -139,9 +140,11 @@ body.pw-kiosk-mode #main { margin-left: 0 !important; padding-top: 12px !importa
       else if (result.dashboard_reload) window.__workspaceOpenTab('dashboard', result.layout_id ? '?layout_id=' + encodeURIComponent(result.layout_id) : '');
       else if (result.layout_id) window.__workspaceOpenTab('dashboard', '?layout_id=' + encodeURIComponent(result.layout_id));
       else window.__workspaceReloadCurrent();
+      return result;
     } catch (error) {
       if (window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
       button.disabled = false;
+      return null;
     }
   };
   window.__workspaceOpenTab = function (key, query) {

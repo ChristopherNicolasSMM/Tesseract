@@ -599,3 +599,88 @@ def test_edicao_unidade_catalogo_e_legado_sem_conversao_automatica(app):
         before = RecipeHistory.query.count()
         sanitation.editar_dados_ingrediente(recipe.id, ing.id, {"quantidade": 6})
         assert RecipeHistory.query.count() == before
+
+
+def _conversion_material():
+    from addons.addon_estoque.root.model.unidade_catalogo import UnidadeCatalogo
+    material = _criar_material(nome="Whirlfloc conversão")
+    material.unidade_medida = "UN"
+    if not UnidadeCatalogo.query.filter_by(codigo="UN").first():
+        db.session.add(UnidadeCatalogo(codigo="UN", descricao="Unidade", dimensao="contagem"))
+    db.session.commit()
+    return material
+
+
+@pytest.mark.parametrize("source", ["item", "items", "ITEM", " ITEMS "])
+def test_conversion_items_exige_fator_explicito_e_preserva_consumo_congelado(app, source):
+    from addons.addon_estoque.root.services.material_conversion_service import cadastrar_conversao
+    from addons.addon_brewstation.features.feature_envase.services.unidade_conversao import converter_quantidade
+    from addons.addon_estoque.root.services import estoque_service
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+    from addons.addon_brewstation.features.feature_mash_control.services.ingredient_consumption_service import confirmar_consumo_ingredientes
+    with app.app_context():
+        material = _conversion_material()
+        assert converter_quantidade(2, source, "UN", material.id) == (2, False)
+        cadastrar_conversao(material.id, source, "0,5", unidade_base_esperada="UN")
+        assert converter_quantidade(2, source, "UN", material.id) == (1, True)
+        estoque_service.registrar_movimentacao(material.id, "entrada", 10, custo_unitario=4)
+        recipe = _criar_receita()
+        _linha_saneamento(recipe, material_id=material.id, unidade_medida=source, quantidade=2, status_resolucao="resolvido")
+        lot = BrewSession(name="Lote Whirlfloc", recipe_id=recipe.id, status="draft")
+        db.session.add(lot)
+        db.session.commit()
+        first = confirmar_consumo_ingredientes(lot.id)
+        count = Movimentacao.query.count()
+        assert lot.custo_total_insumos == 4
+        second = confirmar_consumo_ingredientes(lot.id)
+        assert not first["ja_confirmado"] and second["ja_confirmado"]
+        assert Movimentacao.query.count() == count
+        assert lot.custo_total_insumos == 4
+        assert lot.insumos_baixados_em is not None
+
+
+def test_conversion_rollback_desfaz_catalogo_e_unidades_e_permite_nova_tentativa(app, monkeypatch):
+    from addons.addon_estoque.root.services.material_conversion_service import cadastrar_conversao
+    from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
+    from addons.addon_estoque.root.model.unidade_catalogo import UnidadeCatalogo
+    with app.app_context():
+        material = _conversion_material()
+        mid = material.id
+        count = UnidadeCatalogo.query.count()
+        commit = db.session.commit
+        def fail():
+            db.session.flush()
+            raise RuntimeError("falha simulada após flush")
+        monkeypatch.setattr(db.session, "commit", fail)
+        with pytest.raises(RuntimeError):
+            cadastrar_conversao(mid, "items", 1, unidade_base_esperada="UN")
+        assert UnidadeCatalogo.query.count() == count
+        assert MaterialUnidade.query.filter_by(material_id=mid).count() == 0
+        monkeypatch.setattr(db.session, "commit", commit)
+        cadastrar_conversao(mid, "items", 1, unidade_base_esperada="UN")
+        assert MaterialUnidade.query.filter_by(material_id=mid).count() == 2
+
+
+@pytest.mark.parametrize("case", ["inactive", "different", "duplicate", "deleted_catalog", "unknown"])
+def test_conversion_conflitos_nao_sobrescrevem_cadastro(app, case):
+    from addons.addon_estoque.root.services.material_conversion_service import cadastrar_conversao, obter_fator
+    from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
+    from addons.addon_estoque.root.model.unidade_catalogo import UnidadeCatalogo
+    with app.app_context():
+        material = _conversion_material()
+        row = cadastrar_conversao(material.id, "items", 1, unidade_base_esperada="UN")
+        conversion = db.session.get(MaterialUnidade, row["id"])
+        factor = 1
+        source = "items"
+        if case == "inactive": conversion.ativo = False
+        if case == "different": factor = 2
+        if case == "duplicate": db.session.add(MaterialUnidade(material_id=material.id, unidade="items", fator_para_base=1))
+        if case == "deleted_catalog": UnidadeCatalogo.query.filter_by(codigo="ITEM").first().is_deleted = True
+        if case == "unknown": source = "misteriosa"
+        db.session.commit()
+        before = [r.to_dict() for r in MaterialUnidade.query.filter_by(material_id=material.id).all()]
+        with pytest.raises(ValueError):
+            cadastrar_conversao(material.id, source, factor, unidade_base_esperada="UN")
+        assert [r.to_dict() for r in MaterialUnidade.query.filter_by(material_id=material.id).all()] == before
+        if case in ("inactive", "duplicate"):
+            assert obter_fator(material.id, "items", "UN") is None

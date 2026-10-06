@@ -3000,3 +3000,114 @@ def test_standby_legado_invalido_consulta_sem_gravar(app, client):
     assert 'enabled: false' in html and 'seconds: 30' in html
     with app.app_context():
         assert db.session.get(DashboardLayout, ids[1]).standby_duration_seconds == 0
+
+
+def _workspace_conversion_data(app):
+    from addons.addon_estoque.root.model.material import Material
+    from addons.addon_estoque.root.model.unidade_catalogo import UnidadeCatalogo
+    pid, rid, iid, mid = _workspace_sanitation_data(app)
+    with app.app_context():
+        material = db.session.get(Material, mid)
+        material.unidade_medida = "UN"
+        ing = db.session.get(RecipeIngredient, iid)
+        ing.unidade_medida = "items"
+        ing.quantidade = 2
+        ing.material_id = mid
+        ing.status_resolucao = "resolvido"
+        if not UnidadeCatalogo.query.filter_by(codigo="UN").first():
+            db.session.add(UnidadeCatalogo(codigo="UN", descricao="Unidade", dimensao="contagem"))
+        db.session.commit()
+    return pid, rid, iid, mid
+
+
+def test_workspace_conversion_resolve_items_sem_alterar_receita_ou_estoque(app, client):
+    from addons.addon_estoque.root.model.movimentacao import Movimentacao
+    from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
+    from addons.addon_brewstation.features.feature_mash_control.services.ingredient_consumption_service import conferir_ingredientes
+    _login_admin(app, client)
+    pid, rid, iid, mid = _workspace_conversion_data(app)
+    with app.app_context():
+        db.session.add(BrewSession(name="Sessão existente", recipe_id=rid, plant_id=pid, status="draft"))
+        db.session.commit()
+        before = db.session.get(RecipeIngredient, iid).to_dict()
+        count = Movimentacao.query.count()
+        assert conferir_ingredientes(rid)["pendencias"]
+    html = client.get(f"/brewstation/plant-workspace/{pid}/tab/recipe?recipe_id={rid}").data.decode()
+    assert 'class="pw-ingredient-conversion"' in html and 'items → ITEM' in html
+    assert 'class="pw-ingredient-sanitation' not in html
+    assert 'brewstation_mashctrl.conversion.title' not in html
+    url = f"/brewstation/plant-workspace/{pid}/recipes/{rid}/ingredients/{iid}/conversion"
+    data = {"material_id": mid, "unidade_origem": "ITEM", "unidade_base": "UN", "fator_para_base": "1"}
+    for _ in range(2):
+        response = client.post(url, data=data, headers={"X-Requested-With": "XMLHttpRequest"})
+        assert response.status_code == 200, response.get_json()
+    with app.app_context():
+        assert db.session.get(RecipeIngredient, iid).to_dict() == before
+        assert Movimentacao.query.count() == count
+        assert MaterialUnidade.query.filter_by(material_id=mid, is_deleted=False).count() == 2
+        conference = conferir_ingredientes(rid)
+        assert not conference["pendencias"]
+        assert conference["prontos"][0]["quantidade_base"] == 2
+        assert conference["prontos"][0]["unidade_base"] == "UN"
+
+
+@pytest.mark.parametrize("factor", ["", "0", "-1", "nan", "inf", "texto"])
+def test_workspace_conversion_fator_invalido_nao_grava_catalogo_base_ou_movimento(app, client, factor):
+    from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
+    from addons.addon_estoque.root.model.unidade_catalogo import UnidadeCatalogo
+    _login_admin(app, client)
+    pid, rid, iid, mid = _workspace_conversion_data(app)
+    with app.app_context():
+        units = MaterialUnidade.query.count()
+        catalog = UnidadeCatalogo.query.count()
+    response = client.post(f"/brewstation/plant-workspace/{pid}/recipes/{rid}/ingredients/{iid}/conversion",
+        data={"material_id": mid, "unidade_origem": "ITEM", "unidade_base": "UN", "fator_para_base": factor},
+        headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == 400
+    with app.app_context():
+        assert MaterialUnidade.query.count() == units
+        assert UnidadeCatalogo.query.count() == catalog
+
+
+@pytest.mark.parametrize("permission", ["recipe_steps.list", "material_unidades.create"])
+def test_workspace_conversion_respeita_permissao(app, client, monkeypatch, permission):
+    _login_admin(app, client)
+    pid, rid, iid, mid = _workspace_conversion_data(app)
+    monkeypatch.setattr(User, "has_permission", lambda self, code: code != permission)
+    response = client.post(f"/brewstation/plant-workspace/{pid}/recipes/{rid}/ingredients/{iid}/conversion",
+        data={"material_id": mid, "unidade_origem": "ITEM", "unidade_base": "UN", "fator_para_base": 1},
+        headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize("case", ["plant", "recipe", "ingredient", "material", "source", "base"])
+def test_workspace_conversion_rejeita_contexto_invalido_ou_obsoleto(app, client, case):
+    from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
+    _login_admin(app, client)
+    pid, rid, iid, mid = _workspace_conversion_data(app)
+    data = {"material_id": mid, "unidade_origem": "ITEM", "unidade_base": "UN", "fator_para_base": 1}
+    if case == "plant": pid = 999999
+    if case == "recipe": rid = 999999
+    if case == "ingredient": iid = 999999
+    if case == "material": data["material_id"] = 999999
+    if case == "source": data["unidade_origem"] = "KG"
+    if case == "base": data["unidade_base"] = "KG"
+    response = client.post(f"/brewstation/plant-workspace/{pid}/recipes/{rid}/ingredients/{iid}/conversion",
+        data=data, headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == (404 if case in ("plant", "recipe", "ingredient") else 400)
+    with app.app_context():
+        assert MaterialUnidade.query.filter_by(material_id=mid).count() == 0
+
+
+def test_workspace_conversion_nao_oferece_ajuste_quando_apenas_quantidade_esta_pendente(app, client):
+    from addons.addon_estoque.root.services.material_conversion_service import cadastrar_conversao
+    _login_admin(app, client)
+    pid, rid, iid, mid = _workspace_conversion_data(app)
+    with app.app_context():
+        cadastrar_conversao(mid, "items", 1, unidade_base_esperada="UN")
+        db.session.get(RecipeIngredient, iid).quantidade = None
+        db.session.commit()
+    html = client.get(f"/brewstation/plant-workspace/{pid}/tab/recipe?recipe_id={rid}").data.decode()
+    assert 'class="pw-ingredient-conversion"' not in html
+    assert 'class="pw-ingredient-sanitation' in html
+    assert 'Informe uma quantidade positiva' in html

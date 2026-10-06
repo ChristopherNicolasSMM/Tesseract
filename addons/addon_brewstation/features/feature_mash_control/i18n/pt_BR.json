@@ -26,5 +26,21 @@
   "brewstation_mashctrl.workspace.rule_trash": "Mover a regra \"{name}\" para lixeira e desativar? O histórico será preservado; atuadores não serão desligados.",
   "brewstation_mashctrl.workspace.rule_trash_global": "Mover a regra \"{name}\" para lixeira e desativar? O histórico será preservado; atuadores não serão desligados. Esta regra é global; a mudança afeta todas as plantas.",
   "brewstation_mashctrl.workspace.rule_restore": "Restaurar a regra \"{name}\" sem ativar? O histórico anterior será preservado.",
-  "brewstation_mashctrl.workspace.rule_restore_global": "Restaurar a regra \"{name}\" sem ativar? O histórico anterior será preservado. Esta regra é global; a mudança afeta todas as plantas."
+  "brewstation_mashctrl.workspace.rule_restore_global": "Restaurar a regra \"{name}\" sem ativar? O histórico anterior será preservado. Esta regra é global; a mudança afeta todas as plantas.",
+  "brewstation_mashctrl.conversion.title": "Ajustar conversão do material",
+  "brewstation_mashctrl.conversion.source": "Unidade da receita",
+  "brewstation_mashctrl.conversion.base": "Unidade-base do estoque",
+  "brewstation_mashctrl.conversion.factor": "Fator para a unidade-base",
+  "brewstation_mashctrl.conversion.save": "Salvar conversão",
+  "brewstation_mashctrl.conversion.cancel": "Cancelar",
+  "brewstation_mashctrl.conversion.scope": "Esta configuração vale para outras receitas vinculadas ao mesmo material. Não altera a unidade-base, os ingredientes da receita ou o custo registrado de lotes confirmados. Nenhuma movimentação será feita agora.",
+  "brewstation_mashctrl.conversion.preview": "Prévia da quantidade na unidade-base",
+  "brewstation_mashctrl.conversion.factor_hint": "Informe quantas unidades-base equivalem a 1 unidade de origem.",
+  "brewstation_mashctrl.conversion.confirm": "Salvar esta conversão para o material? Ela será usada também nas demais receitas vinculadas. Nenhuma movimentação de estoque será realizada.",
+  "brewstation_mashctrl.conversion.not_found": "Ingrediente desta receita não encontrado.",
+  "brewstation_mashctrl.conversion.stale_material": "O vínculo ou a unidade do ingrediente mudou. Recarregue a receita.",
+  "brewstation_mashctrl.conversion.plant_missing": "Planta não encontrada.",
+  "brewstation_mashctrl.conversion.failed": "Não foi possível salvar a conversão. Nenhuma alteração parcial foi confirmada.",
+  "brewstation_mashctrl.conversion.saved": "Conversão salva no material. Confira as pendências e o custo estimado; o estoque não foi movimentado.",
+  "brewstation_mashctrl.conversion.confirm_missing": "Confirmação indisponível. Recarregue a página."
 }

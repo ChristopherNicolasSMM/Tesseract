@@ -13,7 +13,8 @@ Duas fontes de conversão, nessa ordem:
 1. `MaterialUnidade` cadastrada para o Material (mais preciso — é o
    mecanismo que a skill 23 já criou pra isso). Só usada quando AMBAS
    as unidades (origem e destino) têm linha cadastrada pro mesmo
-   Material.
+   Material. A consulta é pública, rejeita linhas inativas/duplicadas e
+   normaliza item/items para ITEM, sem equivalência implícita com UN.
 2. Fallback genérico de massa/volume (g/kg/mg/ton, ml/l) — cobre o
    caso comum (like este) sem exigir cadastro prévio.
 
@@ -24,7 +25,7 @@ garantir, mas também não trava o cálculo.
 """
 from __future__ import annotations
 
-from core.db import db
+from addons.addon_estoque.root.services.material_conversion_service import normalizar_unidade, obter_fator
 
 _MASSA_PARA_GRAMA = {"mg": 0.001, "g": 1.0, "kg": 1000.0, "ton": 1_000_000.0, "t": 1_000_000.0}
 _VOLUME_PARA_ML = {"ml": 1.0, "l": 1000.0, "lt": 1000.0}
@@ -46,23 +47,7 @@ def _fator_generico(unidade_origem: str, unidade_destino: str) -> float | None:
 
 
 def _fator_via_material_unidade(unidade_origem: str, unidade_destino: str, material_id: int) -> float | None:
-    from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
-
-    row_o = (
-        MaterialUnidade.query
-        .filter(MaterialUnidade.material_id == material_id, MaterialUnidade.is_deleted.is_(False))
-        .filter(db.func.lower(MaterialUnidade.unidade) == unidade_origem.lower())
-        .first()
-    )
-    row_d = (
-        MaterialUnidade.query
-        .filter(MaterialUnidade.material_id == material_id, MaterialUnidade.is_deleted.is_(False))
-        .filter(db.func.lower(MaterialUnidade.unidade) == unidade_destino.lower())
-        .first()
-    )
-    if row_o and row_d and row_d.fator_para_base:
-        return row_o.fator_para_base / row_d.fator_para_base
-    return None
+    return obter_fator(material_id, unidade_origem, unidade_destino)
 
 
 def converter_quantidade(
@@ -81,7 +66,7 @@ def converter_quantidade(
     if not unidade_origem or not unidade_destino:
         return quantidade, True  # nada informado pra converter — mesmo comportamento de antes
 
-    uo, ud = unidade_origem.strip(), unidade_destino.strip()
+    uo, ud = normalizar_unidade(unidade_origem), normalizar_unidade(unidade_destino)
     if uo.lower() == ud.lower():
         return quantidade, True
 

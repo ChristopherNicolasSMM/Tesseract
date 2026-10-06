@@ -835,6 +835,33 @@ def edit_recipe_ingredient_data(plant_id, recipe_id, ingredient_id):
     return _recipe_workspace_response(plant_id, recipe_id, "Dados salvos. Confira as pendências, alertas e o custo estimado; o estoque não foi movimentado.")
 
 
+@plant_workspace_bp.route("/<int:plant_id>/recipes/<int:recipe_id>/ingredients/<int:ingredient_id>/conversion", methods=["POST"])
+@login_required
+@permission_required("recipe_steps.list")
+@permission_required("material_unidades.create")
+def configure_recipe_ingredient_conversion(plant_id, recipe_id, ingredient_id):
+    from services.core.i18n_service import translate as t
+    if not BrewPlant.query.filter_by(id=plant_id, is_deleted=False).first():
+        return _recipe_workspace_response(plant_id, recipe_id, t("brewstation_mashctrl.conversion.plant_missing"), 404)
+    try:
+        ingredient_sanitation_service.configure_ingredient_conversion(
+            recipe_id, ingredient_id,
+            material_id_esperado=request.form.get("material_id", type=int),
+            unidade_base_esperada=request.form.get("unidade_base", ""),
+            unidade_origem_esperada=request.form.get("unidade_origem", ""),
+            fator=request.form.get("fator_para_base"),
+        )
+    except ingredient_sanitation_service.IngredienteNaoEncontradoError as exc:
+        return _recipe_workspace_response(plant_id, recipe_id, str(exc), 404)
+    except ValueError as exc:
+        return _recipe_workspace_response(plant_id, recipe_id, str(exc), 400)
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Falha ao cadastrar conversão do ingrediente %s", ingredient_id)
+        return _recipe_workspace_response(plant_id, recipe_id, t("brewstation_mashctrl.conversion.failed"), 500)
+    return _recipe_workspace_response(plant_id, recipe_id, t("brewstation_mashctrl.conversion.saved"))
+
+
 @plant_workspace_bp.route("/<int:plant_id>/tab/recipe", methods=["GET"])
 @login_required
 @permission_required("recipe_steps.list")
@@ -861,6 +888,8 @@ def tab_recipe(plant_id: int):
             receita_em_uso=BrewSession.query.filter_by(recipe_id=recipe.id).first() is not None,
             pode_sanear=current_user.has_permission("recipe_ingredients.update"),
             pode_revisar=current_user.has_permission("mash_recipes.create"),
+            pode_configurar_conversao=current_user.has_permission("material_unidades.create"),
+            conversoes={ing.id: ingredient_sanitation_service.ingredient_conversion_context(ing) for ing in ingredientes},
             materiais_vinculados={mid: material_lookup.get_material(mid) for mid in {ing.material_id for ing in ingredientes if ing.material_id}},
             ingredientes=ingredientes,
             ingredientes_por_id={ing.id: ing for ing in ingredientes},

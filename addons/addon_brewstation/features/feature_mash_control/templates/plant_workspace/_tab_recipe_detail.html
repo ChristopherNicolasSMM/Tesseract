@@ -66,6 +66,9 @@
             </td>
             <td class="small">{% if linha.motivo %}{{ linha.motivo }}{% elif linha.custo_estimado is not none %}Custo estimado: R$ {{ '%.2f'|format(linha.custo_estimado) }}{% else %}Sem custo médio cadastrado{% endif %}</td>
           </tr>
+          {% if pode_configurar_conversao and linha.estado == 'pendente' and conversoes.get(ing.id) and conversoes[ing.id].necessita_conversao %}
+          <tr><td colspan="5">{% include "plant_workspace/_ingredient_conversion.html" %}</td></tr>
+          {% endif %}
           {% if pode_sanear and not receita_em_uso %}
           <tr><td colspan="5">{% include "plant_workspace/_ingredient_sanitation.html" %}</td></tr>
           {% endif %}
@@ -202,3 +205,5 @@
   });
 })();
 </script>
+
+{% include "plant_workspace/_ingredient_conversion_scripts.html" %}

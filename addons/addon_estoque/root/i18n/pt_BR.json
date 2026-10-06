@@ -1,0 +1,9 @@
+{
+  "estoque.conversion.material_unavailable": "O material está indisponível ou inativo.",
+  "estoque.conversion.invalid_base": "Revise a unidade-base ativa do material no cadastro completo.",
+  "estoque.conversion.stale_base": "A unidade-base mudou. Recarregue a receita antes de salvar.",
+  "estoque.conversion.same_unit": "Informe uma unidade de origem diferente da unidade-base.",
+  "estoque.conversion.invalid_factor": "O fator deve ser finito e maior que zero.",
+  "estoque.conversion.unknown_unit": "Cadastre a unidade de origem no catálogo antes de configurar a conversão.",
+  "estoque.conversion.existing_conflict": "Já existe uma configuração diferente, inativa ou duplicada para esta unidade. Revise no cadastro de unidades do material."
+}

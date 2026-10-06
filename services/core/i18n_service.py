@@ -78,7 +78,9 @@ def _build_translations(app, locale: str) -> dict[str, str]:
 
     module_manager = getattr(app, "module_manager", None)
     if module_manager is not None:
-        for module_obj in module_manager.active_modules.values():
+        modules = list(module_manager.active_modules.values())
+        modules.extend(getattr(module_manager, "active_features", {}).values())
+        for module_obj in modules:
             i18n_dir = _i18n_dir_for(module_obj)
             if i18n_dir is None:
                 continue

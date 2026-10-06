@@ -1,0 +1,61 @@
+<script>
+(function () {
+  const forms = Array.from(document.querySelectorAll('.pw-ingredient-conversion'));
+  const previousCleanup = window.__tabCleanup;
+  window.__tabCleanup = function () {
+    forms.forEach(function (form) {
+      const instance = bootstrap.Modal.getInstance(form.closest('.modal'));
+      if (instance) instance.hide();
+    });
+    if (typeof previousCleanup === 'function') previousCleanup();
+  };
+  forms.forEach(function (form) {
+    const factor = form.querySelector('[name="fator_para_base"]');
+    const output = form.querySelector('.pw-conversion-preview');
+    const button = form.querySelector('button[type="submit"]');
+    const modal = form.closest('.modal');
+    modal.addEventListener('hidden.bs.modal', function () {
+      const instance = bootstrap.Modal.getInstance(modal);
+      if (instance) instance.dispose();
+    });
+    let pending = false;
+    function value() { return Number(factor.value.trim().replace(',', '.')); }
+    function preview() {
+      const quantity = Number(form.dataset.quantity);
+      const result = quantity * value();
+      output.textContent = form.dataset.quantity && Number.isFinite(result) && quantity > 0 && value() > 0
+        ? result.toLocaleString('pt-BR', {maximumFractionDigits: 8}) + ' ' + form.dataset.base : '—';
+    }
+    factor.addEventListener('input', preview);
+    preview();
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      if (pending || button.disabled) return;
+      pending = true;
+      button.disabled = true;
+      let submitted = false;
+      let instance;
+      try {
+        if (!Number.isFinite(value()) || value() <= 0) throw new Error(form.dataset.invalidFactor);
+        if (!window.__tesseractConfirm) throw new Error(form.dataset.confirmMissing);
+        instance = bootstrap.Modal.getOrCreateInstance(modal);
+        // Fecha o editor antes do modal Core; evita backdrops sobrepostos.
+        if (modal.classList.contains('show')) {
+          await new Promise(function (resolve) {
+            modal.addEventListener('hidden.bs.modal', resolve, {once: true});
+            instance.hide();
+          });
+        }
+        if (!await window.__tesseractConfirm({key: 'brewstation_mashctrl.conversion.confirm'}) || !form.isConnected) return;
+        submitted = Boolean(await window.__workspaceSubmitForm(form));
+      } catch (error) {
+        if (form.isConnected && window.__tesseractToast) window.__tesseractToast.show(error.message, 'error');
+      } finally {
+        pending = false;
+        button.disabled = false;
+        if (!submitted && instance && form.isConnected) bootstrap.Modal.getOrCreateInstance(modal).show();
+      }
+    });
+  });
+})();
+</script>

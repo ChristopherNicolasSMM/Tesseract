@@ -1,0 +1,24 @@
+{% set conversion = conversoes[ing.id] %}
+<button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#pwConversion{{ ing.id }}">{{ t('brewstation_mashctrl.conversion.title') }}</button>
+<div class="modal fade" id="pwConversion{{ ing.id }}" tabindex="-1" aria-labelledby="pwConversionTitle{{ ing.id }}" aria-hidden="true">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="pwConversionTitle{{ ing.id }}">{{ t('brewstation_mashctrl.conversion.title') }} — {{ conversion.material }}</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ t('brewstation_mashctrl.conversion.cancel') }}"></button></div>
+    <form class="pw-ingredient-conversion" method="post" action="{{ url_for('plant_workspace.configure_recipe_ingredient_conversion', plant_id=plant.id, recipe_id=recipe.id, ingredient_id=ing.id) }}"
+          data-quantity="{{ ing.quantidade if ing.quantidade is not none else '' }}" data-base="{{ conversion.destino }}"
+          data-invalid-factor="{{ t('estoque.conversion.invalid_factor') }}" data-confirm-missing="{{ t('brewstation_mashctrl.conversion.confirm_missing') }}">
+      <div class="modal-body">
+        <input type="hidden" name="material_id" value="{{ conversion.material_id }}">
+        <input type="hidden" name="unidade_base" value="{{ conversion.destino }}">
+        <input type="hidden" name="unidade_origem" value="{{ conversion.origem }}">
+        <p>{{ t('brewstation_mashctrl.conversion.source') }}: <strong>{{ ing.unidade_medida }} → {{ conversion.origem }}</strong><br>{{ t('brewstation_mashctrl.conversion.base') }}: <strong>{{ conversion.destino }}</strong></p>
+        <label class="form-label" for="pwConversionFactor{{ ing.id }}">{{ t('brewstation_mashctrl.conversion.factor') }}</label>
+        <input type="text" inputmode="decimal" class="form-control" id="pwConversionFactor{{ ing.id }}" name="fator_para_base" required autocomplete="off" aria-describedby="pwConversionHint{{ ing.id }}">
+        <div class="form-text" id="pwConversionHint{{ ing.id }}">{{ t('brewstation_mashctrl.conversion.factor_hint') }}</div>
+        <p class="mt-3">{{ t('brewstation_mashctrl.conversion.preview') }}: <output class="pw-conversion-preview" aria-live="polite">—</output></p>
+        <p class="small text-muted mb-0">{{ t('brewstation_mashctrl.conversion.scope') }}</p>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ t('brewstation_mashctrl.conversion.cancel') }}</button><button type="submit" class="btn btn-primary">{{ t('brewstation_mashctrl.conversion.save') }}</button></div>
+    </form>
+  </div></div>
+</div>
