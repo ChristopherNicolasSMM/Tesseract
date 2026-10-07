@@ -246,7 +246,7 @@ def test_bug2_override_manual_pela_rota_web(app):
         assert "atualizada".encode() in resp.data
 
         with app.app_context():
-            conn = ODataConnection.query.get(conn_id)
+            conn = db.session.get(ODataConnection, conn_id)
             assert conn.entity_route_overrides == {"Order": "Pedidos"}
     finally:
         server.shutdown()

@@ -89,7 +89,7 @@ def create():
 @login_required
 @permission_required("admin")
 def delete(conn_id: int):
-    conn = ODataConnection.query.get(conn_id)
+    conn = db.session.get(ODataConnection, conn_id)
     if conn:
         db.session.delete(conn)
         db.session.commit()
@@ -101,7 +101,7 @@ def delete(conn_id: int):
 @login_required
 @permission_required("admin")
 def test(conn_id: int):
-    conn = ODataConnection.query.get(conn_id)
+    conn = db.session.get(ODataConnection, conn_id)
     if not conn:
         flash("Conexão não encontrada.", "error")
         return redirect(url_for("admin_odata.manage"))
@@ -118,7 +118,7 @@ def test(conn_id: int):
 @login_required
 @permission_required("admin")
 def entities(conn_id: int):
-    conn = ODataConnection.query.get(conn_id)
+    conn = db.session.get(ODataConnection, conn_id)
     if not conn:
         flash("Conexão não encontrada.", "error")
         return redirect(url_for("admin_odata.manage"))
@@ -144,7 +144,7 @@ def set_entity_route_override(conn_id: int):
     registrado em BACKLOG.md, 'Bugs de OData') — só necessário para
     metadata sem EntitySet declarado, quando a pluralização automática
     de `query()` errar."""
-    conn = ODataConnection.query.get(conn_id)
+    conn = db.session.get(ODataConnection, conn_id)
     if not conn:
         flash("Conexão não encontrada.", "error")
         return redirect(url_for("admin_odata.manage"))
@@ -165,7 +165,7 @@ def set_entity_route_override(conn_id: int):
 @permission_required("admin")
 def browse(conn_id: int, entity_name: str):
     """Navegador de dados read-only — sem geração de tela (Fase 7c)."""
-    conn = ODataConnection.query.get(conn_id)
+    conn = db.session.get(ODataConnection, conn_id)
     if not conn:
         flash("Conexão não encontrada.", "error")
         return redirect(url_for("admin_odata.manage"))

@@ -185,7 +185,7 @@ def test_patch_local_atualiza_registro(app):
 
         result = patch_local("yeast_strain", str(strain_id), {"name": "Atualizada"}, user=admin)
         assert result["name"] == "Atualizada"
-        assert YeastStrain.query.get(strain_id).name == "Atualizada"
+        assert db.session.get(YeastStrain, strain_id).name == "Atualizada"
 
 
 def test_patch_local_registro_inexistente(app):
@@ -239,7 +239,7 @@ def test_http_patch_atualiza_registro(app, client):
     resp = client.patch(f"/api/odata-provider/yeast_strain({strain_id})", json={"name": "Depois do PATCH"})
     assert resp.status_code == 200
     with app.app_context():
-        assert YeastStrain.query.get(strain_id).name == "Depois do PATCH"
+        assert db.session.get(YeastStrain, strain_id).name == "Depois do PATCH"
 
 
 # ── atalho em processo (ODataConnectionManager) ──────────────────────────
@@ -281,3 +281,15 @@ def test_connection_manager_local_query_sem_http(app):
             local_conn = ODataConnection.query.filter_by(is_local=True).first()
             result = ODataConnectionManager(local_conn).query("yeast_strain")
             assert any(r["name"] == "Via Manager" for r in result["value"])
+
+
+@pytest.mark.parametrize('existing', [True, False])
+def test_patch_denies_permission_before_lookup_and_preserves_data(app, existing):
+    strain_id = _seed_strain(app, name='Preservada')
+    _create_user(app, 'patchsempermissao', is_admin=False)
+    with app.app_context():
+        user = User.query.filter_by(username='patchsempermissao').first()
+        key = strain_id if existing else 999999
+        with pytest.raises(PermissionDeniedError):
+            patch_local('yeast_strain', str(key), {'name': 'Indevida'}, user=user)
+        assert db.session.get(YeastStrain, strain_id).name == 'Preservada'

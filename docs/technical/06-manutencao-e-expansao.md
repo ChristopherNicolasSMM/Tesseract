@@ -454,3 +454,15 @@ de listas e consultas de coleção seguem seus contratos. Executar a seleção
 administrativa com `-W error::sqlalchemy.exc.LegacyAPIWarning` para detectar
 regressões, incluindo leituras dos próprios testes. Detalhes e limites em
 docs/patches/fase3-administracao-core-sqlalchemy.md. Não requer migration.
+
+
+### Ferramentas e integrações — lookup SQLAlchemy
+
+Administração OData, Designer, Model Builder, Playground e provedor local
+passam a consultar IDs por db.session.get. O provedor mantém modelo dinâmico
+e autorização antes do lookup; as pontes de geração preservam contratos.
+O pipeline atual escreve dez arquivos CrudGen mais o model em geração nova,
+incluindo os hooks HTML de lista/detalhe. Testes de pai/filho conferem onze
+por entidade. A referência de Designer consolidada é
+docs/skills/16-designer-paginas-customizadas.md (substitui 16/17/18 antigos).
+Resultados e roteiro: docs/patches/fase3-integracoes-ferramentas-core.md.

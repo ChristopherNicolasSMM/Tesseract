@@ -242,4 +242,4 @@ def test_remover_conexao(app, client, mock_odata_server):
     client.post(f"/admin/odata/{conn_id}/delete")
 
     with app.app_context():
-        assert ODataConnection.query.get(conn_id) is None
+        assert db.session.get(ODataConnection, conn_id) is None

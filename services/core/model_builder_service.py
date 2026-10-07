@@ -217,7 +217,7 @@ def update_field(field_id: int, *, field_name: str, field_type: str,
     nome/tipo/label e nenhuma das demais opções (achado real, ver
     BACKLOG.md). Mesma validação de FK de `add_field`, sem duplicar
     a regra da skill 02."""
-    field = ModelFieldDefinition.query.get(field_id)
+    field = db.session.get(ModelFieldDefinition, field_id)
     if not field:
         raise ModelBuilderError("Campo não encontrado.")
 
@@ -232,7 +232,7 @@ def update_field(field_id: int, *, field_name: str, field_type: str,
         raise ModelBuilderError(f"Tipo de campo inválido: {field_type}")
 
     if field_type == ModelFieldType.FOREIGN_KEY:
-        model_definition = ModelDefinition.query.get(field.model_definition_id)
+        model_definition = db.session.get(ModelDefinition, field.model_definition_id)
         candidates = {c["table_name"] for c in fk_candidates(model_definition)}
         if fk_target_table not in candidates:
             raise ModelBuilderError(
@@ -274,11 +274,11 @@ def reorder_fields(model_definition_id: int, ordered_field_ids: list[int]) -> No
 
 
 def remove_field(field_id: int) -> None:
-    field = ModelFieldDefinition.query.get(field_id)
+    field = db.session.get(ModelFieldDefinition, field_id)
     if not field:
         return
     if field.field_type == ModelFieldType.TABLE and field.child_model_definition_id:
-        child = ModelDefinition.query.get(field.child_model_definition_id)
+        child = db.session.get(ModelDefinition, field.child_model_definition_id)
         if child:
             db.session.delete(child)  # cascade cuida dos campos do filho (fields, cascade=all,delete-orphan)
     db.session.delete(field)
@@ -694,7 +694,7 @@ def _relationship_template_context(definition: ModelDefinition, class_name_lower
     for f in definition.fields:
         if f.field_type != ModelFieldType.TABLE or not f.child_model_definition_id:
             continue
-        child = ModelDefinition.query.get(f.child_model_definition_id)
+        child = db.session.get(ModelDefinition, f.child_model_definition_id)
         if not child:
             continue
         relationships.append({
@@ -910,7 +910,7 @@ def _write_model_file(definition: ModelDefinition, *, project_root: Path, overwr
 
 
 def generate(model_definition_id: int, *, project_root: Path, overwrite: bool = False) -> dict:
-    definition = ModelDefinition.query.get(model_definition_id)
+    definition = db.session.get(ModelDefinition, model_definition_id)
     if not definition:
         raise ModelBuilderError("ModelDefinition não encontrado.")
     if definition.parent_model_definition_id is not None:
@@ -926,7 +926,7 @@ def generate(model_definition_id: int, *, project_root: Path, overwrite: bool = 
     prepared = [_write_model_file(definition, project_root=project_root, overwrite=overwrite)]
     for f in definition.fields:
         if f.field_type == ModelFieldType.TABLE and f.child_model_definition_id:
-            child_definition = ModelDefinition.query.get(f.child_model_definition_id)
+            child_definition = db.session.get(ModelDefinition, f.child_model_definition_id)
             if child_definition:
                 prepared.append(_write_model_file(child_definition, project_root=project_root, overwrite=overwrite))
 

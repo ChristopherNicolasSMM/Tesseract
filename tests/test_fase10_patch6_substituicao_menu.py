@@ -69,7 +69,7 @@ def test_resolver_troca_rota_quando_publicada_e_replace_in_menu(app, client):
     _login_admin(app, client)
     page_id = _create_page(client)
     with app.app_context():
-        page = DesignerPage.query.get(page_id)
+        page = db.session.get(DesignerPage, page_id)
         page.is_published = True
         page.replace_in_menu = True
         page.replaces_entity_key = _ENTITY_KEY
@@ -86,7 +86,7 @@ def test_resolver_nao_troca_se_nao_publicada(app, client):
     _login_admin(app, client)
     page_id = _create_page(client)
     with app.app_context():
-        page = DesignerPage.query.get(page_id)
+        page = db.session.get(DesignerPage, page_id)
         page.is_published = False
         page.replace_in_menu = True
         page.replaces_entity_key = _ENTITY_KEY
@@ -102,7 +102,7 @@ def test_resolver_nao_troca_se_replaces_view_detail(app, client):
     _login_admin(app, client)
     page_id = _create_page(client)
     with app.app_context():
-        page = DesignerPage.query.get(page_id)
+        page = db.session.get(DesignerPage, page_id)
         page.is_published = True
         page.replace_in_menu = True
         page.replaces_entity_key = _ENTITY_KEY
@@ -118,7 +118,7 @@ def test_resolver_desmarcar_checkbox_restaura_rota_original(app, client):
     _login_admin(app, client)
     page_id = _create_page(client)
     with app.app_context():
-        page = DesignerPage.query.get(page_id)
+        page = db.session.get(DesignerPage, page_id)
         page.is_published = True
         page.replace_in_menu = True
         page.replaces_entity_key = _ENTITY_KEY
@@ -128,7 +128,7 @@ def test_resolver_desmarcar_checkbox_restaura_rota_original(app, client):
     assert _route_of(app) == f"/designer/{_slug(app, page_id)}"
 
     with app.app_context():
-        page = DesignerPage.query.get(page_id)
+        page = db.session.get(DesignerPage, page_id)
         page.replace_in_menu = False
         db.session.commit()
         resolve_designer_page_menu_overrides()
@@ -138,21 +138,21 @@ def test_resolver_desmarcar_checkbox_restaura_rota_original(app, client):
 
 def _slug(app, page_id):
     with app.app_context():
-        return DesignerPage.query.get(page_id).slug
+        return db.session.get(DesignerPage, page_id).slug
 
 
 def test_resolver_apagar_pagina_restaura_rota_original(app, client):
     _login_admin(app, client)
     page_id = _create_page(client)
     with app.app_context():
-        page = DesignerPage.query.get(page_id)
+        page = db.session.get(DesignerPage, page_id)
         page.is_published = True
         page.replace_in_menu = True
         page.replaces_entity_key = _ENTITY_KEY
         page.replaces_view = "manage"
         db.session.commit()
         resolve_designer_page_menu_overrides()
-        db.session.delete(DesignerPage.query.get(page_id))
+        db.session.delete(db.session.get(DesignerPage, page_id))
         db.session.commit()
         resolve_designer_page_menu_overrides()
 
@@ -163,7 +163,7 @@ def test_resolver_entity_key_sem_transacao_correspondente_nao_quebra(app, client
     _login_admin(app, client)
     page_id = _create_page(client)
     with app.app_context():
-        page = DesignerPage.query.get(page_id)
+        page = db.session.get(DesignerPage, page_id)
         page.is_published = True
         page.replace_in_menu = True
         page.replaces_entity_key = "entidade_que_nao_existe"
@@ -190,7 +190,7 @@ def test_update_settings_salva_campos_e_aplica_resolver(app, client):
     assert resp.status_code == 200
 
     with app.app_context():
-        page = DesignerPage.query.get(page_id)
+        page = db.session.get(DesignerPage, page_id)
         assert page.replaces_entity_key == _ENTITY_KEY
         assert page.replaces_view == "manage"
         assert page.replace_in_menu is True
@@ -210,7 +210,7 @@ def test_publish_com_replace_in_menu_troca_rota_via_http(app, client):
     client.post(f"/admin/designer/{page_id}/publish")
 
     with app.app_context():
-        slug = DesignerPage.query.get(page_id).slug
+        slug = db.session.get(DesignerPage, page_id).slug
     assert _route_of(app) == f"/designer/{slug}"
 
     # despublicar de novo -> restaura

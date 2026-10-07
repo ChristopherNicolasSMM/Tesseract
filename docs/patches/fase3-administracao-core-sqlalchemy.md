@@ -1,6 +1,6 @@
 # Fase 3 — depreciações nas telas administrativas Core
 
-Implementado no ambiente de geração; aplicação e validação local pendentes.
+Aplicado pelo usuário. Validação dos testes locais ainda pendente de confirmação.
 Base cad38cd, após compatibilidade do Alembic/API de usuários. Os pacotes de
 unidades/conversões e compatibilidade anteriores continuam com validação local
 pendente de confirmação; a solicitação para continuar autoriza este trabalho.

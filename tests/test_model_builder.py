@@ -167,11 +167,14 @@ def generated(app):
 def test_geracao_escreve_model_py_e_roda_pipeline_completo(app, generated):
     definition_id, result = generated
     assert result["table_name"] == "tesseract_smoketestmb_generated_widget"
-    # model.py + os 8 arquivos do pipeline do CrudGen
-    assert len(result["written"]) == 9
+    # model.py + os 10 arquivos atuais do pipeline, incluindo hooks HTML
+    assert len(result["written"]) == 11
+    names = [Path(path).name for path in result["written"]]
+    assert names.count("_acoes_em_massa_extra.html") == 1
+    assert names.count("_detail_extra.html") == 1
 
     with app.app_context():
-        definition = ModelDefinition.query.get(definition_id)
+        definition = db.session.get(ModelDefinition, definition_id)
         assert definition.status == ModelDefinitionStatus.GENERATED
         assert definition.generated_at is not None
 
@@ -245,7 +248,7 @@ def test_fluxo_completo_via_http(app, client):
     assert b"Gerado" in resp.data
 
     with app.app_context():
-        definition = ModelDefinition.query.get(definition_id)
+        definition = db.session.get(ModelDefinition, definition_id)
         assert definition.status == ModelDefinitionStatus.GENERATED
 
 
@@ -313,7 +316,7 @@ def test_update_field_altera_valores_e_preserva_ordem(app):
         assert updated.max_length == 120
         assert updated.is_required is True
 
-        definition = ModelDefinition.query.get(definition.id)
+        definition = db.session.get(ModelDefinition, definition.id)
         assert [f.field_name for f in definition.fields] == ["nome", "ativo"]
 
 
@@ -367,7 +370,7 @@ def test_preview_model_source_muda_ao_editar_campo(app):
 
         svc.update_field(f.id, field_name="apelido", field_type=ModelFieldType.STRING,
                           label_text="Apelido", max_length=200)
-        definition = ModelDefinition.query.get(definition.id)
+        definition = db.session.get(ModelDefinition, definition.id)
         after = svc.preview_model_source(definition, project_root=_PROJECT_ROOT)
         assert "@max_length(\"apelido\", 200)" in after
         assert "@max_length(\"apelido\", 20)" not in after
@@ -398,7 +401,7 @@ def test_editar_campo_pela_tela(app, client):
 
     with app.app_context():
         from model.core.model_field_definition import ModelFieldDefinition
-        updated = ModelFieldDefinition.query.get(field_id)
+        updated = db.session.get(ModelFieldDefinition, field_id)
         assert updated.label_text == "Quantidade Total"
         assert updated.is_required is True
 
@@ -525,8 +528,8 @@ def test_reorder_fields_pela_rota_web(app, client):
 
     with app.app_context():
         from model.core.model_field_definition import ModelFieldDefinition
-        assert ModelFieldDefinition.query.get(f2_id).order_index == 0
-        assert ModelFieldDefinition.query.get(f1_id).order_index == 1
+        assert db.session.get(ModelFieldDefinition, f2_id).order_index == 0
+        assert db.session.get(ModelFieldDefinition, f1_id).order_index == 1
 
 
 # -- Inferencia de campo aninhado (Playground -> Model Builder) --------------
@@ -639,7 +642,7 @@ def test_create_model_definition_from_playground_com_relacao_cria_filho(app):
 
         table_field = next(f for f in definition.fields if f.field_type == "table")
         assert table_field.field_name == "recipe"
-        child = ModelDefinition.query.get(table_field.child_model_definition_id)
+        child = db.session.get(ModelDefinition, table_field.child_model_definition_id)
         assert child.model_name == "Recipe"
         assert child.parent_relation_type == "one_to_one"
         assert child.parent_fk_column_name == "batch_id"
@@ -669,7 +672,7 @@ def generated_with_child(app):
         )
         table_field = next(f for f in definition.fields if f.field_type == "table")
         child_id = table_field.child_model_definition_id
-        child = ModelDefinition.query.get(child_id)
+        child = db.session.get(ModelDefinition, child_id)
         svc.add_field(child, field_name="produto", field_type=ModelFieldType.STRING,
                        label_text="Produto", is_required=True, max_length=100, nullable=False)
         svc.add_field(child, field_name="quantidade", field_type=ModelFieldType.INTEGER,
@@ -682,12 +685,15 @@ def generated_with_child(app):
 def test_geracao_com_tabela_filha_escreve_pai_e_filho(app, generated_with_child):
     definition_id, child_id, result = generated_with_child
     assert result["children_generated"] == ["tesseract_smoketestmb_pedido_item"]
-    # model.py do pai + 8 arquivos do CrudGen do pai + model.py do filho + 8 do CrudGen do filho
-    assert len(result["written"]) == 18
+    # Um model + dez arquivos do CrudGen para cada entidade
+    assert len(result["written"]) == 22
+    names = [Path(path).name for path in result["written"]]
+    assert names.count("_acoes_em_massa_extra.html") == 2
+    assert names.count("_detail_extra.html") == 2
 
     with app.app_context():
-        definition = ModelDefinition.query.get(definition_id)
-        child = ModelDefinition.query.get(child_id)
+        definition = db.session.get(ModelDefinition, definition_id)
+        child = db.session.get(ModelDefinition, child_id)
         assert definition.status == ModelDefinitionStatus.GENERATED
         assert child.status == ModelDefinitionStatus.GENERATED
         assert child.migration_revision == definition.migration_revision  # mesma migration, uma só
@@ -732,7 +738,7 @@ def test_geracao_com_tabela_filha_um_para_um_usa_uselist_false(app):
             relation_type="one_to_one", project_root=_PROJECT_ROOT,
         )
         table_field = next(f for f in definition.fields if f.field_type == "table")
-        child = ModelDefinition.query.get(table_field.child_model_definition_id)
+        child = db.session.get(ModelDefinition, table_field.child_model_definition_id)
         svc.add_field(child, field_name="rua", field_type=ModelFieldType.STRING, label_text="Rua")
 
         svc.generate(definition.id, project_root=_PROJECT_ROOT)
@@ -759,7 +765,7 @@ def test_add_table_field_bloqueado_em_quem_ja_e_filho(app):
             child_model_name="Nivel2", child_table_short_name="nivel2",
             relation_type="one_to_many", project_root=_PROJECT_ROOT,
         )
-        child = ModelDefinition.query.get(field.child_model_definition_id)
+        child = db.session.get(ModelDefinition, field.child_model_definition_id)
 
         with pytest.raises(svc.ModelBuilderError, match="1 nível"):
             svc.add_table_field(
@@ -794,7 +800,7 @@ def test_remove_field_table_apaga_o_filho_junto(app):
 
         svc.remove_field(field.id)
 
-        assert ModelDefinition.query.get(child_id) is None
+        assert db.session.get(ModelDefinition, child_id) is None
 
 
 def test_add_table_field_pela_rota_web(app, client):
@@ -818,7 +824,7 @@ def test_add_table_field_pela_rota_web(app, client):
     assert b"tabela filha" in resp.data.lower()
 
     with app.app_context():
-        definition = ModelDefinition.query.get(definition_id)
+        definition = db.session.get(ModelDefinition, definition_id)
         table_field = next(f for f in definition.fields if f.field_type == "table")
         assert table_field.child_model_definition_id is not None
 

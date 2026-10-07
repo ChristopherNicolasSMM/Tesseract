@@ -177,7 +177,7 @@ def test_geracao_new_addon_status_e_tabela(app, generated_new_addon):
     assert result["scaffolded_new_module"] is True
     assert result["table_name"] == "tesseract_scaffoldedaddon_first_widget"
     with app.app_context():
-        definition = ModelDefinition.query.get(definition_id)
+        definition = db.session.get(ModelDefinition, definition_id)
         assert definition.status == ModelDefinitionStatus.GENERATED
 
 

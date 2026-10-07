@@ -541,3 +541,13 @@ de campo, sem migration/upgrades ou mudança no workspace. Contratos e roteiro
 em [fase3-administracao-core-sqlalchemy.md](fase3-administracao-core-sqlalchemy.md).
 Aplicação e validação local pendentes; confirmação das entregas anteriores
 de unidades e compatibilidade ainda pendente.
+
+
+## Fase 3 — ferramentas e integrações Core
+
+Pacote administrativo aplicado pelo usuário; confirmação de testes locais
+ainda pendente. Novo pacote revisa lookups manuais de OData, Designer, Model
+Builder e Playground, e reconcilia testes com pipeline/documentação atuais.
+Sem migration/upgrades. Ver
+[fase3-integracoes-ferramentas-core.md](fase3-integracoes-ferramentas-core.md).
+Aplicação e validação local do novo pacote pendentes.

@@ -137,7 +137,7 @@ def patch_local(entity_name: str, key: str, data: dict, user=None) -> dict:
     model = info["model"]
 
     pk_value = int(key) if str(key).isdigit() else key
-    instance = model.query.get(pk_value)
+    instance = db.session.get(model, pk_value)
     if instance is None:
         raise ValueError(f"Registro {key!r} não encontrado em {entity_name!r}.")
 

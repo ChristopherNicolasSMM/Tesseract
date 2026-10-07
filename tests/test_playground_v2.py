@@ -199,7 +199,7 @@ def test_apagar_pasta_vazia_funciona(app):
     with app.app_context():
         folder = svc.create_folder(name="Temp")
         svc.delete_folder(folder.id)
-        assert PlaygroundFolder.query.get(folder.id) is None
+        assert db.session.get(PlaygroundFolder, folder.id) is None
 
 
 def test_apagar_pasta_com_subpasta_e_bloqueado(app):
@@ -230,7 +230,7 @@ def test_mover_requisicao_de_pasta(app):
             record = svc.execute_http_request(name=None, method="GET", url="https://api.exemplo.local/x")
         assert record.folder_id is None
         svc.move_request_to_folder(record.id, folder.id)
-        assert PlaygroundRequest.query.get(record.id).folder_id == folder.id
+        assert db.session.get(PlaygroundRequest, record.id).folder_id == folder.id
 
 
 # ── Arquivar vs. Apagar (skill 06 §8.3) ─────────────────────────────────────
@@ -244,10 +244,10 @@ def test_arquivar_e_desarquivar(app):
         assert record.is_archived is False
 
         svc.set_archived(record.id, True)
-        assert PlaygroundRequest.query.get(record.id).is_archived is True
+        assert db.session.get(PlaygroundRequest, record.id).is_archived is True
 
         svc.set_archived(record.id, False)
-        assert PlaygroundRequest.query.get(record.id).is_archived is False
+        assert db.session.get(PlaygroundRequest, record.id).is_archived is False
 
 
 def test_apagar_e_definitivo(app):
@@ -258,7 +258,7 @@ def test_apagar_e_definitivo(app):
             record = svc.execute_http_request(name=None, method="GET", url="https://api.exemplo.local/x")
         record_id = record.id
         svc.delete_request(record_id)
-        assert PlaygroundRequest.query.get(record_id) is None
+        assert db.session.get(PlaygroundRequest, record_id) is None
 
 
 # ── Rotas web ────────────────────────────────────────────────────────────
@@ -292,12 +292,12 @@ def test_arquivar_e_apagar_pela_tela(app, client):
     resp = client.post(f"/admin/playground/{record_id}/archive", follow_redirects=True)
     assert resp.status_code == 200
     with app.app_context():
-        assert PlaygroundRequest.query.get(record_id).is_archived is True
+        assert db.session.get(PlaygroundRequest, record_id).is_archived is True
 
     resp = client.post(f"/admin/playground/{record_id}/delete", follow_redirects=True)
     assert resp.status_code == 200
     with app.app_context():
-        assert PlaygroundRequest.query.get(record_id) is None
+        assert db.session.get(PlaygroundRequest, record_id) is None
 
 
 def test_execute_http_com_auth_e_params_pela_tela(app, client):

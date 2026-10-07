@@ -68,7 +68,7 @@ def test_pagina_nova_nasce_com_html_inicial(app, client):
     _login_admin(app, client)
     page_id = _page(client)
     with app.app_context():
-        page = DesignerPage.query.get(page_id)
+        page = db.session.get(DesignerPage, page_id)
     assert page.content_html
     assert "card-body" in page.content_html
 
@@ -84,7 +84,7 @@ def test_salvar_conteudo_html(app, client):
     assert resp.status_code == 200
 
     with app.app_context():
-        page = DesignerPage.query.get(page_id)
+        page = db.session.get(DesignerPage, page_id)
         assert page.title == "Meu Painel"
         assert "alert-info" in page.content_html
 
@@ -96,7 +96,7 @@ def test_runtime_renderiza_html_da_pagina(app, client):
         "content_html": '<div class="alert alert-warning">CONTEUDO PROPRIO</div>',
     })
     with app.app_context():
-        page = DesignerPage.query.get(page_id)
+        page = db.session.get(DesignerPage, page_id)
         page.is_published = True
         db.session.commit()
         slug = page.slug
@@ -118,7 +118,7 @@ def test_runtime_nao_interpreta_jinja_do_banco(app, client):
         "content_html": "<p>{{ 7 * 191 }}</p>",
     })
     with app.app_context():
-        page = DesignerPage.query.get(page_id)
+        page = db.session.get(DesignerPage, page_id)
         page.is_published = True
         db.session.commit()
         slug = page.slug
@@ -132,7 +132,7 @@ def test_runtime_404_se_nao_publicada(app, client):
     _login_admin(app, client)
     page_id = _page(client)
     with app.app_context():
-        slug = DesignerPage.query.get(page_id).slug
+        slug = db.session.get(DesignerPage, page_id).slug
     assert client.get(f"/designer/{slug}").status_code == 404
 
 
@@ -167,7 +167,7 @@ def test_modelos_de_pagina_sao_servidos(app, client, arquivo, marca):
 
 
 def test_modelo_completo_cobre_os_tres_caminhos_de_dado(app, client):
-    """O modelo completo é a referência viva da skill 17 — se um caminho
+    """O modelo completo é a referência viva da skill 16 consolidada — se um caminho
     sair dele, a documentação passa a mentir."""
     _login_admin(app, client)
     corpo = client.get(
@@ -196,10 +196,10 @@ def test_modelo_completo_escapa_dado_da_api(app, client):
     assert "${esc(r.name)}" in corpo
 
 
-def test_skill_17_existe_e_cobre_os_tres_caminhos():
+def test_skill_designer_consolidada_cobre_os_tres_caminhos():
     from pathlib import Path
 
-    doc = Path("docs/skills/17-paginas-customizadas-fluxo-de-dados.md").read_text(encoding="utf-8")
+    doc = Path("docs/skills/16-designer-paginas-customizadas.md").read_text(encoding="utf-8")
     assert "/admin/designer/data-action/" in doc
     assert "/api/options/" in doc
     assert "401" in doc and "403" in doc
@@ -241,7 +241,7 @@ def test_substituicao_de_menu_continua_funcionando(app, client):
     client.post(f"/admin/designer/{page_id}/publish")
 
     with app.app_context():
-        slug = DesignerPage.query.get(page_id).slug
+        slug = db.session.get(DesignerPage, page_id).slug
         tx = Transaction.query.filter_by(permission_required="yeast_strains.list").first()
         assert tx.route == f"/designer/{slug}"
 

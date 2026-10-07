@@ -134,7 +134,7 @@ def create():
 @login_required
 @permission_required("admin")
 def edit(page_id: int):
-    page = DesignerPage.query.get(page_id)
+    page = db.session.get(DesignerPage, page_id)
     if not page:
         flash("Página não encontrada.", "error")
         return redirect(url_for("designer.manage"))
@@ -149,7 +149,7 @@ def edit(page_id: int):
 @login_required
 @permission_required("admin")
 def save_content(page_id: int):
-    page = DesignerPage.query.get(page_id)
+    page = db.session.get(DesignerPage, page_id)
     if not page:
         flash("Página não encontrada.", "error")
         return redirect(url_for("designer.manage"))
@@ -165,7 +165,7 @@ def save_content(page_id: int):
 @login_required
 @permission_required("admin")
 def delete(page_id: int):
-    page = DesignerPage.query.get(page_id)
+    page = db.session.get(DesignerPage, page_id)
     if page:
         db.session.delete(page)
         db.session.commit()
@@ -179,7 +179,7 @@ def delete(page_id: int):
 @login_required
 @permission_required("admin")
 def publish(page_id: int):
-    page = DesignerPage.query.get(page_id)
+    page = db.session.get(DesignerPage, page_id)
     if not page:
         flash("Página não encontrada.", "error")
         return redirect(url_for("designer.manage"))
@@ -195,7 +195,7 @@ def publish(page_id: int):
 @permission_required("admin")
 def update_settings(page_id: int):
     """Substituição de tela do CrudGen no menu (Fase 10, Patch 6)."""
-    page = DesignerPage.query.get(page_id)
+    page = db.session.get(DesignerPage, page_id)
     if not page:
         flash("Página não encontrada.", "error")
         return redirect(url_for("designer.manage"))
@@ -221,7 +221,7 @@ def update_settings(page_id: int):
 @designer_bp.route("/data-action/<int:action_id>/execute", methods=["POST"])
 @login_required
 def execute_data_action(action_id: int):
-    action = DesignerDataAction.query.get(action_id)
+    action = db.session.get(DesignerDataAction, action_id)
     if not action:
         return jsonify(success=False, error="Ação de Dado não encontrada."), 404
 

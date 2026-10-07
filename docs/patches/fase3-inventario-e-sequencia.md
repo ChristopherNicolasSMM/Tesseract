@@ -153,3 +153,16 @@ Ver [evidências e roteiro](fase3-administracao-core-sqlalchemy.md). Aplicação
 validação local pendentes; pacotes anteriores de unidades e compatibilidade
 continuam aguardando confirmação local. OData/Designer/Model Builder exigem
 própria seleção de contratos antes da próxima revisão de depreciações.
+
+
+## Ferramentas e integrações Core — revisão seguinte
+
+Aplicação do pacote administrativo confirmada pelo usuário; testes locais
+ainda pendentes de confirmação. O pacote seguinte cobre 29 lookups manuais
+de OData, Designer, Model Builder e Playground, incluindo as pontes entre
+serviços. Três testes desatualizados foram reproduzidos: contagem do pipeline
+e referência à documentação consolidada. Sem migration/upgrades. Ver
+[fase3-integracoes-ferramentas-core.md](fase3-integracoes-ferramentas-core.md).
+Aplicação e validação local do novo pacote pendentes. Câmbio e YeastBank
+físico continuam condicionados a desenho funcional; reprodução integral
+de dependências e PostgreSQL permanece verificação pendente.

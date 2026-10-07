@@ -91,7 +91,7 @@ def create():
 @login_required
 @permission_required("model_definitions.view")
 def detail(definition_id: int):
-    definition = ModelDefinition.query.get(definition_id)
+    definition = db.session.get(ModelDefinition, definition_id)
     if not definition:
         flash("Rascunho não encontrado.", "error")
         return redirect(url_for("model_builder.manage"))
@@ -108,7 +108,7 @@ def detail(definition_id: int):
     # o ModelDefinition filho junto, pra tela renderizar indentado sem
     # precisar navegar pra outra página.
     children_by_field_id = {
-        f.id: ModelDefinition.query.get(f.child_model_definition_id)
+        f.id: db.session.get(ModelDefinition, f.child_model_definition_id)
         for f in definition.fields
         if f.field_type == ModelFieldType.TABLE and f.child_model_definition_id
     }
@@ -156,7 +156,7 @@ def _field_form_kwargs() -> dict:
 @login_required
 @permission_required("model_definitions.create")
 def add_field(definition_id: int):
-    definition = ModelDefinition.query.get(definition_id)
+    definition = db.session.get(ModelDefinition, definition_id)
     if not definition:
         flash("Rascunho não encontrado.", "error")
         return redirect(url_for("model_builder.manage"))
@@ -178,7 +178,7 @@ def add_table_field(definition_id: int):
     ModelDefinition filho junto (com FK de volta pro pai) — diferente
     de `add_field`, que só cria campo escalar/relação de documentação
     (`json`)."""
-    definition = ModelDefinition.query.get(definition_id)
+    definition = db.session.get(ModelDefinition, definition_id)
     if not definition:
         flash("Rascunho não encontrado.", "error")
         return redirect(url_for("model_builder.manage"))

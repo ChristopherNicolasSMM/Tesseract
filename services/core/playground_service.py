@@ -177,7 +177,7 @@ def create_folder(*, name: str, parent_id: Optional[int] = None,
 def delete_folder(folder_id: int) -> None:
     """Bloqueado se a pasta tiver filhos (sub-pasta ou requisição) —
     sem cascade automático (skill 06 §8.2)."""
-    folder = PlaygroundFolder.query.get(folder_id)
+    folder = db.session.get(PlaygroundFolder, folder_id)
     if not folder:
         raise PlaygroundError("Pasta não encontrada.")
     has_subfolder = PlaygroundFolder.query.filter_by(parent_id=folder_id).first() is not None
@@ -208,7 +208,7 @@ def list_folder_tree() -> list[dict]:
 
 
 def move_request_to_folder(request_id: int, folder_id: Optional[int]) -> PlaygroundRequest:
-    record = PlaygroundRequest.query.get(request_id)
+    record = db.session.get(PlaygroundRequest, request_id)
     if not record:
         raise PlaygroundError("Requisição não encontrada.")
     record.folder_id = folder_id or None
@@ -219,7 +219,7 @@ def move_request_to_folder(request_id: int, folder_id: Optional[int]) -> Playgro
 # ── Arquivar / Apagar (skill 06 §8.3 — ações separadas) ─────────────────────
 
 def set_archived(request_id: int, archived: bool) -> PlaygroundRequest:
-    record = PlaygroundRequest.query.get(request_id)
+    record = db.session.get(PlaygroundRequest, request_id)
     if not record:
         raise PlaygroundError("Requisição não encontrada.")
     record.is_archived = archived
@@ -231,7 +231,7 @@ def delete_request(request_id: int) -> None:
     """DELETE físico — este model não segue soft-delete (skill 00,
     Adendo Fase 7a); 'apagar' é sempre definitivo, diferente de
     'arquivar'."""
-    record = PlaygroundRequest.query.get(request_id)
+    record = db.session.get(PlaygroundRequest, request_id)
     if not record:
         raise PlaygroundError("Requisição não encontrada.")
     db.session.delete(record)
@@ -491,7 +491,7 @@ def create_model_definition_from_playground(
     Campos tipo `table` ja nascem com o Model filho criado (skill 06,
     tabela filha de verdade) e os campos dele ja inferidos junto.
     """
-    record = PlaygroundRequest.query.get(playground_request_id)
+    record = db.session.get(PlaygroundRequest, playground_request_id)
     if not record or not record.last_response_json:
         raise PlaygroundError("Esta requisicao nao tem resposta salva pra usar como base.")
 
@@ -522,7 +522,7 @@ def create_model_definition_from_playground(
                 project_root=project_root,
                 created_by_user_id=created_by_user_id,
             )
-            child_definition = ModelDefinition.query.get(child_field.child_model_definition_id)
+            child_definition = db.session.get(ModelDefinition, child_field.child_model_definition_id)
             for child_field_data in relation["child_fields"]:
                 model_builder_svc.add_field(
                     child_definition,
