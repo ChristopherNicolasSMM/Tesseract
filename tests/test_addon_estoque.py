@@ -605,8 +605,13 @@ def _criar_pedido_compra(fornecedor=None, **kwargs):
         fornecedor = _criar_fornecedor()
     data = {"fornecedor_id": fornecedor.id, "data_pedido": "2026-08-01"}
     data.update(kwargs)
+    # Estados históricos da fixture não são comandos CRUD de transição.
+    status = data.pop("status", "rascunho")
     resultado = PedidoCompraService().create(data)
     assert resultado.success, resultado.error
+    if status != "rascunho":
+        resultado.data.status = status
+        db.session.commit()
     return resultado.data
 
 
@@ -621,6 +626,16 @@ def _criar_item_pedido_compra(pedido, material, unidade, **kwargs):
         "preco_unitario": 5.0,
     }
     data.update(kwargs)
+    if pedido.status != "rascunho":
+        # Semeia cenário legado já confirmado/recebido; a API agora protege
+        # criação de itens depois do rascunho. Testes novos exercitam o contrato.
+        from addons.addon_estoque.root.model.item_pedido_compra import ItemPedidoCompra
+        obj = ItemPedidoCompra(**data, fator_conversao_aplicado=unidade.fator_para_base,
+            quantidade_convertida_base=data["quantidade"] * unidade.fator_para_base,
+            subtotal=data["quantidade"] * data["preco_unitario"])
+        db.session.add(obj)
+        db.session.commit()
+        return obj
     resultado = ItemPedidoCompraService().create(data)
     assert resultado.success, resultado.error
     return resultado.data

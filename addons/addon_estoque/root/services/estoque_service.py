@@ -16,6 +16,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from math import isfinite
+from functools import wraps
+from sqlalchemy import update
+from sqlalchemy.exc import OperationalError
 
 from core.db import db
 from addons.addon_estoque.root.model.material import Material
@@ -23,6 +26,24 @@ from addons.addon_estoque.root.model.movimentacao import Movimentacao
 from addons.addon_estoque.root.model.saldo import Saldo
 
 TIPOS_VALIDOS = ("entrada", "saida", "ajuste")
+
+
+class EstoqueConcorrenciaError(ValueError):
+    pass
+
+
+def _rollback_on_error(operation):
+    @wraps(operation)
+    def wrapped(*args, **kwargs):
+        try:
+            return operation(*args, **kwargs)
+        except OperationalError as exc:
+            db.session.rollback()
+            raise EstoqueConcorrenciaError('Operação concorrente ou banco indisponível. Atualize e tente novamente.') from exc
+        except Exception:
+            db.session.rollback()
+            raise
+    return wrapped
 
 
 class MaterialNaoEncontradoError(Exception):
@@ -34,7 +55,7 @@ class TipoMovimentacaoInvalidoError(Exception):
 
 
 def _get_or_create_saldo(material_id: int) -> Saldo:
-    saldo = Saldo.query.filter_by(material_id=material_id).first()
+    saldo = Saldo.query.filter_by(material_id=material_id).populate_existing().first()
     if saldo is None:
         # valor_total_estoque/estoque_minimo já nascem em 0 (achado do
         # Christopher) — nunca null, evita "—"/branco na tela até a
@@ -45,6 +66,7 @@ def _get_or_create_saldo(material_id: int) -> Saldo:
     return saldo
 
 
+@_rollback_on_error
 def registrar_movimentacao(
     material_id: int,
     tipo_movimentacao: str,
@@ -95,7 +117,14 @@ def registrar_movimentacao(
     ):
         raise ValueError("custo_unitario deve ser um número finito não negativo")
 
-    material = Material.query.filter_by(id=material_id, is_deleted=False).first()
+    # Reservar a linha do material também protege a criação do primeiro saldo.
+    # Em SQLite o UPDATE reserva o escritor; PostgreSQL reserva a linha.
+    # Releitura do saldo evita atualizar um objeto antigo no identity map.
+    with db.session.no_autoflush:
+        db.session.execute(update(Material).where(
+            Material.id == material_id, Material.is_deleted.is_(False)
+        ).values(updated_at=Material.updated_at).execution_options(synchronize_session=False))
+    material = Material.query.filter_by(id=material_id, is_deleted=False).populate_existing().first()
     if material is None:
         raise MaterialNaoEncontradoError(f"Material id={material_id} não encontrado ou removido")
 
@@ -139,6 +168,10 @@ def registrar_movimentacao(
 
     if saldo.custo_medio is not None:
         saldo.valor_total_estoque = saldo.quantidade_atual * saldo.custo_medio
+    for nome in ('quantidade_atual', 'custo_medio', 'valor_total_estoque'):
+        valor = getattr(saldo, nome)
+        if valor is not None and not isfinite(valor):
+            raise ValueError(f'{nome} do saldo deve permanecer finito')
     saldo.ultima_atualizacao = datetime.now(timezone.utc)
 
     if tipo_movimentacao == "entrada" and fornecedor_id is not None:
@@ -187,6 +220,7 @@ class PedidoCompraStatusInvalidoError(Exception):
     pass
 
 
+@_rollback_on_error
 def receber_pedido_compra(
     pedido_compra_id: int,
     *,
@@ -222,8 +256,9 @@ def receber_pedido_compra(
     """
     from addons.addon_estoque.root.model.pedido_compra import PedidoCompra
 
-    pedido = PedidoCompra.query.filter_by(id=pedido_compra_id, is_deleted=False).first()
-    if pedido is None:
+    from .purchase_integrity_service import reserve_order
+    pedido = reserve_order(pedido_compra_id)
+    if pedido is None or pedido.is_deleted:
         raise PedidoCompraNaoEncontradoError(f"PedidoCompra id={pedido_compra_id} não encontrado ou removido")
 
     if pedido.status != "confirmado":
@@ -231,9 +266,16 @@ def receber_pedido_compra(
             f"Só é possível receber um pedido com status='confirmado' (atual: {pedido.status!r})"
         )
 
-    itens = [i for i in pedido.itens if not i.is_deleted]
+    # A coleção pode ter sido carregada antes de esperar outra transação.
+    from addons.addon_estoque.root.model.item_pedido_compra import ItemPedidoCompra
+    itens = (ItemPedidoCompra.query.filter_by(pedido_compra_id=pedido.id, is_deleted=False)
+             .order_by(ItemPedidoCompra.material_id, ItemPedidoCompra.id).populate_existing().all())
     if not itens:
         raise ValueError(f"PedidoCompra id={pedido_compra_id} não tem itens para receber")
+
+    if (Movimentacao.query.join(ItemPedidoCompra, Movimentacao.pedido_compra_item_id == ItemPedidoCompra.id)
+            .filter(ItemPedidoCompra.pedido_compra_id == pedido.id).first() is not None):
+        raise PedidoCompraStatusInvalidoError('Pedido já possui recebimento registrado. Preserve o histórico; não receba novamente.')
 
     dados_por_item = dados_por_item or {}
 

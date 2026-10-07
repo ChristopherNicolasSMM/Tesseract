@@ -1,34 +1,24 @@
-"""
-addons/addon_estoque/root/services/item_pedido_compra_service_hooks.py
-
-Criado UMA ÚNICA VEZ pelo CrudGen — nunca sobrescrito, mesmo com
---overwrite (skill 00/01). Customize aqui sem editar o service gerado.
-
-Hooks disponíveis (todos opcionais):
-    pbo_apply_fields(obj, data) -> dict | None   # antes de aplicar campos
-    pai_apply_fields(obj, data) -> None          # depois de aplicar campos
-
-CUSTOMIZAÇÃO (skill 23, Fase 4): `fator_conversao_aplicado` (snapshot
-de MaterialUnidade.fator_para_base no momento do save — nunca
-recalculado depois, mesmo se o fator do cadastro mudar),
-`quantidade_convertida_base` e `subtotal` são sempre CALCULADOS aqui,
-nunca aceitos do payload (readonly_fields no model, skill 20) — roda
-em pai_apply_fields porque precisa de material_unidade_id/quantidade/
-preco_unitario já aplicados no obj.
-"""
+"""Overrides manuais: snapshots e manutenção seguem purchase_integrity_service."""
 
 
-def pai_apply_fields(obj, data):
-    from core.db import db
-    from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
+from .purchase_integrity_service import operate as _operate
 
-    if obj.material_unidade_id is not None:
-        unidade = db.session.get(MaterialUnidade, obj.material_unidade_id)
-        if unidade is not None:
-            obj.fator_conversao_aplicado = unidade.fator_para_base
 
-    if obj.quantidade is not None and obj.fator_conversao_aplicado is not None:
-        obj.quantidade_convertida_base = obj.quantidade * obj.fator_conversao_aplicado
+def create_override(data):
+    return _operate('item', 'create', data=data)
 
-    if obj.quantidade is not None and obj.preco_unitario is not None:
-        obj.subtotal = obj.quantidade * obj.preco_unitario
+
+def update_override(id, data):
+    return _operate('item', 'update', ident=id, data=data)
+
+
+def trash_override(id):
+    return _operate('item', 'trash', ident=id)
+
+
+def restore_override(id):
+    return _operate('item', 'restore', ident=id)
+
+
+def delete_permanent_override(id):
+    return _operate('item', 'delete_permanent', ident=id)

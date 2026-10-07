@@ -128,6 +128,22 @@ solto):
 
 Em qualquer etapa antes de "Recebido", dá pra **cancelar** o pedido.
 
+Itens e dados do cabeçalho só podem ser alterados em **rascunho**. Após
+envio/confirmação, os dados ficam congelados; observações ainda podem mudar.
+Salvar preço/quantidade em rascunho preserva o fator de conversão já salvo.
+Somente trocar explicitamente o material/unidade toma outro fator; históricos
+e custos de recebimentos anteriores não são recalculados.
+
+O status Recebido só é gravado pela Entrada de Mercadoria. Repetição não cria
+novas entradas. Pedido/item recebido não pode ser apagado ou reaberto.
+Para arquivar rascunho ou cancelado sem referências, arquive primeiro seus
+itens; restaure primeiro o pedido. Vínculos em cotação ou movimentação
+impedem apagar itens. Tentativas incompatíveis nas telas existentes mostram
+erro do servidor; os dados persistidos ficam preservados.
+
+Recebimento permanece total. Em conflito de escrita, atualize a tela antes
+de tentar novamente. Ver [roteiro da fase 3](../../../../docs/patches/fase3-compras-recebimento-protegido.md).
+
 ## Cotação de Fornecedores (RFQ)
 
 Quando você quer comparar preço entre vários fornecedores antes de

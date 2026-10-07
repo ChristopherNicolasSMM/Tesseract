@@ -243,3 +243,22 @@ polling (ex.: alerta de estoque mínimo, notificação de pedido
 recebido), o evento seguiria a convenção da skill 00
 (`estoque.saldo.abaixo_do_minimo`, `estoque.pedido_compra.recebido`)
 — não desenhado ainda.
+
+
+## Fase 3 — proteção de compras e concorrência
+
+`purchase_integrity_service` implementa overrides manuais de pedido/item.
+Reserva de escrita do pedido e releitura são comuns ao CRUD e recebimento;
+a movimentação central reserva Material e relê/cria Saldo sob a mesma
+transação. Falha faz rollback, inclusive na criação do primeiro saldo.
+Estado recebido não é atribuído pelo CRUD, e ledger vinculado bloqueia novo
+recebimento mesmo com estado legado inconsistente.
+
+Itens/cabeçalho congelam após rascunho; observações permanecem editáveis.
+Fator registrado só muda por troca explícita de material/unidade em rascunho;
+salvar preço/quantidade não toma fator atual. Manutenção protege referências
+históricas e ordem de pais/filhos. Sem migration, sem recebimento parcial.
+
+SQLite em arquivo/conexões independentes é o escopo dos testes concorrentes;
+PostgreSQL e concorrência da geração RFQ não estão certificados. Ver
+[contratos, comandos e limites](../../../../docs/patches/fase3-compras-recebimento-protegido.md).

@@ -506,3 +506,12 @@ Ver [entrega e roteiro](yeast-bank-integridade-eventos-viabilidade.md).
 Aplicado e validado pelo usuário. Revisão final de estoque entregue no pacote
 [estoque — integridade do recebimento](estoque-integridade-recebimento.md);
 aplicado e validado localmente pelo usuário. O ciclo anterior está encerrado.
+
+
+## Fase 3 — compras e recebimento protegido
+
+Reconciliação documental aplicada pelo usuário. Primeiro pacote funcional
+implementa proteção de pedido/item, snapshots e recebimento/saldo concorrentes.
+Sem migration; aplicação e validação local ainda pendentes. Ver
+[contratos e roteiro](fase3-compras-recebimento-protegido.md). Unidades/base,
+câmbio e YeastBank físico permanecem etapas distintas.

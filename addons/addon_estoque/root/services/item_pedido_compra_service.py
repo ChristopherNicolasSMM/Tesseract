@@ -25,6 +25,15 @@ logger = logging.getLogger(__name__)
 # (get_readonly_fields do model) protege os dois lugares agora.
 _READONLY = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"} | get_readonly_fields(ItemPedidoCompra)
 
+# Nome real da coluna de "ativo" deste model (skill 25) — o projeto
+# usa as duas convenções (Material.ativo, MashRecipe.is_active), sem
+# padronização retroativa nesta rodada (fora de escopo). Detecta as
+# duas, na ordem; None se o model não tiver nenhuma delas.
+_ATIVO_FIELD_NAME = next(
+    (f for f in ("ativo", "is_active") if f in ItemPedidoCompra.__table__.columns.keys()),
+    None,
+)
+
 try:
     from addons.addon_estoque.root.services import item_pedido_compra_service_hooks as _hooks
 except ImportError:
@@ -60,21 +69,26 @@ class ServiceResult:
 class ItemPedidoCompraService:
     """Camada de negócio para Item do Pedido de Compra."""
 
-    def list(self, *, include_deleted: bool = False, pedido_compra_id: int | None = None):
-        """`pedido_compra_id` (skill 23, Fase 5) — a aba "Itens" do
-        detalhe de Pedido de Compra precisa listar só os itens daquele
-        pedido, não a tabela inteira."""
+    def list(self, *, include_deleted: bool = False, **filters):
         query = ItemPedidoCompra.query
         if not include_deleted:
             query = query.filter(ItemPedidoCompra.is_deleted.is_(False))
-        if pedido_compra_id is not None:
-            query = query.filter(ItemPedidoCompra.pedido_compra_id == pedido_compra_id)
+        # Filtros de pai para detalhes mestre/filho, sem customizar gerados.
+        for name, value in filters.items():
+            column = ItemPedidoCompra.__table__.columns.get(name)
+            if column is None or not column.foreign_keys:
+                raise ValueError("Filtro de referência inválido.")
+            if value is not None:
+                query = query.filter(getattr(ItemPedidoCompra, name) == value)
         return query.order_by(ItemPedidoCompra.id.asc()).all()
 
     def get_by_id(self, id: int) -> "ItemPedidoCompra | None":
         return db.session.get(ItemPedidoCompra, id)
 
     def create(self, data: dict) -> ServiceResult:
+        override = _hook("create_override")(data)
+        if override is not None:
+            return override
         obj = ItemPedidoCompra()
         self._apply_fields(obj, data)
         db.session.add(obj)
@@ -87,6 +101,9 @@ class ItemPedidoCompraService:
         return ServiceResult(success=True, data=obj, code=201)
 
     def update(self, id: int, data: dict) -> ServiceResult:
+        override = _hook("update_override")(id, data)
+        if override is not None:
+            return override
         obj = self.get_by_id(id)
         if not obj:
             return ServiceResult(success=False, error="Registro não encontrado.", code=404)
@@ -102,6 +119,9 @@ class ItemPedidoCompraService:
         return ServiceResult(success=True, data=obj)
 
     def trash(self, id: int) -> ServiceResult:
+        override = _hook("trash_override")(id)
+        if override is not None:
+            return override
         obj = self.get_by_id(id)
         if not obj:
             return ServiceResult(success=False, error="Não encontrado.", code=404)
@@ -112,7 +132,52 @@ class ItemPedidoCompraService:
         db.session.commit()
         return ServiceResult(success=True, data=obj)
 
+    def trash_many(self, ids: list[int]) -> dict:
+        """
+        "Apagar em massa" (skill 25) — best-effort por id, mesmo padrão
+        já usado em addon_estoque (estoque_service.movimentar_estoque_em_massa
+        etc.): um id com erro não impede os demais. Reaproveita a
+        mesma regra do trash() individual (não permite apagar duas
+        vezes), então um id já na lixeira aparece como falha
+        informativa, não como exceção.
+        """
+        resultados = []
+        for id in ids:
+            result = self.trash(id)
+            resultados.append({"id": id, "sucesso": result.success, "erro": None if result.success else result.error})
+        return {"resultados": resultados}
+
+    def inactivate_many(self, ids: list[int]) -> dict:
+        """
+        "Inativar em massa" (skill 25) — só chamado quando este model
+        tem coluna de ativo própria (ver controller.py.j2,
+        _HAS_ATIVO_FIELD; mesma detecção de _ATIVO_FIELD_NAME acima).
+        Quando não tem, a entidade delega pra outro service via
+        `@weak_ref(bulk_deactivate_service=...)` — ver
+        `_inactivate_many_delegated()` no controller gerado, este
+        método aqui nunca é chamado nesse caso.
+        """
+        if _ATIVO_FIELD_NAME is None:
+            return {"resultados": [{"id": id, "sucesso": False, "erro": "Entidade sem campo de ativo."} for id in ids]}
+        resultados = []
+        for id in ids:
+            obj = self.get_by_id(id)
+            if not obj:
+                resultados.append({"id": id, "sucesso": False, "erro": "Não encontrado."})
+                continue
+            if obj.is_deleted:
+                resultados.append({"id": id, "sucesso": False, "erro": "Não é possível inativar um registro na lixeira."})
+                continue
+            setattr(obj, _ATIVO_FIELD_NAME, False)
+            obj.updated_at = datetime.now(timezone.utc)
+            resultados.append({"id": id, "sucesso": True, "erro": None})
+        db.session.commit()
+        return {"resultados": resultados}
+
     def restore(self, id: int) -> ServiceResult:
+        override = _hook("restore_override")(id)
+        if override is not None:
+            return override
         obj = self.get_by_id(id)
         if not obj:
             return ServiceResult(success=False, error="Não encontrado.", code=404)
@@ -124,6 +189,9 @@ class ItemPedidoCompraService:
         return ServiceResult(success=True, data=obj)
 
     def delete_permanent(self, id: int) -> ServiceResult:
+        override = _hook("delete_permanent_override")(id)
+        if override is not None:
+            return override
         obj = self.get_by_id(id)
         if not obj:
             return ServiceResult(success=False, error="Não encontrado.", code=404)

@@ -11,7 +11,7 @@ na unidade-base do Material — `fator_conversao_aplicado` (snapshot de
 MaterialUnidade.fator_para_base no momento do save, nunca recalculado
 depois — se o fator mudar no cadastro, histórico já gravado não
 muda) e `quantidade_convertida_base` (= quantidade * fator) são
-calculados no hook (item_pedido_compras_service_hooks.py), assim como
+calculados pelo serviço manual via overrides dos hooks, assim como
 `subtotal` (= quantidade * preco_unitario).
 """
 from datetime import datetime, timezone

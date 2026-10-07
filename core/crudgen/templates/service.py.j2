@@ -69,10 +69,17 @@ class ServiceResult:
 class {{ class_name }}Service:
     """Camada de negócio para {{ label }}."""
 
-    def list(self, *, include_deleted: bool = False):
+    def list(self, *, include_deleted: bool = False, **filters):
         query = {{ class_name }}.query
         if not include_deleted:
             query = query.filter({{ class_name }}.is_deleted.is_(False))
+        # Filtros de pai para detalhes mestre/filho, sem customizar gerados.
+        for name, value in filters.items():
+            column = {{ class_name }}.__table__.columns.get(name)
+            if column is None or not column.foreign_keys:
+                raise ValueError("Filtro de referência inválido.")
+            if value is not None:
+                query = query.filter(getattr({{ class_name }}, name) == value)
         return query.order_by({{ class_name }}.id.asc()).all()
 
     def get_by_id(self, id: int) -> "{{ class_name }} | None":

@@ -32,3 +32,26 @@ def pbo_apply_fields(obj, data):
         data = dict(data)
         data["numero"] = f"PC-{proximo_num:06d}"
     return data
+
+
+from .purchase_integrity_service import operate as _operate
+
+
+def create_override(data):
+    return _operate('order', 'create', data=data)
+
+
+def update_override(id, data):
+    return _operate('order', 'update', ident=id, data=data)
+
+
+def trash_override(id):
+    return _operate('order', 'trash', ident=id)
+
+
+def restore_override(id):
+    return _operate('order', 'restore', ident=id)
+
+
+def delete_permanent_override(id):
+    return _operate('order', 'delete_permanent', ident=id)
