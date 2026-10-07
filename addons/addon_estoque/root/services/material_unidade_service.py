@@ -25,6 +25,15 @@ logger = logging.getLogger(__name__)
 # (get_readonly_fields do model) protege os dois lugares agora.
 _READONLY = {"id", "created_at", "updated_at", "is_deleted", "deleted_at"} | get_readonly_fields(MaterialUnidade)
 
+# Nome real da coluna de "ativo" deste model (skill 25) — o projeto
+# usa as duas convenções (Material.ativo, MashRecipe.is_active), sem
+# padronização retroativa nesta rodada (fora de escopo). Detecta as
+# duas, na ordem; None se o model não tiver nenhuma delas.
+_ATIVO_FIELD_NAME = next(
+    (f for f in ("ativo", "is_active") if f in MaterialUnidade.__table__.columns.keys()),
+    None,
+)
+
 try:
     from addons.addon_estoque.root.services import material_unidade_service_hooks as _hooks
 except ImportError:
@@ -60,27 +69,28 @@ class ServiceResult:
 class MaterialUnidadeService:
     """Camada de negócio para Unidade de Material."""
 
-    def list(self, *, include_deleted: bool = False, material_id: int | None = None):
-        """`material_id` (skill 23, Fase 5) — a aba "Itens" do detalhe
-        de Pedido de Compra precisa, ao escolher um Material, listar só
-        as unidades de compra/consumo daquele Material."""
+    def list(self, *, include_deleted: bool = False, **filters):
         query = MaterialUnidade.query
         if not include_deleted:
             query = query.filter(MaterialUnidade.is_deleted.is_(False))
-        if material_id is not None:
-            query = query.filter(MaterialUnidade.material_id == material_id)
+        # Filtros de pai para detalhes mestre/filho, sem customizar gerados.
+        for name, value in filters.items():
+            column = MaterialUnidade.__table__.columns.get(name)
+            if column is None or not column.foreign_keys:
+                raise ValueError("Filtro de referência inválido.")
+            if value is not None:
+                query = query.filter(getattr(MaterialUnidade, name) == value)
         return query.order_by(MaterialUnidade.id.asc()).all()
 
     def get_by_id(self, id: int) -> "MaterialUnidade | None":
         return db.session.get(MaterialUnidade, id)
 
     def create(self, data: dict) -> ServiceResult:
+        override = _hook("create_override")(data)
+        if override is not None:
+            return override
         obj = MaterialUnidade()
-        try:
-            self._apply_fields(obj, data)
-        except ValueError as e:
-            db.session.rollback()
-            return ServiceResult(success=False, error=str(e), code=422)
+        self._apply_fields(obj, data)
         db.session.add(obj)
         try:
             db.session.commit()
@@ -91,16 +101,15 @@ class MaterialUnidadeService:
         return ServiceResult(success=True, data=obj, code=201)
 
     def update(self, id: int, data: dict) -> ServiceResult:
+        override = _hook("update_override")(id, data)
+        if override is not None:
+            return override
         obj = self.get_by_id(id)
         if not obj:
             return ServiceResult(success=False, error="Registro não encontrado.", code=404)
         if obj.is_deleted:
             return ServiceResult(success=False, error="Não é possível editar um registro na lixeira.", code=400)
-        try:
-            self._apply_fields(obj, data)
-        except ValueError as e:
-            db.session.rollback()
-            return ServiceResult(success=False, error=str(e), code=422)
+        self._apply_fields(obj, data)
         try:
             db.session.commit()
         except Exception as e:
@@ -110,6 +119,9 @@ class MaterialUnidadeService:
         return ServiceResult(success=True, data=obj)
 
     def trash(self, id: int) -> ServiceResult:
+        override = _hook("trash_override")(id)
+        if override is not None:
+            return override
         obj = self.get_by_id(id)
         if not obj:
             return ServiceResult(success=False, error="Não encontrado.", code=404)
@@ -120,7 +132,55 @@ class MaterialUnidadeService:
         db.session.commit()
         return ServiceResult(success=True, data=obj)
 
+    def trash_many(self, ids: list[int]) -> dict:
+        """
+        "Apagar em massa" (skill 25) — best-effort por id, mesmo padrão
+        já usado em addon_estoque (estoque_service.movimentar_estoque_em_massa
+        etc.): um id com erro não impede os demais. Reaproveita a
+        mesma regra do trash() individual (não permite apagar duas
+        vezes), então um id já na lixeira aparece como falha
+        informativa, não como exceção.
+        """
+        resultados = []
+        for id in ids:
+            result = self.trash(id)
+            resultados.append({"id": id, "sucesso": result.success, "erro": None if result.success else result.error})
+        return {"resultados": resultados}
+
+    def inactivate_many(self, ids: list[int]) -> dict:
+        """
+        "Inativar em massa" (skill 25) — só chamado quando este model
+        tem coluna de ativo própria (ver controller.py.j2,
+        _HAS_ATIVO_FIELD; mesma detecção de _ATIVO_FIELD_NAME acima).
+        Quando não tem, a entidade delega pra outro service via
+        `@weak_ref(bulk_deactivate_service=...)` — ver
+        `_inactivate_many_delegated()` no controller gerado, este
+        método aqui nunca é chamado nesse caso.
+        """
+        override = _hook("inactivate_many_override")(ids)
+        if override is not None:
+            return override
+        if _ATIVO_FIELD_NAME is None:
+            return {"resultados": [{"id": id, "sucesso": False, "erro": "Entidade sem campo de ativo."} for id in ids]}
+        resultados = []
+        for id in ids:
+            obj = self.get_by_id(id)
+            if not obj:
+                resultados.append({"id": id, "sucesso": False, "erro": "Não encontrado."})
+                continue
+            if obj.is_deleted:
+                resultados.append({"id": id, "sucesso": False, "erro": "Não é possível inativar um registro na lixeira."})
+                continue
+            setattr(obj, _ATIVO_FIELD_NAME, False)
+            obj.updated_at = datetime.now(timezone.utc)
+            resultados.append({"id": id, "sucesso": True, "erro": None})
+        db.session.commit()
+        return {"resultados": resultados}
+
     def restore(self, id: int) -> ServiceResult:
+        override = _hook("restore_override")(id)
+        if override is not None:
+            return override
         obj = self.get_by_id(id)
         if not obj:
             return ServiceResult(success=False, error="Não encontrado.", code=404)
@@ -132,6 +192,9 @@ class MaterialUnidadeService:
         return ServiceResult(success=True, data=obj)
 
     def delete_permanent(self, id: int) -> ServiceResult:
+        override = _hook("delete_permanent_override")(id)
+        if override is not None:
+            return override
         obj = self.get_by_id(id)
         if not obj:
             return ServiceResult(success=False, error="Não encontrado.", code=404)

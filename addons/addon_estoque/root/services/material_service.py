@@ -69,16 +69,26 @@ class ServiceResult:
 class MaterialService:
     """Camada de negócio para Material."""
 
-    def list(self, *, include_deleted: bool = False):
+    def list(self, *, include_deleted: bool = False, **filters):
         query = Material.query
         if not include_deleted:
             query = query.filter(Material.is_deleted.is_(False))
+        # Filtros de pai para detalhes mestre/filho, sem customizar gerados.
+        for name, value in filters.items():
+            column = Material.__table__.columns.get(name)
+            if column is None or not column.foreign_keys:
+                raise ValueError("Filtro de referência inválido.")
+            if value is not None:
+                query = query.filter(getattr(Material, name) == value)
         return query.order_by(Material.id.asc()).all()
 
     def get_by_id(self, id: int) -> "Material | None":
         return db.session.get(Material, id)
 
     def create(self, data: dict) -> ServiceResult:
+        override = _hook("create_override")(data)
+        if override is not None:
+            return override
         obj = Material()
         self._apply_fields(obj, data)
         db.session.add(obj)
@@ -91,6 +101,9 @@ class MaterialService:
         return ServiceResult(success=True, data=obj, code=201)
 
     def update(self, id: int, data: dict) -> ServiceResult:
+        override = _hook("update_override")(id, data)
+        if override is not None:
+            return override
         obj = self.get_by_id(id)
         if not obj:
             return ServiceResult(success=False, error="Registro não encontrado.", code=404)
@@ -106,6 +119,9 @@ class MaterialService:
         return ServiceResult(success=True, data=obj)
 
     def trash(self, id: int) -> ServiceResult:
+        override = _hook("trash_override")(id)
+        if override is not None:
+            return override
         obj = self.get_by_id(id)
         if not obj:
             return ServiceResult(success=False, error="Não encontrado.", code=404)
@@ -141,6 +157,9 @@ class MaterialService:
         `_inactivate_many_delegated()` no controller gerado, este
         método aqui nunca é chamado nesse caso.
         """
+        override = _hook("inactivate_many_override")(ids)
+        if override is not None:
+            return override
         if _ATIVO_FIELD_NAME is None:
             return {"resultados": [{"id": id, "sucesso": False, "erro": "Entidade sem campo de ativo."} for id in ids]}
         resultados = []
@@ -159,6 +178,9 @@ class MaterialService:
         return {"resultados": resultados}
 
     def restore(self, id: int) -> ServiceResult:
+        override = _hook("restore_override")(id)
+        if override is not None:
+            return override
         obj = self.get_by_id(id)
         if not obj:
             return ServiceResult(success=False, error="Não encontrado.", code=404)
@@ -170,6 +192,9 @@ class MaterialService:
         return ServiceResult(success=True, data=obj)
 
     def delete_permanent(self, id: int) -> ServiceResult:
+        override = _hook("delete_permanent_override")(id)
+        if override is not None:
+            return override
         obj = self.get_by_id(id)
         if not obj:
             return ServiceResult(success=False, error="Não encontrado.", code=404)

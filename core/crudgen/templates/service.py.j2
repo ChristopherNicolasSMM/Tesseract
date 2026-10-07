@@ -157,6 +157,9 @@ class {{ class_name }}Service:
         `_inactivate_many_delegated()` no controller gerado, este
         método aqui nunca é chamado nesse caso.
         """
+        override = _hook("inactivate_many_override")(ids)
+        if override is not None:
+            return override
         if _ATIVO_FIELD_NAME is None:
             return {"resultados": [{"id": id, "sucesso": False, "erro": "Entidade sem campo de ativo."} for id in ids]}
         resultados = []

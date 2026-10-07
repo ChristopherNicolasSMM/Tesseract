@@ -223,3 +223,24 @@ entrada parcial fica gravada. Revise os dados do pedido antes de tentar novament
 Registros antigos sem snapshot mantêm o comportamento de compatibilidade;
 um snapshot inválido nunca é substituído silenciosamente por fator 1.
 Custos cujo cálculo excede o limite numérico também são rejeitados.
+
+
+### Manutenção de unidades e fatores
+
+Cada material possui sua própria base e seus fatores explícitos. PCT é o código
+da embalagem; seu conteúdo pertence ao fator do material. ITEM e UN não têm
+paridade automática. A base exige fator 1; demais fatores devem ser positivos e
+finitos. Não é permitido duplicar código não arquivado ou transferir uma
+conversão para outro material.
+
+Antes do uso, fatores podem ser corrigidos. Após referências, compras, saldo ou
+ledger, alterações semânticas e lixeira ficam bloqueadas para preservar o
+histórico. É possível adicionar nova conversão explícita mantendo a base.
+Trocar base também exige ausência de outras conversões, inclusive arquivadas.
+Uma base legada conhecida pode ser registrada explicitamente com fator 1;
+base desconhecida com histórico exige revisão, sem suposição automática.
+
+Material com conversões ou referências não pode ir à lixeira nem ser excluído;
+use inativação. Restaurar uma unidade exige pai disponível e configuração
+compatível, sem código duplicado. Nenhuma dessas operações converte saldos
+ou recalcula custos anteriores.

@@ -1,20 +1,18 @@
 """Conversões públicas por material. Extensão manual; não movimenta estoque."""
 from math import isfinite
 from core.db import db
-from sqlalchemy import update
 from services.core.i18n_service import translate as t
-from addons.addon_estoque.root.model.material import Material
 from addons.addon_estoque.root.model.material_unidade import MaterialUnidade
 from addons.addon_estoque.root.model.unidade_catalogo import UnidadeCatalogo
+from .material_unit_integrity_service import normalize, reserve_material, validate_new_unit
 
 
 def normalizar_unidade(value):
-    code = (value or "").strip().upper()
-    return {"ITEMS": "ITEM"}.get(code, code)
+    return normalize(value)
 
 
 def _rows(material_id, code):
-    return [row for row in MaterialUnidade.query.filter_by(material_id=material_id, is_deleted=False).all()
+    return [row for row in MaterialUnidade.query.filter_by(material_id=material_id, is_deleted=False).populate_existing().all()
             if normalizar_unidade(row.unidade) == code]
 
 
@@ -25,6 +23,7 @@ def obter_fator(material_id, origem, destino):
         return None
     source, target = (group[0] for group in rows)
     if any(not row.ativo or row.fator_para_base is None or not isfinite(row.fator_para_base) or row.fator_para_base <= 0
+           or (row.is_unidade_base and row.fator_para_base != 1)
            for row in (source, target)):
         return None
     factor = source.fator_para_base / target.fator_para_base
@@ -39,19 +38,19 @@ def cadastrar_conversao(material_id, origem, fator, *, unidade_base_esperada, co
     A transação inclui catálogo/base/conversão; qualquer falha desfaz tudo.
     """
     try:
-        # Reserva escrita no SQLite antes de verificar/criar unidades.
-        db.session.execute(update(Material).where(Material.id == material_id).values(
-            updated_at=Material.updated_at).execution_options(synchronize_session=False))
-        material = Material.query.filter_by(id=material_id, is_deleted=False, ativo=True).first()
-        if material is None:
+        material = reserve_material(material_id)
+        if not material.ativo:
             raise ValueError(t("estoque.conversion.material_unavailable"))
-        bases = MaterialUnidade.query.filter_by(material_id=material_id, is_deleted=False, is_unidade_base=True).all()
+        all_rows = MaterialUnidade.query.filter_by(material_id=material_id).populate_existing().all()
+        bases = [row for row in all_rows if row.is_unidade_base and not row.is_deleted]
         if len(bases) > 1 or (bases and not bases[0].ativo):
             raise ValueError(t("estoque.conversion.invalid_base"))
         base = normalizar_unidade(bases[0].unidade if bases else material.unidade_medida)
         if not base or base != normalizar_unidade(unidade_base_esperada):
             raise ValueError(t("estoque.conversion.stale_base"))
         if bases and bases[0].fator_para_base != 1:
+            raise ValueError(t("estoque.conversion.invalid_base"))
+        if bases and material.unidade_medida and normalizar_unidade(material.unidade_medida) != base:
             raise ValueError(t("estoque.conversion.invalid_base"))
         code = normalizar_unidade(origem)
         if not code or code == base:
@@ -81,13 +80,19 @@ def cadastrar_conversao(material_id, origem, fator, *, unidade_base_esperada, co
         else:
             row = MaterialUnidade(material_id=material_id, unidade=code, fator_para_base=factor,
                                  is_unidade_base=False, tipo_uso="consumo", ativo=True)
+            with db.session.no_autoflush:
+                validate_new_unit(row, material, all_rows)
             db.session.add(row)
         if not bases:
             matches = _rows(material_id, base)
             if matches:
                 raise ValueError(t("estoque.conversion.invalid_base"))
-            db.session.add(MaterialUnidade(material_id=material_id, unidade=base, fator_para_base=1,
-                                          is_unidade_base=True, tipo_uso="ambos", ativo=True))
+            base_row = MaterialUnidade(material_id=material_id, unidade=base, fator_para_base=1,
+                                       is_unidade_base=True, tipo_uso="ambos", ativo=True)
+            with db.session.no_autoflush:
+                validate_new_unit(base_row, material, all_rows)
+            db.session.add(base_row)
+            material.unidade_medida = base
         if commit:
             db.session.commit()
         else:

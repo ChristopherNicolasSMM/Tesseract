@@ -2,7 +2,7 @@
 
 Base: `05939c3`, depois da reconciliação documental aplicada pelo usuário.
 Pacote funcional de C1/C2 do inventário, com proteção do saldo compartilhado.
-Implementado; aguarda aplicação e validação local deste novo pacote.
+Aplicado e validado localmente pelo usuário, incluindo os testes do pacote.
 
 ## Defeitos reproduzidos
 

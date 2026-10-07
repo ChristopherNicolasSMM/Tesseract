@@ -1,26 +1,32 @@
-"""
-addons/addon_estoque/root/services/material_unidade_service_hooks.py
+"""Overrides manuais de manutenção; regras fora do service gerado."""
 
-Criado UMA ÚNICA VEZ pelo CrudGen — nunca sobrescrito, mesmo com
---overwrite (skill 00/01). Customize aqui sem editar o service gerado.
-
-Hooks disponíveis (todos opcionais):
-    pbo_apply_fields(obj, data) -> dict | None   # antes de aplicar campos
-    pai_apply_fields(obj, data) -> None          # depois de aplicar campos
-"""
+from .material_unit_integrity_service import operate as _operate
 
 
-def pai_apply_fields(obj, data):
-    from addons.addon_estoque.root.model.unidade_catalogo import UnidadeCatalogo
-    if not UnidadeCatalogo.query.filter_by(codigo=obj.unidade, is_deleted=False).first():
-        raise ValueError("Selecione uma unidade cadastrada no catálogo de unidades.")
-    if obj.fator_para_base is None or obj.fator_para_base <= 0:
-        raise ValueError("O fator para a unidade-base deve ser maior que zero.")
-    if obj.is_unidade_base and obj.fator_para_base != 1:
-        raise ValueError("A unidade-base deve ter fator igual a 1.")
-    if obj.is_unidade_base:
-        from core.db import db
-        from addons.addon_estoque.root.model.material import Material
-        material = db.session.get(Material, obj.material_id)
-        if material is not None:
-            material.unidade_medida = obj.unidade
+def create_override(data):
+    return _operate("create", data=data)
+
+
+def update_override(id, data):
+    return _operate("update", ident=id, data=data)
+
+
+def trash_override(id):
+    return _operate("trash", ident=id)
+
+
+def restore_override(id):
+    return _operate("restore", ident=id)
+
+
+def delete_permanent_override(id):
+    return _operate("delete_permanent", ident=id)
+
+
+def inactivate_many_override(ids):
+    results = []
+    for ident in ids:
+        result = _operate('update', ident=ident, data={'ativo': False})
+        results.append({'id': ident, 'sucesso': result.success,
+                        'erro': None if result.success else result.error})
+    return {'resultados': results}

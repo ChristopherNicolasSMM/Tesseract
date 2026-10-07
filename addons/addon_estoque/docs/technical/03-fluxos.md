@@ -262,3 +262,20 @@ históricas e ordem de pais/filhos. Sem migration, sem recebimento parcial.
 SQLite em arquivo/conexões independentes é o escopo dos testes concorrentes;
 PostgreSQL e concorrência da geração RFQ não estão certificados. Ver
 [contratos, comandos e limites](../../../../docs/patches/fase3-compras-recebimento-protegido.md).
+
+
+### Integridade da manutenção de unidades — fase 3
+
+Hooks manuais de MaterialUnidade delegam ao material_unit_integrity_service;
+Material delega manutenção de lixeira/restauração/exclusão ao mesmo serviço.
+Cadastro público de conversões compartilha validação e reserva de Material
+com a movimentação central. O template CrudGen permite override da inativação
+em lote; apenas os dois serviços envolvidos foram regenerados.
+
+core.reference_usage consulta weak_refs declaradas dos modelos carregados e
+tabelas existentes, inclusive registros arquivados. Não percorre JSON ou
+módulos não carregados. Qualquer uso declarado do material congela semântica
+das conversões existentes; não há versionamento de fator em uso. Novos fatores
+explícitos são permitidos se preservarem a base. Rollback desfaz espelho e
+conversão juntos. Sem alteração de schema/migration. Concorrência verificada
+em SQLite; PostgreSQL e escritores externos continuam sem certificação.

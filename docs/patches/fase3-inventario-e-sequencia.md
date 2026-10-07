@@ -24,8 +24,8 @@ não substitui reprodução pela API e formulário.
 ## Pendências reais e critérios — levantamento inicial
 
 A tabela preserva as evidências do início da fase. O acompanhamento da entrega
-funcional ao final atualiza C1/C2 como implementados no escopo descrito, ainda
-aguardando validação local; não reabrir os defeitos já tratados por esta lista.
+funcional ao final atualiza C1/C2 como implementados no escopo descrito,
+com aplicação e testes locais confirmados pelo usuário; não reabrir os defeitos já tratados por esta lista.
 
 | ID / natureza | Evidência atual | Impacto / prioridade | Dependências | Migration | Critério de conclusão |
 | --- | --- | --- | --- | --- | --- |
@@ -108,7 +108,23 @@ como implementada por constar neste inventário.
 ## Entrega funcional seguinte — compras/recebimento protegido
 
 C1/C2 implementados no escopo de pedido/item, reserva de recebimento e saldo
-compartilhado, após reprodução de quatro defeitos. Aplicação/validação local
-do novo pacote ainda pendentes. Ver [entrega e limites](fase3-compras-recebimento-protegido.md).
-U1 continua próximo pacote; C1/C2 não certificam geração RFQ concorrente,
+compartilhado, após reprodução de quatro defeitos. Aplicação e testes locais
+confirmados pelo usuário. Ver [entrega e limites](fase3-compras-recebimento-protegido.md).
+U1 implementado no pacote seguinte, aguardando validação local; C1/C2 não certificam geração RFQ concorrente,
 numeração automática ou PostgreSQL. Recebimento parcial continua adiado.
+
+
+## Entrega U1 — unidades e conversões protegidas
+
+Seis defeitos reproduzidos: fator infinito, troca de base com saldo, troca de
+material da conversão, lixeira com uso, código duplicado e desativação da base
+usada. Corrigidos por hooks/serviço manual, com proteção do pai e reserva da
+mesma linha Material usada pelo ledger. Sem migration. Ver
+[fase3-unidades-conversoes-protegidas.md](fase3-unidades-conversoes-protegidas.md).
+Implementado e testado no ambiente de geração; aplicação/validação local pendentes.
+
+Ordem seguinte: (1) revisão de depreciações Query.get por escopo e contratos de
+migrations, sem upgrade amplo; (2) desenho de moeda/câmbio, condicionado a
+moeda-base, precisão e fonte/data decididas; (3) YeastBank físico, condicionado
+a unidade física, genealogia e estorno. Recebimento parcial permanece adiado.
+Automação/hardware requer levantamento próprio e ensaio físico separado.

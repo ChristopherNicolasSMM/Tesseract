@@ -512,6 +512,14 @@ aplicado e validado localmente pelo usuário. O ciclo anterior está encerrado.
 
 Reconciliação documental aplicada pelo usuário. Primeiro pacote funcional
 implementa proteção de pedido/item, snapshots e recebimento/saldo concorrentes.
-Sem migration; aplicação e validação local ainda pendentes. Ver
+Sem migration; aplicado e validado pelo usuário, incluindo testes. Ver
 [contratos e roteiro](fase3-compras-recebimento-protegido.md). Unidades/base,
 câmbio e YeastBank físico permanecem etapas distintas.
+
+
+## Fase 3 — unidades/conversões protegidas
+
+Implementado e testado no ambiente de geração; validação local pendente.
+Protege fatores, identidade, base, manutenção reversível e Material pai; não
+recalcula saldos, snapshots ou custos. Sem migration. Ver
+[contratos e roteiro](fase3-unidades-conversoes-protegidas.md).
