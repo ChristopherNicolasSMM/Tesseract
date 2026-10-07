@@ -177,3 +177,13 @@ dados antigos. Ver [escopo e sequência](fase3-organizacoes-core.md).
 Aplicação do pacote anterior de ferramentas confirmada; testes locais ainda
 pendentes de confirmação. Financeiro/conversão e contexto organizacional do
 estoque permanecem implementação futura, em ordem de dependência.
+
+
+## Financeiro inicial, cadastro ampliado e GetCEP
+
+Organizações Core aplicadas e validadas pelo usuário; primeira organização
+criada. Novo pacote unifica fundação monetária, dados legais/endereço principal,
+responsáveis e consulta CEP em plugin sem tabelas. Migration b82d9e43a017,
+sem moeda/vínculos inferidos para o legado. Aplicação/validação local deste
+novo pacote pendentes. Ver [escopo e sequência](fase3-financeiro-organizacoes-getcep.md).
+Câmbio, contexto organizacional do estoque e títulos permanecem posteriores.

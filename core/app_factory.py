@@ -100,9 +100,10 @@ def create_app(env: str | None = None) -> Flask:
         from model.core import user_menu_preference  # noqa: F401
         from model.core import playground_request  # noqa: F401
         from model.core import playground_folder  # noqa: F401
-        from model.core import playground_cookie_jar, organization  # noqa: F401
+        from model.core import playground_cookie_jar, organization, organization_contact  # noqa: F401
 
         app.module_manager.discover_and_register_addons(project_root / "addons")
+        app.module_manager.discover_and_register_plugins(project_root / "plugins")
         app.module_manager.apply_template_loader()
 
         app.module_manager.create_all_pending_tables()

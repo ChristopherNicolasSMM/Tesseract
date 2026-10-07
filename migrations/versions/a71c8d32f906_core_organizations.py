@@ -15,12 +15,12 @@ def upgrade():
         columns = set(reflected)
         unique = [c['column_names'] for c in inspector.get_unique_constraints(TABLE)]
         unique += [c['column_names'] for c in inspector.get_indexes(TABLE) if c['unique']]
-        if columns != {'id', 'code', 'name', 'is_active', 'created_at', 'updated_at'} or ['code'] not in unique:
+        if not {'id', 'code', 'name', 'is_active', 'created_at', 'updated_at'} <= columns or ['code'] not in unique:
             raise RuntimeError('Schema de organização incompatível; nenhuma adaptação automática foi aplicada.')
         expected = {'id': sa.Integer, 'code': sa.String, 'name': sa.String,
                     'is_active': sa.Boolean, 'created_at': sa.DateTime, 'updated_at': sa.DateTime}
         if any(not isinstance(reflected[name]['type'], kind) for name, kind in expected.items()) or any(
-                reflected[name]['nullable'] for name in columns - {'id'}) or not reflected['id']['primary_key'] or (
+                reflected[name]['nullable'] for name in set(expected) - {'id'}) or not reflected['id']['primary_key'] or (
                 reflected['code']['type'].length != 40 or reflected['name']['type'].length != 120):
             raise RuntimeError('Tipos ou restrições de organização incompatíveis.')
         return

@@ -196,3 +196,13 @@ atualizado; o código identifica a organização e não muda. Use inativação e
 reativação para manutenção; não há exclusão. O cadastro é compartilhável entre
 módulos. Moeda e vínculo com compras/estoque serão configurados nas etapas
 financeiras seguintes. Nenhuma organização é criada automaticamente.
+
+
+### Financeiro inicial e dados empresariais
+
+`/admin/organizations/`: dados legais (CNPJ numérico/alfanumérico), endereço
+principal, contato e responsáveis editáveis/inativáveis. GetCEP auxilia o
+preenchimento sem exigir internet para salvar. `/financeiro/`: catálogo de
+moedas e política monetária inicial explícita por organização, só admin.
+Sem atualização de compras/saldos/custos antigos; não há câmbio ou títulos
+nesta parte. Ver [manual financeiro](../../addons/addon_financeiro/docs/manual/01-configuracao.md).

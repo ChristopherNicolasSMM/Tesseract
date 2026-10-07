@@ -560,5 +560,15 @@ confirmação. Decididos moeda-base por organização, addon financeiro primeiro
 e identidade compartilhada no Core. Nova entrega implementa organizações
 sem atribuir históricos, com migration a71c8d32f906. Ver
 [fase3-organizacoes-core.md](fase3-organizacoes-core.md). Aplicação e validação
-local pendentes. Catálogo, taxas, política monetária e contexto do estoque
-seguem pacotes financeiros posteriores, na ordem registrada.
+local confirmadas pelo usuário, com primeira organização criada. Catálogo e
+política inicial entram no pacote financeiro abaixo; taxas e contexto do estoque
+continuam posteriores.
+
+
+## Fase 3 — financeiro inicial e cadastro empresarial
+
+Pacote unificado em geração: catálogo/política monetária explícita por
+organização, quantização Decimal, dados legais, responsáveis, endereço
+principal e GetCEP. Sem integração física com estoque/custos ou câmbio.
+Exige db upgrade b82d9e43a017. Aplicação/validação local deste pacote pendentes.
+Ver [entrega e roteiro](fase3-financeiro-organizacoes-getcep.md).

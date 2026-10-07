@@ -23,6 +23,23 @@ def save(ident=None):
     data = {'name': request.form.get('name'), 'is_active': request.form.get('is_active') == 'on'}
     if ident is None:
         data['code'] = request.form.get('code')
+    from model.core.organization import PROFILE_FIELDS
+    for field in PROFILE_FIELDS:
+        if field in request.form:
+            data[field] = request.form[field]
     result = save_organization(data, ident)
     flash('Organização salva.' if result.success else result.error, 'success' if result.success else 'error')
+    return redirect(url_for('admin_organizations.manage'))
+
+
+@admin_organizations_bp.route('/<int:organization_id>/contacts', methods=['POST'])
+@admin_organizations_bp.route('/<int:organization_id>/contacts/<int:ident>', methods=['POST'])
+@login_required
+@permission_required('admin')
+def contact(organization_id, ident=None):
+    from services.core.organization_service import save_organization_contact
+    data = {field: request.form.get(field, '') for field in ('name', 'role', 'cpf', 'email', 'phone')}
+    data['is_active'] = request.form.get('is_active') == 'on'
+    result = save_organization_contact(organization_id, data, ident)
+    flash('Responsável salvo.' if result.success else result.error, 'success' if result.success else 'error')
     return redirect(url_for('admin_organizations.manage'))

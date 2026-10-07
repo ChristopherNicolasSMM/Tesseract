@@ -314,6 +314,7 @@
     }
   })();
   </script>
+  {% if getcep_script_url is defined %}<script src="{{ getcep_script_url }}" defer></script>{% endif %}
   {% block extra_js %}{% endblock %}
 </body>
 </html>

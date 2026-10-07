@@ -1,0 +1,16 @@
+{
+  "name": "getcep",
+  "label": "Consulta CEP",
+  "version": "1.0.0",
+  "type": "plugin",
+  "tesseract_min_version": "1.0.0",
+  "requires": [],
+  "provides": [
+    "address_lookup"
+  ],
+  "routes": {
+    "api_prefix": "/api/plugins/getcep",
+    "web_prefix": null
+  },
+  "default_locale": "pt_BR"
+}

@@ -1,0 +1,21 @@
+{% extends 'core/base.html' %}
+{% block title %}Financeiro - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle"><h1>Configuração financeira</h1></div>
+<div class="card"><div class="card-body"><h2 class="card-title">Catálogo de moedas</h2>
+<p>Cadastre a moeda e sua escala explicitamente. O cadastro inicial é imutável. Nenhuma moeda é atribuída a compras ou saldos antigos.</p>
+<form method="post" action="{{ url_for('finance_setup.save', kind='currencies') }}" class="row g-3">
+<div class="col-md-3"><label class="form-label" for="currency-code">Código (3 letras)</label><input id="currency-code" name="code" class="form-control" pattern="[A-Z]{3}" maxlength="3" required></div>
+<div class="col-md-5"><label class="form-label" for="currency-name">Nome</label><input id="currency-name" name="name" class="form-control" maxlength="80" required></div>
+<div class="col-md-2"><label class="form-label" for="currency-scale">Casas decimais</label><input id="currency-scale" name="decimal_places" class="form-control" type="number" min="0" max="6" required></div>
+<div class="col-md-2 align-self-end"><button class="btn btn-primary">Cadastrar</button></div></form>
+<div class="table-responsive mt-3"><table class="table"><thead><tr><th>Código</th><th>Nome</th><th>Casas decimais</th></tr></thead><tbody>{% for item in currencies %}<tr><td>{{ item.code }}</td><td>{{ item.name }}</td><td>{{ item.decimal_places }}</td></tr>{% else %}<tr><td colspan="3">Nenhuma moeda cadastrada.</td></tr>{% endfor %}</tbody></table></div>
+<h2 class="card-title">Política inicial por organização</h2>
+<p>Escolha a moeda-base e o arredondamento. HALF_UP: empate afasta de zero; HALF_EVEN: empate escolhe o último dígito par. A configuração inicial não pode ser sobrescrita. Mudança futura exigirá versão e data de vigência.</p>
+<form method="post" action="{{ url_for('finance_setup.save', kind='policies') }}" class="row g-3">
+<div class="col-md-4"><label class="form-label" for="policy-org">Organização</label><select id="policy-org" name="organization_code" class="form-select" required><option value="">Selecione</option>{% for item in organizations if item.is_active %}<option value="{{ item.code }}">{{ item.code }} — {{ item.name }}</option>{% endfor %}</select></div>
+<div class="col-md-3"><label class="form-label" for="policy-currency">Moeda-base</label><select id="policy-currency" name="currency_code" class="form-select" required><option value="">Selecione</option>{% for item in currencies %}<option value="{{ item.code }}">{{ item.code }} — {{ item.name }}</option>{% endfor %}</select></div>
+<div class="col-md-3"><label class="form-label" for="policy-rounding">Arredondamento</label><select id="policy-rounding" name="rounding" class="form-select" required><option value="">Selecione</option><option value="HALF_UP">HALF_UP</option><option value="HALF_EVEN">HALF_EVEN</option></select></div>
+<div class="col-md-2 align-self-end"><button class="btn btn-primary">Configurar</button></div></form>
+<div class="table-responsive mt-3"><table class="table"><thead><tr><th>Organização</th><th>Moeda-base</th><th>Casas decimais</th><th>Arredondamento</th></tr></thead><tbody>{% for item in policies %}<tr><td>{{ item.organization_code }}</td><td>{{ item.currency_code }}</td><td>{{ item.decimal_places }}</td><td>{{ item.rounding }}</td></tr>{% else %}<tr><td colspan="4">Nenhuma política configurada.</td></tr>{% endfor %}</tbody></table></div>
+</div></div>{% endblock %}

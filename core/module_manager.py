@@ -291,6 +291,38 @@ class ModuleManager:
 
         return registered
 
+    def discover_and_register_plugins(self, plugins_dir) -> list[str]:
+        """Plugins em plugin_*/plugin.json + plugin.py, sem models/tabelas."""
+        import importlib.util
+        import json
+        from core.plugin_base import PluginBase
+        registered = []
+        for directory in sorted(Path(plugins_dir).glob('plugin_*')):
+            manifest_path, entry = directory / 'plugin.json', directory / 'plugin.py'
+            if not manifest_path.is_file() or not entry.is_file():
+                continue
+            manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+            name = manifest.get('name')
+            if manifest.get('type') != 'plugin' or name != directory.name.removeprefix('plugin_'):
+                raise ValueError(f'Plugin inválido: {directory.name}')
+            if name in self._registered_modules:
+                raise ValueError(f'Nome de módulo duplicado: {name}')
+            if 'table_prefix' in manifest or 'features' in manifest:
+                raise ValueError(f'Plugin {name}: table_prefix/features são proibidos.')
+            if manifest.get('requires'):
+                raise ValueError(f'Plugin {name}: resolução de dependências ainda não suportada; carregamento recusado.')
+            module_name = f'_tesseract_dynamic_{directory.name}'
+            spec = importlib.util.spec_from_file_location(module_name, entry)
+            py_module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = py_module
+            spec.loader.exec_module(py_module)
+            cls = getattr(py_module, getattr(py_module, '__module__', ''), None)
+            if not isinstance(cls, type) or not issubclass(cls, PluginBase) or callable(getattr(cls, 'register_models', None)):
+                raise ValueError(f'Plugin {name}: classe PluginBase sem register_models exigida.')
+            self.register_module(cls(manifest))
+            registered.append(name)
+        return registered
+
     def create_all_pending_tables(self) -> None:
         """
         Chamada uma única vez, depois que TODOS os módulos ativos já

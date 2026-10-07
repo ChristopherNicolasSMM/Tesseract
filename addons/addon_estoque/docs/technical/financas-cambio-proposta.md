@@ -2,7 +2,8 @@
 
 ## Estado conferido na fase 3 — 07/10/2026
 
-Proposta ainda não implementada. Os modelos atuais de Cotacao e PedidoCompra
+Fundação inicial implementada no ambiente de geração; integração com Estoque
+ainda proposta. Os modelos atuais de Cotacao e PedidoCompra
 não possuem campos de moeda ou taxa; a seleção de moeda não está entregue
 nesses documentos. Não interpretar preços estrangeiros como já convertidos.
 O primeiro pacote da fase 3 reconcilia documentação; a implementação financeira
@@ -17,7 +18,10 @@ material: segregação/contexto de organização precisa de contrato posterior
 antes de receber custos em bases monetárias diferentes. Não atribuir históricos
 nem User.empresa automaticamente a uma organização. Fundação de identidade:
 [organizações Core](../../../../docs/patches/fase3-organizacoes-core.md).
-O addon financeiro, catálogo, taxas e conversão permanecem por implementar.
+Organizações aplicadas e validadas localmente, com primeira empresa criada.
+O pacote inicial seguinte implementa addon financeiro, catálogo, política
+monetária explícita e quantização Decimal. Taxas e conversão cambial permanecem
+por implementar. Ver [pacote inicial](../../../../docs/patches/fase3-financeiro-organizacoes-getcep.md).
 
 ## Desenho proposto após as decisões
 

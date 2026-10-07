@@ -1,0 +1,10 @@
+<details class="mb-3"><summary>Responsáveis — {{ item.name }}</summary>
+{% for contact in item.contacts %}
+<form method="post" action="{{ url_for('admin_organizations.contact', organization_id=item.id, ident=contact.id) }}" class="row g-2 my-3">
+{% include 'core/admin/_organization_contact_fields.html' %}
+</form>
+{% endfor %}
+{% set contact = none %}
+<form method="post" action="{{ url_for('admin_organizations.contact', organization_id=item.id) }}" class="row g-2 my-3">
+<h4 class="h6">Adicionar responsável</h4>{% include 'core/admin/_organization_contact_fields.html' %}
+</form></details>

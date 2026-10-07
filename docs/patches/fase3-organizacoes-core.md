@@ -1,6 +1,7 @@
 # Fase 3 — identidade compartilhada de organizações
 
-Implementado no ambiente de geração; aplicação e validação local pendentes.
+Aplicado e validado localmente pelo usuário; primeira organização criada.
+Confirmação recebida antes do pacote financeiro inicial.
 Base cdbd114. Usuário confirmou aplicação do pacote de ferramentas/integrações;
 confirmação dos testes locais permanece separada da aplicação.
 

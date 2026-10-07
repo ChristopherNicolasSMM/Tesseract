@@ -478,3 +478,15 @@ referenciar a chave pelo serviço, sem duplicar cadastros ou presumir tenant.
 Migration a71c8d32f906 cria tabela vazia e protege downgrade com dados. Não
 atribui organização/moeda a documentos ou saldos. Contrato e validação em
 docs/patches/fase3-organizacoes-core.md.
+
+
+### Financeiro inicial e GetCEP
+
+Migration b82d9e43a017 amplia Organization e cria responsáveis, moedas e
+política inicial. Não inferir moeda/organização dos dados legados. Serviço
+público financeiro usa Decimal e retorna snapshot; integração com custo médio
+não está entregue. GetCEP é PluginBase sem tabelas, descoberto no boot por
+plugin.json/plugin.py. Core expõe a primitiva DocumentValidator; addon a
+reexporta, evitando dependência inversa. Contratos e limites:
+[Financeiro](../../addons/addon_financeiro/docs/technical/01-contratos.md) e
+[GetCEP](../../plugins/plugin_getcep/docs/technical/01-api.md).

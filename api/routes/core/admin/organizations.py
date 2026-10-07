@@ -28,3 +28,13 @@ def detail(ident):
             return jsonify(success=False, error=str(exc)), 404
     result = save_organization(request.get_json(silent=True), ident)
     return jsonify(success=result.success, item=result.data, error=result.error), result.code
+
+
+@organizations_api_bp.route('/<int:organization_id>/contacts', methods=['POST'])
+@organizations_api_bp.route('/<int:organization_id>/contacts/<int:ident>', methods=['PUT'])
+@login_required
+@permission_required('admin')
+def contact(organization_id, ident=None):
+    from services.core.organization_service import save_organization_contact
+    result = save_organization_contact(organization_id, request.get_json(silent=True), ident)
+    return jsonify(success=result.success, item=result.data, error=result.error), result.code
