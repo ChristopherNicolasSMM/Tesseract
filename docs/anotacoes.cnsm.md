@@ -95,5 +95,7 @@ client.post("/api/auth/login", json={"username": "operador_reconhecimento", "pas
 
 
 
+# Validar 
 
 
+---> Commit ponto BKP - Validado até aqui..... 
