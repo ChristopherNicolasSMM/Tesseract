@@ -2101,7 +2101,7 @@ def test_saldo_nao_permite_criacao_manual(app, client):
     _login_admin(app, client)
     resp = client.get("/estoque/saldos", follow_redirects=True)
     assert resp.status_code == 200
-    assert b'Novo registro' not in resp.data
+    assert b'data-bs-target="#novoRegistroForm"' not in resp.data
     assert b'data-crudgen-acao-massa="apagar"' not in resp.data
 
 
@@ -2241,3 +2241,58 @@ def test_modal_modificacao_em_massa_mostra_campos_de_ficha_tecnica(app, client):
     assert b"massaModPendenteRevisao" in resp.data
     assert b"massaModPeso" in resp.data
     assert b"massaModFormatoFisico" in resp.data
+
+
+@pytest.mark.parametrize("campo,valor", [
+    ("fator_conversao_aplicado", 0),
+    ("fator_conversao_aplicado", -1),
+    ("fator_conversao_aplicado", float("inf")),
+    ("quantidade_convertida_base", 0),
+    ("quantidade_convertida_base", -1),
+    ("quantidade_convertida_base", float("inf")),
+    ("preco_unitario", -1),
+])
+def test_recebimento_rejeita_snapshot_invalido_sem_lancamentos(app, campo, valor):
+    with app.app_context():
+        material = _criar_material(nome="Snapshot inválido")
+        unidade = MaterialUnidade(material_id=material.id, unidade="KG", fator_para_base=1, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+        pedido = _criar_pedido_compra(status="confirmado")
+        item = _criar_item_pedido_compra(pedido, material, unidade, quantidade=2, preco_unitario=10)
+        setattr(item, campo, valor)
+        db.session.commit()
+        with pytest.raises(ValueError):
+            estoque_service.receber_pedido_compra(pedido.id)
+        assert pedido.status == "confirmado"
+        assert Movimentacao.query.count() == 0
+        assert Saldo.query.filter_by(material_id=material.id).count() == 0
+
+
+def test_movimentacao_rejeita_overflow_custo_sem_lancamentos(app):
+    with app.app_context():
+        material = _criar_material(nome="Overflow custo")
+        with pytest.raises(ValueError, match="custo_total deve ser finito"):
+            estoque_service.registrar_movimentacao(material.id, "entrada", 1e308, custo_unitario=1e308)
+        assert Movimentacao.query.count() == 0
+        assert Saldo.query.filter_by(material_id=material.id).count() == 0
+
+
+def test_recebimento_legado_sem_snapshot_e_repeticao(app):
+    with app.app_context():
+        material = _criar_material(nome="Recebimento legado")
+        unidade = MaterialUnidade(material_id=material.id, unidade="KG", fator_para_base=1, is_unidade_base=True)
+        db.session.add(unidade)
+        db.session.commit()
+        pedido = _criar_pedido_compra(status="confirmado")
+        item = _criar_item_pedido_compra(pedido, material, unidade, quantidade=2, preco_unitario=10)
+        item.fator_conversao_aplicado = None
+        item.quantidade_convertida_base = None
+        db.session.commit()
+        resultado = estoque_service.receber_pedido_compra(pedido.id)
+        assert resultado["movimentacoes"][0]["quantidade"] == 2
+        assert resultado["movimentacoes"][0]["custo_unitario"] == 10
+        with pytest.raises(estoque_service.PedidoCompraStatusInvalidoError):
+            estoque_service.receber_pedido_compra(pedido.id)
+        assert Movimentacao.query.count() == 1
+        assert estoque_service.consultar_saldo(material.id)["quantidade_atual"] == 2

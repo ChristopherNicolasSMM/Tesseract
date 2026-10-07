@@ -103,6 +103,8 @@ def registrar_movimentacao(
         raise ValueError("quantidade não pode ser negativa para entrada/saida — use tipo_movimentacao='ajuste'")
 
     custo_total = (custo_unitario * quantidade) if custo_unitario is not None else None
+    if custo_total is not None and not isfinite(custo_total):
+        raise ValueError("custo_total deve ser finito")
 
     movimentacao = Movimentacao(
         material_id=material_id,
@@ -238,14 +240,28 @@ def receber_pedido_compra(
     movimentacoes = []
     try:
         for item in itens:
-            fator = item.fator_conversao_aplicado or 1.0
-            custo_unitario_base = item.preco_unitario / fator if fator else item.preco_unitario
+            # Somente snapshots ausentes em registros legados usam o fator 1.
+            # Zero/NaN/infinito nunca podem virar uma conversão válida por fallback.
+            fator = item.fator_conversao_aplicado
+            if fator is None:
+                fator = 1.0
+            quantidade_base = item.quantidade_convertida_base
+            for nome, valor in (("fator de conversão", fator), ("quantidade", item.quantidade)):
+                if isinstance(valor, bool) or not isinstance(valor, (int, float)) or not isfinite(valor) or valor <= 0:
+                    raise ValueError(f"Item {item.id}: {nome} deve ser positivo e finito")
+            if quantidade_base is None:
+                quantidade_base = item.quantidade * fator
+            if not isfinite(quantidade_base) or quantidade_base <= 0:
+                raise ValueError(f"Item {item.id}: quantidade convertida deve ser positiva e finita")
+            if not isfinite(item.preco_unitario) or item.preco_unitario < 0:
+                raise ValueError(f"Item {item.id}: preço unitário deve ser não negativo e finito")
+            custo_unitario_base = item.preco_unitario / fator
             extra = dados_por_item.get(item.id, {})
 
             resultado = registrar_movimentacao(
                 item.material_id,
                 "entrada",
-                item.quantidade_convertida_base or (item.quantidade * fator),
+                quantidade_base,
                 custo_unitario=custo_unitario_base,
                 usuario_id=usuario_id,
                 observacoes=f"Recebimento do pedido de compra {pedido.numero}",

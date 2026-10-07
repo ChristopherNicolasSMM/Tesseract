@@ -196,3 +196,14 @@ material, não edita ingredientes e não movimenta estoque. É permitido em
 receitas usadas; o custo registrado de lotes confirmados permanece congelado.
 Requer permissão de criar unidades do material. Cancelamento não grava;
 conversões existentes com outro fator exigem manutenção no cadastro completo.
+
+
+## Recebimento: dados de conversão inválidos
+
+O recebimento usa o fator e a quantidade convertida registrados no item do
+pedido. Fator zero, negativo ou infinito e quantidade convertida zero, negativa
+ou infinita impedem o recebimento. O pedido continua confirmado e nenhuma
+entrada parcial fica gravada. Revise os dados do pedido antes de tentar novamente.
+Registros antigos sem snapshot mantêm o comportamento de compatibilidade;
+um snapshot inválido nunca é substituído silenciosamente por fator 1.
+Custos cujo cálculo excede o limite numérico também são rejeitados.

@@ -498,4 +498,6 @@ Implementação reúne integridade de eventos, viabilidade, manutenção de refe
 validação laboratorial e permissões do painel. Sem migration; não introduz consumo
 ou custo de cultura física. Auditoria preservada com ressalva do probe de rota.
 Ver [entrega e roteiro](yeast-bank-integridade-eventos-viabilidade.md).
-Aguarda aplicação e validação local; em seguida executar revisão final do estoque.
+Aplicado e validado pelo usuário. Revisão final de estoque entregue no pacote
+[estoque — integridade do recebimento](estoque-integridade-recebimento.md);
+aguarda validação local desse último pacote.
