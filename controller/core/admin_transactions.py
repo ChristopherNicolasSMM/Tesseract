@@ -141,7 +141,7 @@ def create():
 @login_required
 @permission_required("admin")
 def update(tx_id: int):
-    tx = Transaction.query.get(tx_id)
+    tx = db.session.get(Transaction, tx_id)
     if not tx:
         flash("Transação não encontrada.", "error")
         return redirect(url_for("admin_transactions.manage"))
@@ -198,7 +198,7 @@ def promote(tx_id: int):
     irmão do próprio pai, inserido logo depois dele. Item já na raiz
     não tem pra onde promover.
     """
-    tx = Transaction.query.get(tx_id)
+    tx = db.session.get(Transaction, tx_id)
     if not tx:
         flash("Transação não encontrada.", "error")
         return redirect(url_for("admin_transactions.manage"))
@@ -241,7 +241,7 @@ def demote(tx_id: int):
     último filho do irmão imediatamente anterior. Item já é o primeiro
     da própria lista não tem irmão anterior — não há pra onde rebaixar.
     """
-    tx = Transaction.query.get(tx_id)
+    tx = db.session.get(Transaction, tx_id)
     if not tx:
         flash("Transação não encontrada.", "error")
         return redirect(url_for("admin_transactions.manage"))
@@ -285,7 +285,7 @@ def demote(tx_id: int):
 @login_required
 @permission_required("admin")
 def toggle(tx_id: int):
-    tx = Transaction.query.get(tx_id)
+    tx = db.session.get(Transaction, tx_id)
     if tx:
         tx.is_active = not tx.is_active
         db.session.commit()
@@ -296,7 +296,7 @@ def toggle(tx_id: int):
 @login_required
 @permission_required("admin")
 def delete(tx_id: int):
-    tx = Transaction.query.get(tx_id)
+    tx = db.session.get(Transaction, tx_id)
     if not tx:
         flash("Transação não encontrada.", "error")
         return redirect(url_for("admin_transactions.manage"))

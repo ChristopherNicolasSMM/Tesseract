@@ -167,7 +167,7 @@ def test_editar_transacao_manual(app, client):
     assert "atualizada".encode() in resp.data
 
     with app.app_context():
-        tx = Transaction.query.get(tx_id)
+        tx = db.session.get(Transaction, tx_id)
         assert tx.label == "Editado"
         assert tx.route == "/y"
 
@@ -183,7 +183,7 @@ def test_bloqueia_edicao_de_transacao_vinda_do_codigo(app, client):
     assert "vem do código".encode() in resp.data
 
     with app.app_context():
-        tx = Transaction.query.get(tx_id)
+        tx = db.session.get(Transaction, tx_id)
         assert tx.label != "Hackeado"
 
 
@@ -196,7 +196,7 @@ def test_bloqueia_exclusao_de_transacao_vinda_do_codigo(app, client):
     assert "desative em vez de excluir".encode() in resp.data
 
     with app.app_context():
-        assert Transaction.query.get(tx_id) is not None
+        assert db.session.get(Transaction, tx_id) is not None
 
 
 def test_permite_ativar_desativar_transacao_vinda_do_codigo(app, client):
@@ -206,7 +206,7 @@ def test_permite_ativar_desativar_transacao_vinda_do_codigo(app, client):
 
     client.post(f"/admin/transactions/{tx_id}/toggle")
     with app.app_context():
-        assert Transaction.query.get(tx_id).is_active is False
+        assert db.session.get(Transaction, tx_id).is_active is False
 
 
 def test_remove_transacao_manual(app, client):
@@ -218,4 +218,4 @@ def test_remove_transacao_manual(app, client):
     client.post(f"/admin/transactions/{tx_id}/delete")
 
     with app.app_context():
-        assert Transaction.query.get(tx_id) is None
+        assert db.session.get(Transaction, tx_id) is None

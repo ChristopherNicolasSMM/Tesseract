@@ -149,7 +149,7 @@ def test_excluir_pasta_com_filhos_falha(app, client):
     resp = client.post(f"/admin/transactions/{pasta_id}/delete", follow_redirects=True)
     assert resp.status_code == 200
     with app.app_context():
-        assert Transaction.query.get(pasta_id) is not None  # não foi excluída
+        assert db.session.get(Transaction, pasta_id) is not None  # não foi excluída
 
 
 def test_transacao_de_codigo_nao_permite_editar_pai(app, client):
@@ -166,7 +166,7 @@ def test_transacao_de_codigo_nao_permite_editar_pai(app, client):
     )
     assert resp.status_code == 200
     with app.app_context():
-        tx = Transaction.query.get(tx_id)
+        tx = db.session.get(Transaction, tx_id)
         assert tx.label == "Início"  # não mudou — é code-sourced
         assert tx.parent_id == original_parent_id
 
@@ -208,7 +208,7 @@ def test_promote_transacao_manual_vira_irma_do_proprio_pai(app, client):
     resp = client.post(f"/admin/transactions/{filho_id}/promote", follow_redirects=True)
     assert resp.status_code == 200
     with app.app_context():
-        filho = Transaction.query.get(filho_id)
+        filho = db.session.get(Transaction, filho_id)
         assert filho.parent_id == admin_id  # virou irmão da própria pasta-mãe
 
 
@@ -222,7 +222,7 @@ def test_promote_item_na_raiz_falha(app, client):
     resp = client.post(f"/admin/transactions/{tx_id}/promote", follow_redirects=True)
     assert resp.status_code == 200
     with app.app_context():
-        assert Transaction.query.get(tx_id).parent_id is None  # não mudou
+        assert db.session.get(Transaction, tx_id).parent_id is None  # não mudou
 
 
 def test_demote_transacao_manual_vira_filha_do_irmao_anterior(app, client):
@@ -242,7 +242,7 @@ def test_demote_transacao_manual_vira_filha_do_irmao_anterior(app, client):
     resp = client.post(f"/admin/transactions/{pasta_b_id}/demote", follow_redirects=True)
     assert resp.status_code == 200
     with app.app_context():
-        pasta_b = Transaction.query.get(pasta_b_id)
+        pasta_b = db.session.get(Transaction, pasta_b_id)
         assert pasta_b.parent_id == pasta_a_id
 
 
@@ -262,7 +262,7 @@ def test_demote_para_dentro_de_item_com_rota_falha(app, client):
     resp = client.post(f"/admin/transactions/{depois_id}/demote", follow_redirects=True)
     assert resp.status_code == 200
     with app.app_context():
-        depois = Transaction.query.get(depois_id)
+        depois = db.session.get(Transaction, depois_id)
         assert depois.parent_id == original_parent_id  # não mudou — irmão anterior não é pasta
 
 
@@ -278,7 +278,7 @@ def test_demote_primeiro_item_da_lista_falha(app, client):
     resp = client.post(f"/admin/transactions/{first_id}/demote", follow_redirects=True)
     assert resp.status_code == 200
     with app.app_context():
-        assert Transaction.query.get(first_id).parent_id == original_parent_id
+        assert db.session.get(Transaction, first_id).parent_id == original_parent_id
 
 
 def test_promote_demote_bloqueado_para_transacao_de_codigo(app, client):
@@ -291,7 +291,7 @@ def test_promote_demote_bloqueado_para_transacao_de_codigo(app, client):
     client.post(f"/admin/transactions/{tx_id}/promote", follow_redirects=True)
     client.post(f"/admin/transactions/{tx_id}/demote", follow_redirects=True)
     with app.app_context():
-        assert Transaction.query.get(tx_id).parent_id == original_parent_id
+        assert db.session.get(Transaction, tx_id).parent_id == original_parent_id
 
 
 # ── Exibição: reparenting virtual via order_overrides (skill 10 §8.1) ──────

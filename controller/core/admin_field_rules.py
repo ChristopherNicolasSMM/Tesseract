@@ -99,7 +99,7 @@ def create():
 @login_required
 @permission_required("admin")
 def toggle(rule_id: int):
-    rule = FieldRule.query.get(rule_id)
+    rule = db.session.get(FieldRule, rule_id)
     if not rule:
         flash("Regra não encontrada.", "error")
         return redirect(url_for("admin_field_rules.manage"))
@@ -112,7 +112,7 @@ def toggle(rule_id: int):
 @login_required
 @permission_required("admin")
 def delete(rule_id: int):
-    rule = FieldRule.query.get(rule_id)
+    rule = db.session.get(FieldRule, rule_id)
     if not rule:
         flash("Regra não encontrada.", "error")
         return redirect(url_for("admin_field_rules.manage"))

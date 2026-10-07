@@ -103,7 +103,7 @@ def create():
 @login_required
 @permission_required("admin")
 def detail(role_id: int):
-    role = Role.query.get(role_id)
+    role = db.session.get(Role, role_id)
     if not role:
         flash("Role não encontrado.", "error")
         return redirect(url_for("admin_roles.manage"))
@@ -118,7 +118,7 @@ def detail(role_id: int):
 @login_required
 @permission_required("admin")
 def update(role_id: int):
-    role = Role.query.get(role_id)
+    role = db.session.get(Role, role_id)
     if not role:
         flash("Role não encontrado.", "error")
         return redirect(url_for("admin_roles.manage"))
@@ -144,7 +144,7 @@ def update(role_id: int):
 @login_required
 @permission_required("admin")
 def update_permissions(role_id: int):
-    role = Role.query.get(role_id)
+    role = db.session.get(Role, role_id)
     if not role:
         flash("Role não encontrado.", "error")
         return redirect(url_for("admin_roles.manage"))
@@ -160,7 +160,7 @@ def update_permissions(role_id: int):
 @login_required
 @permission_required("admin")
 def delete(role_id: int):
-    role = Role.query.get(role_id)
+    role = db.session.get(Role, role_id)
     if not role:
         flash("Role não encontrado.", "error")
         return redirect(url_for("admin_roles.manage"))

@@ -444,3 +444,13 @@ esse aviso específico um erro no subprocesso. Não executar downgrade em
 banco instalado para reproduzir esses testes. db current/db heads são
 inspeções; db upgrade depende de revisões realmente pendentes. Ver
 docs/patches/fase3-compatibilidade-migrations.md para resultados e limites.
+
+
+### Administração manual — lookups por ID
+
+Controllers admin_users, admin_roles, admin_transactions e admin_field_rules
+usam db.session.get; Query.get foi removido desse escopo. Templates, filtros
+de listas e consultas de coleção seguem seus contratos. Executar a seleção
+administrativa com `-W error::sqlalchemy.exc.LegacyAPIWarning` para detectar
+regressões, incluindo leituras dos próprios testes. Detalhes e limites em
+docs/patches/fase3-administracao-core-sqlalchemy.md. Não requer migration.

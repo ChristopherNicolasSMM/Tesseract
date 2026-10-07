@@ -122,7 +122,7 @@ def test_desativar_regra(app, client):
     client.post(f"/admin/field-rules/{rule_id}/toggle")
 
     with app.app_context():
-        assert FieldRule.query.get(rule_id).is_active is False
+        assert db.session.get(FieldRule, rule_id).is_active is False
 
 
 def test_remover_regra(app, client):
@@ -136,7 +136,7 @@ def test_remover_regra(app, client):
     client.post(f"/admin/field-rules/{rule_id}/delete")
 
     with app.app_context():
-        assert FieldRule.query.get(rule_id) is None
+        assert db.session.get(FieldRule, rule_id) is None
 
 
 # ── Conexão real com os formulários do CrudGen ─────────────────────────────

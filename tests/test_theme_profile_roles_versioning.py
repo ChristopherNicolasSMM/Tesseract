@@ -144,7 +144,7 @@ def test_associar_permissoes_a_role(app, client):
     client.post(f"/admin/roles/{role_id}/permissions", data={"permission_ids": [str(perm_id)]})
 
     with app.app_context():
-        role = Role.query.get(role_id)
+        role = db.session.get(Role, role_id)
         assert "teste.list" in [p.name for p in role.permissions]
 
 
@@ -186,7 +186,7 @@ def test_nao_permite_excluir_role_com_usuario_atribuido(app, client):
     assert "Não é possível excluir".encode("utf-8") in resp.data
 
     with app.app_context():
-        assert Role.query.get(role_id) is not None
+        assert db.session.get(Role, role_id) is not None
 
 
 # ── Versionamento ────────────────────────────────────────────────────────────

@@ -142,3 +142,14 @@ Aplicação e validação local deste novo pacote pendentes.
 A seleção RBAC ampliada também comprovou Query.get na API manual Core de
 usuários. Os quatro acessos por ID e duas leituras do teste foram atualizados;
 permissões, validações, status HTTP e desativação da sessão permanecem cobertos.
+
+
+## Administração Core — continuidade da revisão por escopo
+
+Reproduzidos avisos em quatro controllers manuais: usuários, Roles, transações
+e regras de campo. Os 17 lookups e leituras dos testes associados foram
+atualizados para Session.get, preservando contratos. Sem migration/upgrades.
+Ver [evidências e roteiro](fase3-administracao-core-sqlalchemy.md). Aplicação e
+validação local pendentes; pacotes anteriores de unidades e compatibilidade
+continuam aguardando confirmação local. OData/Designer/Model Builder exigem
+própria seleção de contratos antes da próxima revisão de depreciações.

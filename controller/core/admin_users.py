@@ -70,7 +70,7 @@ def export_xlsx():
 @login_required
 @permission_required("admin")
 def detail(user_id: int):
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         flash("Usuário não encontrado.", "error")
         return redirect(url_for("admin_users.manage"))
@@ -109,7 +109,7 @@ def create():
 @login_required
 @permission_required("admin")
 def update(user_id: int):
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         flash("Usuário não encontrado.", "error")
         return redirect(url_for("admin_users.manage"))
@@ -142,7 +142,7 @@ def update(user_id: int):
 @login_required
 @permission_required("admin")
 def deactivate(user_id: int):
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         flash("Usuário não encontrado.", "error")
         return redirect(url_for("admin_users.manage"))
@@ -167,7 +167,7 @@ def deactivate(user_id: int):
 @login_required
 @permission_required("admin")
 def activate(user_id: int):
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         flash("Usuário não encontrado.", "error")
         return redirect(url_for("admin_users.manage"))
@@ -187,7 +187,7 @@ def reset_password(user_id: int):
     logado e só precisa resolver "esqueci minha senha" de outro
     usuário sem abrir terminal.
     """
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         flash("Usuário não encontrado.", "error")
         return redirect(url_for("admin_users.manage"))
@@ -207,7 +207,7 @@ def reset_password(user_id: int):
 @login_required
 @permission_required("admin")
 def update_roles(user_id: int):
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         flash("Usuário não encontrado.", "error")
         return redirect(url_for("admin_users.manage"))

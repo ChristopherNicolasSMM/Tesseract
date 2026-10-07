@@ -139,7 +139,7 @@ def test_atribuir_role_pelo_formulario(app, client):
     client.post(f"/admin/users/{joao_id}/roles", data={"role_ids": [str(role_id)]})
 
     with app.app_context():
-        joao = User.query.get(joao_id)
+        joao = db.session.get(User, joao_id)
         assert "operador" in [r.name for r in joao.roles]
 
 
@@ -203,7 +203,7 @@ def test_desativar_outro_usuario(app, client):
     assert b"desativado" in resp.data
 
     with app.app_context():
-        assert User.query.get(joao_id).is_active is False
+        assert db.session.get(User, joao_id).is_active is False
 
 
 def test_autodesativacao_eh_bloqueada_na_tela(app, client):
@@ -218,4 +218,4 @@ def test_autodesativacao_eh_bloqueada_na_tela(app, client):
     assert "não pode desativar sua própria conta".encode("utf-8") in resp.data
 
     with app.app_context():
-        assert User.query.get(admin_id).is_active is True
+        assert db.session.get(User, admin_id).is_active is True

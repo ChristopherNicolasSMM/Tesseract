@@ -49,13 +49,17 @@ preferência pessoal de menu.
 ## Gestão de Usuários (administrador)
 
 Cadastre usuários, edite dados, atribua Papéis, redefina senha de
-qualquer um, e ative/desative acesso.
+qualquer um, e ative/desative acesso. A tela fica em `/admin/users/`.
+Ela bloqueia a desativação do próprio usuário logado; use outro administrador
+para manter o acesso quando necessário.
 
 ## Papéis e Permissões (administrador)
 
 Crie grupos de acesso (Papéis) e marque quais permissões cada um tem,
 organizadas por área do sistema. Depois, atribua o Papel a um ou mais
-usuários em "Gestão de Usuários".
+usuários em "Gestão de Usuários". A tela fica em `/admin/roles/`.
+Um Papel ainda atribuído a usuários não pode ser excluído: remova primeiro
+as atribuições.
 
 ## Versionamento (administrador)
 

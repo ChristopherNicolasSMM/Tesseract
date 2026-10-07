@@ -532,3 +532,12 @@ checkout. Novo pacote corrige db.get_engine no ambiente Alembic e endurece
 o teste de subprocesso para essa depreciação. Sem migration e sem upgrade de
 dependências. Ver [contratos, testes e limites](fase3-compatibilidade-migrations.md).
 Aplicação e validação local deste pacote e de unidades/conversões pendentes.
+
+
+## Fase 3 — telas administrativas Core
+
+Revisão pontual dos 17 lookups manuais em usuários, Roles, transações e regras
+de campo, sem migration/upgrades ou mudança no workspace. Contratos e roteiro
+em [fase3-administracao-core-sqlalchemy.md](fase3-administracao-core-sqlalchemy.md).
+Aplicação e validação local pendentes; confirmação das entregas anteriores
+de unidades e compatibilidade ainda pendente.
