@@ -70,6 +70,16 @@ CORE_TRANSACTIONS = [
         "is_standard": True,
     },
     {
+        "code": "TX_ADMIN_ORGANIZATIONS",
+        "label": "Organizações",
+        "parent_code": "TX_GROUP_ADMIN",
+        "description": "Identidade compartilhada de organizações.",
+        "icon": "bi-buildings",
+        "route": "/admin/organizations",
+        "permission_required": "admin",
+        "is_standard": True,
+    },
+    {
         "code": "TX_ADMIN_ROLES",
         "label": "Papéis e Permissões",
         "parent_code": "TX_GROUP_ADMIN",

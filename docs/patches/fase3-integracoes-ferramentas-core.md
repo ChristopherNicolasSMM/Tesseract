@@ -1,6 +1,6 @@
 # Fase 3 — ferramentas e integrações Core
 
-Implementado no ambiente de geração; aplicação e validação local pendentes.
+Aplicado pelo usuário; validação dos testes locais ainda pendente de confirmação.
 Base 2d88af3, após o pacote administrativo aplicado pelo usuário. A confirmação
 de aplicação foi registrada separadamente da confirmação dos testes locais.
 Sem migration, alteração de schema, dependências ou templates CrudGen.

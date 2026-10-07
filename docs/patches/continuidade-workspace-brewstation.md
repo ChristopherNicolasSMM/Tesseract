@@ -551,3 +551,14 @@ Builder e Playground, e reconcilia testes com pipeline/documentação atuais.
 Sem migration/upgrades. Ver
 [fase3-integracoes-ferramentas-core.md](fase3-integracoes-ferramentas-core.md).
 Aplicação e validação local do novo pacote pendentes.
+
+
+## Fase 3 — organizações e decisão financeira
+
+Ferramentas/integrações Core aplicadas pelo usuário; testes locais aguardam
+confirmação. Decididos moeda-base por organização, addon financeiro primeiro
+e identidade compartilhada no Core. Nova entrega implementa organizações
+sem atribuir históricos, com migration a71c8d32f906. Ver
+[fase3-organizacoes-core.md](fase3-organizacoes-core.md). Aplicação e validação
+local pendentes. Catálogo, taxas, política monetária e contexto do estoque
+seguem pacotes financeiros posteriores, na ordem registrada.

@@ -1,0 +1,21 @@
+{% extends "core/base.html" %}
+{% block title %}Organizações - Tesseract{% endblock %}
+{% block content %}
+<div class="pagetitle"><h1>Organizações</h1></div>
+<section class="section"><div class="card"><div class="card-body">
+<h2 class="card-title">Nova organização</h2>
+<form method="post" action="{{ url_for('admin_organizations.save') }}" class="row g-3 mb-4">
+<div class="col-md-3"><label class="form-label" for="org-code">Código permanente</label><input id="org-code" class="form-control" name="code" required maxlength="40"></div>
+<div class="col-md-6"><label class="form-label" for="org-name">Nome</label><input id="org-name" class="form-control" name="name" required maxlength="120"></div>
+<div class="col-md-3"><div class="form-check"><input id="org-active" class="form-check-input" type="checkbox" name="is_active" checked><label class="form-check-label" for="org-active">Ativa</label></div><button class="btn btn-primary" type="submit">Criar</button></div>
+</form>
+<form method="get" class="d-flex gap-2 mb-3"><label for="org-search" class="visually-hidden">Buscar organização</label><input id="org-search" class="form-control" name="q" value="{{ search }}" placeholder="Buscar por código ou nome"><button class="btn btn-outline-primary">Buscar</button></form>
+{% for item in items %}
+<form method="post" action="{{ url_for('admin_organizations.save', ident=item.id) }}" class="row g-3 border-top py-3">
+<div class="col-md-3"><span class="fw-bold">{{ item.code }}</span><div>ID: {{ item.id }}</div></div>
+<div class="col-md-6"><label class="form-label" for="name-{{ item.id }}">Nome</label><input id="name-{{ item.id }}" class="form-control" name="name" value="{{ item.name }}" required maxlength="120"></div>
+<div class="col-md-3"><div class="form-check"><input id="active-{{ item.id }}" class="form-check-input" type="checkbox" name="is_active" {% if item.is_active %}checked{% endif %}><label class="form-check-label" for="active-{{ item.id }}">Ativa</label></div><button class="btn btn-outline-primary" type="submit">Salvar</button></div>
+</form>
+{% else %}<p>Nenhuma organização encontrada.</p>{% endfor %}
+</div></div></section>
+{% endblock %}

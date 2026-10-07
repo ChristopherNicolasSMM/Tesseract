@@ -166,3 +166,14 @@ e referência à documentação consolidada. Sem migration/upgrades. Ver
 Aplicação e validação local do novo pacote pendentes. Câmbio e YeastBank
 físico continuam condicionados a desenho funcional; reprodução integral
 de dependências e PostgreSQL permanece verificação pendente.
+
+
+## Decisões financeiras e fundação de organizações
+
+Usuário confirmou moeda-base por organização, financeiro antes da integração
+a compras e identidade de organização no Core. O pacote seguinte implementa
+essa identidade, com migration a71c8d32f906 e sem atribuição automática dos
+dados antigos. Ver [escopo e sequência](fase3-organizacoes-core.md).
+Aplicação do pacote anterior de ferramentas confirmada; testes locais ainda
+pendentes de confirmação. Financeiro/conversão e contexto organizacional do
+estoque permanecem implementação futura, em ordem de dependência.

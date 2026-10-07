@@ -100,7 +100,7 @@ def create_app(env: str | None = None) -> Flask:
         from model.core import user_menu_preference  # noqa: F401
         from model.core import playground_request  # noqa: F401
         from model.core import playground_folder  # noqa: F401
-        from model.core import playground_cookie_jar  # noqa: F401
+        from model.core import playground_cookie_jar, organization  # noqa: F401
 
         app.module_manager.discover_and_register_addons(project_root / "addons")
         app.module_manager.apply_template_loader()
@@ -167,6 +167,8 @@ def create_app(env: str | None = None) -> Flask:
     from controller.core.pages import core_pages_bp
     from controller.core.admin_users import admin_users_bp
     from controller.core.admin_roles import admin_roles_bp
+    from controller.core.admin_organizations import admin_organizations_bp
+    from api.routes.core.admin.organizations import organizations_api_bp
     from controller.core.admin_versioning import admin_versioning_bp
     from controller.core.admin_field_rules import admin_field_rules_bp
     from controller.core.admin_odata import admin_odata_bp
@@ -194,6 +196,8 @@ def create_app(env: str | None = None) -> Flask:
     app.register_blueprint(core_pages_bp)
     app.register_blueprint(admin_users_bp)
     app.register_blueprint(admin_roles_bp)
+    app.register_blueprint(admin_organizations_bp)
+    app.register_blueprint(organizations_api_bp)
     app.register_blueprint(admin_versioning_bp)
     app.register_blueprint(admin_field_rules_bp)
     app.register_blueprint(admin_odata_bp)

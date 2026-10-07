@@ -9,7 +9,17 @@ O primeiro pacote da fase 3 reconcilia documentação; a implementação finance
 depende do contrato de conversão e histórico. Ver
 [inventário e sequência](../../../../docs/patches/fase3-inventario-e-sequencia.md).
 
-## Decisão proposta
+## Decisões confirmadas — continuação da fase 3
+
+Usuário escolheu moeda-base por organização, addon financeiro primeiro e
+identidade de organização compartilhada no Core. O estoque atual é global por
+material: segregação/contexto de organização precisa de contrato posterior
+antes de receber custos em bases monetárias diferentes. Não atribuir históricos
+nem User.empresa automaticamente a uma organização. Fundação de identidade:
+[organizações Core](../../../../docs/patches/fase3-organizacoes-core.md).
+O addon financeiro, catálogo, taxas e conversão permanecem por implementar.
+
+## Desenho proposto após as decisões
 
 Cadastrar a moeda no documento de cotação e no pedido de compra. O futuro addon
 financeiro mantém moeda de referência por organização, catálogo de moedas
@@ -17,8 +27,9 @@ financeiro mantém moeda de referência por organização, catálogo de moedas
 vigência, fonte e tipo da taxa, além do histórico de alterações. A seleção da
 taxa deve gravar no documento uma cópia imutável da taxa efetivamente usada.
 
-Antes de confirmar o recebimento de documento em moeda diferente de BRL,
-exigir montante convertido em BRL, taxa positiva, data e origem da taxa.
+Antes de confirmar o recebimento em moeda diferente da moeda-base explícita
+da organização, exigir montante convertido nessa base, taxa positiva, data e
+origem da taxa. BRL não é uma base global presumida.
 Somente o custo convertido entra em `Movimentacao` e no custo médio do saldo;
 o preço na moeda original e o cálculo da conversão permanecem no documento.
 Arredondar o valor monetário segundo a precisão da moeda, mantendo a taxa

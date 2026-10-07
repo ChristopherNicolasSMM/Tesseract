@@ -466,3 +466,15 @@ incluindo os hooks HTML de lista/detalhe. Testes de pai/filho conferem onze
 por entidade. A referência de Designer consolidada é
 docs/skills/16-designer-paginas-customizadas.md (substitui 16/17/18 antigos).
 Resultados e roteiro: docs/patches/fase3-integracoes-ferramentas-core.md.
+
+
+### Organização Core — fundação compartilhada
+
+Organization usa tabela tesseract_organization, código de negócio único e
+imutável e inativação reversível. Serviço público organization_service resolve
+por ID ou código e rejeita inativos por padrão; leitura histórica deve pedir
+require_active=False. Addons devem aplicar autorização antes da resolução e
+referenciar a chave pelo serviço, sem duplicar cadastros ou presumir tenant.
+Migration a71c8d32f906 cria tabela vazia e protege downgrade com dados. Não
+atribui organização/moeda a documentos ou saldos. Contrato e validação em
+docs/patches/fase3-organizacoes-core.md.

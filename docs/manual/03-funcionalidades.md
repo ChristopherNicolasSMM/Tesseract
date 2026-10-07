@@ -187,3 +187,12 @@ do menu. Se um dia precisar conferir algo do jeito original, é só
 digitar o endereço antigo direto no navegador. Desmarcar essa opção
 (ou despublicar a página) faz o menu voltar sozinho pra tela
 original.
+
+
+## Organizações (administrador)
+
+Em `/admin/organizations/`, cadastre código permanente e nome. O nome pode ser
+atualizado; o código identifica a organização e não muda. Use inativação e
+reativação para manutenção; não há exclusão. O cadastro é compartilhável entre
+módulos. Moeda e vínculo com compras/estoque serão configurados nas etapas
+financeiras seguintes. Nenhuma organização é criada automaticamente.
