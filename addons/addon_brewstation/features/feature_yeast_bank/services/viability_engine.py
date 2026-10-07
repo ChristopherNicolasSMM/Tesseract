@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 
+from sqlalchemy import and_, or_
+
 
 def compute_alert_flags(item, today: date | None = None) -> dict:
     """
@@ -122,9 +124,16 @@ def best_viability_reference_for_item(item) -> dict | None:
 
     hist_real = (
         YeastCellCountHistory.query
+        .outerjoin(YeastBankEvent, YeastCellCountHistory.bank_event_id == YeastBankEvent.id)
         .filter(
+            YeastCellCountHistory.is_deleted.is_(False),
+            or_(YeastCellCountHistory.bank_event_id.is_(None), and_(
+                YeastBankEvent.is_deleted.is_(False),
+                YeastBankEvent.event_type == "Contagem de Células",
+                YeastBankEvent.bank_item_id == item.id,
+            )),
             YeastCellCountHistory.bank_item_id == item.id,
-            YeastCellCountHistory.viability_percent.isnot(None),
+            YeastCellCountHistory.viability_percent.between(0, 100),
             YeastCellCountHistory.contamination_detected.is_(False),
         )
         .order_by(YeastCellCountHistory.sample_date.desc(), YeastCellCountHistory.created_at.desc())
@@ -139,9 +148,16 @@ def best_viability_reference_for_item(item) -> dict | None:
 
     hist_est = (
         YeastCellCountHistory.query
+        .outerjoin(YeastBankEvent, YeastCellCountHistory.bank_event_id == YeastBankEvent.id)
         .filter(
+            YeastCellCountHistory.is_deleted.is_(False),
+            or_(YeastCellCountHistory.bank_event_id.is_(None), and_(
+                YeastBankEvent.is_deleted.is_(False),
+                YeastBankEvent.event_type == "Contagem de Células",
+                YeastBankEvent.bank_item_id == item.id,
+            )),
             YeastCellCountHistory.bank_item_id == item.id,
-            YeastCellCountHistory.estimated_viability_percent.isnot(None),
+            YeastCellCountHistory.estimated_viability_percent.between(0, 100),
             YeastCellCountHistory.contamination_detected.is_(False),
         )
         .order_by(YeastCellCountHistory.sample_date.desc(), YeastCellCountHistory.created_at.desc())
@@ -157,9 +173,12 @@ def best_viability_reference_for_item(item) -> dict | None:
     starter = (
         YeastBankEvent.query
         .filter(
+            YeastBankEvent.is_deleted.is_(False),
+            # Legados sem status mantêm a referência; novos registros são planned.
+            or_(YeastBankEvent.starter_status == "completed", YeastBankEvent.starter_status.is_(None)),
             YeastBankEvent.bank_item_id == item.id,
             YeastBankEvent.event_type == "Starter",
-            YeastBankEvent.result_viability_percent.isnot(None),
+            YeastBankEvent.result_viability_percent.between(0, 100),
             YeastBankEvent.contamination_detected.is_(False),
         )
         .order_by(YeastBankEvent.start_date.desc(), YeastBankEvent.created_at.desc())
@@ -173,7 +192,7 @@ def best_viability_reference_for_item(item) -> dict | None:
         }
 
     strain = item.strain
-    if strain and strain.initial_reference_viability_pct is not None:
+    if strain and not strain.is_deleted and strain.initial_reference_viability_pct is not None:
         return {
             "type": "strain_default",
             "date": item.prepared_date or item.created_at.date(),
@@ -186,7 +205,7 @@ def best_viability_reference_for_item(item) -> dict | None:
 _SKIP_STATUSES = {"discarded", "contaminated"}  # valores canônicos — enum corrigido (achado real, reanálise de eventos)
 
 
-def recalculate_all(*, today: date | None = None) -> dict:
+def _recalculate_all(*, today: date | None = None) -> dict:
     """
     Recalcula a viabilidade estimada de TODOS os itens do banco (não é
     uma ação por cepa) — mesmo comportamento do endpoint original
@@ -200,7 +219,7 @@ def recalculate_all(*, today: date | None = None) -> dict:
 
     today = today or datetime.now(timezone.utc).date()
 
-    items = YeastBankItem.query.order_by(YeastBankItem.id.asc()).all()
+    items = YeastBankItem.query.filter(YeastBankItem.is_deleted.is_(False)).order_by(YeastBankItem.id.asc()).all()
 
     # Config por storage_type — carregada uma vez, indexada pelo tipo.
     # Christopher decidiu (2026-08-21): quando existe config pro
@@ -221,13 +240,24 @@ def recalculate_all(*, today: date | None = None) -> dict:
 
     for item in items:
         processed += 1
-        if item.status in _SKIP_STATUSES:
+        unavailable_parent = (
+            not item.strain or item.strain.is_deleted
+            or not item.container or item.container.is_deleted
+            or not item.container.device or item.container.device.is_deleted
+        )
+        if item.status in _SKIP_STATUSES or unavailable_parent:
             skipped += 1
-            details.append({"item_id": item.id, "status": "skipped", "reason": f"status={item.status}"})
+            reason = "referência na lixeira ou ausente" if unavailable_parent else f"status={item.status}"
+            details.append({"item_id": item.id, "status": "skipped", "reason": reason})
             continue
 
         ref = best_viability_reference_for_item(item)
         if not ref:
+            item.estimated_viability_pct = None
+            item.estimated_viability_updated_at = None
+            item.last_viability_reference_type = None
+            item.last_viability_reference_date = None
+            item.last_viability_reference_value = None
             items_without_reference += 1
             details.append({"item_id": item.id, "status": "no_reference"})
             continue
@@ -274,3 +304,13 @@ def recalculate_all(*, today: date | None = None) -> dict:
         "today": today.isoformat(),
         "items": details,
     }
+
+
+def recalculate_all(*, today: date | None = None) -> dict:
+    """Uma transação para o recálculo; falha não deixa atualização parcial."""
+    from core.db import db
+    try:
+        return _recalculate_all(today=today)
+    except Exception:
+        db.session.rollback()
+        raise

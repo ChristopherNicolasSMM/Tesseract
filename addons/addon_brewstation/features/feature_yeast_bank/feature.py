@@ -31,7 +31,7 @@ class FeatureYeastBank(FeatureBase):
                 "description": "Tela integrada de navegação — Cepas e Eventos do Banco (skill 21).",
                 "icon": "bi-grid-1x2",
                 "route": "/brewstation/yeast-bank/painel",
-                "permission_required": None,
+                "permission_required": "yeast_bank_items.list",
             },
             {
                 "code": "TX_YEAST_BANK",

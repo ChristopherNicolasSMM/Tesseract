@@ -11,6 +11,7 @@
   'use strict';
 
   const cfg = TesseractData.config();
+  if (!document.getElementById('painel-tabela-eventos')) return;
   let todasAsContagens = [];
 
   // Achado de uso real (2026-08-24): "Status do Item" mostrava o
@@ -142,17 +143,18 @@
       html += '</tbody></table></div>';
     }
 
-    html += '<a href="/brewstation/yeast-bank-items/' + item.id + '" class="btn btn-sm btn-outline-secondary">' +
+    if (cfg.permissions.item_detail) html += '<a href="/brewstation/yeast-bank-items/' + item.id + '" class="btn btn-sm btn-outline-secondary">' +
       '<i class="bi bi-box-arrow-up-right"></i> Abrir Item do Banco</a>';
 
     painel.innerHTML = html;
   }
 
   async function carregar() {
+    document.getElementById('painel-evento-detalhe').innerHTML = '<p class="text-muted">Selecione um evento à esquerda.</p>';
     try {
       const [eventosResp, contagensResp] = await Promise.all([
         TesseractData.rest.listar(cfg.endpoints.bank_events),
-        TesseractData.rest.listar(cfg.endpoints.cell_counts),
+        cfg.permissions.counts ? TesseractData.rest.listar(cfg.endpoints.cell_counts) : Promise.resolve({items: []}),
       ]);
       todasAsContagens = contagensResp.items || [];
 

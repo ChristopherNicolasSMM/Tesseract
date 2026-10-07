@@ -12,7 +12,8 @@ Todo dado é buscado pelo navegador via API REST já existente
 página e os endpoints que ela vai chamar (skill 17, "Bloco JSON").
 """
 from flask import Blueprint, render_template
-from flask_login import login_required
+from flask_login import login_required, current_user
+from core.permissions import permission_required
 
 yeast_bank_painel_bp = Blueprint(
     "yeast_bank_painel", __name__, url_prefix="/brewstation/yeast-bank"
@@ -21,8 +22,20 @@ yeast_bank_painel_bp = Blueprint(
 
 @yeast_bank_painel_bp.route("/painel", methods=["GET"])
 @login_required
+@permission_required("yeast_bank_items.list")
 def painel():
+    can = current_user.has_permission
     config = {
+        "permissions": {
+            "strains": can("yeast_strains.list"),
+            "events": can("yeast_bank_events.list"),
+            "counts": can("yeast_cell_count_histories.list"),
+            "item_detail": can("yeast_bank_items.detail"),
+            "new_event": can("yeast_bank_events.create"),
+            "new_count": can("yeast_bank_events.create") and can("yeast_cell_count_histories.create") and can("yeast_cell_count_histories.detail"),
+            "devices": can("yeast_storage_devices.list"),
+            "config": can("yeast_bank_configs.list"),
+        },
         "endpoints": {
             "strains": "/api/brewstation/yeast-strains",
             "bank_items": "/api/brewstation/yeast-bank-items",

@@ -481,10 +481,21 @@ rotas e comandos de validação acompanham essa entrega consolidada.
 
 ## Pacote único autorizado — receita, planta e Brewfather
 
-Implementado em 06/10/2026; aguardando aplicação/validação local. Reúne
+Implementado em 06/10/2026; aplicado e validado pelo usuário em 07/10/2026. Reúne
 planejamento geral, fermentação/água, lixeira/restauração de tanques e
 mapeamentos e retorno/versionamento Brewfather. Não altera a lista de menus
 ocultados; acessos globais/avançados continuam disponíveis.
 Ver [escopo, limites e roteiro](workspace-consolidacao-receita-planta-brewfather.md).
-Depois da validação, auditar o painel YeastBank para identificar lacunas;
-por último, revisar estoque. Essas auditorias ainda não foram executadas.
+Auditoria do YeastBank executada em 07/10/2026; achados de integridade e
+limites de integração registrados em [relatório](auditoria-yeast-bank-2026-10-07.md).
+Próxima implementação proposta: pacote corretivo único de YeastBank, seguido
+pela revisão final de estoque. Essa revisão de estoque ainda não foi executada.
+
+
+## YeastBank — pacote corretivo autorizado em 07/10/2026
+
+Implementação reúne integridade de eventos, viabilidade, manutenção de referências,
+validação laboratorial e permissões do painel. Sem migration; não introduz consumo
+ou custo de cultura física. Auditoria preservada com ressalva do probe de rota.
+Ver [entrega e roteiro](yeast-bank-integridade-eventos-viabilidade.md).
+Aguarda aplicação e validação local; em seguida executar revisão final do estoque.

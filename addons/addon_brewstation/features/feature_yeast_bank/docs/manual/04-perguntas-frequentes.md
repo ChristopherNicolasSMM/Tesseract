@@ -95,3 +95,26 @@ cervejeira usual: contar 5 dos 25 quadrados centrais). Só calcula
 automaticamente se você preencher os campos brutos (vivas, mortas,
 quadrados, diluição) — se preferir, pode digitar o resultado final
 direto, sem passar pelos campos brutos.
+
+
+## Por que não consigo apagar um container ocupado?
+
+Arquive primeiro os itens dependentes. Para restaurar, disponibilize primeiro
+Dispositivo, depois Container e por último Item. A exclusão permanente preserva
+referências históricas, mesmo quando seus registros estão na lixeira.
+
+## Por que meu starter não alterou a estimativa?
+
+Novos starters começam planejados. Registre a conclusão e use Recalcular
+Viabilidade; resultados contaminados ou arquivados não são referência. Uma
+contagem real ainda tem prioridade sobre a estimativa ou o starter.
+
+## Apagar o evento de descarte recupera a cultura?
+
+Não. O evento registra o descarte físico e sua manutenção não desfaz o efeito.
+Revisar observações também não substitui o motivo registrado no item.
+
+## Por que alterar uma contagem pede revisão dos resultados?
+
+Os resultados existentes podem ter sido informados manualmente. Para recalcular,
+limpe os três resultados ou informe valores revisados com as novas entradas.

@@ -320,3 +320,12 @@ ambiguidades precisam de saneamento. Conversões permanecem no material.
 Cadastros globais/avançados continuam disponíveis. Não há migration, baixa de
 estoque ou mudança de custos dos lotes. YeastBank e estoque serão auditados
 depois da validação local deste pacote.
+
+
+### YeastBank — integridade de culturas e histórico
+
+Eventos e contagens são gravados juntos; referências na lixeira, resultados
+inválidos e mudanças que romperiam os vínculos são recusados. O descarte físico
+não é desfeito pela lixeira do evento. Veja o manual da feature para conclusão
+de starters, recálculo e ordem de manutenção. Integração de culturas físicas
+com reserva, inoculação e custo de lote permanece como frente específica.

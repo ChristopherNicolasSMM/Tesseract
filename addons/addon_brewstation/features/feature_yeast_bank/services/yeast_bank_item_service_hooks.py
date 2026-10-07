@@ -71,38 +71,44 @@ def pai_apply_fields(obj, data):
     """
     _auto_fill_expiry_date(obj)
 
+    from core.db import db
+    from ..model.yeast_strain import YeastStrain
+    from ..model.yeast_container import YeastContainer
+    # Resolver pelos IDs evita relationship em cache após troca de referência.
+    strain = db.session.get(YeastStrain, obj.strain_id) if obj.strain_id else None
+    container = db.session.get(YeastContainer, obj.container_id) if obj.container_id else None
     strain_name = None
 
-    if obj.strain:
+    if strain:
         # Usa o @display_field da entidade YeastStrain quando disponível.
-        display_field = getattr(obj.strain, "_display_field", "id")
-        strain_name = getattr(obj.strain, display_field, None)
+        display_field = getattr(strain, "_display_field", "id")
+        strain_name = getattr(strain, display_field, None)
 
         # Fallback seguro.
         if not strain_name:
-            strain_name = getattr(obj.strain, "name", None)
+            strain_name = getattr(strain, "name", None)
 
         if not strain_name:
             strain_name = f"Strain #{obj.strain_id}"
 
     container_name = None
 
-    if obj.container:
+    if container:
         display_field = getattr(
-            obj.container,
+            container,
             "_display_field",
             "id",
         )
 
         container_name = getattr(
-            obj.container,
+            container,
             display_field,
             None,
         )
 
         if not container_name:
             container_name = getattr(
-                obj.container,
+                container,
                 "name",
                 None,
             )
@@ -127,3 +133,26 @@ def pai_apply_fields(obj, data):
     obj.identification = " - ".join(parts)[:100]
 
     return None
+
+# Regras manuais preservadas ao regenerar o CRUD.
+from .yeast_integrity_service import operate as _operate
+
+
+def create_override(data):
+    return _operate('item', 'create', data=data)
+
+
+def update_override(id, data):
+    return _operate('item', 'update', ident=id, data=data)
+
+
+def trash_override(id):
+    return _operate('item', 'trash', ident=id)
+
+
+def restore_override(id):
+    return _operate('item', 'restore', ident=id)
+
+
+def delete_permanent_override(id):
+    return _operate('item', 'delete_permanent', ident=id)

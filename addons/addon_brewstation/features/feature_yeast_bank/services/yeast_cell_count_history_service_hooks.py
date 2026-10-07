@@ -25,11 +25,21 @@ def _calcular_neubauer(obj) -> None:
     if obj.cells_counted_live is None or obj.cells_counted_dead is None:
         return  # sem os dois brutos, não dá pra calcular nada
 
+    import math
+    for field in ('cells_counted_live', 'cells_counted_dead'):
+        value = getattr(obj, field)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise ValueError('Contagens devem ser inteiros não negativos.')
+    for field in ('squares_counted', 'dilution_factor'):
+        value = getattr(obj, field)
+        if value is not None and (not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value) or value <= 0):
+            raise ValueError('Quadrados e diluição devem ser positivos e finitos.')
+
     total = obj.cells_counted_live + obj.cells_counted_dead
     if total <= 0:
         return  # divisão por zero — nenhuma célula contada, viva ou morta
 
-    quadrados = obj.squares_counted or 5
+    quadrados = obj.squares_counted if obj.squares_counted is not None else 5
     diluicao = obj.dilution_factor if obj.dilution_factor is not None else 1.0
 
     cells_per_ml = total * (25 / quadrados) * diluicao * 10_000
@@ -46,3 +56,27 @@ def _calcular_neubauer(obj) -> None:
 
 def pai_apply_fields(obj, data):
     _calcular_neubauer(obj)
+
+
+# Regras manuais preservadas ao regenerar o CRUD.
+from .yeast_integrity_service import operate as _operate
+
+
+def create_override(data):
+    return _operate('count', 'create', data=data)
+
+
+def update_override(id, data):
+    return _operate('count', 'update', ident=id, data=data)
+
+
+def trash_override(id):
+    return _operate('count', 'trash', ident=id)
+
+
+def restore_override(id):
+    return _operate('count', 'restore', ident=id)
+
+
+def delete_permanent_override(id):
+    return _operate('count', 'delete_permanent', ident=id)

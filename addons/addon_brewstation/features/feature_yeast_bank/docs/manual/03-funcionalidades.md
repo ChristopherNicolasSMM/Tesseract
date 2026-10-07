@@ -150,3 +150,34 @@ um campo de "ativo" separado.
 
 Registros movidos para lixeira somem da lista principal, mas
 continuam recuperáveis até serem excluídos de vez.
+
+
+## Integridade e operação — atualização 07/10/2026
+
+Eventos de contagem criam a contagem vinculada juntos; falha não deixa parte da
+operação gravada. Item e tipo de evento registrado não podem ser trocados.
+Descarte registra data/motivo no item: apagar ou restaurar o evento não reativa
+a cultura. Revisar notas do evento preserva o motivo original do descarte.
+
+Para atualizar a estimativa, use **Recalcular Viabilidade**. Leituras arquivadas,
+itens na lixeira e starters ainda planejados/ativos ou descartados não entram
+no cálculo. Conclua explicitamente um novo starter para tornar seu resultado
+uma referência. Registros antigos sem status mantêm a compatibilidade.
+
+Contagens e percentuais devem ser válidos: 0–100%, contagens não negativas,
+quadrados e diluição maiores que zero. Ao alterar entradas brutas de uma leitura,
+limpe Células/mL, Viabilidade Real e Células Viáveis/mL para recalcular, ou
+informe resultados revisados. Não são substituídos silenciosamente resultados
+manuais quando as entradas permanecem iguais.
+
+Arquive primeiro os itens e containers dependentes; restaure primeiro seus
+pais. Referências históricas impedem exclusão permanente. Uma configuração
+antiga do mesmo tipo não pode ser restaurada enquanto outra estiver ativa.
+
+O painel exige leitura de Itens do Banco; abas e atalhos seguem as permissões
+de cada cadastro. Criar contagem por evento exige também permissão para criar
+Contagens de Células. O atalho do painel exige leitura do detalhe da contagem.
+
+Este fluxo cuida do banco de culturas e do histórico laboratorial. Consumo,
+reserva, coleta e custo da cultura em uma sessão não são operações disponíveis
+neste pacote. Os custos de ingredientes seguem o material no BrewStation.

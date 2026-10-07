@@ -5,11 +5,15 @@ Tela/ação de "Recalcular viabilidade" — ação de negócio em lote sobre
 todos os YeastBankItem, não um CRUD genérico do CrudGen. Por isso é
 escrita à mão, fora do padrão `service.py`/`controller.py` gerado.
 """
+import logging
+
 from flask import Blueprint, render_template, jsonify
 from flask_login import login_required
 
 from core.permissions import permission_required
 from addons.addon_brewstation.features.feature_yeast_bank.services.viability_engine import recalculate_all
+
+logger = logging.getLogger(__name__)
 
 yeast_bank_viability_bp = Blueprint(
     "yeast_bank_viability", __name__, url_prefix="/brewstation/yeast-bank-tools"
@@ -27,5 +31,9 @@ def recalculate_viability_page():
 @login_required
 @permission_required("yeast_bank_items.recalculate_viability")
 def recalculate_viability_run():
-    result = recalculate_all()
+    try:
+        result = recalculate_all()
+    except Exception:
+        logger.exception("Falha ao recalcular viabilidade")
+        return jsonify(success=False, error="Não foi possível recalcular. Nenhuma atualização foi confirmada."), 422
     return jsonify(success=True, **result)

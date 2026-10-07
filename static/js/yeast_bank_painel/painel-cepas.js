@@ -18,6 +18,7 @@
   'use strict';
 
   const cfg = TesseractData.config();
+  if (!document.getElementById('painel-tabela-cepas')) return;
   let todosOsItens = [];
   let todasAsContagens = [];
 
@@ -65,7 +66,7 @@
         (alerta ? ' <i class="bi bi-exclamation-triangle-fill text-warning" title="Alerta de validade/viabilidade"></i>' : '') +
       '</td>' +
       '<td>' + TesseractData.esc(rotuloStatus(item.status)) + '</td>' +
-      '<td class="text-end"><a href="/brewstation/yeast-bank-items/' + item.id + '" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation()"><i class="bi bi-pencil"></i></a></td>';
+      '<td class="text-end">' + (cfg.permissions.item_detail ? '<a href="/brewstation/yeast-bank-items/' + item.id + '" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation()"><i class="bi bi-pencil"></i></a>' : '') + '</td>';
     tr.addEventListener('click', function () {
       document.querySelectorAll('#painel-tabela-itens tbody tr').forEach(function (r) {
         r.classList.remove('table-active');
@@ -170,18 +171,27 @@
     // Atalho: registra uma Contagem de Células pra este item sem
     // precisar passar pela aba Eventos — reaproveita o fluxo já
     // pronto (post_create_redirect da skill 21) via form HTML normal.
-    html +=
+    if (cfg.permissions.new_count) html +=
       '<form method="post" action="' + cfg.links.new_event + '" class="mt-2">' +
         '<input type="hidden" name="bank_item_id" value="' + item.id + '">' +
         '<input type="hidden" name="event_type" value="Contagem de Células">' +
         '<button type="submit" class="btn btn-sm btn-outline-primary">' +
           '<i class="bi bi-clipboard-plus"></i> Nova Contagem pra este Item' +
         '</button>' +
-      '</form>' +
-        '</div>' +  // fecha card-body
+      '</form>';
+    html += '</div>' +  // fecha card-body
       '</div>';     // fecha card
 
     painel.innerHTML = html;
+    const form = painel.querySelector('form');
+    if (form) {
+      let submitting = false;
+      form.addEventListener('submit', function (event) {
+        if (submitting) { event.preventDefault(); return; }
+        submitting = true;
+        form.querySelector('button[type="submit"]').disabled = true;
+      });
+    }
   }
 
   function mostrarItensDaCepa(strainId, nomeCepa) {
@@ -203,11 +213,13 @@
   }
 
   async function carregar() {
+    document.getElementById('painel-item-detalhe').innerHTML = '';
+    document.getElementById('painel-cepa-dashboard').innerHTML = '';
     try {
       const [cepasResp, itensResp, contagensResp] = await Promise.all([
         TesseractData.rest.listar(cfg.endpoints.strains),
         TesseractData.rest.listar(cfg.endpoints.bank_items),
-        TesseractData.rest.listar(cfg.endpoints.cell_counts),
+        cfg.permissions.counts ? TesseractData.rest.listar(cfg.endpoints.cell_counts) : Promise.resolve({items: []}),
       ]);
       todosOsItens = itensResp.items || [];
       todasAsContagens = contagensResp.items || [];

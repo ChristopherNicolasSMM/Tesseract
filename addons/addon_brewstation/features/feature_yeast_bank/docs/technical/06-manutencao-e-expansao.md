@@ -22,6 +22,27 @@ Cada uma segue o mesmo processo: anotar, `generate`, preencher docs.
 
 ## Pontos de extensão conhecidos
 
-- `yeast_strains.recalculate_viability` já tem permissão sincronizada,
-  só falta a implementação do cálculo (portar a lógica de
-  `daily_viability_loss_pct` do BrewStation original).
+- `yeast_bank_items.recalculate_viability` implementa o cálculo linear por
+  item. O serviço respeita lixeira, contaminação e ciclo de vida do starter.
+
+
+## Serviço manual de integridade — 07/10/2026
+
+`services/yeast_integrity_service.py` centraliza create/update/trash/restore/
+delete_permanent. Os sete services gerados chamam overrides preservados nos
+hooks; seu template já suporta essas extensões. Regenerar nunca deve remover
+as regras manuais. `_apply_fields` do gerador é reutilizado com colunas filtradas,
+readonly e hooks de cálculos/identificação, dentro de no_autoflush e tratamento
+de rollback. O hook de controller do evento apenas escolhe o destino de leitura.
+
+Criação de evento e efeitos tem um único commit. Não há deduplicação de POSTs
+independentes, controle de genealogia, reserva física ou movimentação de estoque.
+Vínculos históricos impedem exclusão permanente; soft-delete do evento não é
+estorno de descarte. Não alterar esses contratos no CrudGen para todas as entidades.
+
+A referência da contagem exige origem compatível e disponível quando vinculada.
+Starters antigos sem status continuam compatíveis, enquanto novos starters
+nascem planned. Prioridade real/estimado/starter/cepa e modelo linear mantidos.
+Recálculo é explícito, transacional e pode limpar estimativa sem referência.
+Ver o pacote `docs/patches/yeast-bank-integridade-eventos-viabilidade.md` na raiz
+para regras, testes, permissões e limites.
