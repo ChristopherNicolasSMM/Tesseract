@@ -1,0 +1,101 @@
+# Fase 3 — inventário e sequência
+
+Levantamento de 07/10/2026 sobre `65c42f4`. Primeiro pacote: reconciliação
+documental e plano de execução. Não altera runtime, models, templates gerados
+ou migrations. Não inclui `docs/imgs/logo.png`, alteração preexistente.
+Não foram encontrados AGENTS.md no workspace examinado.
+
+## Base e alcance da evidência
+
+Histórico conferido: `fbb227e` (receita/planta/Brewfather), `d94f581`
+(YeastBank), `65c42f4` (recebimento). Neste checkout os hashes coincidem com
+as referências de geração. Em outro checkout comparar conteúdo, não exigir
+esses hashes. Os três pacotes estão aplicados e validados localmente pelo
+usuário, incluindo os testes do último pacote, conforme abertura da fase 3.
+151 casos de estoque e 177 de integrações são resultados do ciclo anterior;
+não foram reexecutados por este pacote documental.
+
+A revisão leu os seis documentos indicados, models de cotação/pedido,
+serviço central de estoque, hooks de pedido/itens/unidades e percurso CRUD
+de itens. Não é auditoria completa de todos os addons, permissões ou bancos.
+Ausência de proteção no trecho examinado é evidência para investigação,
+não substitui reprodução pela API e formulário.
+
+## Pendências reais e critérios
+
+| ID / natureza | Evidência atual | Impacto / prioridade | Dependências | Migration | Critério de conclusão |
+| --- | --- | --- | --- | --- | --- |
+| D1 — defeito documental | Consolidação dizia aguardar validação; continuidade dizia estoque não executado; fechamento do recebimento aguardava validação | Planejamento repetia trabalho concluído / imediata | Confirmação do usuário e histórico | Não | Estados atuais reconciliados; registros antigos identificados como históricos |
+| C1 — lacuna de proteção por leitura | `root/services/estoque_service.py::receber_pedido_compra` lê confirmado e faz entradas sem reserva/releitura exclusiva; `_get_or_create_saldo` também não reserva saldo | Recebimentos simultâneos e atualizações concorrentes podem conflitar / alta | Política por SQLite e PostgreSQL; serviço central; testes em conexões independentes | A determinar após desenho; não presumir necessidade | Mesmo pedido recebido uma vez; materiais compartilhados sem perda de saldo/custo; falha desfaz todas as entradas |
+| C2 — lacuna de proteção por leitura | `item_pedido_compra_service_hooks.py::pai_apply_fields` recalcula fator/quantidade/subtotal a cada save; CRUD de itens não verifica status do pai na edição/lixeira/restauração | Snapshot pode mudar após compromisso ou recebimento / alta | Matriz de estados e operações; overrides/template CrudGen para erros e manutenção | Provavelmente não, confirmar no pacote | Reproduzir por serviço/API/formulário; proteger snapshots e referências; erro amigável/rollback; edição legítima em rascunho preservada |
+| U1 — lacuna por leitura | `material_unidade_service_hooks.py` testa fator > 0 e base = 1; atualiza `Material.unidade_medida` quando base, sem conferir ledger/saldo nesse hook | Mudança da semântica de saldo/histórico; finitude do fator merece teste / alta | Inventariar hooks do material, conversões e referências antes de concluir alcance | A determinar | Não reinterpretar históricos/saldos; fatores inválidos rejeitados; troca de base segura ou recusada; PCT e ITEM/UN explícitos |
+| F1 — melhoria proposta | `root/model/cotacao.py` e `pedido_compra.py` não possuem moeda/taxa; `financas-cambio-proposta.md` é proposta | Valores estrangeiros não têm contrato econômico representável / após C1/C2 | Decidir moeda de referência, precisão, data/fonte e fronteira pública do financeiro | Sim se adicionados campos persistentes | Seleção de moeda; conversão explícita exigida; snapshot original/convertido/taxa/data preservado; nunca paridade presumida |
+| Y1 — decisão funcional | Auditoria YeastBank registra ausência de Material, consumo físico e cultura filha; correção validada mantém esse limite | Rastreabilidade/custo de culturas indisponíveis / após estoque | Unidade física, genealogia, inoculação, descarte/estorno e custo; serviço central | Provável, desenho pendente | Eventos laboratoriais separados dos físicos; movimentos idempotentes; custo histórico; rollback composto |
+| P1 — melhoria adiada | Docstring do recebimento e model PedidoCompra definem recebimento sempre total por decisão anterior | Atendimento parcelado indisponível / condicionado à necessidade | Quantidade restante, cancelamento, preço/fator congelados e estorno | Provável | Contrato aprovado e testes de parcelas/repetição; não mudar total implicitamente |
+| Q1 — verificação pendente | Requirements fixam Flask 3.1.3, Flask-SQLAlchemy 3.1.1 e SQLAlchemy 2.0.51; versões anteriores já usadas no ciclo; migrations existentes | Compatibilidade/depreciações / por escopo | Banco instalado, cadeia Alembic, ambiente real | Não para levantamento; depende da correção | Inventário de warnings executados e compatibilidade; upgrade somente com necessidade e testes |
+| A1 — decisão/verificação | Continuidade mantém PID contínuo e proveniência física como radar; pacote de automação existente não prova hardware | Origem confiável e controle físico / após contratos de execução | Dispositivos, origem/event IDs, falhas/reconexão e bancada | A determinar | Software testado separadamente de hardware; origem rastreável e execução definida |
+| UX1 — verificação por escopo | Manuais e roteiros existentes; sete menus ocultados, acessos avançados preservados; painel YeastBank sem paginação server-side | Legibilidade, navegação e escala / incremental | annotations/CrudGen, RBAC e dados representativos | Não para docs/temas; confirmar demais mudanças | Temas/combos/URLs conferidos, permissões preservadas; ocultar apenas cobertura demonstrada |
+
+Os caminhos abreviados de compras/unidades são relativos a
+`addons/addon_estoque/`. Não se afirma que C1, C2 ou U1 já foram reproduzidos
+em concorrência ou corrigidos neste patch.
+
+Busca nos controllers manuais `plant_workspace.py`, `dashboard_runtime.py`
+e `recipe_timeline.py` não encontrou `.query.get(` ou `.get_or_404(` nesta
+rodada. Não repetir a correção antiga por nome; capturar warnings da execução
+antes de escolher depreciações em outros pontos. Não há proposta de upgrade
+amplo nem verificação online de novas versões neste pacote.
+
+## Sequência recomendada
+
+1. **Reconciliação e inventário** — este pacote documental, sem migration.
+2. **Compras e recebimento protegido** — reunir C1/C2: reprodução, matriz de
+   estados, preservação de snapshots, manutenção do pedido/item e concorrência.
+   Manter recebimento total, serviço central e legado sem snapshot. Uma decisão
+   sobre campos administrativos editáveis pode ser necessária; não bloquear
+   o levantamento e reproduções por essa decisão. Não alterar gerados à mão.
+3. **Unidades e contratos de saldo** — U1, fatores finitos, proteção de base e
+   referências; conferir interação com o pacote 2 e custos de ingredientes.
+4. **Moedas/câmbio e fronteira financeira** — desenhar F1 antes de schema/UI.
+   Não incluir conversão automática ou diferenças de pagamento no estoque.
+5. **YeastBank físico** — Y1 com contrato de quantidade, genealogia e custo.
+   Não transformar criação/remoção de evento laboratorial em baixa/devolução.
+6. **Automação/hardware e escala de UX** — A1/UX1 conforme necessidade concreta.
+
+Q1 acompanha cada pacote: warnings e migrations do escopo, sem campanha de
+upgrade independente. P1 continua adiado até necessidade funcional; não é
+dependência para a correção de recebimento total. Ordem pode mudar se uma
+reprodução comprovar risco mais urgente.
+
+## Aplicação e verificação deste pacote
+
+Base: checkout contendo os três últimos pacotes, conteúdo equivalente a
+`65c42f4`. Sem `flask db upgrade`. Sem alteração de URL, menu ou comportamento.
+
+```powershell
+git -c gc.auto=0 am --keep-cr .\brewstation-fase3-reconciliacao-inventario.patch
+```
+
+Validação proporcional: integridade de links Markdown locais nos documentos
+alterados, `git diff --check`, geração `git format-patch`, aplicação em checkout
+isolado da base, igualdade de árvores e `git apply --reverse --check`.
+Não requer pytest, pois só altera documentação. Não atribuir a este patch os
+resultados Python/JS históricos. Resultados finais da aplicação são informados
+na entrega após executados; esta seção descreve o procedimento.
+
+Conferência documental: continuidade deve mostrar o ciclo encerrado; relatório
+de auditoria deve distinguir achados antigos das lacunas restantes. Os manuais
+operacionais permanecem aplicáveis ao runtime entregue; este patch não adiciona
+operações nem certifica todos os manuais. Conferência visual opcional do runtime
+existente (host/IDs da instalação):
+
+- `/brewstation/plant-workspace/`: navegar abas e manter contexto.
+- `/brewstation/plant-workspace/<ID_PLANTA>?tab=recipe&recipe_id=<ID_RECEITA>`:
+  receita usada exige revisão; conferir temas/seletores sem alterar históricos.
+- `/brewstation/yeast-bank/painel`: permissões e viabilidade existentes.
+- `/estoque/materials`, `/estoque/movimentacaos`, `/estoque/saldos`: conferir
+  consulta do histórico; este pacote não exige novo recebimento para validação.
+
+Limites: sem nova execução funcional, PostgreSQL, banco instalado, hardware,
+Brewfather remoto ou inspeção em navegador. Nenhuma frente futura foi marcada
+como implementada por constar neste inventário.

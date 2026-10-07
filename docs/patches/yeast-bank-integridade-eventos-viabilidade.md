@@ -111,4 +111,6 @@ validação de sensores/dispositivos ou consumo físico nesta entrega.
 8. `/brewstation/yeast-bank-tools/recalculate-viability`: após arquivar a última
    leitura, recalcular e conferir fallback. Itens arquivados não são alterados.
 
-Próxima etapa após validação local: revisão final do estoque.
+Aplicado e validado localmente pelo usuário. A revisão final do estoque foi
+entregue e também validada; a sequência atual está no
+[inventário da fase 3](fase3-inventario-e-sequencia.md).

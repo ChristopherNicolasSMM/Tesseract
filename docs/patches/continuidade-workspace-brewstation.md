@@ -8,19 +8,24 @@ Na análise inicial de 30/09, os testes recentes haviam sido aprovados pelo
 usuário; não foi executado pytest nem feita validação visual naquela análise.
 Os incrementos abaixo registram as execuções posteriores e pendências locais.
 
-## Estado verificado
+## Estado verificado — reconciliado em 07/10/2026
 
-| Etapa | Estado da integração | Evidência e lacuna real | Próximo incremento | Dependências |
-| --- | --- | --- | --- | --- |
-| Planta, tanques e mapeamentos | Parcial | Criação/edição e manutenção contextual implementadas; cadastros globais preservados | Validar o pacote único de receita/planta/Brewfather | Permissões, pertencimento e funcionalidades dos cadastros |
-| Receita e ingredientes | Parcial | Conferência/custo, vínculo local e revisão; dados gerais, fermentação e água no pacote único | Validar preparação integrada e proteção das versões usadas | Serviço de resolução, conversão, referências públicas e proteção de receitas usadas |
-| Sessões, histórico e alarmes | Concluída no escopo dos patches recentes | Busca/paginação, edição básica, confirmação de insumos e reconhecimento rastreável estão no código | Preservar; operações adicionais ficam na etapa 4 | Suítes de workspace, runtime e estoque |
-| Envase e precificação | Parcial | Prévia/registro na aba; detalhes/estorno 2B validados; custos e rateio 2C.1/2C.2 validados | 2C.1/2C.2 validados; etapas avançadas restantes | Saneamento, composição, snapshots e transação de estoque |
-| Dashboards | Parcial | Seleção/criação/edição básica, fundo/padrão, manutenção 3B e descanso visual 3A.2 implementados | 3A.1/3B/3A.2 validados; preservar runtime e limpeza | Widgets/tubulação existentes e limpeza de listeners/timers |
-| Etapas e automação | Parcial | Timeline e geração já integradas; Automação tem filtros, edição/manutenção; sessões têm controles e ajustes no patch combinado | 4B.3/4B.4/4C aprovados nos testes pelo usuário; inventário avançado permanece | Runtime existente, permissões e escopo global/por sessão |
-| Menus | Parcial | Sete códigos configurados no comando de ocultação; não prova cobertura de toda manutenção | 5: matriz revisada; manter sete ocultações e preservar manutenção externa | Validação funcional dos incrementos anteriores |
-| Brewfather | Pacote único implementado | Portal contextual e ressincronização preservam versões/decisões locais | Aplicação e validação local | Integração remota configurada e saneamento |
-| YeastBank e estoque | Auditorias posteriores | Painel e serviços existentes serão inventariados | Auditar YeastBank, depois estoque, após validar o pacote único | Validação do pacote atual |
+A confirmação do usuário na abertura da fase 3 prevalece sobre as pendências
+históricas de validação registradas nas seções cronológicas abaixo. Isso não
+significa nova execução de testes ou auditoria exaustiva de todos os módulos.
+
+| Frente | Estado no escopo entregue | Próxima frente real |
+| --- | --- | --- |
+| Planta e receita | Consolidação aplicada e validada: preparação, revisão, água/fermentação e manutenção reversível | Preservar versões e referências |
+| Sessões e automação | Incrementos anteriores validados | Proveniência física/PID exigem levantamento específico |
+| Envase e precificação | Registro, estorno, snapshots e rateio validados | Preservar custos congelados |
+| Dashboards e menus | Incrementos anteriores validados; sete ocultações preservadas | Conferência visual por mudança, sem ocultação adicional presumida |
+| Brewfather | Continuidade/versionamento aplicados e validados | Integração remota e publicação de saldo são contratos distintos |
+| YeastBank | Auditoria e correções aplicadas e validadas | Culturas físicas/custos ainda exigem desenho |
+| Estoque | Integridade de recebimento aplicada e validada; ciclo encerrado | Proteção de compras concorrentes e manutenção de snapshots a investigar |
+
+Sequência atual, evidências e critérios em
+[fase 3 — inventário e sequência](fase3-inventario-e-sequencia.md).
 
 Concluída nesta tabela significa o escopo explicitamente descrito, não toda
 a área funcional. A quantidade final de patches pode mudar ao conferir dependências.
@@ -488,8 +493,8 @@ ocultados; acessos globais/avançados continuam disponíveis.
 Ver [escopo, limites e roteiro](workspace-consolidacao-receita-planta-brewfather.md).
 Auditoria do YeastBank executada em 07/10/2026; achados de integridade e
 limites de integração registrados em [relatório](auditoria-yeast-bank-2026-10-07.md).
-Próxima implementação proposta: pacote corretivo único de YeastBank, seguido
-pela revisão final de estoque. Essa revisão de estoque ainda não foi executada.
+Atualização da fase 3: pacote corretivo YeastBank e revisão final de estoque
+foram executados, aplicados e validados pelo usuário.
 
 
 ## YeastBank — pacote corretivo autorizado em 07/10/2026
@@ -500,4 +505,4 @@ ou custo de cultura física. Auditoria preservada com ressalva do probe de rota.
 Ver [entrega e roteiro](yeast-bank-integridade-eventos-viabilidade.md).
 Aplicado e validado pelo usuário. Revisão final de estoque entregue no pacote
 [estoque — integridade do recebimento](estoque-integridade-recebimento.md);
-aguarda validação local desse último pacote.
+aplicado e validado localmente pelo usuário. O ciclo anterior está encerrado.

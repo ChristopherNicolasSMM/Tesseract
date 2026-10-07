@@ -1,5 +1,14 @@
 # Integração futura com addon financeiro
 
+## Estado conferido na fase 3 — 07/10/2026
+
+Proposta ainda não implementada. Os modelos atuais de Cotacao e PedidoCompra
+não possuem campos de moeda ou taxa; a seleção de moeda não está entregue
+nesses documentos. Não interpretar preços estrangeiros como já convertidos.
+O primeiro pacote da fase 3 reconcilia documentação; a implementação financeira
+depende do contrato de conversão e histórico. Ver
+[inventário e sequência](../../../../docs/patches/fase3-inventario-e-sequencia.md).
+
 ## Decisão proposta
 
 Cadastrar a moeda no documento de cotação e no pedido de compra. O futuro addon

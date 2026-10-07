@@ -47,7 +47,9 @@ recusa, status confirmado e ausência de novas movimentações.
 ## Encerramento e limites
 
 Receita/planta/Brewfather e YeastBank foram validados pelo usuário. Este
-último pacote aguarda aplicação e validação local para fechar o ciclo.
+último pacote foi aplicado e validado localmente pelo usuário, incluindo seus
+testes, conforme confirmação de abertura da fase 3 em 07/10/2026. Ciclo encerrado
+no escopo entregue; ver [inventário da fase 3](fase3-inventario-e-sequencia.md).
 A revisão cobre regressões automatizadas dos fluxos existentes de estoque,
 consumo de ingredientes, envase e precificação; não é auditoria exaustiva
 de concorrência, contabilidade ou segurança.

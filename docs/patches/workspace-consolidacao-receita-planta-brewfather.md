@@ -1,8 +1,9 @@
 # Consolidação de receita, planta e continuidade Brewfather
 
-Pacote único sobre `59c33a8`, reunindo as três frentes autorizadas. Implementado;
-aguarda aplicação e validação local. Auditorias do YeastBank e do estoque ficam
-para depois da aprovação deste pacote.
+Pacote único sobre `59c33a8`, reunindo as três frentes autorizadas. Aplicado e
+validado localmente pelo usuário, conforme confirmação de abertura da fase 3
+em 07/10/2026. Auditoria/correção YeastBank e integridade do recebimento também
+foram entregues e validadas. Ver [estado da fase 3](fase3-inventario-e-sequencia.md).
 
 ## Preparação da receita
 

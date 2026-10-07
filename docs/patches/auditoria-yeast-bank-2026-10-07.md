@@ -112,3 +112,9 @@ Rotas locais principais para esse roteiro:
 
 Pacote corretivo autorizado em 07/10/2026; ver
 [implementação e roteiro](yeast-bank-integridade-eventos-viabilidade.md).
+
+Atualização de 07/10/2026, abertura da fase 3: pacote corretivo aplicado e
+validado localmente pelo usuário. A revisão final de estoque também foi
+entregue e validada. Achados acima descrevem o estado auditado anterior à
+correção; não são uma nova lista de defeitos pendentes. Lacunas físicas e
+econômicas permanecem propostas, conforme [fase 3](fase3-inventario-e-sequencia.md).
