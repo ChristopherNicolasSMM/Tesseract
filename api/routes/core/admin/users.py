@@ -120,7 +120,7 @@ def list_users():
 @login_required
 @permission_required("admin")
 def get_user(user_id: int):
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         return _err("Usuário não encontrado.", 404)
     return _ok({"user": user.to_dict()})
@@ -150,7 +150,7 @@ def create_user():
 @login_required
 @permission_required("admin")
 def update_user(user_id: int):
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         return _err("Usuário não encontrado.", 404)
 
@@ -172,7 +172,7 @@ def update_user(user_id: int):
 @login_required
 @permission_required("admin")
 def deactivate_user(user_id: int):
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         return _err("Usuário não encontrado.", 404)
     user.is_active = False
@@ -184,7 +184,7 @@ def deactivate_user(user_id: int):
 @login_required
 @permission_required("admin")
 def activate_user(user_id: int):
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         return _err("Usuário não encontrado.", 404)
     user.is_active = True

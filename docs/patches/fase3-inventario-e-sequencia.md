@@ -128,3 +128,17 @@ migrations, sem upgrade amplo; (2) desenho de moeda/câmbio, condicionado a
 moeda-base, precisão e fonte/data decididas; (3) YeastBank físico, condicionado
 a unidade física, genealogia e estorno. Recebimento parcial permanece adiado.
 Automação/hardware requer levantamento próprio e ensaio físico separado.
+
+
+## Compatibilidade — revisão pontual seguinte
+
+Query.get dos controllers indicados já estava corrigido; não reabrir. Corrigida
+a depreciação efetiva de db.get_engine no ambiente Alembic, sem migration ou
+upgrade. Cadeia verificada em SQLite temporário; compatibilidade do banco
+instalado e reprodução integral das versões fixadas continuam pendentes. Ver
+[fase3-compatibilidade-migrations.md](fase3-compatibilidade-migrations.md).
+Aplicação e validação local deste novo pacote pendentes.
+
+A seleção RBAC ampliada também comprovou Query.get na API manual Core de
+usuários. Os quatro acessos por ID e duas leituras do teste foram atualizados;
+permissões, validações, status HTTP e desativação da sessão permanecem cobertos.

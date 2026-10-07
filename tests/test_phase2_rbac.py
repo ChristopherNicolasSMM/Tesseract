@@ -133,13 +133,13 @@ def test_soft_delete_deactivate_activate(app, client):
     assert resp.status_code == 200
 
     with app.app_context():
-        assert User.query.get(target_id).is_active is False
+        assert db.session.get(User, target_id).is_active is False
 
     resp = client.post(f"/api/admin/users/{target_id}/activate")
     assert resp.status_code == 200
 
     with app.app_context():
-        assert User.query.get(target_id).is_active is True
+        assert db.session.get(User, target_id).is_active is True
 
 
 def test_autodesativacao_invalida_a_propria_sessao(app, client):
@@ -208,3 +208,29 @@ def test_user_loader_session_get_preserva_permissoes_e_config_eager(app, eager_l
         assert loaded.has_permission("loader_probe.read") is True
         assert loaded.has_permission("loader_probe.write") is False
         assert login_manager._user_callback("999999999") is None
+
+
+@pytest.mark.parametrize(('method', 'suffix'), [
+    ('GET', ''), ('PUT', ''), ('POST', '/deactivate'), ('POST', '/activate'),
+])
+def test_admin_api_missing_user_preserves_404(app, client, method, suffix):
+    _create_admin(app)
+    _login(client)
+    response = client.open('/api/admin/users/999999' + suffix, method=method, json={})
+    assert response.status_code == 404
+    assert response.get_json()['success'] is False
+
+
+def test_admin_api_detail_update_preserves_validation_and_persistence(app, client):
+    ident = _create_admin(app)
+    _login(client)
+    url = f'/api/admin/users/{ident}'
+    response = client.get(url)
+    assert response.status_code == 200
+    assert response.get_json()['user']['id'] == ident
+    assert client.put(url, json={}).status_code == 422
+    payload = {'username': 'admin', 'email': 'alterado@test.local',
+               'nome': 'Admin', 'nome_completo': 'Administrador', 'celular': '11999999999',
+               'is_admin': True, 'is_active': True}
+    assert client.put(url, json=payload).status_code == 200
+    assert client.get(url).get_json()['user']['email'] == payload['email']

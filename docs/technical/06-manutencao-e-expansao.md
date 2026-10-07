@@ -433,3 +433,14 @@ DDL. Categoria recupera `nome` de `descricao`. Isso não torna o downgrade
 completo um mecanismo de backup: outras revisões removem tabelas/dados.
 O head é lido por `ScriptDirectory.get_heads()`, sem alteração da cadeia.
 Ver [validação e limites](../patches/migrations-downgrade-testes.md).
+
+
+### Ambiente Alembic — Flask-SQLAlchemy 3.1
+
+migrations/env.py usa a propriedade db.engine no contexto da aplicação, de
+acordo com requirements.txt; db.get_engine está obsoleto. Os testes de
+migrations executam comandos reais em bancos SQLite temporários e tornam
+esse aviso específico um erro no subprocesso. Não executar downgrade em
+banco instalado para reproduzir esses testes. db current/db heads são
+inspeções; db upgrade depende de revisões realmente pendentes. Ver
+docs/patches/fase3-compatibilidade-migrations.md para resultados e limites.

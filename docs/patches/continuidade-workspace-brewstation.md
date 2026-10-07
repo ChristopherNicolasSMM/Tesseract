@@ -523,3 +523,12 @@ Implementado e testado no ambiente de geração; validação local pendente.
 Protege fatores, identidade, base, manutenção reversível e Material pai; não
 recalcula saldos, snapshots ou custos. Sem migration. Ver
 [contratos e roteiro](fase3-unidades-conversoes-protegidas.md).
+
+
+## Fase 3 — compatibilidade de migrations
+
+Os pontos manuais Query.get anteriormente indicados já estavam tratados no
+checkout. Novo pacote corrige db.get_engine no ambiente Alembic e endurece
+o teste de subprocesso para essa depreciação. Sem migration e sem upgrade de
+dependências. Ver [contratos, testes e limites](fase3-compatibilidade-migrations.md).
+Aplicação e validação local deste pacote e de unidades/conversões pendentes.

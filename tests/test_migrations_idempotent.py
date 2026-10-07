@@ -41,6 +41,12 @@ def _run_flask_db(args: list[str], db_path: Path) -> subprocess.CompletedProcess
     env = dict(os.environ)
     env["DATABASE_URL"] = f"sqlite:///{db_path}"
     env["FLASK_ENV"] = "development"
+    # O subprocess não herda os filtros de warnings do pytest. Falhar na
+    # API obsoleta do engine evita que o aviso fique escondido em stderr.
+    warning_filter = "error:'get_engine' is deprecated:DeprecationWarning"
+    env["PYTHONWARNINGS"] = ",".join(filter(None, (
+        env.get("PYTHONWARNINGS"), warning_filter,
+    )))
     return subprocess.run(
         [sys.executable, "-m", "flask", "db"] + args,
         cwd=str(_PROJECT_ROOT), env=env,
