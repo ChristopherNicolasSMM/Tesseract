@@ -83,6 +83,14 @@ def registrar_movimentacao(
     quantidade_original: float | None = None,
     fator_conversao_aplicado: float | None = None,
     commit: bool = True,
+    organization_code: str | None = None,
+    source_currency: str | None = None,
+    operation_date: str | None = None,
+    rate_id: int | None = None,
+    policy_version_id: int | None = None,
+    idempotency_key: str | None = None,
+    actor: str | None = None,
+    valuation_id: int | None = None,
 ) -> dict:
     """
     Registra uma Movimentacao (ledger, imutável) e atualiza o Saldo
@@ -102,6 +110,35 @@ def registrar_movimentacao(
     Retorna dict primitivo (nunca o objeto ORM) — mesma regra de
     fronteira usada em device_manager (skill 05, seção 6).
     """
+    if organization_code is not None:
+        from .organization_stock_service import register, register_valuation_line
+        if valuation_id is not None:
+            if any(value is not None for value in (custo_unitario,source_currency,operation_date,rate_id,
+                                                  policy_version_id,idempotency_key,fornecedor_id,unidade_original,
+                                                  quantidade_original,fator_conversao_aplicado,usuario_id,observacoes)):
+                raise ValueError('Recebimento usa exclusivamente o snapshot da avaliação congelada.')
+            from .purchase_context_service import get_context
+            from addons.addon_estoque.root.model.organization_stock import OrderValuation
+            if type(valuation_id) is not int or valuation_id <= 0:
+                raise ValueError('Avaliação inválida.')
+            valuation = db.session.get(OrderValuation, valuation_id)
+            context = get_context('order',valuation.order_id) if valuation else None
+            if context is None or context.organization_code != organization_code:
+                raise ValueError('Avaliação não pertence à organização informada.')
+            if tipo_movimentacao != 'entrada':
+                raise ValueError('Avaliação monetária é exclusiva do recebimento de entrada.')
+            return register_valuation_line(valuation_id,pedido_compra_item_id,material_id=material_id,quantity=quantidade,actor=actor,
+                extra={'lote_fornecedor':lote_fornecedor,'data_validade':data_validade},commit=commit)
+        if any(value is not None for value in (pedido_compra_item_id,fornecedor_id,unidade_original,quantidade_original,
+                                              fator_conversao_aplicado,lote_fornecedor,data_validade,usuario_id)):
+            raise ValueError('Rastro de pedido/lote exige avaliação monetária de recebimento.')
+        return register({'organization_code':organization_code,'material_id':material_id,'tipo_movimentacao':tipo_movimentacao,
+            'quantidade':quantidade,'custo_unitario':custo_unitario,'source_currency':source_currency,'operation_date':operation_date,
+            'rate_id':rate_id,'policy_version_id':policy_version_id,'idempotency_key':idempotency_key,'observacoes':observacoes},
+            actor=actor,commit=commit)
+    if any(value is not None for value in (source_currency,operation_date,rate_id,policy_version_id,idempotency_key,actor,valuation_id)):
+        raise ValueError('Parâmetros monetários organizacionais exigem organização explícita.')
+
     if tipo_movimentacao not in TIPOS_VALIDOS:
         raise TipoMovimentacaoInvalidoError(
             f"tipo_movimentacao deve ser um de {TIPOS_VALIDOS}, recebido: {tipo_movimentacao!r}"
@@ -207,7 +244,13 @@ def _aplicar_entrada(saldo: Saldo, quantidade: float, custo_unitario: float | No
         saldo.custo_medio = (valor_anterior + valor_entrada) / saldo.quantidade_atual
 
 
-def consultar_saldo(material_id: int) -> dict | None:
+def consultar_saldo(material_id: int, *, organization_code=None) -> dict | None:
+    if organization_code is not None:
+        from services.core.organization_service import resolve_organization_by_code
+        from addons.addon_estoque.root.model.organization_stock import OrganizationBalance
+        org = resolve_organization_by_code(organization_code,require_active=False)
+        row = OrganizationBalance.query.filter_by(material_id=material_id,organization_code=org['code']).first()
+        return row.to_dict() if row else None
     saldo = Saldo.query.filter_by(material_id=material_id).first()
     return saldo.to_dict() if saldo else None
 
@@ -226,6 +269,7 @@ def receber_pedido_compra(
     *,
     usuario_id: int | None = None,
     dados_por_item: dict[int, dict] | None = None,
+    actor: str | None = None,
 ) -> dict:
     """
     Recebimento (skill 23, Fase 4; correção Entrada de Mercadoria —
@@ -261,8 +305,14 @@ def receber_pedido_compra(
     if pedido is None or pedido.is_deleted:
         raise PedidoCompraNaoEncontradoError(f"PedidoCompra id={pedido_compra_id} não encontrado ou removido")
 
-    from .purchase_context_service import assert_global_operation_allowed
-    assert_global_operation_allowed('order', pedido.id)
+    from .purchase_context_service import get_context
+    if get_context('order',pedido.id):
+        from .order_valuation_service import receive
+        if actor is None:
+            from flask import has_request_context
+            from flask_login import current_user
+            actor = current_user.username if has_request_context() and current_user.is_authenticated else None
+        return receive(pedido,actor=actor,dados_por_item=dados_por_item)
 
     if pedido.status != "confirmado":
         raise PedidoCompraStatusInvalidoError(
@@ -406,7 +456,7 @@ class ProcessoCotacaoNaoEncontradoError(Exception):
 
 
 @_rollback_on_error
-def gerar_pedidos_de_cotacao(processo_cotacao_id: int) -> dict:
+def gerar_pedidos_de_cotacao(processo_cotacao_id: int, *, actor=None) -> dict:
     """
     "Gerar Pedido" (skill 24, Fase 6.3) — ação manual e separada
     (decisão de sessão, skill 24 seção 1): pega todos os ItemCotacao
@@ -416,8 +466,8 @@ def gerar_pedidos_de_cotacao(processo_cotacao_id: int) -> dict:
     cria UM PedidoCompra por fornecedor vencedor, com os itens
     correspondentes.
 
-    Passa pelos services (PedidoCompraService/ItemPedidoCompraService),
-    não INSERT direto — reaproveita os hooks já existentes (numero
+    Reutiliza os contratos manuais dos overrides de compras, com flush
+    em vez de commits intermediários; todo o processo é atômico. Não usa INSERT direto — reaproveita os hooks já existentes (numero
     automático do pedido, fator/quantidade_convertida_base/subtotal do
     item), mesmo raciocínio de nunca duplicar lógica de cálculo.
 
@@ -426,18 +476,25 @@ def gerar_pedidos_de_cotacao(processo_cotacao_id: int) -> dict:
     Não gera Movimentacao nenhuma aqui — só quando o Pedido gerado for
     de fato recebido (receber_pedido_compra(), fluxo separado).
     """
-    from addons.addon_estoque.root.model.processo_cotacao import ProcessoCotacao
     from addons.addon_estoque.root.model.cotacao import Cotacao
     from addons.addon_estoque.root.model.item_cotacao import ItemCotacao
-    from addons.addon_estoque.root.services.pedido_compra_service import PedidoCompraService
-    from addons.addon_estoque.root.services.item_pedido_compra_service import ItemPedidoCompraService
 
-    from .purchase_context_service import document, assert_global_operation_allowed
+    from .purchase_context_service import document, get_context
     try:
         processo = document('process', processo_cotacao_id, reserve=True)
     except ValueError as exc:
         raise ProcessoCotacaoNaoEncontradoError(str(exc)) from exc
-    assert_global_operation_allowed('process', processo.id)
+    context = get_context('process',processo.id)
+    if context:
+        from services.core.organization_service import resolve_organization_by_code
+        from .financial_stock_contract import text
+        from addons.addon_estoque.root.model.purchase_context import PurchaseContext
+        resolve_organization_by_code(context.organization_code)
+        if actor is None:
+            from flask import has_request_context
+            from flask_login import current_user
+            actor = current_user.username if has_request_context() and current_user.is_authenticated else None
+        actor = text(actor,120,'Autor')
     itens_vencedores = (
         ItemCotacao.query
         .join(Cotacao, ItemCotacao.cotacao_id == Cotacao.id)
@@ -460,28 +517,32 @@ def gerar_pedidos_de_cotacao(processo_cotacao_id: int) -> dict:
         fornecedor_id = item.cotacao.fornecedor_id
         itens_por_fornecedor.setdefault(fornecedor_id, []).append(item)
 
-    pedido_service = PedidoCompraService()
-    item_service = ItemPedidoCompraService()
+    from .purchase_integrity_service import operate
+    # Reutiliza os mesmos contratos dos overrides, adiando TODOS os commits.
     pedidos_gerados = []
 
     for fornecedor_id, itens in itens_por_fornecedor.items():
-        resultado_pedido = pedido_service.create({
+        resultado_pedido = operate('order','create',data={
             "fornecedor_id": fornecedor_id,
             "data_pedido": datetime.now(timezone.utc).date().isoformat(),
             "observacoes": f"Gerado a partir do processo de cotação {processo.numero}",
-        })
+        },commit=False)
         if not resultado_pedido.success:
             raise RuntimeError(f"Falha ao criar PedidoCompra para fornecedor_id={fornecedor_id}: {resultado_pedido.error}")
         pedido = resultado_pedido.data
+        if context:
+            db.session.add(PurchaseContext(order_id=pedido.id,organization_code=context.organization_code,
+                organization_name=context.organization_name,created_by=actor))
+            db.session.flush()
 
         for item_cotacao in itens:
-            resultado_item = item_service.create({
+            resultado_item = operate('item','create',data={
                 "pedido_compra_id": pedido.id,
                 "material_id": item_cotacao.material_id,
                 "material_unidade_id": item_cotacao.material_unidade_id,
                 "quantidade": item_cotacao.quantidade,
                 "preco_unitario": item_cotacao.preco_unitario,
-            })
+            },commit=False)
             if not resultado_item.success:
                 raise RuntimeError(f"Falha ao criar ItemPedidoCompra a partir de ItemCotacao id={item_cotacao.id}: {resultado_item.error}")
 

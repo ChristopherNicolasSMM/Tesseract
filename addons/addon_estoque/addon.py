@@ -36,6 +36,7 @@ class AddonEstoque(AddonBase):
         from addons.addon_estoque.root.model.item_processo_cotacao import ItemProcessoCotacao
 
         from addons.addon_estoque.root.model.purchase_context import PurchaseContext, protect_document, protect_quotation_process
+        from addons.addon_estoque.root.model.organization_stock import OrganizationBalance, OrganizationMovement, OrderValuation
         from sqlalchemy import event
         for model in (PedidoCompra, ProcessoCotacao):
             if not event.contains(model, 'before_delete', protect_document):
@@ -61,7 +62,7 @@ class AddonEstoque(AddonBase):
         return [
             UnidadeCatalogo, Fabricante, Origem, TipoProduto, Categoria, Material, Composicao, Movimentacao, Saldo,
             MaterialUnidade, Fornecedor, Transportadora, Endereco, FornecedorEndereco, TransportadoraEndereco,
-            PedidoCompra, ItemPedidoCompra, ProcessoCotacao, ItemProcessoCotacao, Cotacao, ItemCotacao, PurchaseContext,
+            PedidoCompra, ItemPedidoCompra, ProcessoCotacao, ItemProcessoCotacao, Cotacao, ItemCotacao, PurchaseContext, OrganizationBalance, OrganizationMovement, OrderValuation,
         ]
 
     def register_routes(self, app) -> None:
@@ -132,6 +133,16 @@ class AddonEstoque(AddonBase):
                 blueprint.add_url_rule('/<int:id>/contexto-organizacional', endpoint='organization_context',
                                        view_func=view, methods=['GET', 'POST'])
                 blueprint._purchase_context_registered = True
+
+        from addons.addon_estoque.root.controller.organization_stock_hooks import (
+            organization_stock_view, organization_movement_view, order_valuation_view)
+        if not getattr(saldos_bp, '_organization_stock_registered', False):
+            saldos_bp.add_url_rule('/por-organizacao',endpoint='organization_stock',view_func=organization_stock_view,methods=['GET'])
+            saldos_bp.add_url_rule('/por-organizacao/movimentar',endpoint='organization_movement',view_func=organization_movement_view,methods=['POST'])
+            saldos_bp._organization_stock_registered = True
+        if not getattr(pedido_compras_bp, '_order_valuation_registered', False):
+            pedido_compras_bp.add_url_rule('/<int:id>/avaliacao-monetaria',endpoint='valuation',view_func=order_valuation_view,methods=['GET','POST'])
+            pedido_compras_bp._order_valuation_registered = True
 
         # Entrada de Mercadoria (correção — achado do Christopher):
         # endpoint JSON novo, mesmo padrão de guarda.

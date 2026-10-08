@@ -29,10 +29,11 @@ A integração desses resultados com o recebimento do Estoque permanece pendente
 Decisão validada: catálogo de materiais compartilhado; compras, saldos e
 custos separados por organização. O pacote de contexto permite vínculo
 explícito e imutável de pedidos em rascunho e processos antes de convidar
-fornecedores. Nenhum histórico recebe organização automaticamente. Pedidos
-vinculados aguardam saldos organizacionais para receber; processos vinculados
-aguardam propagação atômica para gerar pedidos. Ver
-[pacote e limites](../../../../docs/patches/fase3-compras-contexto-organizacional.md).
+fornecedores. Nenhum histórico recebe organização automaticamente. A entrega
+seguinte habilita ledger/saldos Decimal, propagação atômica de organização e
+recebimento mediante avaliação monetária congelada. Os preços persistidos
+em documentos antigos continuam Float; a adaptação não recupera precisão perdida. Ver
+[recebimento e limites](../../../../docs/patches/fase3-estoque-organizacional-recebimento.md).
 
 ## Desenho proposto após as decisões
 

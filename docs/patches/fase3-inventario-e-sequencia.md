@@ -228,3 +228,14 @@ processos/pedidos, sem reatribuir documentos ou saldos legados. Recebimentos
 organizacionais e geração organizacional aguardam a etapa de ledger/saldos e
 propagação atômica. Inclui a correção UTF-8 do teste JavaScript de versões.
 Ver [aplicação e limites](fase3-compras-contexto-organizacional.md).
+
+
+## Continuação — ledger organizacional e recebimento (08/10/2026)
+
+Entregue ledger/saldo Decimal por organização, mantendo o saldo global sem
+atribuição. Pedidos vinculados exigem avaliação monetária congelada antes do
+recebimento; processos vinculados propagam a organização em geração atômica.
+Câmbio e políticas são consumidos por serviços públicos, sem FK entre addons.
+Mantidos recebimento total e ausência de rateio do frete. Moeda/Decimal desde
+a criação dos documentos e contextos organizacionais do BrewStation ainda
+são etapas seguintes. Ver [aplicação, URLs e limites](fase3-estoque-organizacional-recebimento.md).

@@ -87,14 +87,14 @@ def test_scoped_receipt_is_blocked_atomically_and_legacy_receipt_works(app):
         assert get_context('order',legacy.id) is None
 
 
-def test_scoped_process_blocks_generation_and_quotation_reparenting(app):
+def test_scoped_process_without_winners_and_quotation_reparenting(app):
     with app.app_context():
         organizations(); process=_criar_processo_cotacao()
         other=_criar_processo_cotacao()
         assert bind('process',process.id).success
         quotation=_criar_cotacao(process)
-        with pytest.raises(ValueError,match='saldos e custos por organização'):
-            estoque_service.gerar_pedidos_de_cotacao(process.id)
+        with pytest.raises(ValueError,match='Nenhum item vencedor'):
+            estoque_service.gerar_pedidos_de_cotacao(process.id,actor='admin')
         assert PedidoCompra.query.count() == 0
         result = CotacaoService().update(quotation.id, {'processo_cotacao_id':other.id})
         assert not result.success

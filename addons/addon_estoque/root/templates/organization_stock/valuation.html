@@ -1,0 +1,20 @@
+{% extends "core/base.html" %}{% block content %}
+<div class="pagetitle"><h1>Avaliação monetária — {{ item.numero }}</h1></div>
+<div class="card"><div class="card-body pt-3">
+<p>Organização: <strong>{{ context.organization_code }} — {{ context.organization_name }}</strong></p>
+<p>Os preços salvos no pedido serão interpretados na moeda original selecionada. A conversão é calculada por item, sobre quantidade × preço. O frete não é rateado no estoque nesta etapa.</p>
+{% if plan %}<div class="alert alert-success">Avaliação congelada por {{ plan.created_by }} em {{ plan.created_at }}. O recebimento usa esse histórico e atualiza somente o saldo desta organização.</div>
+{% set evaluated = plan.snapshot %}
+{% elif options.available %}
+<form method="post">{% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+{% include "organization_stock/_monetary_fields.html" %}
+<button class="btn btn-outline-primary" name="action" value="preview">Pré-visualizar</button>
+<button class="btn btn-primary" name="action" value="confirm">Congelar avaliação definitiva</button>
+</form>{% set evaluated = preview %}
+{% else %}<div class="alert alert-warning">Ative o Financeiro antes de avaliar este pedido.</div>{% set evaluated = none %}
+{% endif %}
+{% if evaluated %}<div class="table-responsive mt-3"><table class="table table-striped"><thead><tr><th>Item</th><th>Quantidade-base</th><th>Valor original</th><th>Valor convertido</th><th>Política</th></tr></thead><tbody>
+{% for line in evaluated['items'] %}<tr><td>{{ line.material_name }} (item #{{ line.item.id }})</td><td>{{ line.quantity_base }} {{ line.unit_base }}</td><td>{{ line.conversion.original_amount }} {{ line.conversion.source_currency }}</td><td>{{ line.conversion.converted_amount }} {{ line.conversion.target_currency }}</td><td>{{ line.conversion.policy.rounding }} · {{ line.conversion.policy.decimal_places }} casas</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+<a class="btn btn-outline-secondary mt-3" href="{{ url_for('pedido_compras.detail',id=item.id) }}">Voltar ao pedido e registrar entrada</a>
+<a class="btn btn-outline-secondary mt-3" href="{{ url_for('saldos.organization_stock',organization_code=context.organization_code) }}">Consultar saldo da organização</a>
+</div></div>{% endblock %}

@@ -106,11 +106,22 @@ def _refs(kind, obj, *, active_only=False):
         if active_only:
             query = query.filter_by(is_deleted=False)
         return query.first() is not None
-    return (Movimentacao.query.filter_by(pedido_compra_item_id=obj.id).first() is not None
+    from addons.addon_estoque.root.model.organization_stock import OrganizationMovement, OrderValuation
+    return (OrderValuation.query.filter_by(order_id=obj.pedido_compra_id).first() is not None
+            or OrganizationMovement.query.filter_by(pedido_compra_item_id=obj.id).first() is not None
+            or Movimentacao.query.filter_by(pedido_compra_item_id=obj.id).first() is not None
             or ItemCotacao.query.filter_by(pedido_compra_item_id=obj.id).first() is not None)
 
 
 def _has_receipt(kind, obj):
+    from addons.addon_estoque.root.model.organization_stock import OrganizationMovement
+    scoped = OrganizationMovement.query
+    if kind == 'order':
+        scoped = scoped.join(ItemPedidoCompra, OrganizationMovement.pedido_compra_item_id == ItemPedidoCompra.id).filter(ItemPedidoCompra.pedido_compra_id == obj.id)
+    else:
+        scoped = scoped.filter_by(pedido_compra_item_id=obj.id)
+    if scoped.first() is not None:
+        return True
     query = Movimentacao.query
     if kind == 'order':
         query = query.join(ItemPedidoCompra, Movimentacao.pedido_compra_item_id == ItemPedidoCompra.id)
@@ -118,7 +129,7 @@ def _has_receipt(kind, obj):
     return query.filter_by(pedido_compra_item_id=obj.id).first() is not None
 
 
-def operate(kind, action, ident=None, data=None):
+def operate(kind, action, ident=None, data=None, *, commit=True):
     """Mesmos contratos para services CRUD, formulários e APIs."""
     cls = PedidoCompra if kind == 'order' else ItemPedidoCompra
     try:
@@ -224,7 +235,7 @@ def operate(kind, action, ident=None, data=None):
                 db.session.delete(obj)
             else:
                 raise PurchaseRuleError('Operação inválida.')
-        db.session.commit()
+        db.session.commit() if commit else db.session.flush()
         return Result(True, data={'id': ident} if action == 'delete_permanent' else obj,
                       code=201 if action == 'create' else 200)
     except PurchaseRuleError as exc:

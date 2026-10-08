@@ -431,3 +431,24 @@ bloco é de uso interno ao `addon_estoque` até hoje. Ver
 `addons/addon_brewstation/docs/technical/04-modelo-de-dados.md` e
 `addons/addon_brewstation/features/feature_mash_control/docs/technical/04-modelo-de-dados.md`
 para o lado espelhado.
+
+
+## Estoque por organização — fase 3 (08/10/2026)
+
+O Material é compartilhado. `Saldo`/`Movimentacao` permanecem globais e
+legados; nenhuma linha antiga é atribuída automaticamente a uma empresa.
+
+| Entidade | Chave/regra | Conteúdo |
+| --- | --- | --- |
+| PurchaseContext | Um pedido OU processo; vínculo único e imutável | Código/nome da organização, autor, data |
+| OrganizationBalance | Único por organização + material | Quantidade/valor exatos, moeda-base, atualização |
+| OrganizationMovement | Chave única por organização; um recebimento por item | Deltas assinados, conversão/política e saldos antes/depois, lote/validade, autor |
+| OrderValuation | Uma por pedido, imutável | Parâmetros explícitos e snapshot de todos os itens antes de receber |
+
+Valores decimais usam `ExactDecimal`, persistido como texto e devolvido como
+Decimal na aplicação, para preservar precisão inclusive em SQLite. FK somente
+para entidades locais do Estoque; organização e identidade financeira vêm de
+contratos públicos. Não há SQL de soma sobre strings: o serviço central calcula
+com Decimal e atualiza ledger/cache na mesma transação. Histórico financeiro
+congelado impede apagar itens mesmo se o pedido for cancelado antes de receber.
+Detalhes em [recebimento organizacional](../../../../docs/patches/fase3-estoque-organizacional-recebimento.md).

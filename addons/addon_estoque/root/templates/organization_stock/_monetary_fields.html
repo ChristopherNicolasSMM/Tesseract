@@ -1,0 +1,12 @@
+{% set values = values|default({}) %}
+<label class="form-label" for="source_currency">Moeda dos preços originais</label>
+<select id="source_currency" name="source_currency" class="form-select mb-3" {% if not incoming_optional|default(false) %}required{% endif %}>
+<option value="">Selecione explicitamente</option>{% for currency in options.currencies %}<option value="{{ currency.code }}" {% if values.source_currency==currency.code %}selected{% endif %}>{{ currency.code }} — {{ currency.name }}</option>{% endfor %}
+</select>
+<label class="form-label" for="operation_date">Data da operação</label><input id="operation_date" name="operation_date" type="date" class="form-control mb-3" value="{{ values.operation_date|default(today) }}" required>
+<label class="form-label" for="rate_id">Taxa direcional da organização</label>
+<select id="rate_id" name="rate_id" class="form-select mb-3"><option value="">Sem taxa — somente na moeda-base</option>
+{% for rate in options.rates %}<option value="{{ rate.id }}" {% if values.rate_id|string==rate.id|string %}selected{% endif %}>{{ rate.source_currency }} → {{ rate.target_currency }} · {{ rate.valid_on }} · {{ rate.rate }} · {{ rate.source }}</option>{% endfor %}</select>
+<label class="form-label" for="policy_version_id">Política monetária</label>
+<select id="policy_version_id" name="policy_version_id" class="form-select mb-3"><option value="">Política inicial{% if options.initial_policy %} — {{ options.initial_policy.currency_code }} · {{ options.initial_policy.decimal_places }} casas · {{ options.initial_policy.rounding }}{% endif %}</option>
+{% for version in options.versions %}<option value="{{ version.id }}" {% if values.policy_version_id|string==version.id|string %}selected{% endif %}>Versão {{ version.version_number }} · desde {{ version.valid_from }} · {{ version.decimal_places }} casas · {{ version.rounding }}</option>{% endfor %}</select>

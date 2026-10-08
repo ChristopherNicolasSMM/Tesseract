@@ -105,3 +105,12 @@ conflito/repetição, rollback de falha induzida, histórico imutável, HTML/JSO
 negação sem sessão, bloqueio de recebimento/geração organizacional e
 preservação dos fluxos legados. Execução no Linux/SQLite; não é certificação
 visual do navegador nem execução nativa no Windows/PostgreSQL.
+
+
+## Atualização posterior
+
+O bloqueio preparatório descrito acima é o estado deste pacote na sua entrega.
+A continuação [estoque e recebimento organizacionais](fase3-estoque-organizacional-recebimento.md)
+habilita geração com propagação atômica e recebimento mediante avaliação
+monetária explícita, sem atribuir os saldos legados. Consulte esse roteiro para
+o comportamento da aplicação após instalar a continuação.

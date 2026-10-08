@@ -107,3 +107,19 @@ def confirm_conversion(data, *, actor):
     except SQLAlchemyError:
         db.session.rollback(); logger.exception('Falha ao confirmar conversão')
         return Result(False, error='Falha ao salvar conversão; nenhuma alteração confirmada.', code=409)
+
+
+def stock_valuation_options(organization_code=None):
+    """Contrato público de opções; consumidores não consultam tabelas financeiras."""
+    from services.core.organization_service import resolve_organization_by_code
+    from addons.addon_financeiro.root.model.monetary import MonetaryPolicy
+    from addons.addon_financeiro.root.model.policy_version import MonetaryPolicyVersion
+    code = resolve_organization_by_code(organization_code,require_active=False)['code'] if organization_code else None
+    rates = ExchangeRate.query
+    if code:
+        rates = rates.filter_by(organization_code=code)
+    initial = MonetaryPolicy.query.filter_by(organization_code=code).first() if code else None
+    versions = MonetaryPolicyVersion.query.filter_by(policy_id=initial.id).order_by(MonetaryPolicyVersion.version_number).all() if initial else []
+    return {'currencies':[currency.to_dict() for currency in Currency.query.order_by(Currency.code).all()],
+            'rates':[rate.to_dict() for rate in rates.order_by(ExchangeRate.valid_on.desc(),ExchangeRate.id.desc()).all()],
+            'initial_policy':initial.to_dict() if initial else None,'versions':[version.to_dict() for version in versions]}
