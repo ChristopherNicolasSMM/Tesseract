@@ -198,3 +198,13 @@ Core e descoberta automática AddonBase, preserva formulários em erro/omissão
 e reforça inicialização/URL/estado do GetCEP. Sem nova migration. Ver
 [fase3-financeiro-cadastro-getcep-correcao.md](fase3-financeiro-cadastro-getcep-correcao.md).
 Câmbio e etapas seguintes permanecem posteriores à validação desta correção.
+
+## Câmbio — continuidade após validação do corretivo
+
+Em 08/10/2026 o usuário confirmou aplicação e validação do corretivo de
+organizações/Financeiro/GetCEP. O pacote seguinte entrega taxas direcionais,
+simulação e histórico idempotente de conversão. Política inicial mantém contrato
+imutável; versionamento de base/escala/arredondamento e contexto organizacional
+de compras/estoque permanecem pendentes. Ver [câmbio](fase3-financeiro-cambio.md).
+Esta nova entrega aguarda aplicação/conferência local. Não atribui moeda/base/
+organização a materiais ou saldos legados; não liga custos ao estoque global.

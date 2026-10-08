@@ -96,8 +96,8 @@ def test_menu_uses_defaults_and_retires_only_own_obsolete_leaf(app):
         folder=Transaction.query.filter_by(code='TX_GROUP_AUTO_FINANCEIRO').one()
         assert folder.route is None
         leaves=Transaction.query.filter_by(parent_id=folder.id).all()
-        assert {t.code for t in leaves}=={'TX_AUTO_CURRENCIES','TX_AUTO_MONETARY_POLICIES'}
-        assert {t.route for t in leaves}=={'/financeiro/currencies/','/financeiro/monetary-policies/'}
+        assert {t.code for t in leaves}=={'TX_AUTO_CURRENCIES','TX_AUTO_MONETARY_POLICIES','TX_AUTO_EXCHANGE_RATES','TX_AUTO_MONETARY_CONVERSIONS'}
+        assert {t.route for t in leaves}=={'/financeiro/currencies/','/financeiro/monetary-policies/','/financeiro/exchange-rates/','/financeiro/conversions/'}
         app.module_manager.sync_all_transactions()
         assert Transaction.query.filter_by(code='TX_GROUP_AUTO_FINANCEIRO').count()==1
 
