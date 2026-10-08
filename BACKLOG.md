@@ -5697,3 +5697,12 @@ portais Brewfather/YeastBank. Ver docs/patches/workspace-revisao-integrada-proce
 ## Addon Relatórios — construção em andamento (08/10/2026)
 
 Base inicial fae21ed, reaplicada sem conflitos sobre origin/main/6b9b75f; remoto reconferido para a entrega autorizada de 08/10/2026. Catálogo/revisões/parâmetros, IDE padrão e emissão PDF declarativa construídos localmente. Exemplos assistidos e ações contextuais em saldo/sessão, contratos Python, RBAC, escopo de planta e custos registrados. Migration c93e0f54b128 compatível com boot e cabeça Alembic única. Testes de navegador passaram, incluindo temas reais, impressão e downloads dos dois consumidores; 112 testes específicos/Financeiro e 464 de regressão ampliada passaram, além de 10 subtestes (576 testes no total). Evidência em addons/addon_reports/docs/technical/07-validacao-e-pendencias.md e contratos em 08-integracao-consumidores.md. Folha azul acinzentada exclusiva da IDE escura; impressão branca. Pacote consolidado autorizado, roteiro em docs/patches/reports-mvp-ide-integracao.md, sem push. Windows/PostgreSQL e evoluções avançadas continuam explicitamente pendentes até validação local.
+
+
+### Relatórios — retorno Windows (08/10/2026)
+
+Correção incremental de três leituras UTF-8 dos exemplos; diagnóstico local do
+worker PDF e logs por categoria sem payload. 41 testes e 10 subtestes passaram
+em Linux, com PDF real. Cinco falhas 503 informadas pelo usuário continuam
+dependendo do diagnóstico Windows. Sem migration nova ou push. Roteiro em
+docs/patches/reports-utf8-diagnostico-pdf.md.

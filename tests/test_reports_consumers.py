@@ -112,7 +112,7 @@ def test_domain_permission_required(context):
 def test_examples_use_production_schema_and_compositor(name):
     from addons.addon_reports.root.services.report_layout_service import validate_schema, validate_data, ReportLayoutService
     path = Path(__file__).resolve().parents[1] / 'addons/addon_reports/examples' / (name+'.json')
-    example = json.loads(path.read_text())
+    example = json.loads(path.read_text(encoding='utf-8'))
     validate_schema(example['data_schema'])
     validate_data(example['data_schema'], example['sample_data'])
     html = ReportLayoutService.render(example['layout'], example['sample_data'], {})
@@ -124,7 +124,7 @@ def test_session_consumer_emits_published_pdf(context):
     from addons.addon_reports.root.services import report_template_service as reports
     from addons.addon_brewstation.features.feature_mash_control.services.report_data_service import generate_session_report
     example_path = Path(__file__).resolve().parents[1] / 'addons/addon_reports/examples/brewstation-session.json'
-    example = json.loads(example_path.read_text())
+    example = json.loads(example_path.read_text(encoding='utf-8'))
     template = reports.create_template({'key':'pilot.'+uuid.uuid4().hex, 'name':'Piloto'})
     revision = reports.read_version(template['id'], 1)
     reports.save_version(template['id'], 1, {**example, 'lock_version':revision['lock_version']})

@@ -61,7 +61,7 @@ def test_consumer_endpoints_auth_csrf_scope_and_pdf(client, app):
     obj = create(client)
     value = read(client, obj['id'])
     path = Path(__file__).resolve().parents[1] / 'addons/addon_reports/examples/brewstation-session.json'
-    example = json.loads(path.read_text())
+    example = json.loads(path.read_text(encoding='utf-8'))
     value.update(example)
     assert save(client, obj['id'], value).status_code == 200
     endpoint = '/api/reports/consumers/session/templates'

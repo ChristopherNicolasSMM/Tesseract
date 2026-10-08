@@ -86,3 +86,12 @@ Este corte não importa essa funcionalidade como se estivesse pronta.
 Entrega autorizada: pacote consolidado, conferência de aplicação em checkout
 limpo e roteiro local. Nenhum push. A validação da instalação do usuário continua
 pendente, mesmo após aplicação conferida em checkout isolado.
+
+## Retorno Windows e correção incremental
+
+Usuário informou seis falhas: uma de acentuação na leitura de exemplo e cinco
+de worker PDF/HTTP 503. Leituras agora usam UTF-8 explícito; diagnóstico local
+do worker acrescentado, sem expor dados do request nos logs/API. Linux: 41
+testes e 10 subtestes passaram; smoke do worker real também passou. A causa
+dos 503 no Windows depende da saída desse diagnóstico; não é dada como
+resolvida pelo teste Linux. Roteiro em docs/patches/reports-utf8-diagnostico-pdf.md.

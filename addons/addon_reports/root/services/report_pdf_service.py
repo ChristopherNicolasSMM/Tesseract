@@ -1,6 +1,7 @@
 """PDF isolado; capacidade limitada e configuração no Core."""
 import subprocess
 import sys
+import logging
 from pathlib import Path
 from threading import BoundedSemaphore
 from core.db import db
@@ -8,6 +9,16 @@ from model.core.system_config import SystemConfig
 from .report_layout_service import ReportError
 
 _slots = BoundedSemaphore(2)
+logger = logging.getLogger(__name__)
+
+
+def _failure_category(stderr):
+    # Apenas categorias fixas: não expor HTML, dados ou stderr do request.
+    if b'cannot load library' in stderr or b'could not import some external libraries' in stderr:
+        return 'native-dependencies'
+    if b'ModuleNotFoundError' in stderr or b'ImportError' in stderr:
+        return 'python-dependencies'
+    return 'worker-failure'
 
 
 def _setting(key, default, low, high):
@@ -36,8 +47,11 @@ def render_pdf(html):
             result = subprocess.run([sys.executable, '-m', 'addons.addon_reports.root.services.report_pdf_worker', str(memory), str(timeout)],
                 input=html.encode(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, cwd=root)
         except (subprocess.TimeoutExpired, OSError) as exc:
+            logger.error('Reports PDF: %s. Execute: python -m addons.addon_reports.root.services.report_pdf_diagnostics', type(exc).__name__)
             raise ReportError('reports.error.pdf', status=503) from exc
         if result.returncode != 0 or not result.stdout.startswith(b'%PDF-') or len(result.stdout) > 10 * 1024 * 1024:
+            logger.error('Reports PDF: category=%s exit=%s. Execute: python -m addons.addon_reports.root.services.report_pdf_diagnostics',
+                         _failure_category(result.stderr), result.returncode)
             raise ReportError('reports.error.pdf', status=503)
         return result.stdout
     finally:

@@ -173,6 +173,24 @@ def test_worker_blocks_external_and_local_resources():
         with pytest.raises(ValueError):blocked_fetcher(resource)
 
 
+@pytest.mark.parametrize('stderr,category', [
+    (b'OSError: cannot load library libpango CLIENT_PRIVATE', 'native-dependencies'),
+    (b'ModuleNotFoundError CLIENT_PRIVATE', 'python-dependencies'),
+    (b'Unexpected failure CLIENT_PRIVATE', 'worker-failure'),
+])
+def test_pdf_failure_diagnostic_does_not_log_payload(app, monkeypatch, caplog, stderr, category):
+    import subprocess
+    from addons.addon_reports.root.services import report_pdf_service as pdf
+    monkeypatch.setattr(pdf.subprocess, 'run', lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 1, b'', stderr))
+    with app.app_context():
+        with pytest.raises(ReportError) as error:
+            pdf.render_pdf('<html>CLIENT_PRIVATE</html>')
+    assert error.value.status == 503
+    assert category in caplog.text
+    assert 'report_pdf_diagnostics' in caplog.text
+    assert 'CLIENT_PRIVATE' not in caplog.text
+
+
 def test_session_token_available_without_catalog_permission(app):
     client=app.test_client()
     with app.app_context():

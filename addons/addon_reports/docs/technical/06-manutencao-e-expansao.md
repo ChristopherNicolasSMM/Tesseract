@@ -68,3 +68,13 @@ do addon continuam na tabela SystemConfig. Usar o diretório real da instalaçã
 Fonte consultada em 08/10/2026: [instalação oficial de WeasyPrint 70.0](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#windows).
 O roteiro está documentado, mas execução Windows e PostgreSQL continuam
 dependendo da validação local/ambiente de implantação.
+
+## Diagnosticar 503 na emissão
+
+Executar `python -m addons.addon_reports.root.services.report_pdf_diagnostics`
+no venv/ambiente da aplicação. Usa HTML fictício e worker real; mostra Python,
+localização das DLLs, saída WeasyPrint --info, exit code e assinatura PDF.
+Não acessa dados de negócio nem banco. O stderr detalhado fica restrito a esse
+comando local; o serviço HTTP registra apenas categorias fixas, código de saída
+e instrução de diagnóstico. Correção UTF-8 e percurso Windows em
+`docs/patches/reports-utf8-diagnostico-pdf.md`.
