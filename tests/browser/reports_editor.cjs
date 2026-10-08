@@ -26,20 +26,67 @@ const fs = require('node:fs');
     await page.locator('#publish-report').click();await confirm();await state('published');
     assert.equal(await page.locator('#save-report').isDisabled(),true);
     assert.equal(await page.locator('#load-example').isDisabled(),true);
+    assert.equal(await page.locator('#add-section').isDisabled(),true);
+    assert.equal(await page.locator('#duplicate-node').isDisabled(),true);
   }
   await create('browser.example','Relatório navegador');
   await page.locator('#add-text').click();await page.locator('#node-text').fill('Texto confirmado');
+  await page.locator('#style-font_size').fill('7');
+  await page.locator('#save-report').click();await state('error');
+  assert.equal(await page.locator('#style-font_size').inputValue(),'7');
+  await page.locator('#style-font_size').fill('24');
+  await page.locator('#style-align').selectOption('right');
+  await page.locator('#style-bold').selectOption('true');
   await page.locator('#save-report').click();await state('saved');await page.reload();
   await page.getByText('Texto confirmado',{exact:true}).first().waitFor();
+  assert.equal(await page.locator('#report-paper button').last().evaluate(el=>getComputedStyle(el).fontSize),'32px');
+  assert.equal(await page.locator('#report-paper button').last().evaluate(el=>getComputedStyle(el).textAlign),'right');
   await page.locator('#report-tree button').last().click();
   await page.locator('#move-up').click();assert.equal(await page.locator('#report-paper button').first().textContent(),'Texto confirmado');
   await page.locator('#delete-node').click();assert.equal(await page.locator('#report-paper button').count(),1);
+  await page.locator('#add-section').click();
+  await page.locator('#add-text').click();await page.locator('#node-text').fill('Texto na seção');
+  await page.locator('#duplicate-node').click();await page.locator('#node-text').fill('Texto duplicado');
+  assert.equal(await page.locator('.report-section-children button').count(),2);
+  await page.locator('#move-up').click();assert.equal(await page.locator('.report-section-children button').first().textContent(),'Texto duplicado');
+  await page.locator('#node-parent').selectOption('');assert.equal(await page.locator('.report-section-children button').count(),1);
+  await page.locator('#report-tree button').filter({hasText:/^Seção$/}).first().click();
+  await page.locator('#duplicate-node').click();assert.equal(await page.locator('.report-section').count(),2);
+  await page.locator('#save-report').click();await state('saved');await page.reload();
+  assert.equal(await page.locator('.report-section').count(),2);
+  assert.equal(await page.locator('.report-section-children button').count(),2);
+  await page.locator('#report-tree button').filter({hasText:/^Seção$/}).last().click();await page.locator('#delete-node').click();
+  assert.equal(await page.locator('.report-section').count(),1);
   await example('estoque-saldos');
   await page.locator('#report-tree button').last().click();
   await page.locator('#column-label-0').fill('Material alterado');
+  await page.locator('#column-width-0').fill('30');
+  await page.locator('#column-align-0').selectOption('right');
+  await page.locator('#style-cell_padding').fill('8');
+  await page.locator('#column-format-2-kind').selectOption('number');
+  await page.locator('#column-format-2-decimals').fill('1');
+  await page.locator('#column-format-3-kind').selectOption('currency');
   await page.locator('#column-binding-0').selectOption(JSON.stringify({source:'item',path:['sku']}));
   assert.equal(await page.locator('#report-paper th').first().textContent(),'Material alterado');
+  await page.locator('#tab-parameters').click();
+  await page.locator('#parameter-definitions').fill(JSON.stringify([
+    {key:'title',label:'Título do relatório',schema:{type:'string'},required:true,default:'Padrão'},
+    {key:'count',label:'Contagem',schema:{type:['integer','null'],minimum:0},default:0},
+    {key:'flag',label:'Confirmado',schema:{type:'boolean'},default:false},
+    {key:'options',label:'Opções avançadas',schema:{type:'object'},default:{}},
+  ]));
+  await page.locator('#parameter-values').focus();
+  await page.locator('#parameter-form-1-include').check();
+  await page.locator('#parameter-form-2-include').check();
+  assert.deepEqual(JSON.parse(await page.locator('#parameter-values').inputValue()),{count:0,flag:false});
+  await page.locator('#parameter-values').fill(JSON.stringify({count:null,flag:false}));
+  assert.equal(await page.locator('#parameter-form-1').isDisabled(),true);
+  assert.deepEqual(JSON.parse(await page.locator('#parameter-values').inputValue()),{count:null,flag:false});
+  await page.locator('#parameter-values').fill(JSON.stringify({count:0,flag:false}));
+  if(process.env.REPORTS_SCREENSHOTS)await page.screenshot({path:process.env.REPORTS_SCREENSHOTS+'/reports-parameters.png',fullPage:true});
+  await page.locator('#parameter-form-0-include').check();await page.locator('#parameter-form-0').fill('Título informado');
   await page.locator('#save-report').click();await state('saved');
+  await page.locator('#tab-layout').click();
   assert.equal((await page.request.post(base+'/api/auth/update-theme',{data:{theme:'dark'}})).status(),200);
   await page.reload();await state('saved');await page.locator('#report-tree button').last().click();
   assert.equal(await page.locator('.reports-paper').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(39, 53, 73)');
@@ -57,7 +104,7 @@ const fs = require('node:fs');
   assert.equal(await printed.locator('main').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
   const pdf=await printed.pdf({preferCSSPageSize:true,printBackground:true});
   assert.equal(pdf.subarray(0,5).toString(),'%PDF-');
-  if(process.env.REPORTS_SCREENSHOTS){await page.screenshot({path:process.env.REPORTS_SCREENSHOTS+'/reports-preview-dark.png',fullPage:true});fs.writeFileSync(process.env.REPORTS_SCREENSHOTS+'/reports-browser-print.pdf',pdf);}
+  if(process.env.REPORTS_SCREENSHOTS){await page.waitForFunction(()=>!bootstrap.Modal.getInstance(document.getElementById('reports-preview'))._isTransitioning);await page.screenshot({path:process.env.REPORTS_SCREENSHOTS+'/reports-preview-dark.png',fullPage:true});fs.writeFileSync(process.env.REPORTS_SCREENSHOTS+'/reports-browser-print.pdf',pdf);}
   await printed.close();
   await page.locator('#reports-preview .btn-close').click();await page.locator('#reports-preview').waitFor({state:'hidden'});
   await page.emulateMedia({media:'print'});
@@ -69,8 +116,11 @@ const fs = require('node:fs');
   if(process.env.REPORTS_SCREENSHOTS)await page.screenshot({path:process.env.REPORTS_SCREENSHOTS+'/reports-light.png',fullPage:true});
   await page.locator('#preview-report').click();await state('preview');
   assert.ok(await page.locator('#html-preview').getAttribute('srcdoc'));
+  assert.match(await page.frameLocator('#html-preview').locator('main').textContent(),/R\$ 6,50/);
   const preview = page.frameLocator('#html-preview');
   assert.match(await preview.locator('main').textContent(), /MALTE-PILSEN/);
+  assert.equal(await preview.locator('th').first().evaluate(el=>getComputedStyle(el).textAlign),'right');
+  assert.ok(Math.abs(await preview.locator('td').first().evaluate(el=>parseFloat(getComputedStyle(el).paddingTop))-32/3)<0.02);
   assert.equal(await page.locator('#print-report').isEnabled(),true);
   await page.locator('#html-preview').evaluate(frame=>{ frame.contentWindow.print=()=>{frame.dataset.printCalled='true';}; });
   await page.locator('#print-report').click();
@@ -101,6 +151,7 @@ const fs = require('node:fs');
   for(const [url,consumer] of [[fixtures.saldo_url,'stock'],[fixtures.session_url,'session']]) {
     await page.goto(base+url);await page.locator(`[data-report-consumer="${consumer}"]`).click();
     await page.waitForFunction(()=>!document.querySelector('#reports-consumer-submit').disabled);
+    if(consumer==='stock'){await page.locator('#reports-consumer-parameter-fields-1-include').check();await page.locator('#reports-consumer-parameter-fields-2-include').check();assert.deepEqual(JSON.parse(await page.locator('#reports-consumer-parameters').inputValue()),{count:0,flag:false});}
     await page.locator('#reports-consumer-submit').click();
     await page.waitForFunction(()=>!document.querySelector('#reports-consumer-print').disabled);
     assert.ok((await page.frameLocator('#reports-consumer-preview').locator('main').textContent()).trim());

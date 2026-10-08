@@ -124,3 +124,20 @@ impressão branca, publicação/imutabilidade, clonagem, conflito preservando
 rascunho, viewport 390 px e consumidores Estoque/BrewStation com HTML e
 acionamento de impressão. Sem pageerror. Confirmação automatizada aguarda
 a transição Bootstrap; boot do servidor de teste aguarda até 60 s.
+
+Etapa 1: 64 testes e 10 subtestes passaram em 13,64 s. Um teste de PDF
+real WeasyPrint permaneceu opt-in, desabilitado. Suíte inclui contratos
+malformados, larguras, estilos, compatibilidade, persistência/publicação/clone.
+CSS de impressão preserva papel branco; não exige nova dependência.
+
+Etapa 1: percurso de navegador aprovado, incluindo propriedades visuais
+persistidas, rejeição de entrada inválida, tabelas, temas e impressão.
+Sem patch antecipado; grupo 1 ainda aguarda etapas 2 e 3.
+
+## Etapa 2 — formatos e parâmetros
+
+91 testes e 10 subtestes passaram, 1 PDF real opcional desabilitado.
+Percurso de navegador aprovado com moeda em tabelas, formulário compartilhado,
+zero/falso e null no JSON avançado, temas e impressão. Nenhuma migration nova,
+sem WeasyPrint instalado. Grupo 1 aguarda organização da IDE (etapa 3) antes
+do patch consolidado. Plano e limites em 09-evolucao-ide-etapas.md.

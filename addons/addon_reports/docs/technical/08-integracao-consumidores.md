@@ -106,3 +106,9 @@ importar seu serviço. Não acrescentam dependência obrigatória ao manifesto.
 Para emissão automática de PDF, passar format="pdf" explicitamente às funções
 Python ou ao JSON da API. O runtime nativo continua necessário somente nessa
 opção. Os templates/revisões existentes permanecem; nenhuma migration nova.
+
+O catálogo publicado agora inclui `parameters` (definições, schema e defaults)
+para montar o formulário de emissão, sem retornar layout nem dados de exemplo.
+Payloads de renderização permanecem compatíveis. Campos complexos continuam no
+JSON avançado. Formatação é responsabilidade do template, sem alterar DTOs,
+ledger, custos ou câmbio.

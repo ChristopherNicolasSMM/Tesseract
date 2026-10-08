@@ -26,12 +26,12 @@
 <div class="tab-content">
 <div class="tab-pane fade show active" id="pane-layout" role="tabpanel" aria-labelledby="tab-layout">
 <div class="reports-layout">
-<div class="card"><div class="card-body pt-3"><h2 class="card-title">{{ t('reports.components') }}</h2><div class="d-grid gap-2"><button class="btn btn-outline-primary" id="add-text"><i class="bi bi-fonts"></i> {{ t('reports.text') }}</button><button class="btn btn-outline-primary" id="add-table"><i class="bi bi-table"></i> {{ t('reports.table') }}</button><button class="btn btn-outline-primary" id="add-divider">{{ t('reports.divider') }}</button></div><button class="btn btn-outline-primary mt-2 w-100" id="add-page_break">{{ t('reports.page_break') }}</button><h3 class="card-title">{{ t('reports.structure') }}</h3><div id="report-tree" class="list-group"></div></div></div>
+<div class="card"><div class="card-body pt-3"><h2 class="card-title">{{ t('reports.components') }}</h2><div class="d-grid gap-2"><button class="btn btn-outline-primary" id="add-text"><i class="bi bi-fonts"></i> {{ t('reports.text') }}</button><button class="btn btn-outline-primary" id="add-table"><i class="bi bi-table"></i> {{ t('reports.table') }}</button><button class="btn btn-outline-primary" id="add-divider">{{ t('reports.divider') }}</button></div><button class="btn btn-outline-primary mt-2 w-100" id="add-page_break">{{ t('reports.page_break') }}</button><button class="btn btn-outline-primary mt-2 w-100" id="add-section">{{ t('reports.section') }}</button><h3 class="card-title">{{ t('reports.structure') }}</h3><div id="report-tree" class="list-group"></div></div></div>
 <div class="reports-canvas"><div class="reports-paper" id="report-paper" aria-label="{{ t('reports.document') }}"></div></div>
-<div class="card"><div class="card-body pt-3"><h2 class="card-title">{{ t('reports.properties') }}</h2><div id="node-properties"></div><div class="d-flex gap-1 mt-3"><button id="move-up" class="btn btn-outline-secondary" aria-label="{{ t('reports.up') }}"><i class="bi bi-arrow-up"></i></button><button id="move-down" class="btn btn-outline-secondary" aria-label="{{ t('reports.down') }}"><i class="bi bi-arrow-down"></i></button><button id="delete-node" class="btn btn-outline-danger" aria-label="{{ t('reports.remove') }}"><i class="bi bi-trash"></i></button></div></div></div>
+<div class="card"><div class="card-body pt-3"><h2 class="card-title">{{ t('reports.properties') }}</h2><div id="node-properties"></div><div class="d-flex gap-1 mt-3"><button id="move-up" class="btn btn-outline-secondary" aria-label="{{ t('reports.up') }}"><i class="bi bi-arrow-up"></i></button><button id="move-down" class="btn btn-outline-secondary" aria-label="{{ t('reports.down') }}"><i class="bi bi-arrow-down"></i></button><button id="duplicate-node" class="btn btn-outline-secondary" aria-label="{{ t('reports.duplicate') }}"><i class="bi bi-files"></i></button><button id="delete-node" class="btn btn-outline-danger" aria-label="{{ t('reports.remove') }}"><i class="bi bi-trash"></i></button></div></div></div>
 </div></div>
 <div class="tab-pane fade" id="pane-data" role="tabpanel" aria-labelledby="tab-data"><div class="card"><div class="card-body pt-3"><label for="data-schema" class="form-label">{{ t('reports.schema') }}</label><textarea id="data-schema" class="form-control font-monospace mb-3" rows="12" spellcheck="false"></textarea><label for="sample-data" class="form-label">{{ t('reports.sample') }}</label><textarea id="sample-data" class="form-control font-monospace" rows="12" spellcheck="false"></textarea></div></div></div>
-<div class="tab-pane fade" id="pane-parameters" role="tabpanel" aria-labelledby="tab-parameters"><div class="card"><div class="card-body pt-3"><p>{{ t('reports.parameters_hint') }}</p><label for="parameter-definitions" class="form-label">{{ t('reports.definitions') }}</label><textarea id="parameter-definitions" class="form-control font-monospace mb-3" rows="10"></textarea><label for="parameter-values" class="form-label">{{ t('reports.test_values') }}</label><textarea id="parameter-values" class="form-control font-monospace" rows="6">{}</textarea></div></div></div>
+<div class="tab-pane fade" id="pane-parameters" role="tabpanel" aria-labelledby="tab-parameters"><div class="card"><div class="card-body pt-3"><p>{{ t('reports.parameters_hint') }}</p><label for="parameter-definitions" class="form-label">{{ t('reports.definitions') }}</label><textarea id="parameter-definitions" class="form-control font-monospace mb-3" rows="10"></textarea><div id="parameter-form"></div><label for="parameter-values" class="form-label">{{ t('reports.test_values') }}</label><textarea id="parameter-values" class="form-control font-monospace" rows="6">{}</textarea></div></div></div>
 <div class="tab-pane fade" id="pane-versions" role="tabpanel" aria-labelledby="tab-versions"><div class="card"><div class="card-body pt-3"><p>{{ t('reports.versions_hint') }}</p><pre id="version-details"></pre></div></div></div>
 </div></div>
 </section>
@@ -39,7 +39,25 @@
 {% endblock %}
 {% block extra_js %}
 <script id="reports-translations" type="application/json">{{ {
- 'missing': t('reports.missing'), 'add_column': t('reports.add_column'), 'remove_column': t('reports.remove_column'),
+ 'parent':t('reports.parent'),'document':t('reports.document'),
+ 'appearance': t('reports.appearance'),
+ 'automatic': t('reports.automatic'),
+ 'align': t('reports.align'),
+ 'left': t('reports.left'),
+ 'center': t('reports.center'),
+ 'right': t('reports.right'),
+ 'justify': t('reports.justify'),
+ 'bold': t('reports.bold'),
+ 'yes': t('reports.yes'),
+ 'no': t('reports.no'),
+ 'font_size': t('reports.font_size'),
+ 'margin_top': t('reports.margin_top'),
+ 'margin_bottom': t('reports.margin_bottom'),
+ 'padding': t('reports.padding'),
+ 'cell_padding': t('reports.cell_padding'),
+ 'width': t('reports.width'),
+ 'reset_style': t('reports.reset_style'),
+'format':t('reports.format'),'format_raw':t('reports.format_raw'),'format_number':t('reports.format_number'),'format_currency':t('reports.format_currency'),'format_percent':t('reports.format_percent'),'format_date':t('reports.format_date'),'format_datetime':t('reports.format_datetime'),'decimals':t('reports.decimals'),'currency':t('reports.currency'),'null_value':t('reports.null_value'),'supply_parameter':t('reports.supply_parameter'),'parameter_default':t('reports.parameter_default'),'advanced_parameters':t('reports.advanced_parameters'), 'missing': t('reports.missing'), 'add_column': t('reports.add_column'), 'remove_column': t('reports.remove_column'),
  'page_break': t('reports.page_break'), 'text': t('reports.text'), 'table': t('reports.table'), 'divider': t('reports.divider'), 'section': t('reports.section'),
  'saved': t('reports.saved'), 'dirty': t('reports.dirty'), 'saving': t('reports.saving'), 'published': t('reports.published'),
  'error': t('reports.error.input'), 'content': t('reports.content'), 'binding': t('reports.binding'), 'columns': t('reports.columns'),
@@ -49,5 +67,7 @@
  'title': t('reports.heading'), 'subtitle': t('reports.subtitle'), 'stale': t('reports.stale')
 }|tojson }}</script>
 <script src="{{ url_for('static', filename='js/reports_preview.js') }}"></script>
+<script src="{{ url_for('static', filename='js/reports_parameters.js') }}"></script>
+<script src="{{ url_for('static', filename='js/reports_layout.js') }}"></script>
 <script src="{{ url_for('static', filename='js/reports_editor.js') }}"></script>
 {% endblock %}

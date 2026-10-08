@@ -30,19 +30,24 @@ def published_templates(consumer):
     """Catálogo de emissão: revisão ativa compatível, sem acesso a rascunhos."""
     authorize_consumer(consumer)
     contract = CONSUMERS[consumer][1]
+    from ..model.report_parameter import ReportParameter
     with db.session.session_factory() as reader:
         rows = (reader.query(ReportTemplate, ReportTemplateVersion)
                 .join(ReportTemplateVersion, (ReportTemplateVersion.template_id == ReportTemplate.id)
                       & (ReportTemplateVersion.version_number == ReportTemplate.active_version_number))
                 .filter(ReportTemplate.is_deleted.is_(False), ReportTemplateVersion.status == 'published')
                 .order_by(ReportTemplate.name).all())
+        ids = [revision.id for _, revision in rows]
+        definitions = {}
+        for parameter in reader.query(ReportParameter).filter(ReportParameter.version_id.in_(ids)).order_by(ReportParameter.id).all():
+            definitions.setdefault(parameter.version_id, []).append(parameter.to_dict())
         result = []
         for template, revision in rows:
             schema = revision.data_schema_json
             properties = schema.get('properties', {})
             field = properties.get('contract') if type(properties) is dict else None
             if type(field) is dict and field.get('const') == contract:
-                result.append({'key': template.key, 'name': template.name, 'version': revision.version_number})
+                result.append({'parameters':definitions.get(revision.id, []), 'key': template.key, 'name': template.name, 'version': revision.version_number})
         return result
 
 

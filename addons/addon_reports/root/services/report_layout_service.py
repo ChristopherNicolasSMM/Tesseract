@@ -2,6 +2,8 @@
 import json
 from html import escape
 from jsonschema import Draft202012Validator
+from .report_format_service import validate_format, format_value
+from .report_style_service import validate_style, style_css
 from .report_binding_service import ReportBindingService, BindingError
 
 
@@ -39,7 +41,7 @@ def validate_data(schema, data):
 
 
 class ReportLayoutService:
-    """MVP com fontes/estilos fixados, sem assets externos ou CSS livre."""
+    """Composição com aparência tipada, sem assets externos ou CSS livre."""
     TYPES = {'text', 'table', 'section', 'divider', 'page_break'}
 
     @classmethod
@@ -60,10 +62,16 @@ class ReportLayoutService:
                 if len(ids) > 200 or (type(node.get('type')) is not str or node.get('type') not in cls.TYPES) or type(node.get('props')) is not dict:
                     raise ReportError('reports.error.layout', ident)
                 props = node['props']
-                allowed = {'text', 'binding', 'level'} if node['type'] == 'text' else {'collection', 'columns', 'empty_text'} if node['type'] == 'table' else set()
+                allowed = {'text', 'binding', 'level', 'format'} if node['type'] == 'text' else {'collection', 'columns', 'empty_text'} if node['type'] == 'table' else set()
+                if node['type'] != 'page_break':
+                    allowed.add('style')
+                if 'style' in props and not validate_style(props['style'], table=node['type']=='table'):
+                    raise ReportError('reports.error.layout', ident)
                 if set(props) - allowed:
                     raise ReportError('reports.error.layout', ident)
                 if node['type'] == 'text':
+                    if 'format' in props and not validate_format(props['format']):
+                        raise ReportError('reports.error.format', ident)
                     if ('text' in props) == ('binding' in props) or props.get('level', 'body') not in ('body', 'title', 'subtitle'):
                         raise ReportError('reports.error.layout', ident)
                     if 'text' in props and (type(props['text']) is not str or len(props['text']) > 10000):
@@ -76,9 +84,17 @@ class ReportLayoutService:
                     if type(columns) is not list or not 1 <= len(columns) <= 12:
                         raise ReportError('reports.error.layout', ident)
                     for column in columns:
-                        if type(column) is not dict or set(column) != {'label', 'binding'} or type(column['label']) is not str or len(column['label']) > 120:
+                        if type(column) is not dict or not {'label', 'binding'} <= set(column) or set(column) - {'label', 'binding', 'align', 'width', 'format'} or type(column['label']) is not str or len(column['label']) > 120:
+                            raise ReportError('reports.error.layout', ident)
+                        if 'format' in column and not validate_format(column['format']):
+                            raise ReportError('reports.error.format', ident)
+                        if 'align' in column and not validate_style({'align':column['align']}):
+                            raise ReportError('reports.error.layout', ident)
+                        if 'width' in column and (type(column['width']) is not int or not 1 <= column['width'] <= 100):
                             raise ReportError('reports.error.layout', ident)
                         cls._binding(column['binding'], ident, allow_item=True)
+                    if sum(c.get('width', 0) for c in columns) > 100:
+                        raise ReportError('reports.error.layout', ident)
                     if type(props.get('empty_text', '')) is not str:
                         raise ReportError('reports.error.layout', ident)
                 if node['type'] == 'section':
@@ -104,34 +120,46 @@ class ReportLayoutService:
                 return ReportBindingService.resolve(binding, data=data, parameters=parameters, item=item, in_item_scope=scoped)
             except BindingError as exc:
                 raise ReportError('reports.error.binding', '.'.join(exc.path)) from exc
-        def value_html(value):
+        def value_html(value, spec=None, path=''):
             if type(value) in (dict, list):
                 raise ReportError('reports.error.binding')
-            return escape('' if value is None else str(value))
+            try:
+                return escape(format_value(value, spec or {}))
+            except (ValueError, OverflowError) as exc:
+                raise ReportError('reports.error.format', path) from exc
         def render_nodes(nodes):
             parts = []
             for node in nodes:
                 props = node['props']
+                css = style_css(props.get('style', {}))
+                attr = (' style="' + css + '"') if css else ''
                 if node['type'] == 'text':
                     value = props['text'] if 'text' in props else resolve(props['binding'])
                     tag = {'title': 'h1', 'subtitle': 'h2', 'body': 'p'}[props.get('level', 'body')]
-                    parts.append(f'<{tag}>{value_html(value)}</{tag}>')
+                    parts.append(f'<{tag}{attr}>{value_html(value, props.get("format"), node["id"])}</{tag}>')
                 elif node['type'] == 'page_break':
                     parts.append('<div class="page-break"></div>')
                 elif node['type'] == 'divider':
-                    parts.append('<hr>')
+                    parts.append('<hr'+attr+'>')
                 elif node['type'] == 'section':
-                    parts.append('<section>' + render_nodes(node.get('children', [])) + '</section>')
+                    parts.append('<section'+attr+'>' + render_nodes(node.get('children', [])) + '</section>')
                 else:
                     items = resolve(props['collection'])
                     if type(items) is not list or len(items) > 2000:
                         raise ReportError('reports.error.collection', node['id'])
                     columns = props['columns']
-                    header = ''.join('<th>' + escape(c['label']) + '</th>' for c in columns)
-                    rows = ''.join('<tr>' + ''.join('<td>' + value_html(resolve(c['binding'], item, True)) + '</td>' for c in columns) + '</tr>' for item in items)
+                    def column_attr(column):
+                        values = []
+                        if 'width' in column: values.append('width:'+str(column['width'])+'%')
+                        if 'format' in column and not validate_format(column['format']):
+                            raise ReportError('reports.error.format', ident)
+                        if 'align' in column: values.append('text-align:'+column['align'])
+                        return (' style="'+';'.join(values)+'"') if values else ''
+                    header = ''.join('<th'+column_attr(c)+'>' + escape(c['label']) + '</th>' for c in columns)
+                    rows = ''.join('<tr>' + ''.join('<td'+column_attr(c)+'>' + value_html(resolve(c['binding'], item, True), c.get('format'), node['id']) + '</td>' for c in columns) + '</tr>' for item in items)
                     if not items:
                         rows = f'<tr><td colspan="{len(columns)}">{escape(props.get("empty_text", ""))}</td></tr>'
-                    parts.append('<table><thead><tr>' + header + '</tr></thead><tbody>' + rows + '</tbody></table>')
+                    parts.append('<table'+attr+'><thead><tr>' + header + '</tr></thead><tbody>' + rows + '</tbody></table>')
             return ''.join(parts)
         body = render_nodes(layout['body'])
         style = """
@@ -140,7 +168,7 @@ class ReportLayoutService:
 body { margin:0; background:white; color:#182230; font:10pt sans-serif; }
 .report-document { width:100%; }
 table { width:100%; border-collapse:collapse; table-layout:fixed; }
-th,td { padding:6pt; border:1px solid #cbd5e1; overflow-wrap:anywhere; }
+th,td { padding:var(--report-cell-padding,6pt); border:1px solid #cbd5e1; overflow-wrap:anywhere; }
 th { background:#eef2f6; }
 thead { display:table-header-group; }
 tr { break-inside:avoid; }

@@ -5727,3 +5727,31 @@ impressão branca, publicação/imutabilidade, clonagem, conflito preservando
 rascunho, viewport 390 px e consumidores Estoque/BrewStation com HTML e
 acionamento de impressão. Sem pageerror. Confirmação automatizada aguarda
 a transição Bootstrap; boot do servidor de teste aguarda até 60 s.
+
+### Reports: grupo 1, etapa 1 — propriedades visuais
+
+Execução autorizada em grupos de três etapas por patch. Etapa 1 implementa
+propriedades tipadas de aparência, controles Bootstrap no painel, largura e
+alinhamento das colunas, persistência em layout JSON e composição HTML.
+Sem migration, CSS livre ou nova dependência. Etapas 2 e 3 pendentes;
+nenhum patch antecipado. Plano em docs/technical/09-evolucao-ide-etapas.md do addon.
+
+### Reports: grupo 1, etapa 2 — formatos e parâmetros
+
+Formatação declarativa pt-BR com Decimal, formatos numéricos, moeda sem câmbio,
+percentuais, ISO date/datetime e null_text. Formulário de valores compartilhado
+pela IDE/consumidores, com defaults por omissão, booleanos, enums e modo JSON
+para estruturas complexas. Catálogo autorizado inclui definições publicadas.
+Sem migration ou dependências adicionais. Patch reservado ao concluir etapa 3.
+
+Validação etapa 2: 91 testes e 10 subtestes passaram, 1 PDF opt-in
+desabilitado; navegador aprovado para formatos, formulário, zero/falso/null,
+temas, impressão e consumidores. Etapa 3 pendente; nenhum patch antecipado.
+
+### Reports: grupo 1, etapa 3 — estrutura da IDE
+
+Seções editáveis na árvore/canvas; duplicação independente com novos IDs,
+ordenação entre irmãos, reparenting sem ciclos e remoção de subárvores.
+Limites 200 nós/profundidade 8 com rollback. Grupos de propriedades recolhíveis
+e rolagem na árvore. Grupo 1 concluído com patch incremental sobre main atual;
+sem migrations ou dependências nativas adicionais.

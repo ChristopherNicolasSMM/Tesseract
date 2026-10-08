@@ -40,3 +40,43 @@ Selecione A4, escala adequada e confira margens/cabeçalhos do navegador.
 Quebras automáticas, repetição de cabeçalhos e linhas muito altas dependem do
 navegador. Não há promessa de paginação idêntica à prévia contínua ou a outro
 motor. O servidor retorna HTML por padrão e não recebe o PDF salvo pelo usuário.
+
+## Aparência dos componentes
+
+Selecione um texto para ajustar alinhamento, negrito, tamanho de fonte e
+espaçamentos no painel Aparência. As medidas são em pontos (pt). Campo vazio
+mantém o padrão do componente; zero remove o espaçamento correspondente.
+Restaurar aparência padrão preserva o conteúdo e sua vinculação.
+
+Em tabelas, ajuste fonte e espaço das células. Cada coluna permite alinhamento
+e largura percentual. A soma das larguras definidas deve ser até 100%; deixe
+vazio para cálculo automático. Salve e confira a prévia com os dados reais.
+Essas propriedades também são usadas na impressão. Modelos publicados precisam
+de Nova revisão antes de editar. A configuração do papel será ampliada depois.
+
+## Formatos e valores dos parâmetros
+
+Em textos e colunas, selecione Formato para apresentar número, moeda,
+percentual, data ou data/hora. Moeda muda a apresentação, sem converter valores.
+Percentual usa uma fração: 0.25 aparece como 25,00 %. Informe números nos dados
+com ponto decimal e datas como 2026-10-08. Data/hora aceita ISO com T e mantém
+o offset informado. O texto Valor nulo aparece somente quando o dado é null.
+
+Na aba Parâmetros, o formulário de valores acompanha as definições em JSON.
+O mesmo formulário aparece na emissão de Estoque/BrewStation. Marque Informar
+valor para enviar uma chave; desmarque para usar o padrão, se existir. Zero e
+Não são valores válidos. Use JSON avançado para objetos/arrays ou null explícito
+que não pertença a um enum. Valores de teste não alteram as definições/defaults.
+Ao trocar de modelo/revisão, os valores de teste são reiniciados.
+
+## Organização dos componentes
+
+Adicione uma seção para agrupar componentes. Com a seção selecionada, os novos
+componentes são inseridos dentro dela. Selecione um componente na árvore ou
+na folha para editar. Seção de destino permite movê-lo para outro grupo ou
+para Documento. As setas mudam a ordem dentro do mesmo grupo.
+
+Duplicar componente também duplica todos os filhos de uma seção. Remover uma
+seção remove seus filhos. Salve para persistir; a prévia resolve os dados e
+mostra o relatório final sem os contornos de edição. Revisões publicadas são
+somente leitura; clone uma revisão para editar.
