@@ -490,3 +490,14 @@ plugin.json/plugin.py. Core expõe a primitiva DocumentValidator; addon a
 reexporta, evitando dependência inversa. Contratos e limites:
 [Financeiro](../../addons/addon_financeiro/docs/technical/01-contratos.md) e
 [GetCEP](../../plugins/plugin_getcep/docs/technical/01-api.md).
+
+
+### Correção de cadastro e descoberta Financeiro (08/10/2026)
+
+Financeiro passou a herdar os defaults de AddonBase/ModuleBase, com endpoints
+{plural}.list e APIs em root/api/routes. Manifesto pode declarar códigos
+aposentados, inativados no sync somente para seu source_module. Organização
+usa componentes manuais Core compartilhados; DTO e valores POST são fundidos
+só para renderizar erros, nunca para reatribuir snapshots. GetCEP usa asset
+versionado fora da API e URL de lookup fornecida pelo Flask para suportar prefixos.
+Ver [corretivo](../patches/fase3-financeiro-cadastro-getcep-correcao.md).

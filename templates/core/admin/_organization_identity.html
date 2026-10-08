@@ -1,0 +1,7 @@
+{% if not item or not item.id %}
+<div class="col-md-4"><label class="form-label" for="org-code">Código permanente</label><input id="org-code" class="form-control" name="code" value="{{ item.code or '' if item else '' }}" maxlength="40" required></div>
+{% else %}<div class="col-md-4"><label class="form-label">Código permanente</label><input class="form-control" value="{{ item.code }}" readonly></div>{% endif %}
+<div class="col-md-6"><label class="form-label" for="org-name">Nome</label><input id="org-name" class="form-control" name="name" value="{{ item.name or '' if item else '' }}" maxlength="120" required></div>
+<div class="col-md-2 align-self-end"><input type="hidden" name="_active_present" value="1"><label class="form-check-label" for="org-active"><input id="org-active" name="is_active" class="form-check-input" type="checkbox" {% if not item or item.is_active|default(true) %}checked{% endif %}> Ativa</label></div>
+{% include 'core/admin/_organization_profile.html' %}
+<div class="col-12"><button class="btn btn-primary" type="submit">{{ 'Salvar' if item and item.id else 'Criar organização' }}</button></div>

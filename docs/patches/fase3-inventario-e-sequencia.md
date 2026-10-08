@@ -187,3 +187,14 @@ responsáveis e consulta CEP em plugin sem tabelas. Migration b82d9e43a017,
 sem moeda/vínculos inferidos para o legado. Aplicação/validação local deste
 novo pacote pendentes. Ver [escopo e sequência](fase3-financeiro-organizacoes-getcep.md).
 Câmbio, contexto organizacional do estoque e títulos permanecem posteriores.
+
+
+## Correção após conferência local — financeiro/organizações/GetCEP
+
+Usuário apontou CEP sem consulta/mensagem, cadastro/lista fora do padrão,
+perda de valores ao salvar e menu financeiro fora do padrão de addon. Entrega
+inicial não é considerada funcionalmente validada. Correção restaura padrões
+Core e descoberta automática AddonBase, preserva formulários em erro/omissão
+e reforça inicialização/URL/estado do GetCEP. Sem nova migration. Ver
+[fase3-financeiro-cadastro-getcep-correcao.md](fase3-financeiro-cadastro-getcep-correcao.md).
+Câmbio e etapas seguintes permanecem posteriores à validação desta correção.

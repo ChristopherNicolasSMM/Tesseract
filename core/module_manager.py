@@ -229,6 +229,14 @@ class ModuleManager:
             sync_transaction(tx_data, source_module=source_module, is_standard=False, order_index=order_index)
         _db.session.flush()
         resolve_transaction_parents(tx_data_list)
+        from model.core.transaction import Transaction
+        for module in self._registered_modules.values():
+            retired = module.manifest.get('deprecated_transactions', [])
+            if not isinstance(retired, list) or any(not isinstance(code, str) for code in retired):
+                raise ValueError(f'{module.name}: deprecated_transactions deve ser lista de códigos.')
+            if retired:
+                Transaction.query.filter(Transaction.source_module == module.name,
+                                         Transaction.code.in_(retired)).update({'is_active': False}, synchronize_session='fetch')
         _db.session.commit()
 
     def discover_and_register_addons(self, addons_dir) -> list[str]:

@@ -17,7 +17,7 @@ const scope={querySelector(selector){return fields[selector.match(/name="([^"]+)
 const inputs=[fields.cep];
 let rescan;
 const requests=[];
-const context={document:{body:{},querySelectorAll(){return inputs;},createElement(){return new Element();}},
+const context={document:{currentScript:{dataset:{getcepUrl:'/tesseract/api/plugins/getcep/__CEP__'}},body:{},querySelectorAll(){return inputs;},createElement(){return new Element();}},
   MutationObserver:class{constructor(fn){rescan=fn;}observe(){}},WeakMap,AbortController,Event,setTimeout,clearTimeout,
   fetch(url,options){return new Promise(resolve=>requests.push({url,options,resolve}));}};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../plugins/plugin_getcep/static/getcep.js'),'utf8'),context);
@@ -30,7 +30,7 @@ function change(value){fields.cep.value=value;fields.cep.dispatchEvent(new Event
 async function run(){
   rescan();assert.equal(created.length,2,'não duplica controles após AJAX');
   change('01001-000');fields.numero.value='42';fields.complemento.value='Sala 2';blur();
-  assert.equal(requests[0].url,'/api/plugins/getcep/01001000');
+  assert.equal(requests[0].url,'/tesseract/api/plugins/getcep/01001000');
   fields.bairro.value='Digitado durante consulta';respond(0);await tick();
   assert.equal(fields.cidade.value,'São Paulo');assert.equal(fields.bairro.value,'Digitado durante consulta');
   assert.equal(fields.numero.value,'42');assert.equal(fields.complemento.value,'Sala 2');
@@ -58,6 +58,10 @@ async function run(){
   profile.endereco_cep.value='01001000';inputs.push(profile.endereco_cep);rescan();assert.equal(created.length,4);
   profile.endereco_numero.value='7';profile.endereco_cep.dispatchEvent(new Event('blur'));respond(5);await tick();
   assert.equal(profile.endereco_rua.value,'Praça da Sé');assert.equal(profile.endereco_cidade.value,'São Paulo');assert.equal(profile.endereco_uf.value,'SP');assert.equal(profile.endereco_numero.value,'7');
-  console.log('GetCEP UI: 6 cenários aprovados (preenchimento, corrida, falha, validação local, país, perfil Core).');
+  // CEP completo consulta após pausa, sem exigir blur ou clique.
+  fields.pais.value='Brasil';fields.cidade.value='';change('07007000');
+  await new Promise(resolve=>setTimeout(resolve,550));assert.equal(requests.length,7);respond(6);await tick();
+  assert.equal(fields.cidade.value,'São Paulo');
+  console.log('GetCEP UI: 7 cenários aprovados (preenchimento, corrida, falha, validação local, país, perfil Core, consulta automática/prefixo).');
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});

@@ -43,3 +43,28 @@ Testes Python usam transporte simulado (timeout, redirects, payload inválido,
 rede controlada, sem reproduzir CSS/Bootstrap/navegador completo. Consulta real,
 contraste do tema e usabilidade no browser instalado exigem conferência local.
 Fonte: [ViaCEP](https://viacep.com.br/), consultada em 07/10/2026.
+
+
+## Correções de carregamento — 08/10/2026
+
+Asset canônico `/plugins/getcep/static/getcep.js?v=1.0.1`, fora de `/api`, com
+MIME JavaScript e versão para renovar cache. A rota antiga do asset permanece
+compatível. Context processor fornece getcep_lookup_url por url_for, incorporando
+SCRIPT_NAME; base envia data-getcep-url ao script. Não concatenar raiz `/api`
+quando aplicação está montada sob prefixo. Endpoint/provider de consulta continuam
+iguais; não houve alteração de timeout/cache/validação no provedor.
+
+UI tem controles/estado explícitos no template manual de organização, reutilizados
+pelo JS sem duplicação. Formulários canônicos do Estoque continuam atendidos por
+attachment delegado, inclusive AJAX. Inicialização aguarda DOMContentLoaded quando
+necessário e também tenta attach em focusin. Consulta por pausa de 450ms só quando
+formato completo; blur/clique cancelam debounce. Cada timeout guarda seu próprio
+AbortController, sem abortar consulta mais nova. JSON inesperado, sessão encerrada,
+CEP ausente e falha são mensagens visíveis, sem limpar campos existentes.
+Estilo usa text-muted, já tratado pelo tema escuro do Tesseract.
+
+Teste complementar executa Chromium real com HTML/assets despachados pelo
+Flask test_client em SQLite memória, através de interceptação Playwright.
+Não é DOM mínimo: scripts, formulários nativos, CSS, preferência real de tema
+e navegação são executados no browser. ViaCEP é simulado nesse teste. Validação
+no navegador/servidor instalado permanece local; teste não certifica proxy do usuário.

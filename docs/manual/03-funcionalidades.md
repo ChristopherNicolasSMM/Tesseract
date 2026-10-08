@@ -206,3 +206,14 @@ preenchimento sem exigir internet para salvar. `/financeiro/`: catálogo de
 moedas e política monetária inicial explícita por organização, só admin.
 Sem atualização de compras/saldos/custos antigos; não há câmbio ou títulos
 nesta parte. Ver [manual financeiro](../../addons/addon_financeiro/docs/manual/01-configuracao.md).
+
+
+### Cadastro empresarial/Financeiro — correção de padrões
+
+Organizações: listagem Core com toolbar/paginação/export e detalhe para editar
+dados e responsáveis. Formulários mantêm dados em erro. Financeiro: menus
+Moeda/Política monetária descobertos automaticamente pelo addon, em
+`/financeiro/currencies/` e `/financeiro/monetary-policies/`. CEP agora consulta
+por pausa de digitação/blur/botão e exibe estado ou erro ao lado do campo.
+Sem nova migration sobre o pacote financeiro inicial. Detalhes:
+[corretivo](../patches/fase3-financeiro-cadastro-getcep-correcao.md).

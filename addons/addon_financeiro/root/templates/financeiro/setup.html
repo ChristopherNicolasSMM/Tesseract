@@ -1,21 +1,28 @@
 {% extends 'core/base.html' %}
-{% block title %}Financeiro - Tesseract{% endblock %}
+{% block title %}{{ 'Moedas' if panel == 'currencies' else 'Políticas monetárias' }} - Financeiro{% endblock %}
 {% block content %}
-<div class="pagetitle"><h1>Configuração financeira</h1></div>
-<div class="card"><div class="card-body"><h2 class="card-title">Catálogo de moedas</h2>
-<p>Cadastre a moeda e sua escala explicitamente. O cadastro inicial é imutável. Nenhuma moeda é atribuída a compras ou saldos antigos.</p>
-<form method="post" action="{{ url_for('finance_setup.save', kind='currencies') }}" class="row g-3">
-<div class="col-md-3"><label class="form-label" for="currency-code">Código (3 letras)</label><input id="currency-code" name="code" class="form-control" pattern="[A-Z]{3}" maxlength="3" required></div>
-<div class="col-md-5"><label class="form-label" for="currency-name">Nome</label><input id="currency-name" name="name" class="form-control" maxlength="80" required></div>
-<div class="col-md-2"><label class="form-label" for="currency-scale">Casas decimais</label><input id="currency-scale" name="decimal_places" class="form-control" type="number" min="0" max="6" required></div>
-<div class="col-md-2 align-self-end"><button class="btn btn-primary">Cadastrar</button></div></form>
-<div class="table-responsive mt-3"><table class="table"><thead><tr><th>Código</th><th>Nome</th><th>Casas decimais</th></tr></thead><tbody>{% for item in currencies %}<tr><td>{{ item.code }}</td><td>{{ item.name }}</td><td>{{ item.decimal_places }}</td></tr>{% else %}<tr><td colspan="3">Nenhuma moeda cadastrada.</td></tr>{% endfor %}</tbody></table></div>
-<h2 class="card-title">Política inicial por organização</h2>
-<p>Escolha a moeda-base e o arredondamento. HALF_UP: empate afasta de zero; HALF_EVEN: empate escolhe o último dígito par. A configuração inicial não pode ser sobrescrita. Mudança futura exigirá versão e data de vigência.</p>
-<form method="post" action="{{ url_for('finance_setup.save', kind='policies') }}" class="row g-3">
-<div class="col-md-4"><label class="form-label" for="policy-org">Organização</label><select id="policy-org" name="organization_code" class="form-select" required><option value="">Selecione</option>{% for item in organizations if item.is_active %}<option value="{{ item.code }}">{{ item.code }} — {{ item.name }}</option>{% endfor %}</select></div>
-<div class="col-md-3"><label class="form-label" for="policy-currency">Moeda-base</label><select id="policy-currency" name="currency_code" class="form-select" required><option value="">Selecione</option>{% for item in currencies %}<option value="{{ item.code }}">{{ item.code }} — {{ item.name }}</option>{% endfor %}</select></div>
-<div class="col-md-3"><label class="form-label" for="policy-rounding">Arredondamento</label><select id="policy-rounding" name="rounding" class="form-select" required><option value="">Selecione</option><option value="HALF_UP">HALF_UP</option><option value="HALF_EVEN">HALF_EVEN</option></select></div>
-<div class="col-md-2 align-self-end"><button class="btn btn-primary">Configurar</button></div></form>
-<div class="table-responsive mt-3"><table class="table"><thead><tr><th>Organização</th><th>Moeda-base</th><th>Casas decimais</th><th>Arredondamento</th></tr></thead><tbody>{% for item in policies %}<tr><td>{{ item.organization_code }}</td><td>{{ item.currency_code }}</td><td>{{ item.decimal_places }}</td><td>{{ item.rounding }}</td></tr>{% else %}<tr><td colspan="4">Nenhuma política configurada.</td></tr>{% endfor %}</tbody></table></div>
-</div></div>{% endblock %}
+<div class="pagetitle"><h1>{{ 'Moedas' if panel == 'currencies' else 'Políticas monetárias' }}</h1></div>
+<section class="section"><div class="card"><div class="card-body">
+{% if current_user.has_permission('admin') %}<button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#novoRegistroFinanceiro"><i class="bi bi-plus-lg"></i> {{ 'Nova moeda' if panel == 'currencies' else 'Nova política' }}</button>
+{% if form_error %}<div class="alert alert-danger" role="alert">{{ form_error }}</div>{% endif %}
+<div id="novoRegistroFinanceiro" class="collapse{% if submitted %} show{% endif %}">
+<form method="post" action="{{ url_for('finance_setup.save', kind=panel) }}" class="row g-3">
+{% if panel == 'currencies' %}
+<div class="col-md-3"><label class="form-label" for="currency-code">Código (3 letras)</label><input id="currency-code" name="code" class="form-control" pattern="[A-Z]{3}" maxlength="3" value="{{ submitted.get('code','') }}" required></div>
+<div class="col-md-6"><label class="form-label" for="currency-name">Nome</label><input id="currency-name" name="name" class="form-control" maxlength="80" value="{{ submitted.get('name','') }}" required></div>
+<div class="col-md-3"><label class="form-label" for="currency-scale">Casas decimais</label><input id="currency-scale" name="decimal_places" class="form-control" type="number" min="0" max="6" value="{{ submitted.get('decimal_places','') if submitted.get('decimal_places') is not none else '' }}" required></div>
+{% else %}
+<div class="col-md-4"><label class="form-label" for="policy-org">Organização</label><select id="policy-org" name="organization_code" class="form-select" required><option value="">Selecione</option>{% for item in organizations if item.is_active %}<option value="{{ item.code }}" {% if submitted.get('organization_code')==item.code %}selected{% endif %}>{{ item.code }} — {{ item.name }}</option>{% endfor %}</select></div>
+<div class="col-md-4"><label class="form-label" for="policy-currency">Moeda-base</label><select id="policy-currency" name="currency_code" class="form-select" required><option value="">Selecione</option>{% for item in currencies %}<option value="{{ item.code }}" {% if submitted.get('currency_code')==item.code %}selected{% endif %}>{{ item.code }} — {{ item.name }}</option>{% endfor %}</select></div>
+<div class="col-md-4"><label class="form-label" for="policy-rounding">Arredondamento</label><select id="policy-rounding" name="rounding" class="form-select" required><option value="">Selecione</option>{% for code in ['HALF_UP','HALF_EVEN'] %}<option value="{{ code }}" {% if submitted.get('rounding')==code %}selected{% endif %}>{{ code }}</option>{% endfor %}</select><div class="form-text">HALF_UP afasta de zero no empate; HALF_EVEN escolhe o último dígito par.</div></div>
+{% endif %}
+<div class="col-12"><button class="btn btn-primary">Cadastrar</button></div>
+</form></div>{% endif %}</div></div>
+<div class="card"><div class="card-body"><h2 class="card-title">{{ 'Moedas' if panel == 'currencies' else 'Políticas monetárias' }}</h2>
+<p>Configuração inicial imutável. Nenhuma moeda é atribuída a compras, saldos ou custos antigos.</p>
+{% set manage_endpoint = 'currencies.list' if panel == 'currencies' else 'monetary_policies.list' %}
+{% set export_csv_endpoint = none %}{% include 'core/admin/_list_toolbar.html' %}
+<div class="table-responsive"><table class="table table-striped"><thead><tr>{% if panel == 'currencies' %}<th>Código</th><th>Nome</th><th>Casas decimais</th>{% else %}<th>Organização</th><th>Moeda-base</th><th>Casas decimais</th><th>Arredondamento</th>{% endif %}</tr></thead><tbody>
+{% for item in items %}<tr>{% if panel == 'currencies' %}<td>{{ item.code }}</td><td>{{ item.name }}</td><td>{{ item.decimal_places }}</td>{% else %}<td>{{ item.organization_code }}</td><td>{{ item.currency_code }}</td><td>{{ item.decimal_places }}</td><td>{{ item.rounding }}</td>{% endif %}</tr>{% else %}<tr><td colspan="{{ 3 if panel == 'currencies' else 4 }}" class="text-muted">Nenhum registro cadastrado.</td></tr>{% endfor %}
+</tbody></table></div></div></div></section>
+{% endblock %}

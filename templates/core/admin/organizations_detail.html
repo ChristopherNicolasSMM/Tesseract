@@ -1,0 +1,11 @@
+{% extends 'core/base.html' %}
+{% block title %}{{ item.name }} - Organizações{% endblock %}
+{% block content %}
+<div class="pagetitle"><h1>Organização: {{ item.name }}</h1><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin_organizations.manage') }}">Voltar à listagem</a></div>
+<section class="section"><div class="card"><div class="card-body"><h2 class="card-title">Dados da organização</h2>
+{% if form_error %}<div class="alert alert-danger" role="alert">{{ form_error }}</div>{% endif %}
+<form method="post" action="{{ url_for('admin_organizations.save', ident=item.id) }}" class="row g-3" data-address-scope>
+{% include 'core/admin/_organization_identity.html' %}
+</form></div></div>
+<div class="card"><div class="card-body"><h2 class="card-title">Responsáveis</h2>{% include 'core/admin/_organization_contacts.html' %}</div></div></section>
+{% endblock %}

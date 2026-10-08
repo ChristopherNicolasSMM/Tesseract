@@ -1,7 +1,9 @@
 # Fase 3 — financeiro inicial, organizações e GetCEP
 
-Implementado/testado no ambiente de geração. Aplicação e validação local
-**deste pacote** pendentes. Base cad5115 (organizações Core), cujo conteúdo
+Entrega inicial disponibilizada; a conferência local do usuário apontou
+problemas de CEP, preservação de formulário e padrões de telas/menu. Não
+considerar esta entrega funcionalmente validada. Correção em
+[fase3-financeiro-cadastro-getcep-correcao.md](fase3-financeiro-cadastro-getcep-correcao.md). Base cad5115 (organizações Core), cujo conteúdo
 foi aplicado/validado pelo usuário e já tem a primeira organização criada.
 Hashes locais podem diferir após git am: compare conteúdo, não só hash.
 

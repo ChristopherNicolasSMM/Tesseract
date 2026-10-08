@@ -24,6 +24,10 @@ class PluginGetCEP(PluginBase):
                 return jsonify(success=False, error=str(exc)), exc.status
 
         app.register_blueprint(bp)
+        assets_bp = Blueprint('getcep_assets', __name__, url_prefix='/plugins/getcep',
+                              static_folder=str(Path(__file__).parent / 'static'), static_url_path='/static')
+        app.register_blueprint(assets_bp)
         @app.context_processor
         def assets():
-            return {'getcep_script_url': url_for('getcep.static', filename='getcep.js')}
+            return {'getcep_script_url': url_for('getcep_assets.static', filename='getcep.js', v=self.version),
+                    'getcep_lookup_url': url_for('getcep.lookup', cep='__CEP__')}

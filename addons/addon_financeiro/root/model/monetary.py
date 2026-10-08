@@ -1,9 +1,11 @@
 """Catálogo e política inicial imutável; nenhuma moeda inferida do legado."""
 from datetime import datetime, timezone
-from annotations import label, plural, display_field
+from annotations import label, plural, display_field, menu_icon, field_labels
 from core.db import db
 
 
+@menu_icon('bi-currency-exchange')
+@field_labels({'code': 'Código', 'name': 'Nome', 'decimal_places': 'Casas decimais'})
 @label('Moeda')
 @plural('currencies')
 @display_field('name')
@@ -18,6 +20,8 @@ class Currency(db.Model):
         return {field: getattr(self, field) for field in ('code', 'name', 'decimal_places')}
 
 
+@menu_icon('bi-building')
+@field_labels({'organization_code': 'Organização', 'currency_code': 'Moeda-base', 'decimal_places': 'Casas decimais', 'rounding': 'Arredondamento'})
 @label('Política monetária')
 @plural('monetary_policies')
 @display_field('organization_code')

@@ -572,3 +572,12 @@ organização, quantização Decimal, dados legais, responsáveis, endereço
 principal e GetCEP. Sem integração física com estoque/custos ou câmbio.
 Exige db upgrade b82d9e43a017. Aplicação/validação local deste pacote pendentes.
 Ver [entrega e roteiro](fase3-financeiro-organizacoes-getcep.md).
+
+
+## Conferência local do financeiro inicial — correção necessária
+
+Reporte local apontou problemas de consulta CEP, preservação de cadastro e
+padrões de UI/menu. Não marcar esse pacote como validado. Novo corretivo
+sem migration consolida resolução desses fluxos, com roteiro e evidências em
+[fase3-financeiro-cadastro-getcep-correcao.md](fase3-financeiro-cadastro-getcep-correcao.md).
+Org/financeiro não mudam os fluxos, snapshots ou custos BrewStation/Estoque.

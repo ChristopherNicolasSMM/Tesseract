@@ -91,3 +91,33 @@ preservada ao voltar a revisão anterior. Não executar downgrade como estorno.
 
 - [Receita — manual do DV CNPJ](https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/documentos-tecnicos/cnpj/manual-dv-cnpj.pdf).
 - [ViaCEP — formato, erros e limites de uso](https://viacep.com.br/).
+
+
+## Correção de integração com o padrão — 08/10/2026
+
+AddonFinanceiro 1.0.1 herda register_models/register_routes/get_transactions
+sem override. Models em root/model, controllers em root/controller e API em
+root/api/routes. Endpoints `currencies.list` e `monetary_policies.list` são
+reconhecidos pelo mecanismo padrão `auto_transactions_from_models`, criando
+TX_GROUP_AUTO_FINANCEIRO, TX_AUTO_CURRENCIES e TX_AUTO_MONETARY_POLICIES.
+Ícones vêm de annotations. Não há menu manual ou registration especial no Core.
+
+Manifesto declara `deprecated_transactions: ["FIN_SETUP"]`. ModuleManager,
+após sincronizar transações, inativa apenas códigos declarados cujo
+source_module corresponde ao dono; preserva linhas e referências. Addons
+sem esse campo não mudam. Nenhum registro de outro módulo é retirado.
+
+Telas Core manuais usam `_list_toolbar.html` e admin_list_helpers, mesmo padrão
+administrativo existente. Toolbar aceita URLs opcionais de export, preservando
+endpoints antigos sem alterações de contrato. Organização ganhou GET detalhe;
+POST/JSON existentes preservados. Invalid POST retorna HTML 422/409 com dados
+enviados sobre cópia do DTO, em vez de redirecionar/perder a entrada. Marcador
+`_active_present` diferencia desmarcação explícita de omissão do estado ativo.
+Responsáveis usam consulta por chave no template, compatível com DTO dict,
+mantendo IDs e campos durante edição inválida. Não é escrita direta de DTO no banco.
+
+Financial GET lista usa permissões automáticas; escrita continua admin.
+Controles de cadastro não são exibidos para role com apenas permissão de lista.
+Templates manuais seguem collapse/cards/table-striped/toolbar do Core/CrudGen.
+Nenhum arquivo gerado pelo CrudGen foi editado. Nenhuma alteração de schema,
+precisão, arredondamento, custo, snapshot ou regra de movimentação de estoque.

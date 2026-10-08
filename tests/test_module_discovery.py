@@ -154,5 +154,9 @@ def test_addon_com_override_manual_continua_funcionando(app):
         # Nota: comparação em Python, não SQL LIKE — "_" é wildcard de
         # 1 caractere em LIKE, e colidiria com códigos manuais reais
         # tipo "TX_AUTOMATION_RULES" (automation_rules do device_manager).
-        auto_codes = {t.code for t in Transaction.query.all() if t.code.startswith("TX_AUTO_")}
-        assert auto_codes == {"TX_AUTO_AUTODISCO_WIDGETS"}
+        from core.module_base import ModuleBase
+        manual_modules = {name for name, module in app.module_manager._registered_modules.items()
+                          if type(module).get_transactions is not ModuleBase.get_transactions}
+        auto_codes = {t.code for t in Transaction.query.filter(Transaction.source_module.in_(manual_modules)).all()
+                      if t.code.startswith("TX_AUTO_")}
+        assert auto_codes == set()  # outros addons podem usar descoberta automática legítima

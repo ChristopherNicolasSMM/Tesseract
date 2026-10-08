@@ -210,3 +210,13 @@ banco, `SECRET_KEY`).
       absoluto) e a pasta `logs/` existe na raiz do Addon (skill 01)
 - [ ] Nenhuma chave de `env_keys` colide com uma já declarada por outro
       módulo (exceto se for intencionalmente compartilhada, ex.: SMTP)
+
+
+## Adenda — retirada de transações de módulo (08/10/2026)
+
+Campo opcional `deprecated_transactions`: lista de códigos de transação que
+foram substituídos por novas rotas/descoberta. ModuleManager inativa esses
+registros depois do sync, apenas se source_module coincide com o módulo que
+declarou a retirada. Não exclui linhas nem referências/personalizações e não
+altera módulos sem a declaração. Usado por financeiro para retirar FIN_SETUP
+ao passar ao grupo automático padrão, sem duplicar entrada antiga na sidebar.

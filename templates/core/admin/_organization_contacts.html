@@ -1,10 +1,15 @@
-<details class="mb-3"><summary>Responsáveis — {{ item.name }}</summary>
-{% for contact in item.contacts %}
-<form method="post" action="{{ url_for('admin_organizations.contact', organization_id=item.id, ident=contact.id) }}" class="row g-2 my-3">
+<button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#novoResponsavelForm"><i class="bi bi-plus-lg"></i> Adicionar responsável</button>
+<div class="collapse{% if contact_data is defined and contact_data is not none and contact_id is none %} show{% endif %}" id="novoResponsavelForm">
+{% set contact = contact_data if contact_data is defined and contact_id is none and contact_data is not none else none %}
+<form method="post" action="{{ url_for('admin_organizations.contact', organization_id=item.id) }}" class="row g-3 mb-3">
 {% include 'core/admin/_organization_contact_fields.html' %}
-</form>
-{% endfor %}
-{% set contact = none %}
-<form method="post" action="{{ url_for('admin_organizations.contact', organization_id=item.id) }}" class="row g-2 my-3">
-<h4 class="h6">Adicionar responsável</h4>{% include 'core/admin/_organization_contact_fields.html' %}
-</form></details>
+</form></div>
+<div class="table-responsive"><table class="table table-striped"><thead><tr><th>Nome</th><th>Função</th><th>E-mail</th><th>Status</th><th>Ações</th></tr></thead><tbody>
+{% for contact in item.contacts %}
+<tr><td>{{ contact.name }}</td><td>{{ contact.role }}</td><td>{{ contact.email or '—' }}</td><td><span class="badge {{ 'bg-success' if contact.is_active else 'bg-secondary' }}">{{ 'Ativo' if contact.is_active else 'Inativo' }}</span></td><td><button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#responsavel-{{ contact.id }}">Editar</button></td></tr>
+<tr><td colspan="5"><div id="responsavel-{{ contact.id }}" class="collapse{% if contact_id is defined and contact_id == contact.id %} show{% endif %}">
+<form method="post" action="{{ url_for('admin_organizations.contact', organization_id=item.id, ident=contact.id) }}" class="row g-3 my-2">
+{% include 'core/admin/_organization_contact_fields.html' %}
+</form></div></td></tr>
+{% else %}<tr><td colspan="5" class="text-muted">Nenhum responsável cadastrado.</td></tr>{% endfor %}
+</tbody></table></div>

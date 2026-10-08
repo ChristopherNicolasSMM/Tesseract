@@ -153,8 +153,10 @@ def test_api_forms_plugin_loading_and_no_generic_mutation(app,client):
     with app.app_context():
         assert 'getcep' in app.module_manager._registered_modules
         from model.core.transaction import Transaction
-        tx=Transaction.query.filter_by(code='FIN_SETUP').one()
-        assert tx.permission_required=='admin' and tx.route=='/financeiro/'
+        tx=Transaction.query.filter_by(code='TX_AUTO_CURRENCIES').one()
+        folder=Transaction.query.filter_by(code='TX_GROUP_AUTO_FINANCEIRO').one()
+        assert tx.permission_required=='currencies.list' and tx.route=='/financeiro/currencies/'
+        assert tx.parent_id==folder.id
         assert not any('getcep' in table for table in db.metadata.tables)
     app.extensions['getcep_provider'].transport=lambda *a,**kw:Response()
     assert client.get('/api/plugins/getcep/01001000').get_json()['address']['estado']=='SP'
@@ -166,8 +168,10 @@ def test_api_forms_plugin_loading_and_no_generic_mutation(app,client):
     assert client.post('/api/financeiro/policies',json={'organization_code':'A','currency_code':'BRL','rounding':'HALF_UP'}).status_code==201
     assert client.put('/api/financeiro/policies',json={}).status_code==405
     assert client.delete('/api/financeiro/currencies').status_code==405
-    assert client.get('/financeiro/').status_code==200
-    page=client.get('/admin/organizations/').data
+    assert client.get('/financeiro/').status_code==302
+    assert client.get('/financeiro/currencies/').status_code==200
+    assert client.get('/financeiro/monetary-policies/').status_code==200
+    page=client.get(f'/admin/organizations/{ident}').data
     assert b'Raz' in page and b'name="cnpj"' in page and b'name="role"' in page and b'getcep.js' in page
     assert b'getcep.js' in client.get('/estoque/enderecos/').data
 
