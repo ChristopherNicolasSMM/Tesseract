@@ -8,6 +8,8 @@
   function validate(nodes) {
     const entries=flatten(nodes);
     if(entries.length>200||entries.some(entry=>entry.depth>8||(entry.node.type==='section'&&entry.depth>=8))||new Set(entries.map(entry=>entry.node.id)).size!==entries.length)throw Error('Invalid layout limits');
+    const parents=new Map(entries.map(entry=>[entry.node.id,entry.parent]));
+    entries.forEach(({node,parent})=>{while(parent){if(parent.props.columns>1&&(node.type==='page_break'||node.props.pagination?.break_before||node.props.pagination?.break_after))throw Error('Invalid page break placement');parent=parents.get(parent.id);}});
   }
   function duplicate(nodes,id,newId=()=> 'node_'+crypto.randomUUID()) {
     const entry=locate(nodes,id);if(!entry)return;

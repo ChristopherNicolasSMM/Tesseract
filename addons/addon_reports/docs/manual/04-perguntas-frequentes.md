@@ -7,7 +7,7 @@ Use Nova revisão para criar uma cópia editável e preservar o documento anteri
 Outra alteração foi salva na mesma revisão. Sua edição não será enviada por cima dela. Compare e recarregue antes de tentar novamente.
 
 ## O tema escuro aparece no PDF?
-Não. A folha escura é usada somente durante a edição.
+Não. A folha escura é usada durante a edição e a prévia HTML.
 
 ## A prévia usa dados reais do estoque?
 A prévia da IDE utiliza os exemplos configurados. Os botões de emissão no
@@ -28,3 +28,14 @@ Não para editar, publicar, visualizar HTML ou imprimir pelo navegador existente
 WeasyPrint e suas bibliotecas nativas são opcionais, usados apenas na emissão
 PDF explícita no servidor. Imprimir / salvar PDF abre o diálogo do navegador;
 o usuário escolhe o destino e o local do arquivo. Não é download PDF automático.
+
+## Preciso de instalador externo para os logotipos?
+
+A validação usa Pillow, uma biblioteca Python incluída nos requisitos do
+addon. Instale `python -m pip install -r addons/addon_reports/requirements.txt`
+no ambiente do Tesseract. O fluxo HTML continua sem WeasyPrint/Pango.
+
+## Posso vincular a imagem a uma URL ou aos dados enviados?
+
+Nesta etapa, a imagem é um arquivo PNG/JPEG incorporado ao template. Não
+aceita URL externa, caminho local do servidor ou binding aos dados.

@@ -1,9 +1,13 @@
-"""Worker de impressão; nenhuma URL externa ou arquivo local é carregado."""
+"""Worker de impressão; somente PNG/JPEG incorporados, sem URL externa ou arquivo local."""
 import sys
 
 
 def blocked_fetcher(*args, **kwargs):
-    raise ValueError('External resources are disabled')
+    from .report_image_service import decode_image
+    if len(args) != 1 or kwargs:
+        raise ValueError('External resources are disabled')
+    raw, mime = decode_image(args[0])
+    return {'string':raw, 'mime_type':mime}
 
 
 def main():

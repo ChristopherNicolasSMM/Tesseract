@@ -52,3 +52,8 @@ html[data-theme="dark"] .reports-editor .btn-outline-danger { --bs-btn-color:#fd
 .report-property-group summary { cursor:pointer; }
 
 html[data-theme="dark"] #report-tree { --bs-list-group-bg:var(--reports-paper-bg); --bs-list-group-color:var(--reports-paper-text); --bs-list-group-action-color:var(--reports-paper-text); --bs-list-group-border-color:var(--reports-paper-border); }
+
+.report-section-children > * { min-width:0; }
+@media(max-width:767px) { .report-section-children { display:block !important; } }
+
+.report-canvas-image { max-width:100%; vertical-align:middle; }

@@ -2,6 +2,8 @@
 import json
 from html import escape
 from jsonschema import Draft202012Validator
+from .report_page_service import page_config, page_css, validate_pagination, pagination_css
+from .report_image_service import validate_image, image_css, MAX_TOTAL_IMAGE_BYTES, MAX_IMAGE_COUNT
 from .report_format_service import validate_format, format_value
 from .report_style_service import validate_style, style_css
 from .report_binding_service import ReportBindingService, BindingError
@@ -42,14 +44,22 @@ def validate_data(schema, data):
 
 class ReportLayoutService:
     """Composição com aparência tipada, sem assets externos ou CSS livre."""
-    TYPES = {'text', 'table', 'section', 'divider', 'page_break'}
+    TYPES = {'text', 'table', 'section', 'divider', 'page_break', 'image'}
 
     @classmethod
     def validate(cls, layout):
-        if type(layout) is not dict or set(layout) != {'schema_version', 'body'} or (type(layout['schema_version']) is not int or layout['schema_version'] != 1):
+        if type(layout) is not dict or not {'schema_version', 'body'} <= set(layout) or set(layout) - {'schema_version', 'body', 'page'} or (type(layout['schema_version']) is not int or layout['schema_version'] != 1):
             raise ReportError('reports.error.layout')
+        try:
+            if 'page' in layout and layout['page'] is None:
+                raise ValueError('Invalid page')
+            page_config(layout.get('page'))
+        except ValueError as exc:
+            raise ReportError('reports.error.page', 'page') from exc
         ids = set()
-        def walk(nodes, depth=0):
+        image_bytes = image_count = 0
+        def walk(nodes, depth=0, in_columns=False):
+            nonlocal image_bytes, image_count
             if type(nodes) is not list or depth > 8:
                 raise ReportError('reports.error.layout')
             for node in nodes:
@@ -62,13 +72,24 @@ class ReportLayoutService:
                 if len(ids) > 200 or (type(node.get('type')) is not str or node.get('type') not in cls.TYPES) or type(node.get('props')) is not dict:
                     raise ReportError('reports.error.layout', ident)
                 props = node['props']
-                allowed = {'text', 'binding', 'level', 'format'} if node['type'] == 'text' else {'collection', 'columns', 'empty_text'} if node['type'] == 'table' else set()
+                allowed = {'text', 'binding', 'level', 'format'} if node['type'] == 'text' else {'collection', 'columns', 'empty_text'} if node['type'] == 'table' else {'columns', 'gap'} if node['type'] == 'section' else {'source', 'alt', 'width', 'height'} if node['type'] == 'image' else set()
                 if node['type'] != 'page_break':
-                    allowed.add('style')
+                    allowed.update(('style', 'pagination'))
+                pagination = props.get('pagination', {})
+                if not validate_pagination(pagination) or (in_columns and (node['type']=='page_break' or pagination.get('break_before') or pagination.get('break_after'))):
+                    raise ReportError('reports.error.pagination', ident)
                 if 'style' in props and not validate_style(props['style'], table=node['type']=='table'):
                     raise ReportError('reports.error.layout', ident)
                 if set(props) - allowed:
                     raise ReportError('reports.error.layout', ident)
+                if node['type'] == 'image':
+                    try:
+                        image_bytes += validate_image(props)
+                    except ValueError as exc:
+                        raise ReportError('reports.error.image', ident) from exc
+                    image_count += 1
+                    if image_bytes > MAX_TOTAL_IMAGE_BYTES or image_count > MAX_IMAGE_COUNT:
+                        raise ReportError('reports.error.image', ident)
                 if node['type'] == 'text':
                     if 'format' in props and not validate_format(props['format']):
                         raise ReportError('reports.error.format', ident)
@@ -98,7 +119,9 @@ class ReportLayoutService:
                     if type(props.get('empty_text', '')) is not str:
                         raise ReportError('reports.error.layout', ident)
                 if node['type'] == 'section':
-                    walk(node.get('children', []), depth + 1)
+                    if ('columns' in props and (type(props['columns']) is not int or not 1 <= props['columns'] <= 4)) or ('gap' in props and (type(props['gap']) is not int or not 0 <= props['gap'] <= 24)):
+                        raise ReportError('reports.error.layout', ident)
+                    walk(node.get('children', []), depth + 1, in_columns or props.get('columns',1)>1)
                 elif 'children' in node:
                     raise ReportError('reports.error.layout', ident)
         walk(layout['body'])
@@ -131,18 +154,26 @@ class ReportLayoutService:
             parts = []
             for node in nodes:
                 props = node['props']
-                css = style_css(props.get('style', {}))
+                css = ';'.join(value for value in (style_css(props.get('style', {})), pagination_css(props.get('pagination', {}))) if value)
                 attr = (' style="' + css + '"') if css else ''
                 if node['type'] == 'text':
                     value = props['text'] if 'text' in props else resolve(props['binding'])
                     tag = {'title': 'h1', 'subtitle': 'h2', 'body': 'p'}[props.get('level', 'body')]
                     parts.append(f'<{tag}{attr}>{value_html(value, props.get("format"), node["id"])}</{tag}>')
+                elif node['type'] == 'image':
+                    parts.append('<figure class="report-image"'+attr+'><img src="'+escape(props['source'], quote=True)+'" alt="'+escape(props.get('alt', ''), quote=True)+'" style="'+image_css(props)+'"></figure>')
                 elif node['type'] == 'page_break':
                     parts.append('<div class="page-break"></div>')
                 elif node['type'] == 'divider':
                     parts.append('<hr'+attr+'>')
                 elif node['type'] == 'section':
-                    parts.append('<section'+attr+'>' + render_nodes(node.get('children', [])) + '</section>')
+                    columns = props.get('columns', 1)
+                    if columns > 1:
+                        grid_css = f'display:grid;grid-template-columns:repeat({columns},minmax(0,1fr));gap:{props.get("gap", 8)}pt;'
+                        section_attr = ' class="report-columns" style="' + grid_css + css + '"'
+                    else:
+                        section_attr = attr
+                    parts.append('<section'+section_attr+'>' + render_nodes(node.get('children', [])) + '</section>')
                 else:
                     items = resolve(props['collection'])
                     if type(items) is not list or len(items) > 2000:
@@ -162,11 +193,14 @@ class ReportLayoutService:
                     parts.append('<table'+attr+'><thead><tr>' + header + '</tr></thead><tbody>' + rows + '</tbody></table>')
             return ''.join(parts)
         body = render_nodes(layout['body'])
-        style = """
-@page { size: A4; margin: 15mm; }
+        page_rule, screen_page = page_css(page_config(layout.get('page')))
+        style = page_rule + """
 * { box-sizing: border-box; }
 body { margin:0; background:white; color:#182230; font:10pt sans-serif; }
 .report-document { width:100%; }
+.report-image { margin:0; break-inside:avoid; }
+.report-image img { vertical-align:middle; }
+.report-columns > * { min-width:0; overflow-wrap:anywhere; }
 table { width:100%; border-collapse:collapse; table-layout:fixed; }
 th,td { padding:var(--report-cell-padding,6pt); border:1px solid #cbd5e1; overflow-wrap:anywhere; }
 th { background:#eef2f6; }
@@ -177,13 +211,13 @@ h1,h2 { break-after:avoid; overflow-wrap:anywhere; }
 .page-break { break-before:page; }
 @media screen {
   body { padding:16px; background:#eef2f6; }
-  .report-document { max-width:210mm; min-height:297mm; padding:15mm; margin:auto; background:white; }
+  .report-document { SCREEN_PAGE_SETTINGS margin:auto; background:white; }
   html[data-theme="dark"] body { background:#192435; color:#e8eef7; }
   html[data-theme="dark"] .report-document { background:#273549; }
   html[data-theme="dark"] th { background:#34445a; }
   html[data-theme="dark"] th, html[data-theme="dark"] td { border-color:#64748b; }
   .page-break { border-top:1px dashed #64748b; margin:20px 0; }
-  @media (max-width:600px) { .report-document { padding:16px; } }
+  @media (max-width:600px) { .report-document { padding:16px; } .report-columns { display:block !important; } }
 }
 @media print {
   body, .report-document { background:white !important; color:#182230 !important; }
@@ -193,9 +227,10 @@ h1,h2 { break-after:avoid; overflow-wrap:anywhere; }
   .page-break { border:0; margin:0; }
 }
 """
+        style = style.replace('SCREEN_PAGE_SETTINGS', screen_page)
         document = ('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
                 '<meta name="viewport" content="width=device-width, initial-scale=1">'
-                '<meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;">'
+                '<meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:">'
                 '<title>Relatório</title><style>' + style + '</style></head><body>'
                 '<main class="report-document">' + body + '</main></body></html>')
         if len(document.encode('utf-8')) > 2 * 1024 * 1024:

@@ -112,7 +112,7 @@ def output_response(result, format):
         return pdf_response(result)
     return Response(result, mimetype='text/html', headers={
         'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
-        'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'self'",
+        'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:; frame-ancestors 'self'",
     })
 
 

@@ -7,7 +7,7 @@ runtime nativo opcional. A geração de patch passa a ocorrer a cada três etapa
 | Grupo | Etapas | Situação |
 | --- | --- | --- |
 | 1 | Propriedades visuais; formatos e parâmetros; organização da IDE | Etapas 1–3 concluídas; patch consolidado do grupo 1 |
-| 2 | Colunas de composição; imagens; paginação | Planejado |
+| 2 | Colunas de composição; imagens; paginação | Etapas 4–6 concluídas; patch consolidado do grupo 2 |
 | 3 | Blocos reutilizáveis; condições e totais; produtividade | Planejado |
 | 4 | Consolidação; avaliação do PDF automático opcional | Planejado |
 
@@ -104,3 +104,128 @@ aprovado com seções, duplicação, mudança de destino, salvar/reabrir,
 temas, formatos, parâmetros, publicação, conflito e consumidores HTML.
 Captura escura inspecionada. Impressão testada pelo helper e PDF do Chromium;
 não substitui validação do diálogo de impressão no Windows.
+
+## Etapa 4: colunas de composição
+
+Seções v1 acrescentam props.columns inteiro 1–4 (padrão 1) e props.gap
+inteiro 0–24 pt (padrão 8). Sem mudança de schema_version ou migration.
+Seções anteriores permanecem verticais. Booleanos, strings, frações e valores
+fora do intervalo são rejeitados. CSS Grid é gerado somente pelo compositor;
+nenhum CSS livre ou recurso externo é aceito.
+
+Cada filho direto ocupa uma célula, na ordem da árvore; células adicionais
+formam novas linhas. Para manter vários componentes juntos numa coluna, use
+uma seção filha como célula. Botão Colunas de composição cria duas seções
+filhas em um agrupamento de duas colunas. Alterar quantidade reorganiza os
+filhos existentes e não cria/apaga conteúdo. Destino, duplicação, ordenação,
+estilos e vínculos usam as operações de seção já existentes.
+
+Larguras iguais com minmax(0,1fr), gap configurável e quebra de textos longos.
+Canvas empilha em largura de tela até 767 px; prévia empilha quando seu próprio
+viewport tem até 600 px. As regras são restritas à mídia screen; impressão
+mantém colunas e papel branco, inclusive sob tema escuro. A etapa 6 abaixo define o comportamento de conteúdo longo e de quebras nos grupos de colunas. Compatibilidade com
+PDF automático WeasyPrint ainda depende de validação do runtime opcional;
+nesta etapa o caminho principal continua HTML/impressão pelo navegador.
+
+Sem patch antecipado: entrega consolidada será feita ao concluir etapas 4–6.
+
+Validação etapa 4: 104 testes Python e 10 subtestes aprovados; 1 teste
+WeasyPrint opt-in desabilitado. Cinco testes Node aprovados. Playwright
+1.51.1/Chromium 134 aprovado: criação, propriedades e persistência da
+composição, conteúdo em células lado a lado, empilhamento da prévia estreita,
+três trilhas de grid na mídia print, temas, formatos, parâmetros, versões,
+conflitos e consumidores. Teste de reabertura aguarda conclusão do carregamento
+assíncrono para evitar contar uma árvore ainda não preenchida.
+
+## Etapa 5: imagens e logotipos incorporados
+
+Componente image em schema_version=1: props.source obrigatório como data URI
+base64 de PNG ou JPEG; alt opcional até 240 caracteres; width inteiro 5–180 mm
+(padrão 40); height opcional inteiro 5–250 mm. Sem height mantém proporção
+natural; com height usa caixa com object-fit:contain sem deformação/corte.
+max-width:100% mantém a imagem dentro da coluna. style tipado controla
+alinhamento, margens e padding; sem filtros ou alterações das cores do arquivo.
+
+Seleção local lê bytes no navegador e incorpora ao JSON da revisão; não cria
+arquivos no servidor ou URLs públicas. Troca de arquivo inválido mantém imagem
+anterior. Servidor revalida na gravação/publicação/renderização. Revisões
+publicadas continuam imutáveis pelo serviço; duplicação/clone carregam os
+mesmos bytes como valores independentes. Não há binding de imagem aos dados
+nesta etapa, banco de assets compartilhados, recorte, SVG/GIF ou animação.
+
+Pillow 12.3.0 é dependência Python do addon, instalada via pip com wheel
+compatível; não exige MSI/Pango para fluxo HTML. Image.open restringe codecs
+a PNG/JPEG, verify confere integridade e uma segunda abertura/load decodifica
+os pixels para rejeitar truncamento. MIME declarado deve corresponder ao
+formato real. Limites: 128 KiB por arquivo, 2048 px por lado, 4 milhões de
+pixels, uma frame; 16 imagens e 512 KiB somadas por template, inclusive cópias.
+Limites JSON 1 MiB e HTML 2 MiB permanecem. Imagens devem ser preparadas dentro
+do limite antes da seleção; não há compressão ou redimensionamento automático.
+
+CSP do documento e resposta HTML admite img-src data:, mantendo os demais
+recursos restritos. Worker opcional aceita somente data URI PNG/JPEG validada
+pelo mesmo serviço; continua rejeitando rede, file://, SVG e outros dados.
+WeasyPrint não foi executado: este ajuste foi verificado no fetcher, sem
+afirmar validação do PDF nativo. HTML/Chromium é o caminho exercitado.
+
+Referência da biblioteca: https://pillow.readthedocs.io/en/stable/reference/Image.html
+Patch continua reservado ao fechamento das etapas 4–6. Sem migration.
+
+Validação etapa 5: 132 testes Python e 10 subtestes aprovados; 1 WeasyPrint
+opt-in desabilitado. Cinco testes Node da árvore aprovados. Playwright
+1.51.1/Chromium 134 aprovado para seleção PNG, substituição JPEG, substituição
+inválida sem perda, medidas, descrição, duplicação, remover cópia, salvar/
+reabrir, imagem em colunas, raster carregado na prévia, tema escuro e folha
+branca em print. Percurso anterior da IDE/consumidores também passou.
+Captura do componente/painel inspecionada. Serviço/fetcher verificados sem
+acionar WeasyPrint, nenhuma instalação nativa adicional.
+
+## Etapa 6: página, fragmentação e numeração
+
+Layout v1 aceita page opcional. Campos: format A4/A5/Letter, orientation
+portrait/landscape, margin_top/right/bottom/left inteiros 0–40 mm e
+number_pages booleano. Ausência mantém A4 retrato, 15 mm e sem numeração.
+number_pages exige margem inferior mínima de 8 mm; null, CSS livre, campos
+desconhecidos e tipos incompatíveis são rejeitados. Restaurar página A4
+remove somente page e preserva componentes, estilos, imagens e vínculos.
+
+IDE possui Página e impressão recolhível, canvas proporcional à página e
+margens escolhidas. Documento de edição e prévia continuam contínuos; não
+calculam antecipadamente o número de folhas. Papel escuro #273549 na tela e
+branco em print, incluindo números de página. Configuração fica no JSON
+da revisão, preservada na publicação/clone. Sem migration adicional.
+
+props.pagination opcional em componentes exceto page_break: break_before,
+break_after e keep_together, todos booleanos. Geram somente CSS confiável
+break-before:page / break-after:page / break-inside:avoid quando true.
+Keep together é uma preferência: componentes maiores que a área imprimível
+podem se dividir. Imagens recebem break-inside:avoid por padrão; tabelas
+continuam com cabeçalho repetível e linhas com break-inside:avoid.
+
+Quebras forçadas dentro de qualquer descendente de seção columns>1 são
+rejeitadas, inclusive marcador page_break. Use a quebra antes/depois do
+agrupamento inteiro, ou um marcador fora dele. UI desabilita essas opções;
+operações de árvore validam destino e fazem rollback ao mover para posição
+incompatível. Backend revalida inclusive clientes HTTP/Python. Keep together
+dentro de colunas é permitido. Não há promessa de fragmentação de tabelas
+muito longas lado a lado; prefira tabela longa fora das colunas.
+
+Numeração usa @page / @bottom-right com counter(page)/counter(pages).
+Validada no Chromium 134; outros motores podem ignorar caixas de margem.
+Desative cabeçalhos/rodapés automáticos do navegador quando usar a numeração
+do template, evitando conteúdo adicional. PreferCSSPageSize usado nos testes;
+o diálogo local pode alterar papel, escala, margens e destino. Referência:
+https://developer.chrome.com/blog/print-margins . Não há cabeçalho/rodapé
+customizado, posição absoluta, total de páginas pré-calculado na IDE ou
+PDF automático sem runtime opcional.
+
+Validação local das etapas 4–6: 159 testes Python e 10 subtestes passaram;
+1 teste WeasyPrint opt-in desabilitado. Seis testes Node aprovados.
+Playwright/Chromium aprovado para página A5 paisagem, margens, restauração,
+publicação somente leitura, colunas, imagens, temas, impressão, versões e
+consumidores. PDF de tabela com 100 linhas gerou 9 páginas A5 paisagem e
+5 páginas A4 retrato; todas as linhas foram preservadas, cabeçalhos repetidos,
+imagem presente, números corretos em cada página e fechamento em página
+separada. PDF anterior com quebra explícita manteve 2 páginas. PDFs renderizados
+em PNG e inspecionados (primeira paisagem e terceira retrato), sem cortes.
+WeasyPrint não foi executado; Windows depende da validação após aplicação.

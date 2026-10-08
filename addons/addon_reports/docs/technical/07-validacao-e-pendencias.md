@@ -141,3 +141,22 @@ Percurso de navegador aprovado com moeda em tabelas, formulário compartilhado,
 zero/falso e null no JSON avançado, temas e impressão. Nenhuma migration nova,
 sem WeasyPrint instalado. Grupo 1 aguarda organização da IDE (etapa 3) antes
 do patch consolidado. Plano e limites em 09-evolucao-ide-etapas.md.
+
+## Evolução local — grupo 2, etapa 5
+
+Composição em colunas e imagens PNG/JPEG incorporadas implementadas.
+132 testes Python, 10 subtestes e cinco testes Node aprovados; um PDF nativo
+opt-in desabilitado. Navegador aprovou imagens, medidas, substituição e cópia,
+temas e impressão/consumidores. Pillow 12.3.0 acrescentado aos requisitos
+do addon. Paginação e patch consolidado seguem para etapa 6. Detalhes em
+09-evolucao-ide-etapas.md; validação Windows será feita após essa entrega.
+
+## Grupo 2 concluído — etapas 4–6
+
+159 testes Python e 10 subtestes aprovados; 1 PDF WeasyPrint opt-in
+desabilitado. Seis testes Node aprovados. Playwright aprovado; PDFs
+Chromium de 100 linhas conferidos em papel A5 paisagem/A4 retrato, com
+numeração, imagem e cabeçalhos. Verificação visual por Poppler concluída.
+Patch incremental sobre main fce9f257e8dbba5c2413a82ba9b2064ba443bf5d,
+que já contém o grupo 1. Roteiro em docs/patches/reports-ide-grupo2.md.
+Sem migrations; instalar requisitos do addon para obter Pillow 12.3.0.

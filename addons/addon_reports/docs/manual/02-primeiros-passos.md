@@ -15,6 +15,6 @@ Depois, abra o detalhe de um saldo de estoque e use **Relatório do saldo deste
 material**, ou abra a aba Sessões do Workspace de uma planta e use **Relatório desta
 sessão**. Escolha o modelo publicado, informe parâmetros em JSON se necessários
 e abra o documento com os dados registrados. Use **Imprimir / salvar PDF**,
-selecione A4 e o destino Salvar como PDF no navegador. Confira a paginação
+confira o formato configurado no template (A4 por padrão) e o destino Salvar como PDF no navegador. Confira a paginação
 antes de salvar; a prévia HTML é contínua. Nenhuma movimentação, confirmação
 de insumos ou alarme é executado pela emissão.

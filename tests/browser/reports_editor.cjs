@@ -27,9 +27,21 @@ const fs = require('node:fs');
     assert.equal(await page.locator('#save-report').isDisabled(),true);
     assert.equal(await page.locator('#load-example').isDisabled(),true);
     assert.equal(await page.locator('#add-section').isDisabled(),true);
+    assert.equal(await page.locator('#add-columns').isDisabled(),true);
+    assert.equal(await page.locator('#add-image').isDisabled(),true);
+    assert.equal(await page.locator('#page-format').isDisabled(),true);
+    assert.equal(await page.locator('#page-number-pages').isDisabled(),true);
     assert.equal(await page.locator('#duplicate-node').isDisabled(),true);
   }
   await create('browser.example','Relatório navegador');
+  await page.locator('#report-page-settings > summary').click();
+  await page.locator('#page-format').selectOption('A5');await page.locator('#page-orientation').selectOption('landscape');
+  await page.locator('#page-margin-left').fill('41');await page.locator('#save-report').click();await state('error');
+  await page.locator('#page-margin-left').fill('20');await page.locator('#page-number-pages').check();
+  await page.locator('#save-report').click();await state('saved');await page.reload();await state('saved');
+  assert.equal(await page.locator('#page-format').inputValue(),'A5');assert.equal(await page.locator('#page-orientation').inputValue(),'landscape');
+  assert.equal(await page.locator('#page-margin-left').inputValue(),'20');assert.equal(await page.locator('#page-number-pages').isChecked(),true);
+  await page.locator('#report-page-settings > summary').click();await page.locator('#reset-page').click();
   await page.locator('#add-text').click();await page.locator('#node-text').fill('Texto confirmado');
   await page.locator('#style-font_size').fill('7');
   await page.locator('#save-report').click();await state('error');
@@ -37,7 +49,7 @@ const fs = require('node:fs');
   await page.locator('#style-font_size').fill('24');
   await page.locator('#style-align').selectOption('right');
   await page.locator('#style-bold').selectOption('true');
-  await page.locator('#save-report').click();await state('saved');await page.reload();
+  await page.locator('#save-report').click();await state('saved');await page.reload();await state('saved');
   await page.getByText('Texto confirmado',{exact:true}).first().waitFor();
   assert.equal(await page.locator('#report-paper button').last().evaluate(el=>getComputedStyle(el).fontSize),'32px');
   assert.equal(await page.locator('#report-paper button').last().evaluate(el=>getComputedStyle(el).textAlign),'right');
@@ -52,11 +64,54 @@ const fs = require('node:fs');
   await page.locator('#node-parent').selectOption('');assert.equal(await page.locator('.report-section-children button').count(),1);
   await page.locator('#report-tree button').filter({hasText:/^Seção$/}).first().click();
   await page.locator('#duplicate-node').click();assert.equal(await page.locator('.report-section').count(),2);
-  await page.locator('#save-report').click();await state('saved');await page.reload();
+  await page.locator('#save-report').click();await state('saved');await page.reload();await state('saved');
   assert.equal(await page.locator('.report-section').count(),2);
   assert.equal(await page.locator('.report-section-children button').count(),2);
   await page.locator('#report-tree button').filter({hasText:/^Seção$/}).last().click();await page.locator('#delete-node').click();
   assert.equal(await page.locator('.report-section').count(),1);
+  await page.locator('#add-columns').click();
+  await page.locator('#section-columns').selectOption('3');await page.locator('#section-gap').fill('12');
+  await page.locator('#report-tree button').filter({hasText:/^Seção$/}).last().click();await page.locator('#add-text').click();await page.locator('#node-text').fill('Coluna B');
+  await page.locator('#report-tree button').filter({hasText:/^Seção$/}).nth(2).click();await page.locator('#add-text').click();await page.locator('#node-text').fill('Coluna A');
+  const logoFile={name:'logo.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAICAIAAAB/FOjAAAAAFklEQVR4nGM0TpvJQApgIkn1qAYiAQDfnQFC17euhQAAAABJRU5ErkJggg==','base64')};
+  const logoChooser=page.waitForEvent('filechooser');await page.locator('#add-image').click();await (await logoChooser).setFiles(logoFile);
+  await page.locator('#image-width').waitFor();assert.equal(await page.locator('#pagination-break_before').isDisabled(),true);assert.equal(await page.locator('#add-page_break').isDisabled(),true);await page.locator('#image-width').fill('4');await page.locator('#save-report').click();await state('error');
+  await page.locator('#image-width').fill('56');await page.locator('#image-height').fill('20');await page.locator('#image-alt').fill('Logotipo de teste');await page.locator('#style-align').selectOption('center');
+  await page.locator('#image-replace-file').setInputFiles({name:'invalid.png',mimeType:'image/png',buffer:Buffer.from('<svg/>')});await state('error');
+  assert.equal(await page.locator('#report-paper img').count(),1);
+  await page.locator('#image-replace-file').setInputFiles({name:'logo.jpg',mimeType:'image/jpeg',buffer:Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAIABADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwBtFFFfNHAf/9k=','base64')});await state('dirty');
+  assert.equal(await page.locator('.report-section-children').filter({has:page.locator('.report-section')}).last().evaluate(el=>getComputedStyle(el).display),'grid');
+  await page.locator('#save-report').click();await state('saved');await page.reload();await state('saved');
+  assert.equal(await page.locator('.report-section-children[style*="grid"]').count(),1);
+  await page.locator('#report-tree button').filter({hasText:'Imagem / logotipo'}).click();
+  assert.equal(await page.locator('#image-width').inputValue(),'56');assert.equal(await page.locator('#image-height').inputValue(),'20');
+  assert.equal(await page.locator('#image-alt').inputValue(),'Logotipo de teste');
+  if(process.env.REPORTS_SCREENSHOTS){fs.mkdirSync(process.env.REPORTS_SCREENSHOTS,{recursive:true});await page.locator('#pane-layout').screenshot({path:process.env.REPORTS_SCREENSHOTS+'/reports-images.png'});}
+  assert.ok((await page.locator('#report-paper img').getAttribute('src')).startsWith('data:image/jpeg;base64,'));
+  await page.locator('#duplicate-node').click();assert.equal(await page.locator('#report-paper img').count(),2);
+  assert.equal(await page.locator('#image-width').inputValue(),'56');
+  await page.locator('#delete-node').click();assert.equal(await page.locator('#report-paper img').count(),1);
+  await page.locator('#save-report').click();await state('saved');
+  const compositionUrl=new URL(page.url()),compositionCsrf=await page.locator('#reports-workspace').getAttribute('data-csrf');
+  const composition=await page.request.post(base+`/api/reports/templates/${compositionUrl.searchParams.get('template')}/versions/1/preview`,{headers:{'X-Reports-CSRF':compositionCsrf},data:{format:'html',parameters:{}}});
+  assert.equal(composition.status(),200);const compositionHtml=(await composition.json()).html;assert.ok(compositionHtml.includes('repeat(3,minmax(0,1fr));gap:12pt'));
+  await page.evaluate(html=>{const frame=document.createElement('iframe');frame.id='composition-check';frame.style.width='900px';frame.srcdoc=html;document.body.append(frame);},compositionHtml);
+  const composed=page.frameLocator('#composition-check').locator('.report-columns');await composed.waitFor();
+  assert.equal(await composed.evaluate(el=>getComputedStyle(el).display),'grid');
+  const logoPreview=page.frameLocator('#composition-check').locator('img');
+  await page.waitForFunction(()=>document.querySelector('#composition-check').contentDocument.querySelector('img')?.naturalWidth===16);
+  assert.equal(await logoPreview.getAttribute('alt'),'Logotipo de teste');
+  await page.locator('#composition-check').evaluate(el=>el.contentDocument.documentElement.dataset.theme='dark');
+  assert.equal(await page.frameLocator('#composition-check').locator('.report-document').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(39, 53, 73)');
+  const cellPositions=await composed.evaluate(el=>Array.from(el.children).map(child=>child.getBoundingClientRect().x));assert.ok(cellPositions[1]>cellPositions[0]);
+  await page.locator('#composition-check').evaluate(el=>el.style.width='350px');
+  await page.waitForFunction(()=>getComputedStyle(document.querySelector('#composition-check').contentDocument.querySelector('.report-columns')).display==='block');
+  await page.emulateMedia({media:'print'});assert.equal(await composed.evaluate(el=>getComputedStyle(el).display),'grid');
+  assert.equal(await logoPreview.evaluate(el=>el.naturalWidth),16);
+  assert.equal(await page.frameLocator('#composition-check').locator('.report-document').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
+  assert.equal((await composed.evaluate(el=>getComputedStyle(el).gridTemplateColumns)).split(' ').length,3);
+  await page.emulateMedia({media:'screen'});await page.locator('#composition-check').evaluate(el=>el.remove());
+
   await example('estoque-saldos');
   await page.locator('#report-tree button').last().click();
   await page.locator('#column-label-0').fill('Material alterado');
@@ -160,6 +215,32 @@ const fs = require('node:fs');
     assert.equal(await page.locator('#reports-consumer-preview').getAttribute('data-print-called'),'true');
     await page.locator('#reports-consumer-modal .btn-close').click();
   }
+  await page.goto(base+'/reports/');await create('browser.pagination','Paginação validada');
+  const paginationQuery=new URL(page.url()),paginationId=paginationQuery.searchParams.get('template'),paginationToken=await page.locator('#reports-workspace').getAttribute('data-csrf');
+  const revisionUrl=base+`/api/reports/templates/${paginationId}/versions/1`;
+  let paginationRevision=(await (await page.request.get(revisionUrl)).json()).item;
+  const printLayout={schema_version:1,page:{format:'A5',orientation:'landscape',margin_top:10,margin_right:10,margin_bottom:12,margin_left:20,number_pages:true},body:[
+    {id:'intro',type:'section',props:{pagination:{keep_together:true}},children:[{id:'caption',type:'text',props:{text:'Relatório de paginação',level:'title'}},{id:'logo',type:'image',props:{source:'data:image/png;base64,'+logoFile.buffer.toString('base64'),alt:'Logotipo',width:24,height:12}}]},
+    {id:'grid',type:'section',props:{columns:2,gap:8,pagination:{keep_together:true}},children:[{id:'left',type:'text',props:{text:'Coluna esquerda'}},{id:'right',type:'text',props:{text:'Coluna direita'}}]},
+    {id:'rows',type:'table',props:{collection:{source:'data',path:['items']},columns:[{label:'Descrição',binding:{source:'item',path:['name']}},{label:'Valor',binding:{source:'item',path:['amount']},format:{kind:'number',decimals:1}}]}},
+    {id:'finish',type:'text',props:{text:'Fechamento final',pagination:{break_before:true}}}
+  ]};
+  const items=Array.from({length:100},(_,index)=>({name:'ITEM_'+String(index+1).padStart(3,'0'),amount:index+0.5}));
+  async function savePrintLayout() {
+    const response=await page.request.put(revisionUrl,{headers:{'X-Reports-CSRF':paginationToken},data:{lock_version:paginationRevision.lock_version,layout:printLayout,data_schema:{type:'object',properties:{items:{type:'array',items:{type:'object',properties:{name:{type:'string'},amount:{type:'number'}},required:['name','amount']}}},required:['items']},sample_data:{items},parameters:[]}});
+    assert.equal(response.status(),200);paginationRevision=(await response.json()).item;
+    const preview=await page.request.post(revisionUrl+'/preview',{headers:{'X-Reports-CSRF':paginationToken},data:{format:'html',parameters:{}}});assert.equal(preview.status(),200);return (await preview.json()).html;
+  }
+  const paginated=await browser.newPage();
+  for(const [name,format,orientation] of [['landscape','A5','landscape'],['portrait','A4','portrait']]) {
+    printLayout.page.format=format;printLayout.page.orientation=orientation;
+    await paginated.setContent(await savePrintLayout());await paginated.locator('img').evaluate(image=>image.decode());
+    await paginated.evaluate(()=>document.documentElement.dataset.theme='dark');await paginated.emulateMedia({media:'print'});
+    assert.equal(await paginated.locator('.report-document').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
+    const output=await paginated.pdf({preferCSSPageSize:true,printBackground:true,displayHeaderFooter:false});
+    if(process.env.REPORTS_SCREENSHOTS){fs.mkdirSync(process.env.REPORTS_SCREENSHOTS,{recursive:true});fs.writeFileSync(process.env.REPORTS_SCREENSHOTS+'/reports-pagination-'+name+'.pdf',output);}
+  }
+  await paginated.close();
   assert.deepEqual(errors,[]);await browser.close();
   console.log('Reports IDE, themes, print, conflict and consumer HTML/print passed');
 })().catch(error=>{console.error(error);process.exit(1)});

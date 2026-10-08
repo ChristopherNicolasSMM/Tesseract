@@ -5755,3 +5755,31 @@ ordenação entre irmãos, reparenting sem ciclos e remoção de subárvores.
 Limites 200 nós/profundidade 8 com rollback. Grupos de propriedades recolhíveis
 e rolagem na árvore. Grupo 1 concluído com patch incremental sobre main atual;
 sem migrations ou dependências nativas adicionais.
+
+### Reports: grupo 2, etapa 4 — colunas de composição
+
+Seções com 1–4 colunas iguais e gap 0–24 pt, controles na IDE, criação de
+duas células como seções filhas. Templates v1 verticais preservados. Prévia
+e canvas responsivos apenas em mídia screen; impressão mantém composição.
+Sem migrations ou novas dependências de produção. Imagens e paginação
+seguem para etapas 5–6; patch somente ao fechar o grupo.
+
+### Reports: grupo 2, etapa 5 — imagens e logotipos
+
+Raster PNG/JPEG incorporado ao JSON da revisão; seleção/substituição local,
+medidas em mm, descrição, alinhamento, canvas e HTML. Pillow 12.3.0 valida
+codec, integridade, decodificação e resolução. Limites 128 KiB por arquivo,
+2048 px/lado, 4M pixels, 16 imagens/512 KiB por template. CSP e fetcher
+opcional permitem somente imagens raster data URI, sem rede/file://.
+Sem migration; dependência Python adicionada ao requirements do addon.
+Paginação segue para etapa 6, quando será gerado o patch consolidado.
+
+### Reports: grupo 2, etapa 6 — paginação e entrega
+
+Página A4/A5/Letter, orientação e margens no JSON da revisão; numeração
+opcional no rodapé; preferências de quebra e manter inteiro por componente.
+Quebras forçadas somente fora de grupos de colunas, com validação/rollback
+da árvore. Prévia contínua e impressão branca. Grupo 2 concluído, patch
+consolidado das etapas 4–6 sobre main atualizado; sem migration adicional.
+159 testes/10 subtestes, seis testes Node e navegador aprovados, PDFs
+Chromium de 100 linhas preservadas e paginação conferidos visualmente.

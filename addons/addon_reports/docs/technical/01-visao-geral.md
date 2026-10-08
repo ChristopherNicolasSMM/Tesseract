@@ -10,9 +10,11 @@ Implementado: addon descoberto pelo ModuleManager, tabelas de modelo/revisão/pa
 O primeiro corte inclui IDE de texto/tabela/divisor, carregamento de exemplos,
 publicação, prévia, integração contextual de Estoque/BrewStation e migration.
 Percursos reais de navegador e temas foram exercitados. A entrega ainda depende
-da geração/conferência do patch e validação local do usuário. Assets, blocos
-reutilizáveis, estilos editáveis, condições, fila, histórico de emissões e
-registro de componentes no banco permanecem planejados.
+da geração/conferência do patch e validação local do usuário. Esse trecho registra o corte inicial. A evolução da IDE acrescenta estilos
+editáveis, formatos, formulário de parâmetros, seções, colunas de composição
+e imagens PNG/JPEG incorporadas. Catálogo de assets compartilhados, blocos
+reutilizáveis, condições, fila, histórico de emissões e registro de componentes
+no banco permanecem planejados. Estado e limites atuais em 09-evolucao-ide-etapas.md.
 
 Referências reais de UI: templates/core/base.html, templates/core/freestyle/model_minimal.html, model_full.html, model_abas.html; organização da documentação em docs/skills/04; controles e anotações do CrudGen; diálogos/toasts em docs/skills/15. Não se reutiliza o Designer removido descrito como histórico em docs/skills/16.
 

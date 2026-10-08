@@ -1,6 +1,6 @@
 # Manutenção e instalação
 
-Dependências adicionais fixadas em addons/addon_reports/requirements.txt (jsonschema). Preservada a codificação UTF-16 do requirements.txt da raiz; não foi reformatado nem alterado. Instalação prevista: python -m pip install -r addons/addon_reports/requirements.txt, além dos requisitos do core. WeasyPrint fica em requirements-pdf.txt, opcional. Dependências nativas/fontes do WeasyPrint precisam ser confirmadas no Windows e produção; somente Linux foi exercitado nesta construção.
+Dependências adicionais fixadas em addons/addon_reports/requirements.txt (jsonschema e Pillow). Preservada a codificação UTF-16 do requirements.txt da raiz; não foi reformatado nem alterado. Instalação prevista: python -m pip install -r addons/addon_reports/requirements.txt, além dos requisitos do core. WeasyPrint fica em requirements-pdf.txt, opcional. Dependências nativas/fontes do WeasyPrint precisam ser confirmadas no Windows e produção; somente Linux foi exercitado nesta construção.
 
 Novas tabelas seguem create_all_pending_tables do projeto. Migration
 `c93e0f54b128`, filha de `b82d9e43a017`, cria o catálogo ou valida e preserva as
@@ -14,7 +14,7 @@ Configuração runtime em tesseract_system_config: reports.pdf_timeout_seconds (
 
 Limites MVP: JSON 1 MiB, HTML 2 MiB, PDF 10 MiB; 200 elementos; profundidade de layout 8; caminhos 32; tabela 2000 registros; 12 colunas; 50 parâmetros. Dois workers simultâneos por processo web; capacidade excedida retorna 429. São limites iniciais conservadores, não um SLA medido.
 
-Worker: stdin/stdout, timeout e finalização via subprocess.run, sem temporários persistidos. Em Linux usa RLIMIT_AS/RLIMIT_CPU; em Windows há timeout mas limite de memória dependerá de infraestrutura/Job Objects futura. URLs/file:// são bloqueados; componentes atuais não permitem inserir assets livres.
+Worker: stdin/stdout, timeout e finalização via subprocess.run, sem temporários persistidos. Em Linux usa RLIMIT_AS/RLIMIT_CPU; em Windows há timeout mas limite de memória dependerá de infraestrutura/Job Objects futura. URLs/file:// são bloqueados; somente data URI PNG/JPEG validada é aceita para imagens incorporadas. Catálogo de assets compartilhados segue planejado.
 
 Styles: reports_editor.css somente na IDE. A folha clara é branca; folha escura #273549, texto #e8eef7. PDF possui CSS próprio branco e não recebe tema da sessão. A prévia HTML segue o tema; impressão e PDF opcional são brancos.
 
@@ -43,7 +43,7 @@ rota de fixture existem somente no servidor descartável, não no addon.
 
 ## Perfil e Windows
 
-Compilador: layout declarativo `schema_version=1`, A4/CSS fixos, HTML de impressão e WeasyPrint opcional
+Compilador: layout declarativo `schema_version=1`, página A4/A5/Letter e CSS tipado, HTML de impressão e WeasyPrint opcional
 70.0 e jsonschema 4.26.0; SQLAlchemy 2.0.51 alinhado aos requisitos atuais do
 Core. Nesta execução: Python 3.12.14, Pango 1.52.1 e pydyf 0.12.1.
 As versões transitivas, bibliotecas nativas e fontes não são congeladas por
@@ -78,3 +78,19 @@ Não acessa dados de negócio nem banco. O stderr detalhado fica restrito a esse
 comando local; o serviço HTTP registra apenas categorias fixas, código de saída
 e instrução de diagnóstico. Correção UTF-8 e percurso Windows em
 `docs/patches/reports-utf8-diagnostico-pdf.md`.
+
+## Conferir paginação no Chromium
+
+No ambiente de desenvolvimento, `python -m pip install pypdf` acrescenta
+o leitor de verificação, sem ser dependência de produção. Execute o runner
+com REPORTS_SCREENSHOTS apontando para um diretório de teste e confira:
+
+```text
+python tests/browser/reports_pdf_check.py <diretorio-de-teste>
+```
+
+O runner gera reports-pagination-landscape.pdf, reports-pagination-portrait.pdf
+e reports-browser-print.pdf. Checker verifica tamanho de papel, presença e
+ordem de 100 linhas, cabeçalhos por página, imagem incorporada, numeração
+e fechamento separado. Renderizar também com Poppler para inspecionar
+cortes/legibilidade; extração de texto não substitui revisão visual.

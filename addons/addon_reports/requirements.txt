@@ -1,2 +1,4 @@
 # Modo HTML e impressão pelo navegador, além das dependências do Core.
 jsonschema==4.26.0
+# Validação de PNG/JPEG incorporados (wheel Python; sem instalador externo).
+Pillow==12.3.0

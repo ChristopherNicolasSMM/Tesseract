@@ -16,4 +16,4 @@ FKs internas usam objetos de coluna e respeitam o prefixo aplicado pelo ModuleMa
 
 Layout schema_version=1 possui body, com IDs únicos, types text/table/section/divider e props tipadas. A UI inicial monta elementos de raiz text/table/divider; sections são suportadas pelo compositor, sem editor de aninhamento neste corte. Fontes e estilos de impressão são fixos. Modos livres e schemas com referências $ref/$dynamicRef são rejeitados.
 
-Catálogo de componentes/blocos/assets em tabelas permanece na proposta da IDE. Antes de evoluir versões publicadas, preservar um perfil/versionamento do compilador; atualmente apenas a versão declarativa v1 é suportada. Não há garantia de regeneração binariamente idêntica entre upgrades de motor/fontes.
+Catálogo de componentes/blocos/assets em tabelas permanece na proposta da IDE. Imagens PNG/JPEG deste corte ficam incorporadas em props.source no JSON da revisão, sem tabela adicional. Antes de evoluir versões publicadas, preservar um perfil/versionamento do compilador; atualmente apenas a versão declarativa v1 é suportada. Não há garantia de regeneração binariamente idêntica entre upgrades de motor/fontes.
