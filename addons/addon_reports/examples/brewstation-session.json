@@ -1,0 +1,330 @@
+{
+  "layout": {
+    "schema_version": 1,
+    "body": [
+      {
+        "id": "title",
+        "type": "text",
+        "props": {
+          "text": "Sessão de brassagem",
+          "level": "title"
+        }
+      },
+      {
+        "id": "session-name",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "session",
+              "name"
+            ]
+          },
+          "level": "subtitle"
+        }
+      },
+      {
+        "id": "cost",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "session",
+              "custo_total_insumos"
+            ]
+          }
+        }
+      },
+      {
+        "id": "steps",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "steps"
+            ]
+          },
+          "columns": [
+            {
+              "label": "Passo",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "name"
+                ]
+              }
+            },
+            {
+              "label": "Estado",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "status"
+                ]
+              }
+            },
+            {
+              "label": "Alvo °C",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "target_temp"
+                ]
+              }
+            },
+            {
+              "label": "Planejado (s)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "duration_seconds"
+                ]
+              }
+            },
+            {
+              "label": "Registrado (s)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "actual_duration_s"
+                ]
+              }
+            }
+          ],
+          "empty_text": "Sem registros"
+        }
+      }
+    ]
+  },
+  "data_schema": {
+    "type": "object",
+    "properties": {
+      "contract": {
+        "const": "brewstation.session.v1"
+      },
+      "session": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "plant_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "recipe_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "current_step_index": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "completed_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paused_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "insumos_baixados_em": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "custo_total_insumos": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "volume_real_litros": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "plant_id",
+          "recipe_id",
+          "status",
+          "current_step_index",
+          "notes",
+          "started_at",
+          "completed_at",
+          "paused_at",
+          "insumos_baixados_em",
+          "custo_total_insumos",
+          "volume_real_litros"
+        ],
+        "additionalProperties": false
+      },
+      "steps": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "step_index": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "step_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "target_temp": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "duration_seconds": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "actual_duration_s": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "started_at": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "completed_at": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "step_index",
+            "name",
+            "step_type",
+            "status",
+            "target_temp",
+            "duration_seconds",
+            "actual_duration_s",
+            "started_at",
+            "completed_at"
+          ],
+          "additionalProperties": false
+        },
+        "maxItems": 2000
+      }
+    },
+    "required": [
+      "contract",
+      "session",
+      "steps"
+    ],
+    "additionalProperties": false
+  },
+  "sample_data": {
+    "contract": "brewstation.session.v1",
+    "session": {
+      "id": 1,
+      "name": "Lote demonstrativo",
+      "plant_id": 1,
+      "recipe_id": null,
+      "status": "completed",
+      "current_step_index": 2,
+      "notes": null,
+      "started_at": "2026-10-08T10:00:00",
+      "completed_at": "2026-10-08T12:00:00",
+      "paused_at": null,
+      "insumos_baixados_em": "2026-10-08T09:00:00",
+      "custo_total_insumos": "42.13",
+      "volume_real_litros": "20.0"
+    },
+    "steps": [
+      {
+        "id": 1,
+        "step_index": 1,
+        "name": "Sacarificação",
+        "step_type": "mash",
+        "status": "completed",
+        "target_temp": "65.0",
+        "duration_seconds": 3600,
+        "actual_duration_s": 3620,
+        "started_at": "2026-10-08T10:00:00",
+        "completed_at": "2026-10-08T11:00:20"
+      }
+    ]
+  },
+  "parameters": []
+}

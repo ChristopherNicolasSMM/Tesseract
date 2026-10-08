@@ -1,0 +1,7 @@
+{
+  "name": "tesseract-reports-browser-tests",
+  "private": true,
+  "devDependencies": {
+    "playwright": "1.51.1"
+  }
+}

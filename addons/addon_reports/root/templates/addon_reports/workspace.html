@@ -1,0 +1,52 @@
+{% extends "core/base.html" %}
+{% block title %}{{ t('reports.title') }} - Tesseract{% endblock %}
+{% block extra_css %}<link href="{{ url_for('static', filename='css/reports_editor.css') }}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="pagetitle"><h1>{{ t('reports.title') }}</h1><nav><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{{ url_for('core_pages.home') }}">{{ t('reports.home') }}</a></li><li class="breadcrumb-item active">{{ t('reports.title') }}</li></ol></nav></div>
+<section class="section reports-editor" id="reports-workspace" data-csrf="{{ csrf }}">
+<div class="card"><div class="card-body pt-3">
+<form id="create-report" class="row g-3 mb-3">
+<div class="col-md-4"><label for="report-key" class="form-label">{{ t('reports.key') }}</label><input id="report-key" class="form-control" required pattern="[a-z][a-z0-9_.-]*" maxlength="100"></div>
+<div class="col-md-5"><label for="report-name" class="form-label">{{ t('reports.name') }}</label><input id="report-name" class="form-control" required maxlength="120"></div>
+<div class="col-md-3 d-flex align-items-end"><button id="create-template" class="btn btn-primary" type="submit">{{ t('reports.create') }}</button></div>
+</form>
+<div class="row g-3"><div class="col-md-8"><label for="template-select" class="form-label">{{ t('reports.model') }}</label><select id="template-select" class="form-select"><option value="">{{ t('reports.choose') }}</option>{% for item in items %}<option value="{{ item.id }}">{{ item.name }}</option>{% endfor %}</select></div><div class="col-md-4"><label for="version-select" class="form-label">{{ t('reports.version') }}</label><select id="version-select" class="form-select" disabled></select></div></div>
+</div></div>
+<div id="editor-panel" hidden>
+<div class="card"><div class="card-body pt-3"><div class="d-flex flex-wrap gap-2 align-items-center">
+<button id="save-report" class="btn btn-primary">{{ t('reports.save') }}</button><button id="preview-report" class="btn btn-outline-primary">{{ t('reports.preview') }}</button><button id="publish-report" class="btn btn-outline-success">{{ t('reports.publish') }}</button><button id="clone-report" class="btn btn-outline-secondary">{{ t('reports.clone') }}</button>
+<span id="report-status" class="ms-auto" role="status" aria-live="polite"></span></div></div></div>
+<div class="card"><div class="card-body pt-3"><div class="row g-2 align-items-end">
+<div class="col-md-8"><label for="report-example" class="form-label">{{ t('reports.example') }}</label><select id="report-example" class="form-select"><option value="estoque-saldos">{{ t('reports.example.stock') }}</option><option value="brewstation-session">{{ t('reports.example.session') }}</option></select></div>
+<div class="col-md-4"><button id="load-example" type="button" class="btn btn-outline-secondary">{{ t('reports.example.load') }}</button></div>
+</div></div></div>
+<ul class="nav nav-tabs nav-tabs-bordered mb-3" role="tablist">
+{% for name in ['layout','data','parameters','versions'] %}<li class="nav-item" role="presentation"><button class="nav-link {% if loop.first %}active{% endif %}" id="tab-{{ name }}" data-bs-toggle="tab" data-bs-target="#pane-{{ name }}" type="button" role="tab" aria-controls="pane-{{ name }}" aria-selected="{{ 'true' if loop.first else 'false' }}">{{ t('reports.' ~ name) }}</button></li>{% endfor %}
+</ul>
+<div class="tab-content">
+<div class="tab-pane fade show active" id="pane-layout" role="tabpanel" aria-labelledby="tab-layout">
+<div class="reports-layout">
+<div class="card"><div class="card-body pt-3"><h2 class="card-title">{{ t('reports.components') }}</h2><div class="d-grid gap-2"><button class="btn btn-outline-primary" id="add-text"><i class="bi bi-fonts"></i> {{ t('reports.text') }}</button><button class="btn btn-outline-primary" id="add-table"><i class="bi bi-table"></i> {{ t('reports.table') }}</button><button class="btn btn-outline-primary" id="add-divider">{{ t('reports.divider') }}</button></div><h3 class="card-title">{{ t('reports.structure') }}</h3><div id="report-tree" class="list-group"></div></div></div>
+<div class="reports-canvas"><div class="reports-paper" id="report-paper" aria-label="{{ t('reports.document') }}"></div></div>
+<div class="card"><div class="card-body pt-3"><h2 class="card-title">{{ t('reports.properties') }}</h2><div id="node-properties"></div><div class="d-flex gap-1 mt-3"><button id="move-up" class="btn btn-outline-secondary" aria-label="{{ t('reports.up') }}"><i class="bi bi-arrow-up"></i></button><button id="move-down" class="btn btn-outline-secondary" aria-label="{{ t('reports.down') }}"><i class="bi bi-arrow-down"></i></button><button id="delete-node" class="btn btn-outline-danger" aria-label="{{ t('reports.remove') }}"><i class="bi bi-trash"></i></button></div></div></div>
+</div></div>
+<div class="tab-pane fade" id="pane-data" role="tabpanel" aria-labelledby="tab-data"><div class="card"><div class="card-body pt-3"><label for="data-schema" class="form-label">{{ t('reports.schema') }}</label><textarea id="data-schema" class="form-control font-monospace mb-3" rows="12" spellcheck="false"></textarea><label for="sample-data" class="form-label">{{ t('reports.sample') }}</label><textarea id="sample-data" class="form-control font-monospace" rows="12" spellcheck="false"></textarea></div></div></div>
+<div class="tab-pane fade" id="pane-parameters" role="tabpanel" aria-labelledby="tab-parameters"><div class="card"><div class="card-body pt-3"><p>{{ t('reports.parameters_hint') }}</p><label for="parameter-definitions" class="form-label">{{ t('reports.definitions') }}</label><textarea id="parameter-definitions" class="form-control font-monospace mb-3" rows="10"></textarea><label for="parameter-values" class="form-label">{{ t('reports.test_values') }}</label><textarea id="parameter-values" class="form-control font-monospace" rows="6">{}</textarea></div></div></div>
+<div class="tab-pane fade" id="pane-versions" role="tabpanel" aria-labelledby="tab-versions"><div class="card"><div class="card-body pt-3"><p>{{ t('reports.versions_hint') }}</p><pre id="version-details"></pre></div></div></div>
+</div></div>
+</section>
+<div class="modal fade" id="reports-preview" tabindex="-1" aria-labelledby="reports-preview-title" aria-hidden="true"><div class="modal-dialog modal-xl"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5" id="reports-preview-title">{{ t('reports.preview') }}</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ t('reports.close') }}"></button></div><div class="modal-body"><iframe id="pdf-preview" title="{{ t('reports.preview') }}" class="reports-pdf"></iframe></div></div></div></div>
+{% endblock %}
+{% block extra_js %}
+<script id="reports-translations" type="application/json">{{ {
+ 'missing': t('reports.missing'), 'add_column': t('reports.add_column'), 'remove_column': t('reports.remove_column'),
+ 'text': t('reports.text'), 'table': t('reports.table'), 'divider': t('reports.divider'), 'section': t('reports.section'),
+ 'saved': t('reports.saved'), 'dirty': t('reports.dirty'), 'saving': t('reports.saving'), 'published': t('reports.published'),
+ 'error': t('reports.error.input'), 'content': t('reports.content'), 'binding': t('reports.binding'), 'columns': t('reports.columns'),
+ 'collection': t('reports.collection'), 'preview': t('reports.preview_ready'), 'draft': t('reports.draft'),
+ 'choose': t('reports.choose'), 'confirm_publish': t('reports.confirm.publish'), 'unsaved': t('reports.unsaved'),
+ 'literal': t('reports.literal'), 'field': t('reports.field'), 'level': t('reports.level'), 'body': t('reports.body'),
+ 'title': t('reports.heading'), 'subtitle': t('reports.subtitle'), 'stale': t('reports.stale')
+}|tojson }}</script>
+<script src="{{ url_for('static', filename='js/reports_editor.js') }}"></script>
+{% endblock %}

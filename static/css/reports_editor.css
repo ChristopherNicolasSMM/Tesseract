@@ -1,0 +1,42 @@
+/* Aparência exclusiva da IDE. Não incluir este arquivo no HTML do PDF. */
+.reports-editor {
+  --reports-paper-bg: #ffffff;
+  --reports-paper-text: #182230;
+  --reports-paper-border: #cbd5e1;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+html[data-theme="dark"] .reports-editor {
+  --reports-paper-bg: #273549;
+  --reports-paper-text: #e8eef7;
+  --reports-paper-border: #64748b;
+}
+html[data-theme="dark"] .reports-editor .btn-outline-primary { --bs-btn-color:#93c5fd; --bs-btn-border-color:#60a5fa; }
+html[data-theme="dark"] .reports-editor .btn-outline-success { --bs-btn-color:#86efac; --bs-btn-border-color:#4ade80; }
+html[data-theme="dark"] .reports-editor .btn-outline-secondary { --bs-btn-color:#d1d5db; --bs-btn-border-color:#94a3b8; }
+html[data-theme="dark"] .reports-editor .btn-outline-danger { --bs-btn-color:#fda4af; --bs-btn-border-color:#fb7185; }
+.reports-editor .reports-paper {
+  background: var(--reports-paper-bg);
+  color: var(--reports-paper-text);
+  border: 1px solid var(--reports-paper-border);
+}
+@media print {
+  .reports-editor .reports-paper {
+    background: #ffffff !important;
+    color: #182230 !important;
+    border: 0;
+  }
+}
+.reports-layout { display:grid; grid-template-columns: minmax(170px, 1fr) minmax(280px, 3fr) minmax(240px, 1.5fr); gap:1rem; align-items:start; }
+.reports-layout .card { min-width:0; }
+.reports-layout > .card:last-child .card-body { max-height:75vh; overflow:auto; }
+.reports-canvas { overflow:auto; padding:1rem; }
+.reports-paper { min-height:700px; padding:2rem; width:100%; }
+.reports-paper button { color:inherit; background:transparent; border:1px solid transparent; width:100%; text-align:left; padding:.6rem; overflow-wrap:anywhere; }
+.reports-paper button[aria-pressed="true"] { border-color:var(--color-primary); }
+.reports-paper button:focus-visible { outline:2px solid var(--color-primary); }
+.reports-paper table { width:100%; border-collapse:collapse; font-size:.85rem; }
+.reports-paper th,.reports-paper td { padding:.25rem; border:1px solid var(--reports-paper-border); }
+.reports-pdf { width:100%; height:70vh; border:0; }
+@media(max-width:1200px) { .reports-layout { grid-template-columns:180px minmax(260px,1fr); } .reports-layout > .card:last-child { grid-column:1 / -1; } }
+@media(max-width:767px) { .reports-layout { grid-template-columns:1fr; } .reports-paper { padding:1rem; } .reports-layout > .card:last-child .card-body { max-height:none; } }

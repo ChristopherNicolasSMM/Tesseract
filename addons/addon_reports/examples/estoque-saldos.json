@@ -1,0 +1,197 @@
+{
+  "layout": {
+    "schema_version": 1,
+    "body": [
+      {
+        "id": "title",
+        "type": "text",
+        "props": {
+          "text": "Saldos de estoque",
+          "level": "title"
+        }
+      },
+      {
+        "id": "balances",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "items"
+            ]
+          },
+          "columns": [
+            {
+              "label": "Material",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "nome"
+                ]
+              }
+            },
+            {
+              "label": "SKU",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "sku"
+                ]
+              }
+            },
+            {
+              "label": "Quantidade",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "quantidade_atual"
+                ]
+              }
+            },
+            {
+              "label": "Custo médio",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "custo_medio"
+                ]
+              }
+            },
+            {
+              "label": "Valor registrado",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "valor_total_estoque"
+                ]
+              }
+            },
+            {
+              "label": "Situação",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "status"
+                ]
+              }
+            }
+          ],
+          "empty_text": "Sem registros"
+        }
+      }
+    ]
+  },
+  "data_schema": {
+    "type": "object",
+    "properties": {
+      "contract": {
+        "const": "estoque.saldos.v1"
+      },
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "material_id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "nome": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "sku": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "quantidade_atual": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "custo_medio": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "valor_total_estoque": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "estoque_minimo": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "estoque_maximo": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "ultima_atualizacao": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "material_id",
+            "nome",
+            "sku",
+            "quantidade_atual",
+            "custo_medio",
+            "valor_total_estoque",
+            "estoque_minimo",
+            "estoque_maximo",
+            "status",
+            "ultima_atualizacao"
+          ],
+          "additionalProperties": false
+        },
+        "maxItems": 2000
+      }
+    },
+    "required": [
+      "contract",
+      "items"
+    ],
+    "additionalProperties": false
+  },
+  "sample_data": {
+    "contract": "estoque.saldos.v1",
+    "items": [
+      {
+        "material_id": 1,
+        "nome": "Malte Pilsen",
+        "sku": "MALTE-PILSEN",
+        "quantidade_atual": "25.0",
+        "custo_medio": "6.5",
+        "valor_total_estoque": "162.5",
+        "estoque_minimo": "5.0",
+        "estoque_maximo": null,
+        "status": "normal",
+        "ultima_atualizacao": "2026-10-08T10:00:00"
+      }
+    ]
+  },
+  "parameters": []
+}

@@ -1,0 +1,19 @@
+{
+  "name": "reports",
+  "label": "Relatórios",
+  "version": "0.1.0",
+  "description": "Modelos versionados e geração transversal de relatórios; construção inicial.",
+  "type": "addon",
+  "table_prefix": "reports",
+  "tesseract_min_version": "1.0.0",
+  "requires": [],
+  "provides": [
+    "report_render"
+  ],
+  "features": [],
+  "env_keys": [],
+  "default_locale": "pt_BR",
+  "available_locales": [
+    "pt_BR"
+  ]
+}

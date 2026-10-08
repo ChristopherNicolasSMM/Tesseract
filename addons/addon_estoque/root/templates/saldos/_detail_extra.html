@@ -8,6 +8,12 @@
       {% else %}
       <span>Material #{{ item.material_id }}</span>
       {% endif %}
+      {% if (reports_consumers|default({})).get('stock') %}
+      <div class="mt-3"><button type="button" class="btn btn-sm btn-outline-primary" data-report-consumer="stock" data-material-id="{{ item.material_id }}"><i class="bi bi-file-earmark-pdf"></i> {{ t('reports.consumer.material') }}</button></div>
+      {% endif %}
     </div>
   </div>
 </section>
+{% if (reports_consumers|default({})).get('stock') %}
+{% include 'addon_reports/consumer_ui.html' ignore missing %}
+{% endif %}
