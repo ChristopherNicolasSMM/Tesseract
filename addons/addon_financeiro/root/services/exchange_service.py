@@ -59,9 +59,10 @@ def create_rate(data, *, actor):
 
 def preview_conversion(data):
     required = {'organization_code', 'source_currency', 'amount', 'operation_date', 'rate_id'}
-    if not isinstance(data, dict) or set(data) != required:
+    if not isinstance(data, dict) or set(data) not in (required, required | {'policy_version_id'}):
         raise ValueError('Informe organização, moeda original, valor, data da operação e taxa (ou null).')
-    policy = resolve_policy(data['organization_code'])
+    from .policy_version_service import resolve_selected_policy
+    policy = resolve_selected_policy(data['organization_code'], policy_version_id=data.get('policy_version_id'), operation_date=data['operation_date'])
     currency = data['source_currency']
     if not isinstance(currency, str) or db.session.get(Currency, currency) is None: raise ValueError('Moeda original não cadastrada.')
     original = decimal_text(data['amount']); operation_date = day(data['operation_date']); rate = None
@@ -86,7 +87,8 @@ def preview_conversion(data):
 def confirm_conversion(data, *, actor):
     try:
         required = {'organization_code', 'source_currency', 'amount', 'operation_date', 'rate_id', 'idempotency_key', 'reference'}
-        if not isinstance(data, dict) or set(data) != required: raise ValueError('Informe dados de conversão, referência e chave de idempotência.')
+        if not isinstance(data, dict) or set(data) not in (required, required | {'policy_version_id'}):
+            raise ValueError('Informe dados de conversão, referência e chave de idempotência.')
         key = text(data['idempotency_key'], 80, 'Chave de idempotência'); reference = text(data['reference'], 120, 'Referência'); actor = text(actor, 120, 'Autor')
         snapshot = preview_conversion({k: v for k, v in data.items() if k not in {'idempotency_key', 'reference'}})
         existing = MonetaryConversion.query.filter_by(organization_code=snapshot['organization_code'], idempotency_key=key).first()

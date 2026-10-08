@@ -27,8 +27,9 @@ outra e selecionando seu ID em operações futuras. Uma conversão anterior não
 recalculada. O histórico de cálculo não é lançamento contábil, pagamento ou
 recebimento, e não altera o custo/saldo do Estoque.
 
-A política inicial continua única e imutável. Mudança de moeda-base/escala/
-arredondamento depende de versionamento explícito posterior. Esta entrega
+A política inicial continua única e imutável. Precisão e arredondamento podem ser revisados em
+[Versões monetárias](03-versoes-monetarias.md), por seleção explícita na conversão.
+Mudança de moeda-base ainda depende do tratamento dos saldos organizacionais. Esta entrega
 não associa materiais, saldo, cotação ou pedido antigos a uma organização.
 
 Pesquisar filtra organização e fonte/referência. As listas e a API de histórico

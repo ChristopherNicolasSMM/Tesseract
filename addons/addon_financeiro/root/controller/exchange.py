@@ -7,6 +7,7 @@ from core.admin_list_helpers import paginate
 from services.core.organization_service import list_organizations
 from addons.addon_financeiro.root.model.monetary import Currency
 from addons.addon_financeiro.root.model.exchange import ExchangeRate, MonetaryConversion
+from addons.addon_financeiro.root.model.policy_version import MonetaryPolicyVersion
 from addons.addon_financeiro.root.services.exchange_service import create_rate, preview_conversion, confirm_conversion
 
 rates_bp = Blueprint('exchange_rates', __name__, url_prefix='/financeiro/exchange-rates')
@@ -23,7 +24,7 @@ def panel(kind, submitted=None, error=None, preview=None, status=200):
         query = query.filter(model.organization_code.ilike(f'%{search}%') | field.ilike(f'%{search}%'))
     items, total, pages = paginate(query, page)
     submitted = submitted if submitted is not None else {'idempotency_key': str(uuid.uuid4())}
-    return render_template('financeiro/exchange.html', panel=kind, items=[item.to_dict() for item in items], search=search, page=page, total=total, pages=pages, submitted=submitted, form_error=error, preview=preview, currencies=Currency.query.order_by(Currency.code).all(), organizations=list_organizations(), rates=ExchangeRate.query.order_by(ExchangeRate.id.desc()).all()), status
+    return render_template('financeiro/exchange.html', panel=kind, items=[item.to_dict() for item in items], search=search, page=page, total=total, pages=pages, submitted=submitted, form_error=error, preview=preview, currencies=Currency.query.order_by(Currency.code).all(), organizations=list_organizations(), rates=ExchangeRate.query.order_by(ExchangeRate.id.desc()).all(), policy_versions=MonetaryPolicyVersion.query.order_by(MonetaryPolicyVersion.id.desc()).all()), status
 
 
 @rates_bp.get('/', endpoint='list')
@@ -60,6 +61,8 @@ def convert():
     action = data.pop('action', '')
     try:
         data['rate_id'] = int(data['rate_id']) if data.get('rate_id') else None
+        if 'policy_version_id' in data:
+            data['policy_version_id'] = int(data['policy_version_id']) if data['policy_version_id'] else None
         if action == 'preview':
             preview = preview_conversion({k: v for k, v in data.items() if k not in {'idempotency_key', 'reference'}})
             return panel('conversions', submitted=submitted, preview=preview)

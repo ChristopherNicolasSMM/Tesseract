@@ -121,3 +121,10 @@ Controles de cadastro não são exibidos para role com apenas permissão de list
 Templates manuais seguem collapse/cards/table-striped/toolbar do Core/CrudGen.
 Nenhum arquivo gerado pelo CrudGen foi editado. Nenhuma alteração de schema,
 precisão, arredondamento, custo, snapshot ou regra de movimentação de estoque.
+
+## Continuidade das políticas — 1.2.0
+
+A configuração inicial mantém contrato/DTO imutáveis. Novas revisões de casas e
+arredondamento estão disponíveis por serviço/tela/API separados e kwargs opcionais
+na quantização. Ver [versionamento](03-versoes-monetarias.md). Mudança de base
+ainda não é suportada. Não promover a política inicial à última revisão implicitamente.

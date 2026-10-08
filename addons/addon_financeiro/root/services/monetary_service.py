@@ -60,7 +60,7 @@ def create_policy(data):
         return Result(False, error=str(exc), code=422)
     except IntegrityError:
         db.session.rollback()
-        return Result(False, error='A organização já possui política inicial. Alteração exige futura versão explícita.', code=409)
+        return Result(False, error='A organização já possui política inicial. Alteração exige versão explícita.', code=409)
     except SQLAlchemyError:
         db.session.rollback()
         logger.exception('Falha ao cadastrar política monetária')
@@ -75,13 +75,15 @@ def resolve_policy(organization_code):
     return policy.to_dict()
 
 
-def quantize_amount(amount, organization_code):
+def quantize_amount(amount, organization_code, *, policy_version_id=None, operation_date=None):
     """Contrato público: texto decimal ou Decimal -> texto e snapshot da política.
 
     Rejeita float/bool e magnitude fora de 18 dígitos inteiros/12 fracionários.
+    Versão opcional exige ID explícito e data; omissão preserva política inicial.
     Não é conversão cambial nem cálculo de preço por unidade de estoque.
     """
-    policy = resolve_policy(organization_code)
+    from .policy_version_service import resolve_selected_policy
+    policy = resolve_selected_policy(organization_code, policy_version_id=policy_version_id, operation_date=operation_date)
     if not isinstance(amount, (str, Decimal)):
         raise ValueError('Valor deve ser texto decimal ou Decimal, nunca float.')
     if isinstance(amount, str) and not re.fullmatch(r'-?[0-9]{1,18}(?:\.[0-9]{1,12})?', amount):

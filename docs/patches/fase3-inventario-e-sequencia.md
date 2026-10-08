@@ -208,3 +208,13 @@ imutável; versionamento de base/escala/arredondamento e contexto organizacional
 de compras/estoque permanecem pendentes. Ver [câmbio](fase3-financeiro-cambio.md).
 Esta nova entrega aguarda aplicação/conferência local. Não atribui moeda/base/
 organização a materiais ou saldos legados; não liga custos ao estoque global.
+
+## Revisões explícitas de política — continuidade do câmbio
+
+Em 08/10/2026 o usuário confirmou aplicação/validação do pacote de câmbio.
+Entrega seguinte: versões append-only de precisão/arredondamento, com data,
+motivo/autoria e escolha explícita nas conversões. Política inicial/v1 e
+snapshots anteriores preservados; sem promoção automática à última revisão.
+Migration e15a2b76d340. Ver [roteiro/evidências](fase3-financeiro-versoes-politicas.md).
+Aplicação desta nova entrega pendente. Mudança de moeda-base aguarda tratamento
+de saldos/contexto organizacional. Compras/estoque e títulos permanecem próximos.

@@ -47,7 +47,7 @@ from sqlalchemy import event
 
 
 def _immutable(mapper, connection, target):
-    raise ValueError('Configuração monetária inicial imutável; use futura versão explícita.')
+    raise ValueError('Configuração monetária inicial imutável; use versão operacional explícita.')
 
 
 for _model in (Currency, MonetaryPolicy):

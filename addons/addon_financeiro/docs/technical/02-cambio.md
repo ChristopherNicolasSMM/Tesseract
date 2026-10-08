@@ -52,3 +52,10 @@ meio de um lançamento de estoque. Nenhum consumidor de Estoque foi ligado ainda
 Políticas versionadas, contexto organizacional de compras/estoque e integração
 cotação/pedido/recebimento continuam próximos pacotes. Não trocar silenciosamente
 a política inicial pela última versão ou reinterpretar saldos globais legados.
+
+## Continuidade 1.2.0
+
+Preview/confirm aceitam policy_version_id opcional, sem mudança do payload/DTO
+legado. A política selecionada segue o contrato de
+[versionamento explícito](03-versoes-monetarias.md). A versão inicial continua
+sendo usada quando o campo for omitido ou null; não escolher a última implicitamente.

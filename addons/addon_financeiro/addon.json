@@ -1,7 +1,7 @@
 {
   "name": "financeiro",
   "label": "Financeiro",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "addon",
   "table_prefix": "financeiro",
   "tesseract_min_version": "1.0.0",
@@ -9,7 +9,8 @@
   "provides": [
     "monetary_policy",
     "exchange_rate",
-    "monetary_conversion"
+    "monetary_conversion",
+    "monetary_policy_versions"
   ],
   "features": [],
   "default_locale": "pt_BR",
