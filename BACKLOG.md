@@ -5706,3 +5706,24 @@ worker PDF e logs por categoria sem payload. 41 testes e 10 subtestes passaram
 em Linux, com PDF real. Cinco falhas 503 informadas pelo usuário continuam
 dependendo do diagnóstico Windows. Sem migration nova ou push. Roteiro em
 docs/patches/reports-utf8-diagnostico-pdf.md.
+
+### Reports: HTML e impressão pelo navegador (08/10/2026)
+
+Restrição local dispensa instaladores nativos. WeasyPrint mantido como opção
+explícita; padrão HTML para API/serviços, publicação sem worker, prévia isolada
+com tema, impressão pelo navegador e componente de quebra de página. Consumidores
+Estoque/BrewStation abrem HTML com ação de impressão. Requisitos separados,
+contratos e manuais atualizados. Runtime nativo portátil continua em pesquisa;
+nenhum pacote portátil validado/distribuído nesta rodada. Patch somente na
+próxima solicitação; sem push e sem migration adicional.
+
+Validação HTML: 44 testes e 10 subtestes passaram, 1 PDF real opt-in
+desabilitado. WeasyPrint não instalado; PDF A4 pelo Chromium com quebra
+explícita verificado em duas páginas.
+
+Navegador aprovado: Playwright 1.51.1 / Chromium Headless Shell 134.
+Edição/salvamento, exemplos, quebra de página, prévia HTML, folha escura,
+impressão branca, publicação/imutabilidade, clonagem, conflito preservando
+rascunho, viewport 390 px e consumidores Estoque/BrewStation com HTML e
+acionamento de impressão. Sem pageerror. Confirmação automatizada aguarda
+a transição Bootstrap; boot do servidor de teste aguarda até 60 s.

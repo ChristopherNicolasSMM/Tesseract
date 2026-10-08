@@ -4,9 +4,9 @@
   const root = document.getElementById('reports-workspace'); if (!root) return;
   const tr = JSON.parse(document.getElementById('reports-translations').textContent);
   const $ = id => document.getElementById(id);
-  let templateId, revision, selected, dirty = false, busy = false, pdfUrl;
+  let templateId, revision, selected, dirty = false, busy = false;
   const say = (key, state=key) => { $('report-status').textContent = tr[key] || key; $('report-status').dataset.state = state; };
-  const mark = () => { dirty=true; say('dirty'); if (pdfUrl) { URL.revokeObjectURL(pdfUrl); pdfUrl=null; $('pdf-preview').removeAttribute('src'); } };
+  const mark = () => { dirty=true; say('dirty'); window.TesseractReportsPreview.clear($('html-preview'), $('print-report')); };
   const notify = error => { const message=(error.message || tr.error)+(error.reportPath?' · '+error.reportPath:'');if(revision?.layout.body.some(node=>node.id===error.reportPath)){selected=error.reportPath;renderTree();}say(message,'error'); window.__tesseractToast?.show(message,'error'); };
   async function api(path, body, method='POST') {
     const response = await fetch('/api/reports'+path, {method, headers:{'Content-Type':'application/json','X-Reports-CSRF':root.dataset.csrf}, ...(body===undefined?{}:{body:JSON.stringify(body)})});
@@ -27,7 +27,7 @@
       else block.textContent=tr[node.type]||node.type;
       $('report-paper').append(block);
     }); renderProperties();
-    ['save-report','publish-report','add-text','add-table','add-divider','move-up','move-down','delete-node','load-example','report-example'].forEach(id=>$(id).disabled=revision.status!=='draft');
+    ['save-report','publish-report','add-text','add-table','add-divider','add-page_break','move-up','move-down','delete-node','load-example','report-example'].forEach(id=>$(id).disabled=revision.status!=='draft');
   }
   function control(label, id, value, update, textarea=false) {
     const div=document.createElement('div');div.className='mb-3';const title=document.createElement('label');title.className='form-label';title.htmlFor=id;title.textContent=label;
@@ -80,6 +80,7 @@
     revision=(await api(`/templates/${templateId}/versions/${number}`,undefined,'GET')).item;dirty=false;selected=revision.layout.body[0]?.id;
     $('data-schema').value=JSON.stringify(revision.data_schema,null,2);$('sample-data').value=JSON.stringify(revision.sample_data,null,2);$('parameter-definitions').value=JSON.stringify(revision.parameters,null,2);
     ['data-schema','sample-data','parameter-definitions'].forEach(id=>$(id).disabled=revision.status!=='draft');
+    window.TesseractReportsPreview.clear($('html-preview'), $('print-report'));
     $('editor-panel').hidden=false;$('version-details').textContent=JSON.stringify({version:revision.version,status:revision.status,hash:revision.content_hash},null,2);say(revision.status==='draft'?'saved':'published');renderTree();
     const url=new URL(location.href);url.searchParams.set('template',templateId);url.searchParams.set('version',number);history.replaceState(null,'',url);
   }
@@ -94,11 +95,11 @@
   $('create-report').onsubmit=event=>{event.preventDefault();guarded(async()=>{if(dirty)throw Error(tr.unsaved);const item=(await api('/templates',{key:$('report-key').value,name:$('report-name').value})).item;const option=document.createElement('option');option.value=item.id;option.textContent=item.name;$('template-select').append(option);templateId=item.id;$('template-select').value=templateId;await choose(1);});};
   $('template-select').onchange=()=>guarded(async()=>{if(dirty){$('template-select').value=templateId;throw Error(tr.unsaved);}if(!$('template-select').value){$('editor-panel').hidden=true;templateId=undefined;revision=undefined;return;}templateId=$('template-select').value;await choose();});
   $('version-select').onchange=()=>guarded(async()=>{if(dirty){$('version-select').value=revision.version;throw Error(tr.unsaved);}await load(Number($('version-select').value));});
-  ['text','table','divider'].forEach(type=>$('add-'+type).onclick=()=>{const node={id:'node_'+crypto.randomUUID(),type,props:type==='text'?{text:tr.text,level:'body'}:type==='table'?{collection:{source:'data',path:['items']},columns:[{label:tr.content,binding:{source:'item',path:['name']}}]}:{}};revision.layout.body.push(node);selected=node.id;mark();renderTree();});
+  ['text','table','divider','page_break'].forEach(type=>$('add-'+type).onclick=()=>{const node={id:'node_'+crypto.randomUUID(),type,props:type==='text'?{text:tr.text,level:'body'}:type==='table'?{collection:{source:'data',path:['items']},columns:[{label:tr.content,binding:{source:'item',path:['name']}}]}:{}};revision.layout.body.push(node);selected=node.id;mark();renderTree();});
   $('delete-node').onclick=()=>{revision.layout.body=revision.layout.body.filter(n=>n.id!==selected);selected=revision.layout.body[0]?.id;mark();renderTree();};
   [-1,1].forEach((delta,i)=>$(i?'move-down':'move-up').onclick=()=>{const index=revision.layout.body.findIndex(n=>n.id===selected),next=index+delta;if(index<0||next<0||next>=revision.layout.body.length)return;[revision.layout.body[index],revision.layout.body[next]]=[revision.layout.body[next],revision.layout.body[index]];mark();renderTree();});
   ['data-schema','parameter-definitions'].forEach(id=>$(id).onblur=()=>renderProperties());
-  ['data-schema','sample-data','parameter-definitions','parameter-values'].forEach(id=>$(id).oninput=()=>{if(id!=='parameter-values')mark();else if(pdfUrl)say('stale','dirty');});
+  ['data-schema','sample-data','parameter-definitions','parameter-values'].forEach(id=>$(id).oninput=()=>{if(id!=='parameter-values')mark();else { window.TesseractReportsPreview.clear($('html-preview'), $('print-report')); say('stale','dirty'); }});
   $('save-report').onclick=()=>guarded(save);
   $('load-example').onclick=()=>guarded(async()=>{
     if(revision.status!=='draft')return;
@@ -110,7 +111,8 @@
     $('parameter-definitions').value=JSON.stringify(example.parameters,null,2);
     $('parameter-values').value='{}';mark();renderTree();
   });
-  $('preview-report').onclick=()=>guarded(async()=>{if(dirty)await save();const blob=await api(path()+'/preview',{parameters:params()});if(pdfUrl)URL.revokeObjectURL(pdfUrl);pdfUrl=URL.createObjectURL(blob);$('pdf-preview').src=pdfUrl;bootstrap.Modal.getOrCreateInstance($('reports-preview')).show();say('preview');});
+  $('preview-report').onclick=()=>guarded(async()=>{if(dirty)await save();const value=await api(path()+'/preview',{parameters:params(),format:'html'});bootstrap.Modal.getOrCreateInstance($('reports-preview')).show();await window.TesseractReportsPreview.show($('html-preview'),value.html,$('print-report'));say('preview');});
+  $('print-report').onclick=()=>window.TesseractReportsPreview.print($('html-preview'));
   $('publish-report').onclick=()=>guarded(async()=>{if(dirty)await save();const ok=await window.__tesseractConfirm({key:'reports.confirm.publish'});if(!ok)return;await api(path()+'/publish',{lock_version:revision.lock_version,parameters:params()});await choose(revision.version);});
   $('clone-report').onclick=()=>guarded(async()=>{if(dirty)throw Error(tr.unsaved);const item=(await api(path()+'/clone',{})).item;await choose(item.version);});
   window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});

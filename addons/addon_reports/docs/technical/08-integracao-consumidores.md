@@ -38,13 +38,13 @@ simular histórico, nem se executam polling, alarmes ou reconciliação. `recipe
 é identificação, não snapshot. Os passos podem ter sido editados: este DTO é
 uma leitura dos registros atuais da sessão, não um documento histórico imutável.
 
-## Emitir PDF
+## Emitir HTML e PDF opcional
 
 ```python
 from addons.addon_estoque.root.services.report_data_service import generate_stock_report
 
 # Request autenticado; finalizar previamente qualquer transação de negócio.
-pdf = generate_stock_report("estoque.saldos", version=1, parameters={})
+html = generate_stock_report("estoque.saldos", version=1, parameters={})
 ```
 
 Para brassagem, usar `generate_session_report("brewstation.session", session_id,
@@ -85,7 +85,7 @@ continua respeitando a folha azul acinzentada no tema escuro.
 Testes em `tests/test_reports_consumers.py` verificam custo registrado, zero/null,
 exclusão, ordem, escopo por planta, autorização e preservação de alterações
 pendentes. Exemplos são validados e compostos pelo mesmo serviço da produção.
-O teste de navegador percorre os dois botões até o download PDF; testes HTTP
+O teste de navegador percorre os dois botões até a prévia HTML e o acionamento de impressão; testes HTTP
 validam contrato, publicação, CSRF, RBAC, indisponibilidade e escopo por planta.
 Filtros avançados, unidades, formulário de parâmetros tipado e snapshots
 históricos de emissão continuam fora deste corte.
@@ -99,6 +99,10 @@ emissão e do domínio; não é necessário acessar rascunhos nem editar catálo
 POST `/api/reports/consumers/stock/render` recebe template, version opcional,
 parameters e material_id opcional. POST `/api/reports/consumers/session/render`
 recebe template, version opcional, parameters, session_id e plant_id obrigatórios.
-Ambos usam o token de sessão, devolvem PDF inline/no-store e mensagens JSON
+Ambos usam o token de sessão, aceitam format="html" (padrão) ou "pdf", devolvem HTML/no-store ou PDF inline/no-store e mensagens JSON
 estruturadas em erro. Sem addon consumidor registrado, retornam 503 antes de
 importar seu serviço. Não acrescentam dependência obrigatória ao manifesto.
+
+Para emissão automática de PDF, passar format="pdf" explicitamente às funções
+Python ou ao JSON da API. O runtime nativo continua necessário somente nessa
+opção. Os templates/revisões existentes permanecem; nenhuma migration nova.

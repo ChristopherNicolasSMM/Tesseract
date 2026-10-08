@@ -5,16 +5,16 @@ flowchart TD
  A[Editar rascunho] --> B[Validar layout e contratos]
  B --> C[Salvar com lock_version]
  C --> D[Gerar prévia]
- D --> E[Validar PDF para publicação]
+ D --> E[Validar HTML para publicação]
  E --> F{Revisão ainda é a mesma?}
  F -->|Sim| G[Congelar e ativar revisão]
  F -->|Não| H[Responder conflito 409]
  G --> I[Criar nova revisão para editar]
 ```
 
-Publicação gera PDF do exemplo antes de gravar, fecha a leitura do catálogo durante o worker e confirma por atualização condicional de status/lock_version. Alteração concorrente resulta em 409, preservando a revisão atual. Falha de PDF não publica conteúdo parcialmente validado.
+Publicação compõe HTML do exemplo antes de gravar e confirma por atualização condicional de status/lock_version. Alteração concorrente resulta em 409, preservando a revisão atual. Não chama worker PDF; dados ou vínculos inválidos impedem a publicação.
 
-Emissão: autenticar/autorização render → selecionar revisão publicada explícita ou ativa → validar JSON e parâmetros/defaults → compor HTML escapado → encerrar leitura → subprocesso limitado → bytes application/pdf, no-store. Dados inválidos geram JSON 422; capacidade ocupada 429; indisponibilidade/timeout 503. Nunca devolver stack trace ou conteúdo do stderr ao cliente.
+Emissão: autenticar/autorização render → selecionar revisão publicada explícita ou ativa → validar JSON e parâmetros/defaults → compor HTML escapado → encerrar leitura → text/html, no-store → prévia isolada → impressão pelo navegador. Somente format=pdf inicia subprocesso limitado e retorna application/pdf. Dados inválidos geram JSON 422; capacidade ocupada 429; indisponibilidade/timeout 503. Nunca devolver stack trace ou conteúdo do stderr ao cliente.
 
 Salvamento do rascunho valida estrutura e schema, mas aceita exemplo incompleto: prévia/publicação fazem a validação completa dos dados. Inputs bloqueados durante chamadas da IDE evitam sobrescrever alterações feitas durante a resposta. Conflito mantém a edição local para o usuário revisar.
 

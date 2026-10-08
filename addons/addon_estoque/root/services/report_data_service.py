@@ -52,8 +52,8 @@ def build_stock_report_data(material_id=None):
     return {'contract': 'estoque.saldos.v1', 'items': items}
 
 
-def generate_stock_report(template_key, *, material_id=None, version=None, parameters=None):
+def generate_stock_report(template_key, *, material_id=None, version=None, parameters=None, format='html'):
     """Integração opcional: requer Reports ativo e template já publicado."""
     data = build_stock_report_data(material_id)
     from addons.addon_reports.root.services.report_template_service import generate_report
-    return generate_report(template_key, version=version, data=data, parameters=parameters)
+    return generate_report(template_key, version=version, data=data, parameters=parameters, format=format)

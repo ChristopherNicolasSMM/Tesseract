@@ -1,0 +1,3 @@
+# Opcional: emissão PDF no servidor exige também bibliotecas nativas.
+-r requirements.txt
+weasyprint==70.0

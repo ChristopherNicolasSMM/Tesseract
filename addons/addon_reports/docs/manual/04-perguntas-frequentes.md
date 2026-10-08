@@ -21,3 +21,10 @@ ou ainda em rascunho não aparece.
 ## O custo não mudou depois de alterar a receita?
 O relatório da brassagem mostra o custo registrado na confirmação dos insumos.
 Não recalcula a receita nem cria um histórico que a sessão não possui.
+
+## Preciso instalar Pango/MSYS2 para usar Relatórios?
+
+Não para editar, publicar, visualizar HTML ou imprimir pelo navegador existente.
+WeasyPrint e suas bibliotecas nativas são opcionais, usados apenas na emissão
+PDF explícita no servidor. Imprimir / salvar PDF abre o diálogo do navegador;
+o usuário escolhe o destino e o local do arquivo. Não é download PDF automático.

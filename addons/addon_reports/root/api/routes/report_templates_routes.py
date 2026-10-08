@@ -92,9 +92,9 @@ def publish(ident, number):
 def preview(ident, number):
     data = payload(('parameters', 'format'))
     html = svc.preview(ident, number, data.get('parameters', {}))
-    if data.get('format', 'pdf') == 'html':
+    if data.get('format', 'html') == 'html':
         return jsonify(success=True, html=html)
-    if data.get('format', 'pdf') != 'pdf':
+    if data.get('format', 'html') != 'pdf':
         raise ReportError('reports.error.input')
     return pdf_response(render_pdf(html))
 
@@ -102,9 +102,18 @@ def preview(ident, number):
 @reports_api_bp.post('/render')
 @api
 def render():
-    data = payload(('template', 'version', 'data', 'parameters'))
-    pdf = svc.generate_report(data.get('template'), version=data.get('version'), data=data.get('data', {}), parameters=data.get('parameters', {}))
-    return pdf_response(pdf)
+    data = payload(('template', 'version', 'data', 'parameters', 'format'))
+    result = svc.generate_report(data.get('template'), version=data.get('version'), data=data.get('data', {}), parameters=data.get('parameters', {}), format=data.get('format', 'html'))
+    return output_response(result, data.get('format', 'html'))
+
+
+def output_response(result, format):
+    if format == 'pdf':
+        return pdf_response(result)
+    return Response(result, mimetype='text/html', headers={
+        'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
+        'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'self'",
+    })
 
 
 def pdf_response(pdf):
@@ -122,8 +131,9 @@ def consumer_templates(consumer):
 @api
 def consumer_render(consumer):
     from ...services.report_consumer_service import generate_consumer_report
-    allowed = ('template', 'version', 'parameters', 'material_id') if consumer == 'stock' else ('template', 'version', 'parameters', 'session_id', 'plant_id')
-    return pdf_response(generate_consumer_report(consumer, payload(allowed)))
+    allowed = ('template', 'version', 'parameters', 'format', 'material_id') if consumer == 'stock' else ('template', 'version', 'parameters', 'format', 'session_id', 'plant_id')
+    data = payload(allowed)
+    return output_response(generate_consumer_report(consumer, data), data.get('format', 'html'))
 
 
 @reports_api_bp.get('/examples/<name>')

@@ -19,7 +19,7 @@ def main():
             cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT)
         try:
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-            deadline = time.monotonic() + 30
+            deadline = time.monotonic() + 60
             while time.monotonic() < deadline:
                 if server.poll() is not None:
                     raise RuntimeError('Servidor de teste terminou antes de ficar pronto.')
@@ -30,7 +30,7 @@ def main():
                 except OSError:
                     time.sleep(.1)
             else:
-                raise TimeoutError('Servidor de teste não respondeu em 30 segundos.')
+                raise TimeoutError('Servidor de teste não respondeu em 60 segundos.')
             subprocess.run(['node', 'tests/browser/reports_editor.cjs'], cwd=ROOT, env=env, check=True, timeout=180)
         except Exception:
             log.seek(0)

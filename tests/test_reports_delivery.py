@@ -57,7 +57,7 @@ def test_example_endpoint_and_unknown_name(client):
     assert client.get('/api/reports/examples/unknown').status_code == 404
 
 
-def test_consumer_endpoints_auth_csrf_scope_and_pdf(client, app):
+def test_consumer_endpoints_auth_csrf_scope_and_html(client, app):
     obj = create(client)
     value = read(client, obj['id'])
     path = Path(__file__).resolve().parents[1] / 'addons/addon_reports/examples/brewstation-session.json'
@@ -81,7 +81,7 @@ def test_consumer_endpoints_auth_csrf_scope_and_pdf(client, app):
     wrong = post(client, '/consumers/session/render', {**data, 'plant_id':plant_id+99999})
     assert wrong.status_code == 404 and wrong.json['error']['code'] == 'reports.error.not_found'
     response = post(client, '/consumers/session/render', data)
-    assert response.status_code == 200 and response.data.startswith(b'%PDF-')
+    assert response.status_code == 200 and response.data.startswith(b'<!doctype html>') and response.mimetype == 'text/html'
     assert response.headers['Cache-Control'] == 'no-store'
     fragment = client.get(f'/brewstation/plant-workspace/{plant_id}/tab/sessions?session_id={session_id}')
     assert fragment.status_code == 200 and b'data-report-consumer="session"' in fragment.data

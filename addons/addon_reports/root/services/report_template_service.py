@@ -170,14 +170,12 @@ def publish(ident, number, lock_version, parameters):
     obj = get_version(ident, number)
     if type(lock_version) is not int or obj.status != 'draft' or obj.lock_version != lock_version:
         raise ReportError('reports.error.conflict', status=409)
-    from .report_pdf_service import render_pdf
-    html = compose_version(obj, obj.sample_data_json, parameters)
+    compose_version(obj, obj.sample_data_json, parameters)
     revision_id = obj.id
     snapshot = {**obj.to_dict(), 'parameters': parameter_definitions(obj)}
     snapshot.pop('content_hash', None)
     digest = hashlib.sha256(json.dumps(snapshot, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
     db.session.rollback()
-    render_pdf(html)
     updated = ReportTemplateVersion.query.filter_by(id=revision_id, lock_version=lock_version, status='draft').update({
         'status': 'published', 'content_hash': digest, 'published_at': utcnow(), 'lock_version': lock_version + 1}, synchronize_session=False)
     if updated != 1:
@@ -232,7 +230,12 @@ def render_report(key, version, data, parameters):
     return ReportLayoutService.render(layout, data, values)
 
 
-def generate_report(key, *, version=None, data, parameters=None):
-    """Contrato público Python: devolve bytes PDF e revalida autorização."""
+def generate_report(key, *, version=None, data, parameters=None, format='html'):
+    """Contrato público: HTML por padrão; PDF opcional exige runtime WeasyPrint."""
+    if format not in ('html', 'pdf'):
+        raise ReportError('reports.error.input')
+    html = render_report(key, version, data, {} if parameters is None else parameters)
+    if format == 'html':
+        return html
     from .report_pdf_service import render_pdf
-    return render_pdf(render_report(key, version, data, {} if parameters is None else parameters))
+    return render_pdf(html)

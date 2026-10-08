@@ -120,7 +120,7 @@ def test_examples_use_production_schema_and_compositor(name):
     assert ('Malte Pilsen' if name == 'estoque-saldos' else 'Sacarificação') in html
 
 
-def test_session_consumer_emits_published_pdf(context):
+def test_session_consumer_emits_published_html(context):
     from addons.addon_reports.root.services import report_template_service as reports
     from addons.addon_brewstation.features.feature_mash_control.services.report_data_service import generate_session_report
     example_path = Path(__file__).resolve().parents[1] / 'addons/addon_reports/examples/brewstation-session.json'
@@ -134,5 +134,6 @@ def test_session_consumer_emits_published_pdf(context):
     db.session.add(plant); db.session.flush()
     session = BrewSession(name='Lote PDF', plant_id=plant.id, custo_total_insumos=123.45)
     db.session.add(session); db.session.commit()
-    pdf = generate_session_report(template['key'], session.id, plant_id=plant.id, version=1)
-    assert pdf.startswith(b'%PDF-')
+    html = generate_session_report(template['key'], session.id, plant_id=plant.id, version=1)
+    assert html.startswith('<!doctype html>')
+    assert 'Lote PDF' in html and '123.45' in html

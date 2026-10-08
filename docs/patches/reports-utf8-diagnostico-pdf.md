@@ -1,5 +1,7 @@
 # Relatórios — UTF-8 e diagnóstico do worker PDF
 
+> Roteiro da entrega anterior. O modo padrão evoluiu para HTML e impressão pelo navegador; consultar [reports-html-impressao.md](reports-html-impressao.md). PDF no servidor é opcional.
+
 Correção incremental sobre o MVP de Relatórios entregue em 08/10/2026.
 Sem migration nova. Aplicar depois do patch do MVP.
 
@@ -67,3 +69,35 @@ Linux: 41 testes e 10 subtestes passaram em 13,60 s. Diagnóstico executou
 WeasyPrint --info e worker com saída zero; PDF fictício válido de 3848 bytes.
 Logs de falha testados para não incluir HTML nem stderr/dados recebidos.
 Windows e emissão local permanecem pendentes de confirmação.
+
+## Diagnóstico confirmado no Windows
+
+Após aplicar este patch, o usuário executou o diagnóstico no venv de produção:
+WeasyPrint --info e o worker retornaram código 1, com erro 0x7e ao carregar
+libgobject-2.0-0 e WEASYPRINT_DLL_DIRECTORIES não configurado. Isso confirma
+a indisponibilidade da biblioteca nativa ao processo; a correção do ambiente
+ainda precisa ser validada. O prefixo de stdout b'\r\n---' corresponde ao
+aviso de importação do WeasyPrint, não a um PDF válido.
+
+Instalar MSYS2 e executar pacman -S mingw-w64-ucrt-x86_64-pango no terminal
+MSYS2 UCRT64. Depois, no PowerShell do venv:
+
+```powershell
+$env:WEASYPRINT_DLL_DIRECTORIES = 'C:\msys64\ucrt64\bin'
+Test-Path "$env:WEASYPRINT_DLL_DIRECTORIES\libgobject-2.0-0.dll"
+python -m addons.addon_reports.root.services.report_pdf_diagnostics
+```
+
+Ajustar o caminho se MSYS2 foi instalado em outro local. Test-Path deve retornar
+True; o diagnóstico deve informar código zero nas duas etapas e valid: True.
+Então repetir a suíte indicada acima e iniciar a aplicação nesse ambiente.
+
+Para persistir a variável para novos processos do usuário:
+
+```powershell
+[Environment]::SetEnvironmentVariable('WEASYPRINT_DLL_DIRECTORIES', 'C:\msys64\ucrt64\bin', 'User')
+```
+
+Reabrir o terminal e reiniciar a aplicação após persistir. Serviços executados
+por outra conta precisam receber a configuração em seu próprio ambiente.
+Referência: https://doc.courtbouillon.org/weasyprint/stable/first_steps.html

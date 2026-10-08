@@ -53,8 +53,8 @@ def build_session_report_data(session_id, *, plant_id):
     return {'contract': 'brewstation.session.v1', 'session': record, 'steps': items}
 
 
-def generate_session_report(template_key, session_id, *, plant_id, version=None, parameters=None):
+def generate_session_report(template_key, session_id, *, plant_id, version=None, parameters=None, format='html'):
     """Integração opcional; aplica permissões de domínio e de Reports."""
     data = build_session_report_data(session_id, plant_id=plant_id)
     from addons.addon_reports.root.services.report_template_service import generate_report
-    return generate_report(template_key, version=version, data=data, parameters=parameters)
+    return generate_report(template_key, version=version, data=data, parameters=parameters, format=format)

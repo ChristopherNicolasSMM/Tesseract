@@ -92,6 +92,35 @@ pendente, mesmo após aplicação conferida em checkout isolado.
 Usuário informou seis falhas: uma de acentuação na leitura de exemplo e cinco
 de worker PDF/HTTP 503. Leituras agora usam UTF-8 explícito; diagnóstico local
 do worker acrescentado, sem expor dados do request nos logs/API. Linux: 41
-testes e 10 subtestes passaram; smoke do worker real também passou. A causa
-dos 503 no Windows depende da saída desse diagnóstico; não é dada como
-resolvida pelo teste Linux. Roteiro em docs/patches/reports-utf8-diagnostico-pdf.md.
+testes e 10 subtestes passaram; smoke do worker real também passou. O diagnóstico enviado pelo usuário confirmou falha no carregamento da biblioteca
+nativa libgobject-2.0-0 (erro Windows 0x7e), com
+WEASYPRINT_DLL_DIRECTORIES não configurado. Tanto WeasyPrint --info quanto o
+worker terminaram com código 1. Instalar as dependências Pango via MSYS2 UCRT64
+e configurar o diretório das DLLs é a próxima etapa; a emissão Windows continua
+pendente de validação. Roteiro em docs/patches/reports-utf8-diagnostico-pdf.md.
+
+## Evolução HTML e impressão — rodada atual
+
+As evidências anteriores de PDF são históricas. O fluxo padrão atual não exige
+WeasyPrint: publicação valida HTML, prévia usa dados resolvidos em iframe sem
+scripts e consumidores devolvem HTML. format=pdf preserva o worker opcional.
+Dependências Python do addon separadas em requirements.txt e requirements-pdf.txt.
+
+Testes da rodada executados sem WeasyPrint instalado. O teste real desse motor
+é opt-in com REPORTS_TEST_PDF=1; os testes de erro/timeout continuam ativos.
+Contrato HTML, não execução de worker, PDF explícito com mock, quebra de página
+e limite HTML são exercitados. Resultado: 44 testes e 10 subtestes passaram, com 1 teste PDF real opcional
+desabilitado, em 88,97 s. Nenhum WeasyPrint instalado nessa execução.
+
+Chromium produziu um PDF A4 de duas páginas, com texto após a quebra explícita
+na segunda página. Prévia escura e CSS de impressão branco foram conferidos.
+O teste automatizado verifica chamada de print por stub; geração headless PDF
+verifica layout, mas não substitui conferir o diálogo Salvar como PDF no Windows.
+Manual: docs/patches/reports-html-impressao.md. Nenhuma migration nova.
+
+Navegador aprovado: Playwright 1.51.1 / Chromium Headless Shell 134.
+Edição/salvamento, exemplos, quebra de página, prévia HTML, folha escura,
+impressão branca, publicação/imutabilidade, clonagem, conflito preservando
+rascunho, viewport 390 px e consumidores Estoque/BrewStation com HTML e
+acionamento de impressão. Sem pageerror. Confirmação automatizada aguarda
+a transição Bootstrap; boot do servidor de teste aguarda até 60 s.

@@ -1,3 +1,2 @@
-# Dependências adicionais do addon, além das dependências do Tesseract.
+# Modo HTML e impressão pelo navegador, além das dependências do Core.
 jsonschema==4.26.0
-weasyprint==70.0

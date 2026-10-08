@@ -26,7 +26,7 @@
 <div class="tab-content">
 <div class="tab-pane fade show active" id="pane-layout" role="tabpanel" aria-labelledby="tab-layout">
 <div class="reports-layout">
-<div class="card"><div class="card-body pt-3"><h2 class="card-title">{{ t('reports.components') }}</h2><div class="d-grid gap-2"><button class="btn btn-outline-primary" id="add-text"><i class="bi bi-fonts"></i> {{ t('reports.text') }}</button><button class="btn btn-outline-primary" id="add-table"><i class="bi bi-table"></i> {{ t('reports.table') }}</button><button class="btn btn-outline-primary" id="add-divider">{{ t('reports.divider') }}</button></div><h3 class="card-title">{{ t('reports.structure') }}</h3><div id="report-tree" class="list-group"></div></div></div>
+<div class="card"><div class="card-body pt-3"><h2 class="card-title">{{ t('reports.components') }}</h2><div class="d-grid gap-2"><button class="btn btn-outline-primary" id="add-text"><i class="bi bi-fonts"></i> {{ t('reports.text') }}</button><button class="btn btn-outline-primary" id="add-table"><i class="bi bi-table"></i> {{ t('reports.table') }}</button><button class="btn btn-outline-primary" id="add-divider">{{ t('reports.divider') }}</button></div><button class="btn btn-outline-primary mt-2 w-100" id="add-page_break">{{ t('reports.page_break') }}</button><h3 class="card-title">{{ t('reports.structure') }}</h3><div id="report-tree" class="list-group"></div></div></div>
 <div class="reports-canvas"><div class="reports-paper" id="report-paper" aria-label="{{ t('reports.document') }}"></div></div>
 <div class="card"><div class="card-body pt-3"><h2 class="card-title">{{ t('reports.properties') }}</h2><div id="node-properties"></div><div class="d-flex gap-1 mt-3"><button id="move-up" class="btn btn-outline-secondary" aria-label="{{ t('reports.up') }}"><i class="bi bi-arrow-up"></i></button><button id="move-down" class="btn btn-outline-secondary" aria-label="{{ t('reports.down') }}"><i class="bi bi-arrow-down"></i></button><button id="delete-node" class="btn btn-outline-danger" aria-label="{{ t('reports.remove') }}"><i class="bi bi-trash"></i></button></div></div></div>
 </div></div>
@@ -35,12 +35,12 @@
 <div class="tab-pane fade" id="pane-versions" role="tabpanel" aria-labelledby="tab-versions"><div class="card"><div class="card-body pt-3"><p>{{ t('reports.versions_hint') }}</p><pre id="version-details"></pre></div></div></div>
 </div></div>
 </section>
-<div class="modal fade" id="reports-preview" tabindex="-1" aria-labelledby="reports-preview-title" aria-hidden="true"><div class="modal-dialog modal-xl"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5" id="reports-preview-title">{{ t('reports.preview') }}</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ t('reports.close') }}"></button></div><div class="modal-body"><iframe id="pdf-preview" title="{{ t('reports.preview') }}" class="reports-pdf"></iframe></div></div></div></div>
+<div class="modal fade" id="reports-preview" tabindex="-1" aria-labelledby="reports-preview-title" aria-hidden="true"><div class="modal-dialog modal-xl"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5" id="reports-preview-title">{{ t('reports.preview') }}</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ t('reports.close') }}"></button></div><div class="modal-body"><p class="small text-muted">{{ t('reports.print_hint') }}</p><iframe id="html-preview" title="{{ t('reports.preview') }}" class="reports-preview-frame" sandbox="allow-same-origin allow-modals"></iframe></div><div class="modal-footer"><button id="print-report" type="button" class="btn btn-primary" disabled>{{ t('reports.print') }}</button></div></div></div></div>
 {% endblock %}
 {% block extra_js %}
 <script id="reports-translations" type="application/json">{{ {
  'missing': t('reports.missing'), 'add_column': t('reports.add_column'), 'remove_column': t('reports.remove_column'),
- 'text': t('reports.text'), 'table': t('reports.table'), 'divider': t('reports.divider'), 'section': t('reports.section'),
+ 'page_break': t('reports.page_break'), 'text': t('reports.text'), 'table': t('reports.table'), 'divider': t('reports.divider'), 'section': t('reports.section'),
  'saved': t('reports.saved'), 'dirty': t('reports.dirty'), 'saving': t('reports.saving'), 'published': t('reports.published'),
  'error': t('reports.error.input'), 'content': t('reports.content'), 'binding': t('reports.binding'), 'columns': t('reports.columns'),
  'collection': t('reports.collection'), 'preview': t('reports.preview_ready'), 'draft': t('reports.draft'),
@@ -48,5 +48,6 @@
  'literal': t('reports.literal'), 'field': t('reports.field'), 'level': t('reports.level'), 'body': t('reports.body'),
  'title': t('reports.heading'), 'subtitle': t('reports.subtitle'), 'stale': t('reports.stale')
 }|tojson }}</script>
+<script src="{{ url_for('static', filename='js/reports_preview.js') }}"></script>
 <script src="{{ url_for('static', filename='js/reports_editor.js') }}"></script>
 {% endblock %}

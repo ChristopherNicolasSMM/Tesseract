@@ -40,7 +40,7 @@ def validate_data(schema, data):
 
 class ReportLayoutService:
     """MVP com fontes/estilos fixados, sem assets externos ou CSS livre."""
-    TYPES = {'text', 'table', 'section', 'divider'}
+    TYPES = {'text', 'table', 'section', 'divider', 'page_break'}
 
     @classmethod
     def validate(cls, layout):
@@ -116,6 +116,8 @@ class ReportLayoutService:
                     value = props['text'] if 'text' in props else resolve(props['binding'])
                     tag = {'title': 'h1', 'subtitle': 'h2', 'body': 'p'}[props.get('level', 'body')]
                     parts.append(f'<{tag}>{value_html(value)}</{tag}>')
+                elif node['type'] == 'page_break':
+                    parts.append('<div class="page-break"></div>')
                 elif node['type'] == 'divider':
                     parts.append('<hr>')
                 elif node['type'] == 'section':
@@ -132,8 +134,45 @@ class ReportLayoutService:
                     parts.append('<table><thead><tr>' + header + '</tr></thead><tbody>' + rows + '</tbody></table>')
             return ''.join(parts)
         body = render_nodes(layout['body'])
-        style = '@page { size: A4; margin: 15mm; @bottom-right { content: counter(page); } } body { background: white; color: #182230; font: 10pt sans-serif; } table { width:100%; border-collapse:collapse; } th,td { padding:6pt; border:1px solid #cbd5e1; overflow-wrap:anywhere; } th { background:#eef2f6; } thead { display:table-header-group; } p { white-space:pre-wrap; overflow-wrap:anywhere; } h1,h2 { break-after:avoid; }'
-        return '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><style>' + style + '</style><body>' + body + '</body></html>'
+        style = """
+@page { size: A4; margin: 15mm; }
+* { box-sizing: border-box; }
+body { margin:0; background:white; color:#182230; font:10pt sans-serif; }
+.report-document { width:100%; }
+table { width:100%; border-collapse:collapse; table-layout:fixed; }
+th,td { padding:6pt; border:1px solid #cbd5e1; overflow-wrap:anywhere; }
+th { background:#eef2f6; }
+thead { display:table-header-group; }
+tr { break-inside:avoid; }
+p { white-space:pre-wrap; overflow-wrap:anywhere; orphans:3; widows:3; }
+h1,h2 { break-after:avoid; overflow-wrap:anywhere; }
+.page-break { break-before:page; }
+@media screen {
+  body { padding:16px; background:#eef2f6; }
+  .report-document { max-width:210mm; min-height:297mm; padding:15mm; margin:auto; background:white; }
+  html[data-theme="dark"] body { background:#192435; color:#e8eef7; }
+  html[data-theme="dark"] .report-document { background:#273549; }
+  html[data-theme="dark"] th { background:#34445a; }
+  html[data-theme="dark"] th, html[data-theme="dark"] td { border-color:#64748b; }
+  .page-break { border-top:1px dashed #64748b; margin:20px 0; }
+  @media (max-width:600px) { .report-document { padding:16px; } }
+}
+@media print {
+  body, .report-document { background:white !important; color:#182230 !important; }
+  .report-document { padding:0; margin:0; max-width:none; min-height:0; }
+  th { background:#eef2f6 !important; }
+  th,td { border-color:#cbd5e1 !important; }
+  .page-break { border:0; margin:0; }
+}
+"""
+        document = ('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
+                '<meta name="viewport" content="width=device-width, initial-scale=1">'
+                '<meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;">'
+                '<title>Relatório</title><style>' + style + '</style></head><body>'
+                '<main class="report-document">' + body + '</main></body></html>')
+        if len(document.encode('utf-8')) > 2 * 1024 * 1024:
+            raise ReportError('reports.error.size', status=413)
+        return document
 
 
 def default_document():

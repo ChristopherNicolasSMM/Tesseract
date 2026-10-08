@@ -48,7 +48,7 @@ def published_templates(consumer):
 
 def generate_consumer_report(consumer, payload):
     authorize_consumer(consumer)
-    options = {'version': payload.get('version'), 'parameters': payload.get('parameters', {})}
+    options = {'version': payload.get('version'), 'parameters': payload.get('parameters', {}), 'format': payload.get('format', 'html')}
     try:
         if consumer == 'stock':
             from addons.addon_estoque.root.services.report_data_service import generate_stock_report

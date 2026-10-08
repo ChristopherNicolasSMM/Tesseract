@@ -9,6 +9,12 @@
   const parameters = document.getElementById('reports-consumer-parameters');
   const status = document.getElementById('reports-consumer-status');
   const submit = document.getElementById('reports-consumer-submit');
+  const frame = document.getElementById('reports-consumer-preview');
+  const printButton = document.getElementById('reports-consumer-print');
+  const panel = document.getElementById('reports-consumer-preview-panel');
+  printButton.onclick = () => window.TesseractReportsPreview.print(frame);
+  parameters.oninput = select.onchange = () => { panel.hidden = true; window.TesseractReportsPreview.clear(frame, printButton); };
+  modal.addEventListener('hidden.bs.modal', () => { panel.hidden = true; window.TesseractReportsPreview.clear(frame, printButton); });
   let context, token, busy = false;
   const say = (key, error=false) => { status.textContent = tr[key] || key; status.className = error ? 'mt-3 text-danger' : 'mt-3'; };
   const fail = error => { say(error.message || tr.error, true); window.__tesseractToast?.show(error.message || tr.error, 'error'); };
@@ -16,7 +22,7 @@
     const response = await fetch('/api/reports' + path, data === undefined ? {} : {
       method:'POST', headers:{'Content-Type':'application/json', 'X-Reports-CSRF':token}, body:JSON.stringify(data)
     });
-    if (response.ok && response.headers.get('Content-Type')?.includes('application/pdf')) return response.blob();
+    if (response.ok && response.headers.get('Content-Type')?.includes('text/html')) return response.text();
     const value = await response.json();
     if (!response.ok) throw Error(value.error?.message || tr.error);
     return value;
@@ -26,6 +32,7 @@
     if (!button) return;
     event.preventDefault(); if (busy) return;
     busy = true; select.replaceChildren(); parameters.value = '{}'; submit.disabled = true; say('loading');
+    panel.hidden = true; window.TesseractReportsPreview.clear(frame, printButton);
     context = {consumer:button.dataset.reportConsumer};
     if (context.consumer === 'stock') context.material_id = Number(button.dataset.materialId);
     else { context.session_id = Number(button.dataset.sessionId); context.plant_id = Number(button.dataset.plantId); }
@@ -47,14 +54,14 @@
     event.preventDefault(); if (busy || !select.value) return;
     let values;
     try { values = JSON.parse(parameters.value); } catch (_) { fail(Error(tr.error)); return; }
+    panel.hidden = true; window.TesseractReportsPreview.clear(frame, printButton);
     busy = true; submit.disabled = true; select.disabled = true; parameters.disabled = true; say('generating');
     try {
       const {consumer, ...data} = context;
-      const blob = await api(`/consumers/${consumer}/render`, {...data, template:select.value,
-        version:Number(select.selectedOptions[0].dataset.version), parameters:values});
-      const url = URL.createObjectURL(blob), link = document.createElement('a');
-      link.href = url; link.download = 'report.pdf'; document.body.append(link); link.click(); link.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000); say('done');
+      const html = await api(`/consumers/${consumer}/render`, {...data, template:select.value,
+        version:Number(select.selectedOptions[0].dataset.version), parameters:values, format:'html'});
+      panel.hidden = false;
+      await window.TesseractReportsPreview.show(frame, html, printButton); say('done');
     } catch (error) { fail(error); }
     finally { busy = false; submit.disabled = false; select.disabled = false; parameters.disabled = false; }
   });

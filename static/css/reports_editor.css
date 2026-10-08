@@ -37,6 +37,6 @@ html[data-theme="dark"] .reports-editor .btn-outline-danger { --bs-btn-color:#fd
 .reports-paper button:focus-visible { outline:2px solid var(--color-primary); }
 .reports-paper table { width:100%; border-collapse:collapse; font-size:.85rem; }
 .reports-paper th,.reports-paper td { padding:.25rem; border:1px solid var(--reports-paper-border); }
-.reports-pdf { width:100%; height:70vh; border:0; }
+.reports-preview-frame { width:100%; height:70vh; border:0; }
 @media(max-width:1200px) { .reports-layout { grid-template-columns:180px minmax(260px,1fr); } .reports-layout > .card:last-child { grid-column:1 / -1; } }
 @media(max-width:767px) { .reports-layout { grid-template-columns:1fr; } .reports-paper { padding:1rem; } .reports-layout > .card:last-child .card-body { max-height:none; } }

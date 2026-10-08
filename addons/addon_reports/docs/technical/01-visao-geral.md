@@ -5,7 +5,7 @@ sobre origin/main/6b9b75f (Financeiro/Organização/GetCEP), sem conflitos.
 Pacote consolidado autorizado para entrega; sem envio ao remoto. Data: 08/10/2026.
 Roteiro de aplicação em `docs/patches/reports-mvp-ide-integracao.md`.
 
-Implementado: addon descoberto pelo ModuleManager, tabelas de modelo/revisão/parâmetro, RBAC do Core, workspace /reports/, dados de exemplo, contrato JSON Schema, edição otimista, publicação imutável via serviço, cópia de revisões, composição declarativa e PDF em subprocesso. Capacidade pública HTTP: /api/reports/render; serviço Python exige contexto de usuário autorizado. O catálogo é compartilhado entre usuários com permissões; Organização do Core não é tenant.
+Implementado: addon descoberto pelo ModuleManager, tabelas de modelo/revisão/parâmetro, RBAC do Core, workspace /reports/, dados de exemplo, contrato JSON Schema, edição otimista, publicação imutável via serviço, cópia de revisões, composição declarativa HTML, impressão pelo navegador e PDF opcional em subprocesso. Capacidade pública HTTP: /api/reports/render; serviço Python exige contexto de usuário autorizado. O catálogo é compartilhado entre usuários com permissões; Organização do Core não é tenant.
 
 O primeiro corte inclui IDE de texto/tabela/divisor, carregamento de exemplos,
 publicação, prévia, integração contextual de Estoque/BrewStation e migration.

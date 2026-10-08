@@ -1,6 +1,6 @@
 # Manutenção e instalação
 
-Dependências adicionais fixadas em addons/addon_reports/requirements.txt (jsonschema e WeasyPrint). Preservada a codificação UTF-16 do requirements.txt da raiz; não foi reformatado nem alterado. Instalação prevista: python -m pip install -r addons/addon_reports/requirements.txt, além dos requisitos do core. Dependências nativas/fontes do WeasyPrint precisam ser confirmadas no Windows e produção; somente Linux foi exercitado nesta construção.
+Dependências adicionais fixadas em addons/addon_reports/requirements.txt (jsonschema). Preservada a codificação UTF-16 do requirements.txt da raiz; não foi reformatado nem alterado. Instalação prevista: python -m pip install -r addons/addon_reports/requirements.txt, além dos requisitos do core. WeasyPrint fica em requirements-pdf.txt, opcional. Dependências nativas/fontes do WeasyPrint precisam ser confirmadas no Windows e produção; somente Linux foi exercitado nesta construção.
 
 Novas tabelas seguem create_all_pending_tables do projeto. Migration
 `c93e0f54b128`, filha de `b82d9e43a017`, cria o catálogo ou valida e preserva as
@@ -16,15 +16,15 @@ Limites MVP: JSON 1 MiB, HTML 2 MiB, PDF 10 MiB; 200 elementos; profundidade de 
 
 Worker: stdin/stdout, timeout e finalização via subprocess.run, sem temporários persistidos. Em Linux usa RLIMIT_AS/RLIMIT_CPU; em Windows há timeout mas limite de memória dependerá de infraestrutura/Job Objects futura. URLs/file:// são bloqueados; componentes atuais não permitem inserir assets livres.
 
-Styles: reports_editor.css somente na IDE. A folha clara é branca; folha escura #273549, texto #e8eef7. PDF possui CSS próprio branco e não recebe tema da sessão. A prévia PDF mostra documento branco mesmo com IDE escura.
+Styles: reports_editor.css somente na IDE. A folha clara é branca; folha escura #273549, texto #e8eef7. PDF possui CSS próprio branco e não recebe tema da sessão. A prévia HTML segue o tema; impressão e PDF opcional são brancos.
 
 Extensões precisam de contratos/renderers confiáveis e testes; nunca código Python/JS em tabelas. Atualizar docs junto da mudança. Atualizar novamente Git e integrar mudanças concorrentes antes do patch final, sem perder trabalho local. Não fazer push nem gerar patches intermediários.
 
 ## Integração Python e HTTP inicial
 
-Contrato Python: generate_report(key, version=None, data=<JSON>, parameters=None) em root/services/report_template_service.py devolve bytes PDF. Requer contexto Flask/Login autorizado; snapshot usa leitura própria e não executa rollback/commit da sessão de negócio do consumidor. Concluir a transação de negócio antes de chamar. Alterações pendentes new/dirty/deleted são rejeitadas para evitar compartilhamento acidental de unidade de trabalho.
+Contrato Python: generate_report(key, version=None, data=<JSON>, parameters=None, format="html") em root/services/report_template_service.py devolve string HTML; format="pdf" devolve bytes PDF. Requer contexto Flask/Login autorizado; snapshot usa leitura própria e não executa rollback/commit da sessão de negócio do consumidor. Concluir a transação de negócio antes de chamar. Alterações pendentes new/dirty/deleted são rejeitadas para evitar compartilhamento acidental de unidade de trabalho.
 
-API autenticada por sessão do Core: login → GET /api/reports/session → usar csrf_token em X-Reports-CSRF → POST /api/reports/render com template, version opcional, data e parameters. Resposta application/pdf; modelo deve estar publicado. Autenticação por token externo independente ainda não foi implementada.
+API autenticada por sessão do Core: login → GET /api/reports/session → usar csrf_token em X-Reports-CSRF → POST /api/reports/render com template, version opcional, data e parameters. Resposta text/html por padrão; format="pdf" retorna application/pdf e exige runtime nativo. Modelo deve estar publicado. Autenticação por token externo independente ainda não foi implementada.
 
 ## Executar testes de navegador
 
@@ -43,7 +43,7 @@ rota de fixture existem somente no servidor descartável, não no addon.
 
 ## Perfil e Windows
 
-Compilador: layout declarativo `schema_version=1`, A4/CSS fixos, WeasyPrint
+Compilador: layout declarativo `schema_version=1`, A4/CSS fixos, HTML de impressão e WeasyPrint opcional
 70.0 e jsonschema 4.26.0; SQLAlchemy 2.0.51 alinhado aos requisitos atuais do
 Core. Nesta execução: Python 3.12.14, Pango 1.52.1 e pydyf 0.12.1.
 As versões transitivas, bibliotecas nativas e fontes não são congeladas por
@@ -53,7 +53,7 @@ e histórico de emissão ficam para evolução posterior.
 
 No Windows, este addon usa a biblioteca Python, portanto instalar apenas o
 executável independente de WeasyPrint não atende ao worker. Com o venv do
-Tesseract ativo, instalar `addons/addon_reports/requirements.txt`, Pango via
+Tesseract ativo, instalar `addons/addon_reports/requirements-pdf.txt`, Pango via
 MSYS2 UCRT64 (`pacman -S mingw-w64-ucrt-x86_64-pango` no terminal MSYS2) e conferir
 `python -m weasyprint --info`. Se as DLLs não forem localizadas, no PowerShell:
 

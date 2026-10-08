@@ -1,5 +1,6 @@
 """Persistência real, autorização, concorrência e composição do addon."""
 import uuid
+import os
 import pytest
 from core.app_factory import create_app
 from core.db import db
@@ -115,8 +116,9 @@ def test_published_only_render_and_contract_validation(client):
     assert save(client,obj['id'],value).status_code==200
     assert post(client,f"/templates/{obj['id']}/versions/1/publish",{'lock_version':2}).status_code==200
     assert post(client,'/render',{'template':obj['key'],'data':{}}).status_code==422
-    pdf=post(client,'/render',{'template':obj['key'],'data':{'name':'Valid'}})
-    assert pdf.status_code==200;assert pdf.data.startswith(b'%PDF-');assert pdf.headers['Cache-Control']=='no-store'
+    html=post(client,'/render',{'template':obj['key'],'data':{'name':'Valid'}})
+    assert html.status_code==200;assert html.data.startswith(b'<!doctype html>');assert html.headers['Cache-Control']=='no-store'
+    assert html.mimetype=='text/html' and "default-src 'none'" in html.headers['Content-Security-Policy']
 
 
 def test_schema_remote_reference_rejected(client):
@@ -131,6 +133,7 @@ def test_text_escape_and_table_item_scope():
     with pytest.raises(ReportError):ReportLayoutService.render(layout,{'items':[{}]}, {})
 
 
+@pytest.mark.skipif(os.environ.get('REPORTS_TEST_PDF') != '1', reason='PDF opcional: habilitar REPORTS_TEST_PDF=1 com runtime nativo')
 def test_long_table_real_pdf(app):
     layout={'schema_version':1,'body':[{'id':'table','type':'table','props':{'collection':{'source':'data','path':['items']},'columns':[{'label':'Nome','binding':{'source':'item','path':['name']}}]}}]}
     html=ReportLayoutService.render(layout,{'items':[{'name':f'Linha {i} — acentuação'} for i in range(150)]},{})
@@ -216,3 +219,57 @@ def test_generation_does_not_discard_pending_business_changes(app):
         assert error.value.code=='reports.error.transaction'
         assert pending in db.session.new
         db.session.rollback()
+
+
+def test_html_flow_never_calls_pdf_worker(client, monkeypatch):
+    from addons.addon_reports.root.services import report_pdf_service as pdf
+    def forbidden(*args, **kwargs):
+        pytest.fail('Fluxo HTML não deve iniciar worker PDF')
+    monkeypatch.setattr(pdf.subprocess, 'run', forbidden)
+    obj = create(client)
+    preview = post(client, f"/templates/{obj['id']}/versions/1/preview", {})
+    assert preview.status_code == 200 and '<main class="report-document">' in preview.json['html']
+    assert post(client, f"/templates/{obj['id']}/versions/1/publish", {'lock_version':1}).status_code == 200
+    assert post(client, '/render', {'template':obj['key'], 'data':{}}).mimetype == 'text/html'
+    assert post(client, '/render', {'template':obj['key'], 'format':'unknown'}).status_code == 422
+
+
+def test_explicit_pdf_routes_use_optional_renderer(client, monkeypatch):
+    from addons.addon_reports.root.services import report_pdf_service as pdf
+    from addons.addon_reports.root.api.routes import report_templates_routes as routes
+    monkeypatch.setattr(pdf, 'render_pdf', lambda html: b'%PDF-test')
+    monkeypatch.setattr(routes, 'render_pdf', lambda html: b'%PDF-test')
+    obj = create(client)
+    preview = post(client, f"/templates/{obj['id']}/versions/1/preview", {'format':'pdf'})
+    assert preview.mimetype == 'application/pdf' and preview.data == b'%PDF-test'
+    assert post(client, f"/templates/{obj['id']}/versions/1/publish", {'lock_version':1}).status_code == 200
+    result = post(client, '/render', {'template':obj['key'], 'format':'pdf'})
+    assert result.mimetype == 'application/pdf' and result.data == b'%PDF-test'
+
+
+def test_page_break_and_print_contract():
+    layout = {'schema_version':1, 'body':[
+        {'id':'before', 'type':'text', 'props':{'text':'Antes'}},
+        {'id':'break', 'type':'page_break', 'props':{}},
+        {'id':'after', 'type':'text', 'props':{'text':'Depois'}},
+    ]}
+    html = ReportLayoutService.render(layout, {}, {})
+    assert '<div class="page-break"></div>' in html
+    assert '@media print' in html and 'break-before:page' in html
+    assert 'data-theme="dark"' in html and '#273549' in html
+    assert 'Content-Security-Policy' in html and '<script' not in html
+    layout['body'][1]['props']['html'] = '<script>unsafe</script>'
+    with pytest.raises(ReportError):
+        ReportLayoutService.render(layout, {}, {})
+
+
+def test_html_size_limit_applies_without_pdf():
+    layout = {'schema_version':1, 'body':[
+        {'id':'table', 'type':'table', 'props':{
+            'collection':{'source':'data', 'path':['items']},
+            'columns':[{'label':'Nome', 'binding':{'source':'item', 'path':['name']}}],
+        }},
+    ]}
+    with pytest.raises(ReportError) as error:
+        ReportLayoutService.render(layout, {'items':[{'name':'x'*3000} for _ in range(800)]}, {})
+    assert error.value.code == 'reports.error.size' and error.value.status == 413

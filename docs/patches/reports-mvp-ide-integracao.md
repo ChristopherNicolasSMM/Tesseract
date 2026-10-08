@@ -1,5 +1,7 @@
 # Addon Relatórios — MVP da IDE e emissão contextual
 
+> Roteiro da entrega anterior. O modo padrão evoluiu para HTML e impressão pelo navegador; consultar [reports-html-impressao.md](reports-html-impressao.md). PDF no servidor é opcional.
+
 Pacote consolidado para `git am --keep-cr`. Base remota conferida em 08/10/2026:
 `6b9b75f388de93887d584c154a19d4e0c1481fe4` (Financeiro/Organização/GetCEP).
 O pacote contém somente Relatórios e suas integrações; não reaplica Financeiro.

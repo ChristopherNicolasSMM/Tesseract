@@ -8,7 +8,8 @@ flowchart TD
  D --> E[Catálogo SQLAlchemy]
  D --> F[ReportLayoutService]
  F --> G[ReportBindingService]
- D --> H[ReportPDFService]
+ F --> J[HTML e impressão pelo navegador]
+ D -. PDF explícito .-> H[ReportPDFService]
  H --> I[Worker WeasyPrint]
 ```
 
