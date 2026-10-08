@@ -1,6 +1,6 @@
 # Integração futura com addon financeiro
 
-## Estado conferido na fase 3 — 07/10/2026
+## Estado conferido na fase 3 — 08/10/2026
 
 Fundação inicial implementada no ambiente de geração; integração com Estoque
 ainda proposta. Os modelos atuais de Cotacao e PedidoCompra
@@ -20,8 +20,19 @@ nem User.empresa automaticamente a uma organização. Fundação de identidade:
 [organizações Core](../../../../docs/patches/fase3-organizacoes-core.md).
 Organizações aplicadas e validadas localmente, com primeira empresa criada.
 O pacote inicial seguinte implementa addon financeiro, catálogo, política
-monetária explícita e quantização Decimal. Taxas e conversão cambial permanecem
-por implementar. Ver [pacote inicial](../../../../docs/patches/fase3-financeiro-organizacoes-getcep.md).
+monetária explícita e quantização Decimal. Taxas direcionais e conversões com snapshots imutáveis já foram entregues
+no Financeiro; versões explícitas de precisão/arredondamento também.
+A integração desses resultados com o recebimento do Estoque permanece pendente. Ver [pacote inicial](../../../../docs/patches/fase3-financeiro-organizacoes-getcep.md).
+
+## Contexto organizacional preparatório
+
+Decisão validada: catálogo de materiais compartilhado; compras, saldos e
+custos separados por organização. O pacote de contexto permite vínculo
+explícito e imutável de pedidos em rascunho e processos antes de convidar
+fornecedores. Nenhum histórico recebe organização automaticamente. Pedidos
+vinculados aguardam saldos organizacionais para receber; processos vinculados
+aguardam propagação atômica para gerar pedidos. Ver
+[pacote e limites](../../../../docs/patches/fase3-compras-contexto-organizacional.md).
 
 ## Desenho proposto após as decisões
 

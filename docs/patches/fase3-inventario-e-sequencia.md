@@ -218,3 +218,13 @@ snapshots anteriores preservados; sem promoção automática à última revisão
 Migration e15a2b76d340. Ver [roteiro/evidências](fase3-financeiro-versoes-politicas.md).
 Aplicação desta nova entrega pendente. Mudança de moeda-base aguarda tratamento
 de saldos/contexto organizacional. Compras/estoque e títulos permanecem próximos.
+
+
+## Continuação — catálogo compartilhado e contexto de compras (08/10/2026)
+
+Decisão do usuário: catálogo compartilhado, com compras/saldos/custos separados
+por organização. O pacote preparatório registra vínculos explícitos de
+processos/pedidos, sem reatribuir documentos ou saldos legados. Recebimentos
+organizacionais e geração organizacional aguardam a etapa de ledger/saldos e
+propagação atômica. Inclui a correção UTF-8 do teste JavaScript de versões.
+Ver [aplicação e limites](fase3-compras-contexto-organizacional.md).

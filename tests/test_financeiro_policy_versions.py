@@ -268,6 +268,6 @@ conflict.listeners.change();assert.equal(conflict.expected.value,'3');
 conflict.org.options[0].dataset={};conflict.listeners.change();assert.equal(conflict.expected.value,'');
 console.log('6 cenários do script real aprovados');
 '''
-    result = subprocess.run(['node','-e',harness],input=json.dumps(script),text=True,capture_output=True,timeout=10)
+    result = subprocess.run(['node','-e',harness],input=json.dumps(script),text=True,encoding='utf-8',capture_output=True,timeout=10)
     assert result.returncode == 0, result.stderr
     assert '6 cenários' in result.stdout

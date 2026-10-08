@@ -261,6 +261,9 @@ def receber_pedido_compra(
     if pedido is None or pedido.is_deleted:
         raise PedidoCompraNaoEncontradoError(f"PedidoCompra id={pedido_compra_id} não encontrado ou removido")
 
+    from .purchase_context_service import assert_global_operation_allowed
+    assert_global_operation_allowed('order', pedido.id)
+
     if pedido.status != "confirmado":
         raise PedidoCompraStatusInvalidoError(
             f"Só é possível receber um pedido com status='confirmado' (atual: {pedido.status!r})"
@@ -402,6 +405,7 @@ class ProcessoCotacaoNaoEncontradoError(Exception):
     pass
 
 
+@_rollback_on_error
 def gerar_pedidos_de_cotacao(processo_cotacao_id: int) -> dict:
     """
     "Gerar Pedido" (skill 24, Fase 6.3) — ação manual e separada
@@ -428,10 +432,12 @@ def gerar_pedidos_de_cotacao(processo_cotacao_id: int) -> dict:
     from addons.addon_estoque.root.services.pedido_compra_service import PedidoCompraService
     from addons.addon_estoque.root.services.item_pedido_compra_service import ItemPedidoCompraService
 
-    processo = ProcessoCotacao.query.filter_by(id=processo_cotacao_id, is_deleted=False).first()
-    if processo is None:
-        raise ProcessoCotacaoNaoEncontradoError(f"ProcessoCotacao id={processo_cotacao_id} não encontrado ou removido")
-
+    from .purchase_context_service import document, assert_global_operation_allowed
+    try:
+        processo = document('process', processo_cotacao_id, reserve=True)
+    except ValueError as exc:
+        raise ProcessoCotacaoNaoEncontradoError(str(exc)) from exc
+    assert_global_operation_allowed('process', processo.id)
     itens_vencedores = (
         ItemCotacao.query
         .join(Cotacao, ItemCotacao.cotacao_id == Cotacao.id)

@@ -35,6 +35,16 @@ class AddonEstoque(AddonBase):
         from addons.addon_estoque.root.model.item_cotacao import ItemCotacao
         from addons.addon_estoque.root.model.item_processo_cotacao import ItemProcessoCotacao
 
+        from addons.addon_estoque.root.model.purchase_context import PurchaseContext, protect_document, protect_quotation_process
+        from sqlalchemy import event
+        for model in (PedidoCompra, ProcessoCotacao):
+            if not event.contains(model, 'before_delete', protect_document):
+                event.listen(model, 'before_delete', protect_document)
+
+        for operation in ('before_insert', 'before_update'):
+            if not event.contains(Cotacao, operation, protect_quotation_process):
+                event.listen(Cotacao, operation, protect_quotation_process)
+
         # Lookups (Fabricante/Origem/TipoProduto/Categoria) primeiro só
         # por legibilidade - create_all resolve ordem de FK via
         # metadata do SQLAlchemy, não pela ordem desta lista.
@@ -51,7 +61,7 @@ class AddonEstoque(AddonBase):
         return [
             UnidadeCatalogo, Fabricante, Origem, TipoProduto, Categoria, Material, Composicao, Movimentacao, Saldo,
             MaterialUnidade, Fornecedor, Transportadora, Endereco, FornecedorEndereco, TransportadoraEndereco,
-            PedidoCompra, ItemPedidoCompra, ProcessoCotacao, ItemProcessoCotacao, Cotacao, ItemCotacao,
+            PedidoCompra, ItemPedidoCompra, ProcessoCotacao, ItemProcessoCotacao, Cotacao, ItemCotacao, PurchaseContext,
         ]
 
     def register_routes(self, app) -> None:
@@ -114,6 +124,14 @@ class AddonEstoque(AddonBase):
                 "/<int:id>/receber", endpoint="receber", view_func=receber_view, methods=["POST"],
             )
             pedido_compras_bp._receber_route_registered = True
+
+        # Extensões manuais nos blueprints existentes; nenhum CRUD gerado alterado.
+        from addons.addon_estoque.root.controller.purchase_context_hooks import order_context_view, process_context_view
+        for blueprint, view in ((pedido_compras_bp, order_context_view), (processo_cotacaos_bp, process_context_view)):
+            if not getattr(blueprint, '_purchase_context_registered', False):
+                blueprint.add_url_rule('/<int:id>/contexto-organizacional', endpoint='organization_context',
+                                       view_func=view, methods=['GET', 'POST'])
+                blueprint._purchase_context_registered = True
 
         # Entrada de Mercadoria (correção — achado do Christopher):
         # endpoint JSON novo, mesmo padrão de guarda.

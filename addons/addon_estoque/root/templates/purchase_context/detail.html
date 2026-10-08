@@ -1,0 +1,23 @@
+{% extends "core/base.html" %}
+{% block content %}
+<div class="pagetitle"><h1>Organização da compra {{ item.numero or item.id }}</h1></div>
+<div class="card"><div class="card-body pt-3">
+<p>O catálogo de materiais é compartilhado. O vínculo é definitivo e não atribui organização ou moeda aos documentos antigos.</p>
+<div class="alert alert-warning">Etapa preparatória: pedidos vinculados não podem ser recebidos no saldo global. Processos vinculados aguardam a próxima etapa para gerar pedidos com saldos e custos por organização.</div>
+{% if context %}
+<dl><dt>Organização no vínculo</dt><dd>{{ context.organization_code }} — {{ context.organization_name }}</dd>
+<dt>Autor</dt><dd>{{ context.created_by }}</dd><dt>Registrado em</dt><dd>{{ context.created_at }}</dd></dl>
+{% else %}
+<form method="post">
+{% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+<label class="form-label" for="organization_code">Organização</label>
+<select class="form-select mb-3" id="organization_code" name="organization_code" required>
+<option value="">Selecione explicitamente</option>
+{% for org in organizations %}<option value="{{ org.code }}">{{ org.code }} — {{ org.name }}</option>{% endfor %}
+</select>
+<button class="btn btn-primary" type="submit">Registrar vínculo definitivo</button>
+</form>
+{% endif %}
+<a class="btn btn-outline-secondary mt-3" href="{{ document_url }}">Voltar ao documento</a>
+</div></div>
+{% endblock %}
