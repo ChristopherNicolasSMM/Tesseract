@@ -39,3 +39,14 @@ no ambiente do Tesseract. O fluxo HTML continua sem WeasyPrint/Pango.
 
 Nesta etapa, a imagem é um arquivo PNG/JPEG incorporado ao template. Não
 aceita URL externa, caminho local do servidor ou binding aos dados.
+
+
+### Por que um componente com condição ainda aparece na folha de edição?
+
+O canvas mantém todos os componentes acessíveis para edição. A condição só
+altera a prévia e a saída gerada. Confira os parâmetros e dados usados na prévia.
+
+### Por que o total pode diferir da soma dos números arredondados da tela?
+
+O cálculo usa os valores originais e arredonda somente o resultado. Soma,
+média, mínimo e máximo ignoram nulos; contagem inclui todas as linhas.

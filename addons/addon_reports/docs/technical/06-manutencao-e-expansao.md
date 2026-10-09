@@ -94,3 +94,16 @@ e reports-browser-print.pdf. Checker verifica tamanho de papel, presença e
 ordem de 100 linhas, cabeçalhos por página, imagem incorporada, numeração
 e fechamento separado. Renderizar também com Poppler para inspecionar
 cortes/legibilidade; extração de texto não substitui revisão visual.
+
+
+Etapa 7 acrescenta migration e59f6ab8d704 para report_block. Ao aplicar o
+futuro patch das etapas 7–9, executar python run.py db upgrade conforme seu roteiro;
+boot automático não substitui registro de migrations. A revisão valida
+estrutura existente compatível e preserva dados. Downgrade remove o catálogo,
+portanto exige backup. Blocos não possuem dependências Python adicionais.
+
+
+Histórico da IDE fica em static/js/reports_history.js, sem DOM e testável com
+Node. reports_editor.js captura estado após mutação válida e reseta após salvar
+ou carregar. Nunca restaurar lock_version antigo, persistir snapshots sem
+contrato próprio ou desfazer operações remotas como se fossem somente locais.

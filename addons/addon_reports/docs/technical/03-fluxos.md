@@ -24,3 +24,27 @@ cookie antes da consulta do catálogo compatível. O POST envia somente identida
 do material/sessão/planta, template/revisão e parâmetros: o servidor obtém dados
 pelo serviço público do consumidor, checa RBAC/escopo e chama o gerador central.
 Falhas mantêm o modal com mensagem; sucesso oferece download, sem abrir popup.
+
+
+## Condições e totais no compositor
+
+```mermaid
+flowchart TD
+ A[Componente validado] --> B{Possui condição?}
+ B -->|Sim| C[Resolver campo e comparar tipo e valor]
+ B -->|Não| D[Compor conteúdo]
+ C -->|Verdadeira| D
+ C -->|Falsa| E[Omitir subárvore]
+ C -->|Campo ausente ou valor complexo| F[Responder erro 422]
+ D --> G{Tabela com totais?}
+ G -->|Sim| H[Agregar valores originais e formatar rodapé]
+ G -->|Não| I[Continuar composição]
+ H --> I
+ E --> I
+```
+
+Dados e parâmetros são validados antes da composição. Não há filtro de linhas;
+a condição controla o componente inteiro. Ocultar não altera o layout salvo.
+Mesmo uma subárvore oculta passa pela validação estrutural. Testar outra
+combinação de parâmetros pode revelar vínculos ainda não exercitados pela
+publicação com o exemplo. Blocos preservam regras como valores independentes.

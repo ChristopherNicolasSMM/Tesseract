@@ -5783,3 +5783,42 @@ da árvore. Prévia contínua e impressão branca. Grupo 2 concluído, patch
 consolidado das etapas 4–6 sobre main atualizado; sem migration adicional.
 159 testes/10 subtestes, seis testes Node e navegador aprovados, PDFs
 Chromium de 100 linhas preservadas e paginação conferidos visualmente.
+
+
+### Reports: grupo 3, etapa 7 — blocos reutilizáveis
+
+- Implementado localmente: catálogo de snapshots de componentes/seções;
+  inserir cópias com IDs novos e arquivar sem alterar inserções existentes.
+- APIs autorizadas, CSRF, chave única, controle otimista de arquivamento;
+  migration e59f6ab8d704 com preservação de tabela compatível.
+- 169 testes Python, 10 subtestes, oito testes Node e percurso de navegador
+  aprovados; um PDF nativo opcional desabilitado. Documentação atualizada.
+- Grupo 2 validado pelo usuário. Etapas 8 (condições/totais) e 9
+  (produtividade) pendentes; patch consolidado somente após etapa 9.
+
+
+### Reports: grupo 3, etapa 8 — condições e totais
+
+- Implementado localmente: condição eq/ne tipada por componente/seção e
+  totais sum/avg/min/max/count por coluna, preservados em revisão e blocos.
+- Decimal para agregação antes do formato; nulos e coleção vazia com
+  comportamento explícito. Sem expressões livres ou conversão de moeda.
+- 202 testes Python, 10 subtestes, oito testes Node e Playwright aprovados;
+  um PDF nativo opcional desabilitado. Impressão Chromium com total único
+  em 100 linhas verificada por Poppler, sem perda de conteúdo.
+- Manual, fluxos, casos de uso e documentação técnica atualizados.
+- Sem migration/dependência nova nesta etapa; etapa 7 já acrescenta migration.
+- Próxima etapa 9: produtividade da IDE e patch consolidado 7–9 sobre main atual.
+
+
+### Reports: grupo 3, etapa 9 — produtividade e entrega
+
+- Desfazer/refazer limitado em memória e atalhos, preservando lock_version;
+  salvar/recarregar/trocar revisão reinicia histórico. Sem autosave persistente.
+- Grupo 3 consolidado sobre main d4dd0e8 (compras/transferências preservadas).
+- Migration final e59f6ab8d704 depois de b48d5e09a673, único head; testa tabela
+  SQLite vazia/compatível/incompatível e tabela criada pelo ModuleManager.
+- 203 testes Python, 10 subtestes, 11 testes Node e navegador aprovados;
+  um PDF nativo opcional desabilitado. Manuais e roteiro do patch atualizados.
+- Próximo grupo: consolidação/experiência e avaliação do PDF opcional, conforme
+  validação do grupo 3. Não inclui expressões livres, drag/drop ou autosave.

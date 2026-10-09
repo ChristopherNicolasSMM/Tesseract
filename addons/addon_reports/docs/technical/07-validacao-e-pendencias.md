@@ -78,8 +78,8 @@ O consumidor lê os registros atuais persistidos; não produz histórico imutáv
 nem snapshot de receita inexistente na sessão. Leituras múltiplas não garantem
 isolamento snapshot em todos os bancos. Emissão não recalcula ledger/custos.
 
-HTML/Jinja avançado, assets, condições, drag/drop, undo/autosave, formulário de
-parâmetros tipado, catálogo reutilizável de blocos/widgets em banco, fontes/perfil
+HTML/Jinja avançado, assets compartilhados, condições compostas, drag/drop,
+autosave/recuperação entre sessões, widgets adicionais em banco, fontes/perfil
 persistido do compilador, fila e histórico de emissões seguem como evolução.
 Este corte não importa essa funcionalidade como se estivesse pronta.
 
@@ -160,3 +160,47 @@ numeração, imagem e cabeçalhos. Verificação visual por Poppler concluída.
 Patch incremental sobre main fce9f257e8dbba5c2413a82ba9b2064ba443bf5d,
 que já contém o grupo 1. Roteiro em docs/patches/reports-ide-grupo2.md.
 Sem migrations; instalar requisitos do addon para obter Pillow 12.3.0.
+
+
+## Etapa 7 — blocos reutilizáveis
+
+169 testes Python e 10 subtestes aprovados; 1 PDF WeasyPrint opt-in
+desabilitado. Oito testes Node aprovados. Testes incluem snapshots fixos,
+chave única, arquivamento com conflito, RBAC, CSRF, validação de entrada e
+migration SQLite (criação, preservação de tabela compatível e rejeição de
+estrutura incompatível). Não foi executada migration em PostgreSQL/Windows.
+Playwright 1.51.1/Chromium 134 aprovou criação, cópia com IDs independentes,
+persistência e arquivamento sem remover inserções, além dos percursos
+anteriores de temas, impressão, publicação, conflito e consumidores.
+Sem execução de WeasyPrint. Patch reservado ao fechamento das etapas 7–9.
+
+
+## Etapa 8 — condições e totais
+
+202 testes Python e 10 subtestes aprovados; 1 WeasyPrint opt-in desabilitado.
+Oito testes Node aprovados. Novos testes cobrem comparação tipada, campo
+ausente, subárvore oculta, contratos inválidos, agregação decimal, nulos,
+coleção vazia, valores incompatíveis, persistência, publicação, clone e bloco.
+Playwright 1.51.1/Chromium 134 aprovou configuração/persistência, prévia
+com parâmetro verdadeiro/falso, total e regressões da IDE/consumidores.
+Captura de prévia escura inspecionada, folha de impressão branca preservada.
+
+PDF Chromium com 100 linhas manteve todas as linhas e total único 5.000,0:
+10 folhas A5 paisagem e cinco A4 retrato, incluindo fechamento com quebra.
+Total na folha 9 (A5) e 4 (A4), conferido por extração e renderização Poppler.
+Em A5 o total ocupou nova folha; rodapé pode migrar para a próxima página
+quando não cabe, sem promessa de ficar junto da última linha. WeasyPrint
+não foi executado. Windows depende da validação após patch consolidado 7–9.
+
+
+## Grupo 3 concluído — etapas 7–9
+
+203 testes Python e 10 subtestes, 11 testes Node e navegador aprovados na base
+main d4dd0e8c85da066fc0a1784e241551c3f18491eb. Um PDF nativo opt-in desabilitado.
+Histórico local e atalhos exercitados com restauração de conteúdo, remoção/
+reinserção, ramo de redo descartado e JSON incompleto de exemplo restaurado.
+Publicados bloqueiam histórico. Tabela de boot aceita pela migration em SQLite.
+Migration e59f6ab8d704 sucede b48d5e09a673; um único head. Novos recursos não
+acrescentam dependências de produção. Roteiro em docs/patches/reports-ide-grupo3.md.
+Patch consolidado incremental inclui somente evolução Reports e documentação,
+preservando compras/estoque do main atual. Windows/WeasyPrint não exercitados.

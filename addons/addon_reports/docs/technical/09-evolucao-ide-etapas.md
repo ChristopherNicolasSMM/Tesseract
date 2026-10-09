@@ -8,7 +8,7 @@ runtime nativo opcional. A geração de patch passa a ocorrer a cada três etapa
 | --- | --- | --- |
 | 1 | Propriedades visuais; formatos e parâmetros; organização da IDE | Etapas 1–3 concluídas; patch consolidado do grupo 1 |
 | 2 | Colunas de composição; imagens; paginação | Etapas 4–6 concluídas; patch consolidado do grupo 2 |
-| 3 | Blocos reutilizáveis; condições e totais; produtividade | Planejado |
+| 3 | Blocos reutilizáveis; condições e totais; produtividade | Etapas 7–9 concluídas; patch consolidado do grupo 3 |
 | 4 | Consolidação; avaliação do PDF automático opcional | Planejado |
 
 ## Etapa 1: propriedades visuais
@@ -229,3 +229,131 @@ imagem presente, números corretos em cada página e fechamento em página
 separada. PDF anterior com quebra explícita manteve 2 páginas. PDFs renderizados
 em PNG e inspecionados (primeira paisagem e terceira retrato), sem cortes.
 WeasyPrint não foi executado; Windows depende da validação após aplicação.
+
+
+## Etapa 7: catálogo de blocos reutilizáveis
+
+Grupo 2 validado pelo usuário. Esta etapa salva um componente ou uma seção
+com seus descendentes em tesseract_reports_report_block. O bloco é uma cópia
+fixa da seleção persistida; alterações posteriores na origem não o atualizam.
+Inserir cópia atribui novos IDs a todos os descendentes e permite editar o
+conteúdo no destino. Não há atualização automática das inserções existentes.
+
+O catálogo guarda key única, nome, node_json, origem informativa, hash SHA-256,
+lock_version, autoria e datas. Arquivamento é lógico e exige lock_version;
+a chave permanece reservada. Listagem consulta somente metadados. Catálogo
+compartilhado com as permissões report_templates.list/detail/create/delete,
+autenticação e CSRF nas mutações. Não existe edição de um bloco já salvo.
+
+API: GET/POST /api/reports/blocks; GET/DELETE /api/reports/blocks/<id>.
+Criação recebe key, name, template_id, version e node_id, sem layout arbitrário.
+Pode capturar uma revisão publicada; inserir continua restrito a rascunhos.
+Snapshot preserva conteúdo, imagens, estilos, formatos, paginação e vínculos.
+Página, contrato dos dados, exemplos e definições dos parâmetros não são
+copiados: conferir compatibilidade no destino pela prévia antes de publicar.
+Limites do layout continuam valendo, inclusive após inserção; operação de
+árvore inválida é revertida. Arquivar não altera templates nem suas revisões.
+
+Migration e59f6ab8d704 sucede b48d5e09a673 na base de entrega e cria somente o catálogo.
+Valida tabela compatível já criada pelo boot, sem apagar dados. Será incluída
+no patch ao fechar etapas 7–9; a cadeia será conferida com o main da entrega.
+Nenhuma dependência de produção adicional. Controles seguem Bootstrap/NiceAdmin;
+folha escura #273549 na edição e branca na impressão.
+
+Validação etapa 7: 169 testes Python, 10 subtestes e oito testes Node
+aprovados; 1 WeasyPrint opt-in desabilitado. Migração verificada em SQLite.
+Playwright/Chromium aprovou o ciclo completo do catálogo e os percursos
+anteriores. Sem patch nesta etapa; próximas: condições/totais e produtividade.
+
+
+## Etapa 8: condições de exibição e totais de tabela
+
+props.condition é opcional em todos os componentes, inclusive page_break.
+Formato exato: {binding:{source,path}, operator:"eq"|"ne", value:scalar}.
+Fontes data/parameters; item não é aceito fora das linhas. Valores esperados
+são string (até 1000 caracteres), número finito, booleano ou null. Comparação
+sem coerção: false difere de 0, "1" difere de 1; números JSON 1 e 1.0 são iguais.
+Campo ausente ou objeto/array usado na comparação gera erro. Uma seção oculta
+não resolve vínculos dos descendentes; ainda valida sua estrutura. Isso não
+substitui controle de acesso nem remove dados da API de edição autorizada.
+
+Canvas mantém conteúdo visível; prévia, impressão e emissão aplicam condições.
+Editor oferece campo, operador, tipo e valor. Trocar texto literal/campo
+preserva condição; revisão publicada desabilita controles. Default de parâmetro
+é resolvido pelo serviço antes da comparação. Sem expressões, eval, AND/OR,
+comparação de maior/menor, filtro de linhas ou autorização por condição.
+
+columns[].aggregate é opcional: sum/avg/min/max/count. Rodapé único depois
+das linhas; tfoot usa table-row-group para evitar repetição a cada folha.
+Contagem inclui todas as linhas, mesmo com valor null, e sempre usa inteiro.
+Demais operações ignoram null; coleção vazia ou somente null produz soma 0,
+e média/mínimo/máximo null (format.null_text controla apresentação). Campo
+ausente continua erro. Valor não numérico, booleano, NaN/infinito e magnitude
+fora do limite são rejeitados. Strings numéricas usam ponto decimal.
+
+Cálculo Decimal com precisão 40; aplica formato da coluna só depois de agregar,
+sem somar células já arredondadas. Sem format, total numérico usa number;
+format explícito também vale para total, exceto count. Para soma monetária,
+configure currency na coluna. Valores em unidades/moedas diferentes precisam
+ser normalizados pelo consumidor antes do JSON; não há conversão implícita.
+Limite de 2000 linhas existente permanece. Sem subtotais/grupos ou fórmulas.
+
+Configurações ficam no layout v1, preservadas em publicação, clone e blocos.
+Não há migration adicional nem dependência de produção nesta etapa. Migração
+da etapa 7 permanece reservada ao patch 7–9. Dark/light e papel branco na
+impressão preservados. O motor opcional WeasyPrint não foi exercitado.
+
+
+### Validação da etapa 8
+
+202 testes Python e 10 subtestes aprovados; 1 WeasyPrint opt-in desabilitado.
+Oito testes Node aprovados. Novos testes cobrem comparação tipada, campo
+ausente, subárvore oculta, contratos inválidos, agregação decimal, nulos,
+coleção vazia, valores incompatíveis, persistência, publicação, clone e bloco.
+Playwright 1.51.1/Chromium 134 aprovou configuração/persistência, prévia
+com parâmetro verdadeiro/falso, total e regressões da IDE/consumidores.
+Captura de prévia escura inspecionada, folha de impressão branca preservada.
+
+PDF Chromium com 100 linhas manteve todas as linhas e total único 5.000,0:
+10 folhas A5 paisagem e cinco A4 retrato, incluindo fechamento com quebra.
+Total na folha 9 (A5) e 4 (A4), conferido por extração e renderização Poppler.
+Em A5 o total ocupou nova folha; rodapé pode migrar para a próxima página
+quando não cabe, sem promessa de ficar junto da última linha. WeasyPrint
+não foi executado. Windows depende da validação após patch consolidado 7–9.
+
+
+## Etapa 9: produtividade com histórico local
+
+reports_history.js mantém snapshots independentes de layout, seleção, JSON
+Schema, exemplo e definições dos parâmetros. Máximo 30 estados incluindo o
+atual; orçamento de 8 MiB UTF-8 elimina os estados mais antigos. O estado atual
+é sempre preservado, mesmo se exceder sozinho o orçamento; limites da API
+continuam obrigatórios no salvamento. Tamanho é calculado uma vez por snapshot.
+Cada alteração válida cria um estado; texto não é agrupado por pausa de digitação.
+
+Desfazer/refazer restaura estado de edição e invalida prévia; mantém o
+lock_version vigente. Restaurar até o ponto inicial também marca edição
+pendente e exige salvar. Salvamento com sucesso e carregamento reiniciam o
+histórico; erro de salvamento preserva histórico/edição. Nova alteração após
+undo descarta redo. Sem armazenamento persistente, autosave ou recuperação
+entre sessões. Parâmetros de teste e catálogo de blocos não fazem parte do
+histórico. Publicação e operações do catálogo não são reversíveis por undo.
+
+Atalhos: Ctrl/Cmd+S para salvar; Ctrl/Cmd+Z e Shift+Z ou Y para histórico fora
+de input/textarea/select/contenteditable. Modal aberto, chamada em andamento
+ou revisão publicada bloqueiam atalhos. Dentro de campos mantém undo nativo.
+Botões Bootstrap com labels traduzíveis, estados enabled/disabled e temas
+existentes; impressão segue branca. Sem migration/dependência adicional.
+
+
+## Grupo 3 concluído — etapas 7–9
+
+203 testes Python e 10 subtestes, 11 testes Node e navegador aprovados na base
+main d4dd0e8c85da066fc0a1784e241551c3f18491eb. Um PDF nativo opt-in desabilitado.
+Histórico local e atalhos exercitados com restauração de conteúdo, remoção/
+reinserção, ramo de redo descartado e JSON incompleto de exemplo restaurado.
+Publicados bloqueiam histórico. Tabela de boot aceita pela migration em SQLite.
+Migration e59f6ab8d704 sucede b48d5e09a673; um único head. Novos recursos não
+acrescentam dependências de produção. Roteiro em docs/patches/reports-ide-grupo3.md.
+Patch consolidado incremental inclui somente evolução Reports e documentação,
+preservando compras/estoque do main atual. Windows/WeasyPrint não exercitados.

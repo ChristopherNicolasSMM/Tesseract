@@ -146,3 +146,21 @@ def example(name):
         raise ReportError('reports.error.not_found', status=404)
     example_path = Path(__file__).resolve().parents[3] / 'examples' / (name + '.json')
     return jsonify(success=True, item=json.loads(example_path.read_text(encoding='utf-8')))
+
+
+@reports_api_bp.route('/blocks', methods=['GET', 'POST'])
+@api
+def blocks_collection():
+    from ...services import report_block_service as blocks
+    if request.method=='GET':
+        return jsonify(success=True,items=blocks.list_blocks())
+    return jsonify(success=True,item=blocks.create_block(payload(('key','name','template_id','version','node_id')))),201
+
+
+@reports_api_bp.route('/blocks/<int:ident>', methods=['GET', 'DELETE'])
+@api
+def block_item(ident):
+    from ...services import report_block_service as blocks
+    if request.method=='GET':
+        return jsonify(success=True,item=blocks.read_block(ident))
+    return jsonify(success=True,item=blocks.archive_block(ident,payload(('lock_version',))))

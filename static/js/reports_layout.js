@@ -31,6 +31,13 @@
     try{validate(nodes);}catch(error){destination.pop();entry.siblings.splice(entry.index,0,entry.node);throw error;}return true;
   }
   function remove(nodes,id) {const entry=locate(nodes,id);if(entry)entry.siblings.splice(entry.index,1);}
-  const api={flatten,locate,validate,duplicate,move,reparent,remove};
+  function insert(nodes,node,parentId,newId=()=> 'node_'+crypto.randomUUID()) {
+    const parent=parentId?locate(nodes,parentId)?.node:null;
+    if(parentId&&(!parent||parent.type!=='section'))throw Error('Invalid destination');
+    const copy=JSON.parse(JSON.stringify(node));flatten([copy]).forEach(item=>item.node.id=newId());
+    const destination=parent?(parent.children||=[]):nodes;destination.push(copy);
+    try{validate(nodes);}catch(error){destination.pop();throw error;}return copy;
+  }
+  const api={flatten,locate,validate,duplicate,move,reparent,remove,insert};
   if(typeof module!=='undefined')module.exports=api;else window.TesseractReportsLayout=api;
 })();

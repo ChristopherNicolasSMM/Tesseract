@@ -137,3 +137,71 @@ A prévia HTML é contínua e não mostra antecipadamente o total de páginas.
 Confira a paginação no diálogo Imprimir / salvar PDF. A folha impressa
 é branca em ambos os temas. As escolhas feitas no diálogo podem alterar
 a saída em relação ao template.
+
+
+## Blocos reutilizáveis
+
+Selecione um componente ou uma seção na árvore. Em Blocos reutilizáveis,
+informe uma chave única (letras minúsculas, números, ponto, hífen ou sublinhado,
+começando por letra) e um nome. Salvar seleção como bloco grava primeiro as
+alterações pendentes do template e salva uma cópia fixa da seleção.
+
+Escolha o bloco no catálogo e use Inserir cópia em um rascunho. Com uma seção
+selecionada, a cópia entra nela; com outro componente selecionado, entra no
+mesmo grupo. A cópia tem IDs próprios e pode ser editada independentemente.
+Os vínculos são preservados: confira dados e parâmetros do destino na prévia.
+As definições de parâmetros, a página e os dados de exemplo não são importados.
+
+Arquivar bloco pede confirmação e retira a opção do catálogo, preservando
+cópias já inseridas e relatórios publicados. Sua chave não fica disponível
+para reutilização. Para outra variante, salve uma nova seleção com outra chave.
+O catálogo depende das permissões de modelos de relatório do seu usuário.
+
+
+## Exibição condicional
+
+Selecione um componente e abra Exibição condicional nas propriedades.
+Escolha Comparar campo, selecione o campo dos dados ou parâmetros, e escolha
+Igual a ou Diferente de. Informe o tipo e o valor esperado. Texto "1" é
+diferente do número 1; falso é diferente de zero; nulo é um valor próprio.
+Uma seção oculta também oculta seus filhos. Sempre exibir remove a regra.
+
+O canvas mantém todos os componentes visíveis para edição. Use Prévia HTML
+para conferir o resultado com os dados e parâmetros atuais. Campo ausente
+gera erro, mesmo se você estiver comparando com nulo. Uma condição não é uma
+regra de permissão de acesso ao relatório.
+
+## Totais nas tabelas
+
+Em cada coluna, escolha Total da coluna: soma, média, mínimo, máximo ou
+contagem de linhas. Sem total deixa a célula do rodapé vazia. O rodapé aparece
+uma vez, depois das linhas, e acompanha a impressão. Soma/média/mínimo/máximo
+usam valores numéricos e ignoram nulos; contagem inclui todas as linhas.
+
+Em tabela vazia, soma e contagem mostram zero; outras operações mostram o
+texto configurado para nulo. Configure Número ou Moeda na coluna para formatar
+o total; contagem sempre mostra inteiro. Os cálculos usam valores originais,
+antes do arredondamento de apresentação. Dados em moedas ou unidades diferentes
+precisam ser normalizados antes de gerar o relatório.
+
+O total pode ir para a folha seguinte se não houver espaço no fim da tabela.
+Confira o resultado no diálogo de impressão antes de salvar o PDF.
+
+
+## Desfazer, refazer e atalhos
+
+Use Desfazer e Refazer na barra de ações para recuperar alterações locais do
+rascunho: componentes, propriedades, página, contrato, dados de exemplo e
+definições de parâmetros. Os botões ficam desabilitados quando não há histórico.
+Editar depois de desfazer elimina o caminho anterior de refazer.
+
+O histórico pertence à revisão aberta, fica apenas na memória e é apagado ao
+salvar, recarregar ou trocar de revisão/modelo. Ele não recupera edições de
+sessões anteriores. Desfazer não desfaz publicação, criação ou arquivamento
+de blocos; alterações restauradas precisam ser salvas novamente.
+
+Ctrl+S (Cmd+S no macOS) salva o rascunho. Fora de campos de texto, Ctrl+Z
+desfaz e Ctrl+Shift+Z ou Ctrl+Y refaz. Dentro dos campos, o navegador mantém
+seu próprio desfazer de digitação; use os botões para restaurar o documento.
+Atalhos não atuam com um modal aberto nem em revisão publicada. Os valores
+informados para testar parâmetros não fazem parte do histórico do template.

@@ -5,6 +5,7 @@ from jsonschema import Draft202012Validator
 from .report_page_service import page_config, page_css, validate_pagination, pagination_css
 from .report_image_service import validate_image, image_css, MAX_TOTAL_IMAGE_BYTES, MAX_IMAGE_COUNT
 from .report_format_service import validate_format, format_value
+from .report_calculation_service import AGGREGATES, validate_condition, condition_matches, aggregate
 from .report_style_service import validate_style, style_css
 from .report_binding_service import ReportBindingService, BindingError
 
@@ -72,7 +73,12 @@ class ReportLayoutService:
                 if len(ids) > 200 or (type(node.get('type')) is not str or node.get('type') not in cls.TYPES) or type(node.get('props')) is not dict:
                     raise ReportError('reports.error.layout', ident)
                 props = node['props']
+                if 'condition' in props:
+                    if not validate_condition(props['condition']):
+                        raise ReportError('reports.error.condition', ident)
+                    cls._binding(props['condition']['binding'], ident, allow_item=False)
                 allowed = {'text', 'binding', 'level', 'format'} if node['type'] == 'text' else {'collection', 'columns', 'empty_text'} if node['type'] == 'table' else {'columns', 'gap'} if node['type'] == 'section' else {'source', 'alt', 'width', 'height'} if node['type'] == 'image' else set()
+                allowed.add('condition')
                 if node['type'] != 'page_break':
                     allowed.update(('style', 'pagination'))
                 pagination = props.get('pagination', {})
@@ -105,8 +111,10 @@ class ReportLayoutService:
                     if type(columns) is not list or not 1 <= len(columns) <= 12:
                         raise ReportError('reports.error.layout', ident)
                     for column in columns:
-                        if type(column) is not dict or not {'label', 'binding'} <= set(column) or set(column) - {'label', 'binding', 'align', 'width', 'format'} or type(column['label']) is not str or len(column['label']) > 120:
+                        if type(column) is not dict or not {'label', 'binding'} <= set(column) or set(column) - {'label', 'binding', 'align', 'width', 'format', 'aggregate'} or type(column['label']) is not str or len(column['label']) > 120:
                             raise ReportError('reports.error.layout', ident)
+                        if 'aggregate' in column and (type(column['aggregate']) is not str or column['aggregate'] not in AGGREGATES):
+                            raise ReportError('reports.error.aggregate', ident)
                         if 'format' in column and not validate_format(column['format']):
                             raise ReportError('reports.error.format', ident)
                         if 'align' in column and not validate_style({'align':column['align']}):
@@ -154,6 +162,14 @@ class ReportLayoutService:
             parts = []
             for node in nodes:
                 props = node['props']
+                if 'condition' in props:
+                    condition_value = resolve(props['condition']['binding'])
+                    try:
+                        visible = condition_matches(condition_value, props['condition'])
+                    except ValueError as exc:
+                        raise ReportError('reports.error.condition', node['id']) from exc
+                    if not visible:
+                        continue
                 css = ';'.join(value for value in (style_css(props.get('style', {})), pagination_css(props.get('pagination', {}))) if value)
                 attr = (' style="' + css + '"') if css else ''
                 if node['type'] == 'text':
@@ -182,15 +198,29 @@ class ReportLayoutService:
                     def column_attr(column):
                         values = []
                         if 'width' in column: values.append('width:'+str(column['width'])+'%')
-                        if 'format' in column and not validate_format(column['format']):
-                            raise ReportError('reports.error.format', ident)
                         if 'align' in column: values.append('text-align:'+column['align'])
                         return (' style="'+';'.join(values)+'"') if values else ''
                     header = ''.join('<th'+column_attr(c)+'>' + escape(c['label']) + '</th>' for c in columns)
                     rows = ''.join('<tr>' + ''.join('<td'+column_attr(c)+'>' + value_html(resolve(c['binding'], item, True), c.get('format'), node['id']) + '</td>' for c in columns) + '</tr>' for item in items)
                     if not items:
                         rows = f'<tr><td colspan="{len(columns)}">{escape(props.get("empty_text", ""))}</td></tr>'
-                    parts.append('<table'+attr+'><thead><tr>' + header + '</tr></thead><tbody>' + rows + '</tbody></table>')
+                    footer = ''
+                    if any('aggregate' in c for c in columns):
+                        cells = []
+                        for c in columns:
+                            value = ''
+                            if 'aggregate' in c:
+                                values = [resolve(c['binding'], item, True) for item in items]
+                                try:
+                                    result = aggregate(values, c['aggregate'])
+                                except ValueError as exc:
+                                    raise ReportError('reports.error.aggregate', node['id']) from exc
+                                # Contagem é sempre inteiro, independente do formato das células.
+                                spec = {'kind':'number','decimals':0} if c['aggregate']=='count' else c.get('format', {'kind':'number'})
+                                value = value_html(result, spec, node['id'])
+                            cells.append('<td'+column_attr(c)+'>'+value+'</td>')
+                        footer = '<tfoot><tr>'+''.join(cells)+'</tr></tfoot>'
+                    parts.append('<table'+attr+'><thead><tr>' + header + '</tr></thead><tbody>' + rows + '</tbody>'+footer+'</table>')
             return ''.join(parts)
         body = render_nodes(layout['body'])
         page_rule, screen_page = page_css(page_config(layout.get('page')))
@@ -205,6 +235,7 @@ table { width:100%; border-collapse:collapse; table-layout:fixed; }
 th,td { padding:var(--report-cell-padding,6pt); border:1px solid #cbd5e1; overflow-wrap:anywhere; }
 th { background:#eef2f6; }
 thead { display:table-header-group; }
+tfoot { display:table-row-group; font-weight:bold; }
 tr { break-inside:avoid; }
 p { white-space:pre-wrap; overflow-wrap:anywhere; orphans:3; widows:3; }
 h1,h2 { break-after:avoid; overflow-wrap:anywhere; }

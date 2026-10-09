@@ -32,8 +32,30 @@ const fs = require('node:fs');
     assert.equal(await page.locator('#page-format').isDisabled(),true);
     assert.equal(await page.locator('#page-number-pages').isDisabled(),true);
     assert.equal(await page.locator('#duplicate-node').isDisabled(),true);
+    assert.equal(await page.locator('#undo-report').isDisabled(),true);
+    assert.equal(await page.locator('#redo-report').isDisabled(),true);
   }
   await create('browser.example','Relatório navegador');
+  assert.equal(await page.locator('#undo-report').isDisabled(),true);
+  await page.locator('#add-text').click();await page.locator('#node-text').fill('Alteração reversível');
+  await page.locator('#undo-report').click();assert.equal(await page.locator('#node-text').inputValue(),'Texto');
+  await page.locator('#undo-report').click();assert.equal(await page.locator('#report-tree button').count(),1);
+  await page.locator('#redo-report').click();await page.locator('#redo-report').click();
+  assert.equal(await page.locator('#node-text').inputValue(),'Alteração reversível');
+  await page.locator('#undo-report').click();await page.locator('#node-text').fill('Outra alteração');
+  assert.equal(await page.locator('#redo-report').isDisabled(),true);
+  await page.locator('#undo-report').click();await page.locator('#undo-report').click();
+  await page.locator('#tab-data').click();const originalSample=await page.locator('#sample-data').inputValue();
+  await page.locator('#sample-data').fill('{');await page.locator('#undo-report').click();
+  assert.equal(await page.locator('#sample-data').inputValue(),originalSample);
+  await page.keyboard.press('Control+s');await state('saved');
+  assert.equal(await page.locator('#undo-report').isDisabled(),true);assert.equal(await page.locator('#redo-report').isDisabled(),true);
+  await page.locator('#tab-layout').click();await page.locator('#add-divider').click();
+  await page.locator('#tab-layout').focus();await page.keyboard.press('Control+z');
+  assert.equal(await page.locator('#report-tree button').count(),1);
+  await page.keyboard.press('Control+Shift+z');assert.equal(await page.locator('#report-tree button').count(),2);
+  await page.locator('#undo-report').click();
+
   await page.locator('#report-page-settings > summary').click();
   await page.locator('#page-format').selectOption('A5');await page.locator('#page-orientation').selectOption('landscape');
   await page.locator('#page-margin-left').fill('41');await page.locator('#save-report').click();await state('error');
@@ -69,6 +91,21 @@ const fs = require('node:fs');
   assert.equal(await page.locator('.report-section-children button').count(),2);
   await page.locator('#report-tree button').filter({hasText:/^Seção$/}).last().click();await page.locator('#delete-node').click();
   assert.equal(await page.locator('.report-section').count(),1);
+  await page.locator('#report-tree button').filter({hasText:/^Seção$/}).first().click();
+  await page.locator('#block-key').fill('browser.header');await page.locator('#block-name').fill('Cabeçalho reutilizável');
+  await page.locator('#save-block').click();await page.waitForFunction(()=>document.querySelector('#block-select').selectedOptions[0]?.textContent==='Cabeçalho reutilizável'&&!document.querySelector('#insert-block').disabled);
+  const savedBlockId=await page.locator('#block-select').inputValue();
+  await page.locator('#report-tree button').filter({hasText:'Texto na seção'}).first().click();await page.locator('#node-text').fill('Fonte alterada');
+  await page.locator('#insert-block').click();await state('dirty');
+  await page.waitForFunction(()=>document.querySelectorAll('.report-section').length===2);
+  assert.equal(await page.locator('#report-paper').getByText('Texto na seção',{exact:true}).count(),1);
+  await page.locator('#save-report').click();await state('saved');await page.reload();await state('saved');
+  assert.equal(await page.locator('.report-section').count(),2);
+  await page.locator('#block-select').selectOption(savedBlockId);await page.locator('#archive-block').click();await confirm();
+  await page.waitForFunction(id=>!Array.from(document.querySelector('#block-select').options).some(option=>option.value===id),savedBlockId);
+  assert.equal(await page.locator('.report-section').count(),2);
+  await page.locator('#report-tree button').filter({hasText:/^Seção$/}).last().click();await page.locator('#delete-node').click();
+  await page.locator('#report-tree button').filter({hasText:'Fonte alterada'}).click();await page.locator('#node-text').fill('Texto na seção');
   await page.locator('#add-columns').click();
   await page.locator('#section-columns').selectOption('3');await page.locator('#section-gap').fill('12');
   await page.locator('#report-tree button').filter({hasText:/^Seção$/}).last().click();await page.locator('#add-text').click();await page.locator('#node-text').fill('Coluna B');
@@ -121,6 +158,7 @@ const fs = require('node:fs');
   await page.locator('#column-format-2-kind').selectOption('number');
   await page.locator('#column-format-2-decimals').fill('1');
   await page.locator('#column-format-3-kind').selectOption('currency');
+  await page.locator('#column-aggregate-3').selectOption('sum');
   await page.locator('#column-binding-0').selectOption(JSON.stringify({source:'item',path:['sku']}));
   assert.equal(await page.locator('#report-paper th').first().textContent(),'Material alterado');
   await page.locator('#tab-parameters').click();
@@ -147,10 +185,26 @@ const fs = require('node:fs');
   assert.equal(await page.locator('.reports-paper').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(39, 53, 73)');
   assert.equal(await page.locator('.reports-paper').evaluate(el=>getComputedStyle(el).color),'rgb(232, 238, 247)');
   if(process.env.REPORTS_SCREENSHOTS){fs.mkdirSync(process.env.REPORTS_SCREENSHOTS,{recursive:true});await page.screenshot({path:process.env.REPORTS_SCREENSHOTS+'/reports-dark.png',fullPage:true});}
+  assert.equal(await page.locator('#column-aggregate-3').inputValue(),'sum');
+  await page.locator('#add-text').click();await page.locator('#node-text').fill('Conteúdo condicionado');
+  await page.locator('#condition-enabled').selectOption('true');
+  await page.locator('#condition-binding').selectOption(JSON.stringify({source:'parameters',path:['flag']}));
+  await page.locator('#save-report').click();await state('saved');
+  await page.reload();await state('saved');await page.locator('#report-tree button').last().click();
+  assert.equal(await page.locator('#condition-enabled').inputValue(),'true');
+  assert.equal(await page.locator('#condition-type').inputValue(),'boolean');
+  const calculationUrl=new URL(page.url()),calculationCsrf=await page.locator('#reports-workspace').getAttribute('data-csrf');
+  for(const flag of [false,true]) {
+    const response=await page.request.post(base+`/api/reports/templates/${calculationUrl.searchParams.get('template')}/versions/1/preview`,{headers:{'X-Reports-CSRF':calculationCsrf},data:{format:'html',parameters:{flag}}});
+    assert.equal(response.status(),200);const value=(await response.json()).html;
+    assert.equal(value.includes('Conteúdo condicionado'),flag);assert.ok(value.includes('<tfoot>'));
+  }
   await page.locator('#add-page_break').click();
   await page.locator('#add-text').click();await page.locator('#node-text').fill('Após quebra explícita');
   await page.locator('#preview-report').click();await state('preview');
   const darkPreview=page.frameLocator('#html-preview');
+  assert.equal(await darkPreview.getByText('Conteúdo condicionado',{exact:true}).count(),0);
+  assert.equal(await darkPreview.locator('tfoot').count(),1);
   assert.equal(await darkPreview.locator('main').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(39, 53, 73)');
   const html=await page.locator('#html-preview').getAttribute('srcdoc');
   const printed=await browser.newPage();await printed.setContent(html);
@@ -222,7 +276,7 @@ const fs = require('node:fs');
   const printLayout={schema_version:1,page:{format:'A5',orientation:'landscape',margin_top:10,margin_right:10,margin_bottom:12,margin_left:20,number_pages:true},body:[
     {id:'intro',type:'section',props:{pagination:{keep_together:true}},children:[{id:'caption',type:'text',props:{text:'Relatório de paginação',level:'title'}},{id:'logo',type:'image',props:{source:'data:image/png;base64,'+logoFile.buffer.toString('base64'),alt:'Logotipo',width:24,height:12}}]},
     {id:'grid',type:'section',props:{columns:2,gap:8,pagination:{keep_together:true}},children:[{id:'left',type:'text',props:{text:'Coluna esquerda'}},{id:'right',type:'text',props:{text:'Coluna direita'}}]},
-    {id:'rows',type:'table',props:{collection:{source:'data',path:['items']},columns:[{label:'Descrição',binding:{source:'item',path:['name']}},{label:'Valor',binding:{source:'item',path:['amount']},format:{kind:'number',decimals:1}}]}},
+    {id:'rows',type:'table',props:{collection:{source:'data',path:['items']},columns:[{label:'Descrição',binding:{source:'item',path:['name']}},{label:'Valor',binding:{source:'item',path:['amount']},aggregate:'sum',format:{kind:'number',decimals:1}}]}},
     {id:'finish',type:'text',props:{text:'Fechamento final',pagination:{break_before:true}}}
   ]};
   const items=Array.from({length:100},(_,index)=>({name:'ITEM_'+String(index+1).padStart(3,'0'),amount:index+0.5}));
@@ -237,6 +291,7 @@ const fs = require('node:fs');
     await paginated.setContent(await savePrintLayout());await paginated.locator('img').evaluate(image=>image.decode());
     await paginated.evaluate(()=>document.documentElement.dataset.theme='dark');await paginated.emulateMedia({media:'print'});
     assert.equal(await paginated.locator('.report-document').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
+    assert.equal(await paginated.locator('tfoot').textContent(),'5.000,0');
     const output=await paginated.pdf({preferCSSPageSize:true,printBackground:true,displayHeaderFooter:false});
     if(process.env.REPORTS_SCREENSHOTS){fs.mkdirSync(process.env.REPORTS_SCREENSHOTS,{recursive:true});fs.writeFileSync(process.env.REPORTS_SCREENSHOTS+'/reports-pagination-'+name+'.pdf',output);}
   }
