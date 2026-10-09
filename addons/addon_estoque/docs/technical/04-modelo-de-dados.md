@@ -464,3 +464,15 @@ lê strings exatas do snapshot quando ele existe. A guarda ORM protege o
 documento e os itens solicitados referenciados; a tabela não tem CRUD/menu de
 criação ou exclusão. Schema só acrescenta tabela, sem converter histórico.
 Ver [fluxos e contrato](../../../../docs/patches/fase3-compras-moeda-decimal.md).
+
+## Transferências organizacionais — 09/10/2026
+
+Sem nova entidade/tabela: dois `OrganizationMovement` imutáveis (`saida`/
+`entrada`) com `transfer_reference` comum nos snapshots, origem/destino,
+papel, autor/data, políticas e referência da saída na entrada. Chaves internas
+reservadas derivam de origem + referência do solicitante. A reserva da linha
+do material serializa movimentos normais e transferências inversas; saldo/ledger
+dos dois lados são atualizados pela regra central em uma transação. O valor
+retirado na origem é levado integralmente ao destino na mesma moeda; entre
+moedas, a entrada congela a conversão pública do Financeiro. Não há FK entre
+addons nem alteração do saldo legado. Ver [contrato e limites](../../../../docs/patches/fase3-cotacao-organizacao-transferencia.md).

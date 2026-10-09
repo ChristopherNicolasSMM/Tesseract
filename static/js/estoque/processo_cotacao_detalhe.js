@@ -15,6 +15,7 @@
  */
 (function () {
   "use strict";
+  let quotationOrganization = null;
 
   function fmt(numero) {
     if (numero === null || numero === undefined) return "—";
@@ -26,9 +27,48 @@
     if (!configEl) return;
     const config = TesseractData.config("estoque-processo-cotacao-config");
 
+    initQuotationOrganization(config);
+
     initItensProcesso(config);
     initAbaCotacoes(config);
     initAbaComparacao(config);
+  }
+
+  function initQuotationOrganization(config) {
+    const header = document.querySelector('#aba-cabecalho');
+    const modal = document.querySelector('#modalItensCotacao .modal-body');
+    if (!header || !modal) return;
+    const headerSlot = document.createElement('div');
+    const modalSlot = document.createElement('div');
+    header.prepend(headerSlot); modal.prepend(modalSlot);
+    const path = '/estoque/processo-cotacaos/' + config.processoCotacaoId + '/organizacao-cotacao';
+    async function load() {
+      const response = await TesseractData._json(path);
+      quotationOrganization = response.data;
+      headerSlot.innerHTML = response.html;
+      modalSlot.innerHTML = response.modal_html;
+    }
+    for (const slot of [headerSlot, modalSlot]) {
+      slot.addEventListener('submit', async function (event) {
+        const form = event.target.closest('[data-quotation-organization-form]');
+        if (!form) return;
+        event.preventDefault();
+        const error = form.querySelector('[data-organization-error]');
+        const button = form.querySelector('button');
+        error.classList.add('d-none'); button.disabled = true;
+        try {
+          await TesseractData._json(path, {method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({organization_code: form.elements.organization_code.value})});
+          await load();
+          TesseractData.aviso('Organização definida para a cotação e seus pedidos.', 'success');
+        } catch (failure) {
+          error.textContent = failure.message; error.classList.remove('d-none'); button.disabled = false;
+        }
+      });
+    }
+    load().catch(failure => {
+      headerSlot.textContent = 'Não foi possível carregar a organização: ' + failure.message;
+    });
   }
 
   // ═══ Itens Pedidos (Material+quantidade, uma vez no processo) ═══
@@ -161,6 +201,7 @@
         "<td>" + (cotacao.prazo_entrega_dias ?? "—") + "</td>" +
         "<td class=\"text-end\">" +
         "<button type=\"button\" class=\"btn btn-sm btn-outline-primary\" data-acao=\"itens-cotacao\" data-id=\"" + cotacao.id + "\">Responder Preços</button>" +
+        '<a class="btn btn-sm btn-outline-secondary ms-1" href="/estoque/processo-cotacaos/' + config.processoCotacaoId + '/cotacoes/' + cotacao.id + '/cadastro-monetario">Moeda e valores</a>' +
         "</td></tr>"
       );
     }
@@ -215,6 +256,11 @@
       if (!fornecedorHidden.value) {
         erroEl.textContent = "Selecione um fornecedor.";
         erroEl.classList.remove("d-none");
+        return;
+      }
+      if (!quotationOrganization) {
+        erroEl.textContent = 'Selecione e confirme a organização da cotação antes de convidar o fornecedor.';
+        erroEl.classList.remove('d-none');
         return;
       }
       try {

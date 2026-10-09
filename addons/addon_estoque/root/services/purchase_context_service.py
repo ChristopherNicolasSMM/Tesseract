@@ -55,8 +55,14 @@ def bind_context(kind, ident, data, *, actor):
         expected = ('rascunho',) if kind == 'order' else ('aberto', 'comparado')
         if obj.status not in expected:
             raise ValueError('Vincule a organização antes de enviar o pedido ou finalizar o processo.')
-        if kind == 'process' and Cotacao.query.filter_by(processo_cotacao_id=ident).first():
-            raise ValueError('Vincule a organização antes de convidar fornecedores; cotações existentes permanecem legadas.')
+        if kind == 'process':
+            quotes = Cotacao.query.filter_by(processo_cotacao_id=ident).all()
+            quote_ids = [quote.id for quote in quotes]
+            historical_item = ItemCotacao.query.filter(ItemCotacao.cotacao_id.in_(quote_ids),
+                db.or_(ItemCotacao.is_deleted.is_(True), ItemCotacao.selecionado_como_vencedor.is_(True),
+                       ItemCotacao.pedido_compra_item_id.isnot(None))).first() if quote_ids else None
+            if any(quote.is_deleted or quote.status != 'rascunho' for quote in quotes) or historical_item:
+                raise ValueError('Cotações enviadas/respondidas, arquivadas, selecionadas ou geradas permanecem legadas; crie outro processo para vincular organização.')
         if kind == 'order':
             linked = (ItemCotacao.query.join(ItemPedidoCompra, ItemCotacao.pedido_compra_item_id == ItemPedidoCompra.id)
                       .filter(ItemPedidoCompra.pedido_compra_id == ident).first())

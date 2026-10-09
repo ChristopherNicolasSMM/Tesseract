@@ -2,6 +2,7 @@
 <div class="pagetitle"><h1>Estoque por organização</h1></div>
 <div class="card"><div class="card-body pt-3">
 <p>Catálogo compartilhado. Saldos e custos separados. O estoque legado não é atribuído nem somado a uma organização.</p>
+{% if current_user.has_permission('movimentacaos.create') %}<a class="btn btn-outline-primary mb-3" href="{{ url_for('saldos.organization_transfer',source_organization=selected.code if selected else '') }}">Transferir entre organizações</a>{% endif %}
 <form method="get"><label class="form-label" for="organization_code">Organização</label><div class="input-group mb-3">
 <select id="organization_code" name="organization_code" class="form-select" required><option value="">Selecione</option>{% for org in organizations %}<option value="{{ org.code }}" {% if selected and selected.code==org.code %}selected{% endif %}>{{ org.code }} — {{ org.name }}{% if not org.is_active %} (inativa){% endif %}</option>{% endfor %}</select><button class="btn btn-primary">Consultar</button></div></form>
 {% if selected %}
@@ -9,7 +10,7 @@
 <h2 class="h5">Saldo — {{ selected.code }}</h2><div class="table-responsive"><table class="table table-striped"><thead><tr><th>Material</th><th>Quantidade-base</th><th>Custo médio por unidade</th><th>Valor em estoque</th><th>Moeda-base</th></tr></thead><tbody>
 {% for row in balances %}<tr><td>{{ identities[row.material_id].name }} (#{{ row.material_id }})</td><td>{{ row.quantidade_atual }} {{ identities[row.material_id].unit }}</td><td>{{ row.custo_medio }}</td><td>{{ row.valor_total_estoque }}</td><td>{{ row.currency_code }}</td></tr>{% else %}<tr><td colspan="5">Sem saldo nesta organização.</td></tr>{% endfor %}</tbody></table></div>
 <h2 class="h5">Histórico imutável</h2><div class="table-responsive"><table class="table table-striped"><thead><tr><th>ID</th><th>Material</th><th>Tipo</th><th>Quantidade assinada</th><th>Valor assinado</th><th>Moeda</th><th>Autor</th></tr></thead><tbody>
-{% for row in movements %}<tr><td>{{ row.id }}</td><td>{{ identities[row.material_id].name }} (#{{ row.material_id }})</td><td>{{ row.tipo_movimentacao }}</td><td>{{ row.quantidade }}</td><td>{{ row.custo_total }}</td><td>{{ row.currency_code }}</td><td>{{ row.created_by }}</td></tr>{% else %}<tr><td colspan="7">Sem movimentos.</td></tr>{% endfor %}</tbody></table></div>
+{% for row in movements %}<tr><td>{{ row.id }}{% if row.snapshot.transfer_reference %}<div class="small">Transferência {{ row.snapshot.source_organization }} → {{ row.snapshot.destination_organization }}<br><span title="{{ row.snapshot.transfer_reference }}">{{ row.snapshot.transfer_reference[:21] }}…</span></div>{% endif %}</td><td>{{ identities[row.material_id].name }} (#{{ row.material_id }})</td><td>{{ row.tipo_movimentacao }}</td><td>{{ row.quantidade }}</td><td>{{ row.custo_total }}</td><td>{{ row.currency_code }}</td><td>{{ row.created_by }}</td></tr>{% else %}<tr><td colspan="7">Sem movimentos.</td></tr>{% endfor %}</tbody></table></div>
 {% if page > 1 %}<a href="{{ url_for('saldos.organization_stock',organization_code=selected.code,page=page-1) }}">Anterior</a>{% endif %}
 {% if has_next %}<a href="{{ url_for('saldos.organization_stock',organization_code=selected.code,page=page+1) }}">Próxima</a>{% endif %}
 {% if current_user.has_permission('movimentacaos.create') and selected.is_active and options.available %}

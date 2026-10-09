@@ -90,8 +90,8 @@ def register(data, *, actor, commit=True):
     actor = text(actor,120,'Autor')
     org = resolve_organization_by_code(data['organization_code'])
     key = text(data['idempotency_key'],80,'Chave de idempotência')
-    if key.startswith('receipt:'):
-        raise ValueError('Prefixo de idempotência reservado ao recebimento de pedidos.')
+    if key.startswith(('receipt:', 'transfer:')):
+        raise ValueError('Prefixo de idempotência reservado ao recebimento/transferência.')
     kind = data['tipo_movimentacao']
     if kind not in ('entrada','saida','ajuste'):
         raise ValueError('Tipo de movimentação inválido.')

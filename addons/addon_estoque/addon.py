@@ -148,6 +148,11 @@ class AddonEstoque(AddonBase):
             saldos_bp.add_url_rule('/por-organizacao',endpoint='organization_stock',view_func=organization_stock_view,methods=['GET'])
             saldos_bp.add_url_rule('/por-organizacao/movimentar',endpoint='organization_movement',view_func=organization_movement_view,methods=['POST'])
             saldos_bp._organization_stock_registered = True
+        from addons.addon_estoque.root.controller.organization_transfer_hooks import organization_transfer_view
+        if not getattr(saldos_bp, '_organization_transfer_registered', False):
+            saldos_bp.add_url_rule('/transferir', endpoint='organization_transfer', view_func=organization_transfer_view,
+                methods=['GET', 'POST'])
+            saldos_bp._organization_transfer_registered = True
         if not getattr(pedido_compras_bp, '_order_valuation_registered', False):
             pedido_compras_bp.add_url_rule('/<int:id>/avaliacao-monetaria',endpoint='valuation',view_func=order_valuation_view,methods=['GET','POST'])
             pedido_compras_bp._order_valuation_registered = True
@@ -166,6 +171,12 @@ class AddonEstoque(AddonBase):
                 view_func=process_comparison_view, methods=['GET'])
             processo_cotacaos_bp._purchase_pricing_registered = True
         app.before_request(protect_legacy_quote_request)
+
+        from addons.addon_estoque.root.controller.quotation_organization_hooks import quotation_organization_view
+        if not getattr(processo_cotacaos_bp, '_quotation_organization_registered', False):
+            processo_cotacaos_bp.add_url_rule('/<int:id>/organizacao-cotacao', endpoint='quotation_organization',
+                view_func=quotation_organization_view, methods=['GET', 'POST'])
+            processo_cotacaos_bp._quotation_organization_registered = True
 
         # endpoint JSON novo, mesmo padrão de guarda.
         if not getattr(pedido_compras_bp, "_entrada_mercadoria_route_registered", False):

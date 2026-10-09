@@ -91,6 +91,7 @@ def registrar_movimentacao(
     idempotency_key: str | None = None,
     actor: str | None = None,
     valuation_id: int | None = None,
+    transfer_reference: str | None = None,
 ) -> dict:
     """
     Registra uma Movimentacao (ledger, imutável) e atualiza o Saldo
@@ -111,6 +112,14 @@ def registrar_movimentacao(
     fronteira usada em device_manager (skill 05, seção 6).
     """
     if organization_code is not None:
+        if transfer_reference is not None:
+            if any(value is not None for value in (custo_unitario,lote_fornecedor,data_validade,usuario_id,observacoes,
+                fornecedor_id,pedido_compra_item_id,unidade_original,quantidade_original,fator_conversao_aplicado,
+                source_currency,operation_date,rate_id,policy_version_id,idempotency_key,valuation_id)):
+                raise ValueError('Transferência utiliza exclusivamente o contrato pareado em andamento.')
+            from .organization_transfer_service import register_leg
+            return register_leg(transfer_reference,organization_code=organization_code,material_id=material_id,
+                kind=tipo_movimentacao,quantity=quantidade,actor=actor,commit=commit)
         from .organization_stock_service import register, register_valuation_line
         if valuation_id is not None:
             if any(value is not None for value in (custo_unitario,source_currency,operation_date,rate_id,
@@ -136,7 +145,7 @@ def registrar_movimentacao(
             'quantidade':quantidade,'custo_unitario':custo_unitario,'source_currency':source_currency,'operation_date':operation_date,
             'rate_id':rate_id,'policy_version_id':policy_version_id,'idempotency_key':idempotency_key,'observacoes':observacoes},
             actor=actor,commit=commit)
-    if any(value is not None for value in (source_currency,operation_date,rate_id,policy_version_id,idempotency_key,actor,valuation_id)):
+    if any(value is not None for value in (source_currency,operation_date,rate_id,policy_version_id,idempotency_key,actor,valuation_id,transfer_reference)):
         raise ValueError('Parâmetros monetários organizacionais exigem organização explícita.')
 
     if tipo_movimentacao not in TIPOS_VALIDOS:
@@ -386,6 +395,13 @@ def receber_pedido_compra(
 
 class ItemCotacaoNaoEncontradoError(Exception):
     pass
+
+
+@_rollback_on_error
+def transferir_entre_organizacoes(data, *, actor):
+    """Saída e entrada organizacionais pelo mesmo registrar_movimentacao, com commit único."""
+    from .organization_transfer_service import transfer
+    return transfer(data, actor=actor)
 
 
 @_rollback_on_error

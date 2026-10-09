@@ -1,0 +1,32 @@
+{% extends "core/base.html" %}{% block content %}
+<div class="pagetitle"><h1>Transferir estoque entre organizações</h1></div>
+<div class="card"><div class="card-body pt-3">
+<p>Uma saída na origem e uma entrada no destino, confirmadas juntas. Quantidade na unidade-base do material. O saldo global legado permanece separado.</p>
+{% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+<form method="get" class="row g-3 mb-3">
+{% for side, label in [('source','Origem'),('destination','Destino')] %}<div class="col-md-6">
+<label class="form-label" for="{{ side }}_organization">{{ label }}</label>
+<select class="form-select" id="{{ side }}_organization" name="{{ side }}_organization" required><option value="">Selecione</option>
+{% for org in organizations %}<option value="{{ org.code }}" {% if values.get(side ~ '_organization') == org.code %}selected{% endif %}>{{ org.code }} — {{ org.name }}</option>{% endfor %}</select></div>{% endfor %}
+<div class="col-12"><button class="btn btn-outline-primary">Carregar moedas e políticas</button></div></form>
+{% if values.get('source_organization') and values.get('destination_organization') and options.source.available and options.destination.available %}
+<p>Moedas-base: {{ options.source.initial_policy.currency_code if options.source.initial_policy else 'Configure a política da origem' }} → {{ options.destination.initial_policy.currency_code if options.destination.initial_policy else 'Configure a política do destino' }}.</p>
+<p>Na mesma moeda, o destino recebe o valor contábil exato removido da origem, sem novo arredondamento. Em moedas diferentes, selecione uma taxa direcionada à moeda-base do destino, na data da transferência.</p>
+<form method="post">
+{% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+<input type="hidden" name="source_organization" value="{{ values.source_organization }}"><input type="hidden" name="destination_organization" value="{{ values.destination_organization }}">
+<label class="form-label" for="transfer_material">Material</label><select class="form-select mb-3" id="transfer_material" name="material_id" required><option value="">Selecione</option>
+{% for material in materials %}<option value="{{ material.id }}" {% if values.get('material_id')|string == material.id|string %}selected{% endif %}>{{ material.nome }} — {{ material.unidade_medida }}</option>{% endfor %}</select>
+<label class="form-label" for="transfer_quantity">Quantidade-base</label><input class="form-control mb-3" id="transfer_quantity" name="quantity" inputmode="decimal" value="{{ values.get('quantity','') }}" required>
+<label class="form-label" for="transfer_date">Data da transferência</label><input class="form-control mb-3" id="transfer_date" name="operation_date" type="date" value="{{ values.get('operation_date',today) }}" required>
+{% for side, label in [('source','origem'),('destination','destino')] %}
+<label class="form-label" for="{{ side }}_policy_version_id">Política da {{ label }}</label><select class="form-select mb-3" id="{{ side }}_policy_version_id" name="{{ side }}_policy_version_id"><option value="">Política inicial</option>
+{% for version in options[side].versions %}<option value="{{ version.id }}" {% if values.get(side ~ '_policy_version_id')|string == version.id|string %}selected{% endif %}>Versão {{ version.version_number }} · desde {{ version.valid_from }} · {{ version.decimal_places }} casas · {{ version.rounding }}</option>{% endfor %}</select>{% endfor %}
+<label class="form-label" for="transfer_rate">Taxa da organização destino</label><select class="form-select mb-3" id="transfer_rate" name="rate_id"><option value="">Sem taxa — somente mesma moeda-base</option>
+{% for rate in options.destination.rates %}<option value="{{ rate.id }}" {% if values.get('rate_id')|string == rate.id|string %}selected{% endif %}>{{ rate.source_currency }} → {{ rate.target_currency }} · {{ rate.valid_on }} · {{ rate.rate }} · {{ rate.source }}</option>{% endfor %}</select>
+<label class="form-label" for="transfer_key">Referência única da transferência</label><input class="form-control mb-3" id="transfer_key" name="idempotency_key" value="{{ values.get('idempotency_key','') }}" maxlength="80" required>
+<label class="form-label" for="transfer_notes">Observações</label><textarea class="form-control mb-3" id="transfer_notes" name="notes" maxlength="1000">{{ values.get('notes','') }}</textarea>
+<button class="btn btn-primary">Confirmar saída e entrada</button></form>
+{% else %}<p>Selecione origem/destino e ative o Financeiro para efetuar a transferência.</p>{% endif %}
+<a class="btn btn-outline-secondary mt-3" href="{{ url_for('saldos.organization_stock') }}">Voltar ao estoque por organização</a>
+</div></div>{% endblock %}

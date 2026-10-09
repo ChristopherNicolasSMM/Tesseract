@@ -250,3 +250,12 @@ recebimento. Comparação exata na mesma moeda; moedas/fatores incompatíveis
 bloqueiam seleção/geração até contrato de conversão explícita. Documentos
 legados e avaliações anteriores permanecem sem reatribuição. Migration
 `b48d5e09a673`. Ver [aplicação e limites](fase3-compras-moeda-decimal.md).
+
+## Ajuste — organização na cotação e transferência (09/10/2026)
+
+Solicitado enquanto o cadastro monetário anterior permanecia em validação.
+Organização agora disponível no cabeçalho e modal da cotação; convites em
+rascunho sem histórico podem ser vinculados explicitamente. Pedidos gerados
+herdam o vínculo. Estoque permite transferência pareada com commit único,
+custo contábil preservado na mesma moeda ou taxa explícita do destino entre
+moedas diferentes. Sem nova migration. Ver [aplicação e fluxo](fase3-cotacao-organizacao-transferencia.md).

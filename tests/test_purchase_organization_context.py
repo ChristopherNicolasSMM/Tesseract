@@ -168,9 +168,9 @@ def test_migration_rejects_incompatible_existing_table(monkeypatch):
         with pytest.raises(RuntimeError,match='incompatível'): migration.upgrade()
 
 
-def test_process_with_existing_quotes_remains_legacy(app):
+def test_process_with_responded_quotes_remains_legacy(app):
     with app.app_context():
-        organizations(); process=_criar_processo_cotacao(); _criar_cotacao(process)
+        organizations(); process=_criar_processo_cotacao(); _criar_cotacao(process,status='respondida')
         assert bind('process',process.id).code == 422
         assert get_context('process',process.id) is None
 

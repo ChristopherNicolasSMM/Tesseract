@@ -1,0 +1,15 @@
+<div class="border rounded p-3 mb-3" data-quotation-organization>
+<h2 class="h6">Organização compradora</h2>
+{% if context %}<p class="mb-1"><strong>{{ context.organization_code }} — {{ context.organization_name }}</strong></p>
+<p class="small text-muted mb-0">Vínculo definitivo do processo e de suas cotações. Os pedidos gerados usarão esta organização.</p>
+{% elif current_user.has_permission('processo_cotacaos.update') %}
+<form data-quotation-organization-form>
+<label class="form-label" for="quotation_org_{{ location }}">Organização da cotação e dos pedidos</label>
+<select class="form-select mb-2" id="quotation_org_{{ location }}" name="organization_code" required>
+<option value="">Selecione explicitamente</option>{% for org in organizations %}<option value="{{ org.code }}">{{ org.code }} — {{ org.name }}</option>{% endfor %}
+</select><p class="small text-muted">A confirmação é definitiva e vale para todos os fornecedores deste processo. Cotações anteriores somente em rascunho, sem histórico, podem ser vinculadas explicitamente.</p>
+<div class="alert alert-danger d-none" role="alert" data-organization-error></div>
+<button class="btn btn-outline-primary" type="submit">Confirmar organização</button>
+</form>
+{% else %}<p class="mb-0">Sem organização definida. Solicite o vínculo a quem possui permissão de edição da cotação.</p>{% endif %}
+</div>
