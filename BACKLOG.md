@@ -5822,3 +5822,15 @@ Chromium de 100 linhas preservadas e paginação conferidos visualmente.
   um PDF nativo opcional desabilitado. Manuais e roteiro do patch atualizados.
 - Próximo grupo: consolidação/experiência e avaliação do PDF opcional, conforme
   validação do grupo 3. Não inclui expressões livres, drag/drop ou autosave.
+
+
+### Reports: correção do menu após grupo 3
+
+- Menu passou para descoberta padrão do ModuleBase, endpoint
+  report_templates.list, pasta TX_GROUP_AUTO_REPORTS e folha
+  TX_AUTO_REPORT_TEMPLATES com ícone por anotação.
+- Entrada manual antiga TX_REPORT_TEMPLATES desativada no boot pelo
+  deprecated_transactions, sem apagar dados ou alterar transações manuais.
+- Documentação/manual atualizados. 206 testes Python e 10 subtestes,
+  navegador aprovados; um WeasyPrint opt-in desabilitado.
+- Patch incremental após grupo 3; sem nova migration/dependência.

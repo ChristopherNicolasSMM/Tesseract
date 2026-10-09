@@ -20,7 +20,7 @@ def consumer_context():
     return {'reports_consumers': permissions}
 
 
-@report_templates_bp.get('/')
+@report_templates_bp.get('/', endpoint='list')
 @permission_required('report_templates.list')
 def workspace():
     token = session.setdefault('reports_csrf', secrets.token_urlsafe(32))

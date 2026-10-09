@@ -23,3 +23,9 @@ Referências reais de UI: templates/core/base.html, templates/core/freestyle/mod
 Backend e impressão funcionam independentemente do tema da IDE. Conteúdo recebido não é interpretado como Python, Jinja ou HTML. O primeiro compilador usa renderers confiáveis declarativos; edição HTML/Jinja avançada ficará para fase separada e não é oferecida neste corte.
 
 Leia [fluxos](03-fluxos.md), [persistência](04-modelo-de-dados.md), [operação](06-manutencao-e-expansao.md), [estado de validação](07-validacao-e-pendencias.md) e [integração dos consumidores](08-integracao-consumidores.md).
+
+
+Menu de Relatórios usa a descoberta padrão do AddonBase/ModuleBase: pasta
+Relatórios com Modelo de relatório, endpoint report_templates.list e RBAC
+existente. A entrada manual antiga é desativada no boot pelo manifesto;
+nenhum link avulso adicional ou CRUD interno é criado.

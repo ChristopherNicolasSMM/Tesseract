@@ -107,3 +107,19 @@ Histórico da IDE fica em static/js/reports_history.js, sem DOM e testável com
 Node. reports_editor.js captura estado após mutação válida e reseta após salvar
 ou carregar. Nunca restaurar lock_version antigo, persistir snapshots sem
 contrato próprio ou desfazer operações remotas como se fossem somente locais.
+
+
+## Menu no padrão de descoberta
+
+AddonReports herda get_transactions do ModuleBase. O endpoint
+report_templates.list aponta para /reports/; @plural e @menu_icon do modelo
+definem a transação TX_AUTO_REPORT_TEMPLATES sob TX_GROUP_AUTO_REPORTS.
+Revisões, parâmetros e blocos internos não possuem endpoint de listagem web,
+portanto não criam atalhos para CRUDs inexistentes. Permissão permanece
+report_templates.list, com personalização/temas resolvidos pelo Core.
+
+TX_REPORT_TEMPLATES foi substituída e aparece em deprecated_transactions do
+manifesto. O sync do boot desativa somente a transação legada pertencente a
+reports, sem apagar registros ou mexer em transações manuais. Não exige nova
+migration; reiniciar a aplicação aplica a correção. O catálogo e relatórios
+não são alterados. Padrões: skills 07 (árvore) e 09 (descoberta).

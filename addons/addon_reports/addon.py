@@ -1,11 +1,8 @@
-"""Addon de relatórios em construção; sem publicar capacidades incompletas."""
+"""Addon de relatórios com descoberta padrão de rotas, modelos e menu."""
 __module__ = "AddonReports"
 
 from core.addon_base import AddonBase
 
 
 class AddonReports(AddonBase):
-    def get_transactions(self):
-        return [{'code': 'TX_REPORT_TEMPLATES', 'label': 'Relatórios',
-                 'route': '/reports/', 'icon': 'bi-file-earmark-pdf',
-                 'permission_required': 'report_templates.list'}]
+    """Transações geradas pelas anotações e endpoints do CrudGen."""

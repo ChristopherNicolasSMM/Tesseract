@@ -15,5 +15,8 @@
   "default_locale": "pt_BR",
   "available_locales": [
     "pt_BR"
+  ],
+  "deprecated_transactions": [
+    "TX_REPORT_TEMPLATES"
   ]
 }

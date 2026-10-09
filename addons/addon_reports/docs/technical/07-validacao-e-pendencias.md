@@ -204,3 +204,14 @@ Migration e59f6ab8d704 sucede b48d5e09a673; um único head. Novos recursos não
 acrescentam dependências de produção. Roteiro em docs/patches/reports-ide-grupo3.md.
 Patch consolidado incremental inclui somente evolução Reports e documentação,
 preservando compras/estoque do main atual. Windows/WeasyPrint não exercitados.
+
+
+## Correção do menu após grupo 3
+
+206 testes Python e 10 subtestes aprovados; um WeasyPrint opt-in desabilitado.
+Três testes de menu verificam descoberta padrão/endpoint .list real,
+hierarquia e ícone, ausência de atalhos de CRUD interno, desativação do item
+legado por source_module, preservação de item manual, sync idempotente e RBAC.
+Playwright/Chromium aprovou regressões da IDE, temas, impressão e consumidores.
+Sem mudança de CSS, nova migration ou dependência; reinício sincroniza menu.
+Roteiro: docs/patches/reports-menu-padrao.md. Validação Windows permanece local.

@@ -1,6 +1,6 @@
 """Identidade compartilhada de modelos; organização não define tenant."""
 from datetime import datetime, timezone
-from annotations import label, plural, display_field, permission
+from annotations import label, plural, display_field, permission, menu_icon
 from core.db import db
 
 
@@ -11,6 +11,7 @@ def utcnow():
 @label('Modelo de relatório')
 @plural('report_templates')
 @display_field('name')
+@menu_icon('bi-file-earmark-text')
 @permission('publish', description='Publicar revisão de relatório')
 @permission('render', description='Gerar relatório')
 class ReportTemplate(db.Model):

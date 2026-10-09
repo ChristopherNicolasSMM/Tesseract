@@ -1,6 +1,6 @@
 # Primeiros passos
 
-Depois da futura instalação validada, abra Relatórios no menu. Cadastre uma chave permanente (por exemplo estoque.posicao) e o nome do modelo. A primeira revisão será um rascunho.
+Depois da instalação, abra Relatórios → Modelo de relatório no menu. Cadastre uma chave permanente (por exemplo estoque.posicao) e o nome do modelo. A primeira revisão será um rascunho.
 
 Na aba Dados, informe o contrato e um exemplo. Na aba Layout, insira texto ou tabela, selecione um elemento e configure suas propriedades. Use Salvar e Prévia HTML. Corrija campos ausentes ou dados incompatíveis antes de publicar.
 
