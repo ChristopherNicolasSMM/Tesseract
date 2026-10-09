@@ -22,7 +22,7 @@ Organizações aplicadas e validadas localmente, com primeira empresa criada.
 O pacote inicial seguinte implementa addon financeiro, catálogo, política
 monetária explícita e quantização Decimal. Taxas direcionais e conversões com snapshots imutáveis já foram entregues
 no Financeiro; versões explícitas de precisão/arredondamento também.
-A integração desses resultados com o recebimento do Estoque permanece pendente. Ver [pacote inicial](../../../../docs/patches/fase3-financeiro-organizacoes-getcep.md).
+A integração desses resultados com o recebimento organizacional do Estoque já foi entregue. Ver [pacote inicial](../../../../docs/patches/fase3-financeiro-organizacoes-getcep.md).
 
 ## Contexto organizacional preparatório
 
@@ -34,6 +34,13 @@ seguinte habilita ledger/saldos Decimal, propagação atômica de organização 
 recebimento mediante avaliação monetária congelada. Os preços persistidos
 em documentos antigos continuam Float; a adaptação não recupera precisão perdida. Ver
 [recebimento e limites](../../../../docs/patches/fase3-estoque-organizacional-recebimento.md).
+
+O cadastro monetário explícito de 09/10/2026 acrescenta moeda e números exatos
+em confirmação separada para cotação/pedido, preservando os campos antigos
+como compatibilidade. Herda moeda, preço, quantidade e fator congelados no
+pedido gerado. A comparação na mesma moeda usa Decimal; moedas diferentes
+exigem uma próxima etapa de avaliação cambial e permanecem bloqueadas para
+seleção/geração. Ver [cadastro monetário e limites](../../../../docs/patches/fase3-compras-moeda-decimal.md).
 
 ## Desenho proposto após as decisões
 

@@ -239,3 +239,14 @@ Câmbio e políticas são consumidos por serviços públicos, sem FK entre addon
 Mantidos recebimento total e ausência de rateio do frete. Moeda/Decimal desde
 a criação dos documentos e contextos organizacionais do BrewStation ainda
 são etapas seguintes. Ver [aplicação, URLs e limites](fase3-estoque-organizacional-recebimento.md).
+
+## Continuação — cadastro monetário explícito (09/10/2026)
+
+Após validação do ledger/recebimento, entregue cadastro imutável de moeda e
+valores Decimal das cotações/pedidos, em uma confirmação manual complementar
+às telas estruturais existentes. Moeda, quantidades/preços exatos e fator
+original são herdados atomicamente no pedido e consumidos na avaliação e no
+recebimento. Comparação exata na mesma moeda; moedas/fatores incompatíveis
+bloqueiam seleção/geração até contrato de conversão explícita. Documentos
+legados e avaliações anteriores permanecem sem reatribuição. Migration
+`b48d5e09a673`. Ver [aplicação e limites](fase3-compras-moeda-decimal.md).

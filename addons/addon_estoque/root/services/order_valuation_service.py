@@ -21,6 +21,12 @@ def legacy_decimal(value):
 
 
 def item_signature(item):
+    from .purchase_pricing_service import exact_line
+    exact = exact_line('order', item)
+    if exact:
+        return {'id':item.id,'material_id':exact['material_id'],'material_unidade_id':exact['material_unidade_id'],
+                'quantidade':exact['quantity'],'fator':exact['factor'],'preco_unitario':exact['unit_price'],
+                'unidade_original':exact['unit']}
     quantity=legacy_decimal(item.quantidade)
     factor=legacy_decimal(item.fator_conversao_aplicado)
     price=legacy_decimal(item.preco_unitario)
@@ -39,6 +45,10 @@ def build_snapshot(order_id, data, *, reserve=False):
     context=get_context('order',order.id)
     if context is None:
         raise ValueError('Pedido sem vínculo organizacional explícito.')
+    from .purchase_pricing_service import get_pricing
+    pricing = get_pricing('order', order.id)
+    if pricing and data['source_currency'] != pricing.currency_code:
+        raise ValueError('Moeda original deve coincidir com o cadastro monetário do pedido.')
     if order.status != 'confirmado':
         raise ValueError('Avaliação monetária exige pedido confirmado, com itens congelados.')
     items=ItemPedidoCompra.query.filter_by(pedido_compra_id=order.id,is_deleted=False).order_by(ItemPedidoCompra.material_id,ItemPedidoCompra.id).populate_existing().all()
@@ -57,8 +67,9 @@ def build_snapshot(order_id, data, *, reserve=False):
             'policy_version_id':data.get('policy_version_id')})
         lines.append({'item':original,'quantity_base':canonical(base),'conversion':conversion,
                       'material_name':item.material.nome,'unit_base':item.material.unidade_medida})
+    freight = json.loads(pricing.snapshot_json)['freight'] if pricing else canonical(legacy_decimal(order.valor_frete or 0))
     return {'order_id':order.id,'organization_code':context.organization_code,'supplier_id':order.fornecedor_id,
-            'freight_excluded':True,'freight_original':canonical(legacy_decimal(order.valor_frete or 0)), 'items':lines}
+            'freight_excluded':True,'freight_original':freight, 'items':lines}
 
 
 def prepare_valuation(order_id, data, *, actor):

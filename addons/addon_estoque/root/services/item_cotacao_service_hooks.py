@@ -19,6 +19,19 @@ não muda, só a origem do dado.
 
 def pai_apply_fields(obj, data):
     from core.db import db
+    # O service gerado aplica hooks antes de seu try/commit. Consultas e lazy
+    # loads não devem antecipar o flush das guardas para fora desse tratamento.
+    with db.session.no_autoflush:
+        _apply_snapshot(obj, data)
+
+
+def _apply_snapshot(obj, data):
+    from .purchase_pricing_service import get_pricing
+    from sqlalchemy import inspect
+    quote_ids = [obj.cotacao_id] + list(inspect(obj).attrs.cotacao_id.history.deleted)
+    if any(ident and get_pricing('quotation', ident) for ident in quote_ids):
+        return  # fatores e totais já congelados; a guarda ORM valida os campos protegidos
+    from core.db import db
     from addons.addon_estoque.root.model.item_processo_cotacao import ItemProcessoCotacao
 
     # Busca direto por id (não via obj.item_processo_cotacao, a

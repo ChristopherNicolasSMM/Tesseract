@@ -37,7 +37,15 @@ class AddonEstoque(AddonBase):
 
         from addons.addon_estoque.root.model.purchase_context import PurchaseContext, protect_document, protect_quotation_process
         from addons.addon_estoque.root.model.organization_stock import OrganizationBalance, OrganizationMovement, OrderValuation
+        from addons.addon_estoque.root.model.purchase_pricing import PurchasePricing
+        from addons.addon_estoque.root.services.purchase_pricing_service import protect_priced_document, protect_priced_delete
         from sqlalchemy import event
+        for model in (PedidoCompra, Cotacao, ItemPedidoCompra, ItemCotacao, ItemProcessoCotacao):
+            for operation in ('before_insert', 'before_update'):
+                if not event.contains(model, operation, protect_priced_document):
+                    event.listen(model, operation, protect_priced_document)
+            if not event.contains(model, 'before_delete', protect_priced_delete):
+                event.listen(model, 'before_delete', protect_priced_delete)
         for model in (PedidoCompra, ProcessoCotacao):
             if not event.contains(model, 'before_delete', protect_document):
                 event.listen(model, 'before_delete', protect_document)
@@ -62,7 +70,7 @@ class AddonEstoque(AddonBase):
         return [
             UnidadeCatalogo, Fabricante, Origem, TipoProduto, Categoria, Material, Composicao, Movimentacao, Saldo,
             MaterialUnidade, Fornecedor, Transportadora, Endereco, FornecedorEndereco, TransportadoraEndereco,
-            PedidoCompra, ItemPedidoCompra, ProcessoCotacao, ItemProcessoCotacao, Cotacao, ItemCotacao, PurchaseContext, OrganizationBalance, OrganizationMovement, OrderValuation,
+            PedidoCompra, ItemPedidoCompra, ProcessoCotacao, ItemProcessoCotacao, Cotacao, ItemCotacao, PurchaseContext, OrganizationBalance, OrganizationMovement, OrderValuation, PurchasePricing,
         ]
 
     def register_routes(self, app) -> None:
@@ -145,6 +153,20 @@ class AddonEstoque(AddonBase):
             pedido_compras_bp._order_valuation_registered = True
 
         # Entrada de Mercadoria (correção — achado do Christopher):
+        from addons.addon_estoque.root.controller.purchase_pricing_hooks import (
+            order_pricing_view, quotation_pricing_view, process_comparison_view, protect_legacy_quote_request)
+        if not getattr(pedido_compras_bp, '_purchase_pricing_registered', False):
+            pedido_compras_bp.add_url_rule('/<int:id>/cadastro-monetario', endpoint='pricing',
+                view_func=order_pricing_view, methods=['GET', 'POST'])
+            pedido_compras_bp._purchase_pricing_registered = True
+        if not getattr(processo_cotacaos_bp, '_purchase_pricing_registered', False):
+            processo_cotacaos_bp.add_url_rule('/<int:id>/cotacoes/<int:quotation_id>/cadastro-monetario',
+                endpoint='quotation_pricing', view_func=quotation_pricing_view, methods=['GET', 'POST'])
+            processo_cotacaos_bp.add_url_rule('/<int:id>/comparacao-monetaria', endpoint='monetary_comparison',
+                view_func=process_comparison_view, methods=['GET'])
+            processo_cotacaos_bp._purchase_pricing_registered = True
+        app.before_request(protect_legacy_quote_request)
+
         # endpoint JSON novo, mesmo padrão de guarda.
         if not getattr(pedido_compras_bp, "_entrada_mercadoria_route_registered", False):
             from addons.addon_estoque.root.controller.pedido_compras_hooks import entrada_mercadoria_view

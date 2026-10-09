@@ -452,3 +452,15 @@ contratos públicos. Não há SQL de soma sobre strings: o serviço central calc
 com Decimal e atualiza ledger/cache na mesma transação. Histórico financeiro
 congelado impede apagar itens mesmo se o pedido for cancelado antes de receber.
 Detalhes em [recebimento organizacional](../../../../docs/patches/fase3-estoque-organizacional-recebimento.md).
+
+## Cadastro monetário explícito — 09/10/2026
+
+`PurchasePricing`: um pedido OU uma cotação, cada vínculo único com FK local
+RESTRICT e CHECK de proprietário exclusivo. Snapshot JSON imutável contém
+moeda, organização, fornecedor, frete original, linhas Decimal como texto,
+fator original e proveniência de itens gerados. Sem FK para organização/moeda
+de outro addon. Colunas Float originais são compatibilidade; a cadeia monetária
+lê strings exatas do snapshot quando ele existe. A guarda ORM protege o
+documento e os itens solicitados referenciados; a tabela não tem CRUD/menu de
+criação ou exclusão. Schema só acrescenta tabela, sem converter histórico.
+Ver [fluxos e contrato](../../../../docs/patches/fase3-compras-moeda-decimal.md).

@@ -382,6 +382,31 @@
 
     async function carregar() {
       try {
+        const exact = await TesseractData._json('/estoque/processo-cotacaos/' + config.processoCotacaoId + '/comparacao-monetaria');
+        if (exact.exact) {
+          if (datatableInstancia) {
+            datatableInstancia.destroy();
+            datatableInstancia = null;
+            tabelaEl.dataset.datatableIniciado = '';
+          }
+          const headers = tabelaEl.querySelectorAll('thead th');
+          if (headers.length >= 5) {
+            headers[3].textContent = 'Preço unitário (' + exact.currency_code + ')';
+            headers[4].textContent = 'Subtotal (' + exact.currency_code + ')';
+          }
+          tbody.innerHTML = exact.items.map((item) => {
+            const winner = item.generated
+              ? '<span class="badge bg-secondary">Já gerado</span>'
+              : '<button type="button" class="btn btn-sm ' + (item.selected ? 'btn-success' : 'btn-outline-secondary') +
+                '" data-acao="' + (item.selected ? 'desmarcar-vencedor' : 'selecionar-vencedor') + '" data-id="' + item.id + '">' +
+                (item.selected ? 'Vencedor' : 'Selecionar') + '</button>';
+            return '<tr><td>' + TesseractData.esc(item.material) + '</td><td>' + TesseractData.esc(item.supplier) +
+              '</td><td>' + TesseractData.esc(item.quantity) + '</td><td>' + TesseractData.esc(item.unit_price) + ' ' +
+              TesseractData.esc(exact.currency_code) + '</td><td>' + TesseractData.esc(item.subtotal) + ' ' +
+              TesseractData.esc(exact.currency_code) + '</td><td>—</td><td>' + winner + '</td></tr>';
+          }).join('');
+          return; // ordenação Decimal do servidor; não converter valores exatos em Number
+        }
         const dado = await TesseractData._json(config.apiBaseItens + "/?processo_cotacao_id=" + config.processoCotacaoId);
         const itens = dado.items || [];
 

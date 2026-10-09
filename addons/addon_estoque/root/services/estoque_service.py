@@ -388,6 +388,7 @@ class ItemCotacaoNaoEncontradoError(Exception):
     pass
 
 
+@_rollback_on_error
 def selecionar_item_cotacao_vencedor(item_cotacao_id: int) -> dict:
     """
     Marca um ItemCotacao como vencedor (skill 24, Fase 6.2). Regra de
@@ -412,8 +413,16 @@ def selecionar_item_cotacao_vencedor(item_cotacao_id: int) -> dict:
     item = ItemCotacao.query.filter_by(id=item_cotacao_id, is_deleted=False).first()
     if item is None:
         raise ItemCotacaoNaoEncontradoError(f"ItemCotacao id={item_cotacao_id} não encontrado ou removido")
+    from .purchase_context_service import document
+    document('process', item.cotacao.processo_cotacao_id, reserve=True)
+    item = ItemCotacao.query.filter_by(id=item_cotacao_id, is_deleted=False).populate_existing().first()
+    if item is None or item.cotacao.is_deleted or item.item_processo_cotacao.is_deleted:
+        raise ValueError('Preserve a cotação ativa e o item solicitado antes de escolher o vencedor.')
     if item.pedido_compra_item_id is not None:
         raise ValueError("Este item já foi convertido em Pedido de Compra — não pode mudar o vencedor.")
+
+    from .purchase_pricing_service import comparison
+    comparison(item.cotacao.processo_cotacao_id)
 
     outros_do_mesmo_item = (
         ItemCotacao.query
@@ -500,6 +509,7 @@ def gerar_pedidos_de_cotacao(processo_cotacao_id: int, *, actor=None) -> dict:
         .join(Cotacao, ItemCotacao.cotacao_id == Cotacao.id)
         .filter(
             Cotacao.processo_cotacao_id == processo_cotacao_id,
+            Cotacao.is_deleted.is_(False),
             ItemCotacao.selecionado_como_vencedor.is_(True),
             ItemCotacao.pedido_compra_item_id.is_(None),
             ItemCotacao.is_deleted.is_(False),
@@ -511,6 +521,9 @@ def gerar_pedidos_de_cotacao(processo_cotacao_id: int, *, actor=None) -> dict:
             "Nenhum item vencedor pendente de geração — marque vencedores na aba Comparação "
             "ou este processo já teve todos os vencedores convertidos em pedido."
         )
+
+    from .purchase_pricing_service import comparison, exact_line, get_pricing, freeze
+    comparison(processo.id)
 
     itens_por_fornecedor: dict[int, list[ItemCotacao]] = {}
     for item in itens_vencedores:
@@ -535,18 +548,33 @@ def gerar_pedidos_de_cotacao(processo_cotacao_id: int, *, actor=None) -> dict:
                 organization_name=context.organization_name,created_by=actor))
             db.session.flush()
 
+        monetary_items = []
+        inherited = {}
         for item_cotacao in itens:
+            exact = exact_line('quotation', item_cotacao)
             resultado_item = operate('item','create',data={
                 "pedido_compra_id": pedido.id,
                 "material_id": item_cotacao.material_id,
                 "material_unidade_id": item_cotacao.material_unidade_id,
-                "quantidade": item_cotacao.quantidade,
-                "preco_unitario": item_cotacao.preco_unitario,
+                "quantidade": exact['quantity'] if exact else item_cotacao.quantidade,
+                "preco_unitario": exact['unit_price'] if exact else item_cotacao.preco_unitario,
             },commit=False)
             if not resultado_item.success:
                 raise RuntimeError(f"Falha ao criar ItemPedidoCompra a partir de ItemCotacao id={item_cotacao.id}: {resultado_item.error}")
 
             item_cotacao.pedido_compra_item_id = resultado_item.data.id
+
+            if exact:
+                dest = resultado_item.data
+                monetary_items.append({'id': dest.id, 'quantity': exact['quantity'], 'unit_price': exact['unit_price']})
+                inherited[dest.id] = item_cotacao.id
+
+        if monetary_items:
+            currency = get_pricing('quotation', itens[0].cotacao_id).currency_code
+            priced = freeze('order', pedido.id, {'currency_code': currency, 'freight': '0', 'items': monetary_items},
+                            actor=actor, commit=False, inherited=inherited)
+            if not priced.success:
+                raise ValueError(priced.error)
 
         pedidos_gerados.append(pedido.to_dict())
 

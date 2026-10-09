@@ -1,0 +1,29 @@
+{% extends "core/base.html" %}
+{% block content %}
+<div class="pagetitle"><h1>Cadastro monetário — {{ item.numero }}</h1></div>
+<div class="card"><div class="card-body pt-3">
+<p>Declare a moeda e confira as quantidades e preços usando ponto decimal. A confirmação congela os valores deste documento; para corrigir depois, crie outro rascunho.</p>
+{% if pricing %}
+<div class="alert alert-success">{{ pricing.organization_code }} · {{ pricing.currency_code }} — congelado por {{ pricing.created_by }} em {{ pricing.created_at }}</div>
+<table class="table"><thead><tr><th>Item</th><th>Quantidade</th><th>Preço unitário</th><th>Subtotal</th><th>Quantidade-base</th></tr></thead><tbody>
+{% for line in pricing.snapshot['items'] %}<tr><td>#{{ line.id }}</td><td>{{ line.quantity }}</td><td>{{ line.unit_price }}</td><td>{{ line.subtotal }} {{ pricing.currency_code }}</td><td>{{ line.quantity_base }} (fator {{ line.factor }})</td></tr>{% endfor %}
+</tbody></table><p>Frete original: {{ pricing.snapshot.freight }} {{ pricing.currency_code }}. O frete não é rateado no estoque.</p>
+{% elif options.available %}
+<div class="alert alert-warning">Os números preenchidos inicialmente vêm do cadastro antigo em Float. Confira e redigite os valores originais; a confirmação não recupera precisão já perdida. O fator de unidade será o snapshot existente do item.</div>
+<form method="post">
+{% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+<label class="form-label" for="currency_code">Moeda original</label><select class="form-select mb-3" id="currency_code" name="currency_code" required><option value="">Selecione</option>
+{% for c in options.currencies %}<option value="{{ c.code }}" {% if values.get('currency_code') == c.code %}selected{% endif %}>{{ c.code }} — {{ c.name }}</option>{% endfor %}</select>
+<div class="table-responsive"><table class="table"><thead><tr><th>Item</th><th>Quantidade</th><th>Preço unitário</th></tr></thead><tbody>
+{% for line in items %}<tr><td>#{{ line.id }}<input type="hidden" name="item_id" value="{{ line.id }}"></td>
+<td><input class="form-control" aria-label="Quantidade do item {{ line.id }}" name="quantity_{{ line.id }}" inputmode="decimal" value="{{ values.get('quantity_' ~ line.id, line.quantidade) }}" required></td>
+<td><input class="form-control" aria-label="Preço do item {{ line.id }}" name="unit_price_{{ line.id }}" inputmode="decimal" value="{{ values.get('unit_price_' ~ line.id, line.preco_unitario) }}" required></td></tr>{% endfor %}</tbody></table></div>
+<label class="form-label" for="freight">Frete original {% if kind == 'quotation' %}(zero nesta etapa){% endif %}</label>
+<input class="form-control mb-3" id="freight" name="freight" inputmode="decimal" value="{{ values.get('freight', item.valor_frete or 0 if kind == 'order' else '0') }}" required>
+<button class="btn btn-primary" type="submit">Confirmar e congelar cadastro monetário</button></form>
+{% else %}<div class="alert alert-warning">Ative o Financeiro para cadastrar moeda e valores exatos.</div>{% endif %}
+{% if kind == 'order' %}<a class="btn btn-outline-primary mt-3" href="{{ url_for('pedido_compras.valuation',id=item.id) }}">Avaliação monetária após confirmar o pedido</a>
+<a class="btn btn-outline-secondary mt-3" href="{{ url_for('pedido_compras.detail',id=item.id) }}">Voltar ao pedido</a>
+{% else %}<a class="btn btn-outline-secondary mt-3" href="{{ url_for('processo_cotacaos.detail',id=process_id) }}">Voltar ao processo</a>{% endif %}
+</div></div>
+{% endblock %}
