@@ -972,6 +972,33 @@ def tab_recipe(plant_id: int):
     return render_template("plant_workspace/_tab_recipe_picker.html", plant=plant, recipes=recipes)
 
 
+@plant_workspace_bp.route("/<int:plant_id>/receitas/<int:recipe_id>/estoque-organizacional", methods=["GET"])
+@login_required
+@permission_required('recipe_steps.list')
+@permission_required('saldos.list')
+def recipe_organization_preview(plant_id, recipe_id):
+    from services.core.organization_service import list_organizations
+    from addons.addon_brewstation.features.feature_mash_control.services.organization_recipe_preview import preview
+    plant = db.session.get(BrewPlant, plant_id)
+    recipe = db.session.get(MashRecipe, recipe_id)
+    if not plant or plant.is_deleted or not recipe or recipe.is_deleted:
+        return jsonify(success=False, error='Planta ou receita não encontrada.'), 404
+    code = request.args.get('organization_code')
+    result, error, status = None, None, 200
+    if code is not None:
+        try:
+            result = preview(recipe_id, code)
+        except ValueError as exc:
+            error, status = str(exc), 422
+    if request.args.get('format') == 'json':
+        if code is None:
+            return jsonify(success=False, error='Selecione explicitamente uma organização.'), 422
+        return jsonify(success=error is None, data=result, error=error), status
+    organizations = [{'code': org.code, 'name': org.name} for org in list_organizations() if org.is_active]
+    return render_template('plant_workspace/organization_recipe_preview.html', plant=plant,
+        recipe=recipe, organizations=organizations, selected=code, result=result, error=error), status
+
+
 @plant_workspace_bp.route("/<int:plant_id>/tab/automation", methods=["GET"])
 @login_required
 @permission_required("automation_rules.list")

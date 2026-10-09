@@ -1,0 +1,24 @@
+{% extends 'core/base.html' %}
+{% block content %}
+<h1>Ingredientes por organização</h1>
+<p>{{ recipe.name }} · Planta {{ plant.name }}</p>
+<p>Consulta de disponibilidade e custo estimado. A escolha nesta tela vale somente para a consulta. A confirmação de consumo do lote ainda utiliza o fluxo legado.</p>
+<form method="get" class="mb-3">
+<label class="form-label" for="recipe-stock-organization">Organização</label>
+<select class="form-select mb-2" id="recipe-stock-organization" name="organization_code" required>
+<option value="">Selecione</option>
+{% for org in organizations %}<option value="{{ org.code }}" {% if selected and org.code == selected.strip().upper() %}selected{% endif %}>{{ org.name }} ({{ org.code }})</option>{% endfor %}
+</select><button class="btn btn-primary">Consultar estoque e custo</button>
+</form>
+{% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+{% if result %}
+<h2>{{ result.organization_name }} · {{ result.currency_code }}</h2>
+<p>Custo estimado dos materiais com saldo: {{ result.custo_total_estimado }} {{ result.currency_code }}. {% if not result.custo_completo %}Estimativa incompleta.{% endif %}</p>
+{% for warning in result.avisos %}<div class="alert alert-warning">{{ warning }}</div>{% endfor %}
+<div class="table-responsive"><table class="table"><thead><tr><th>Material</th><th>Unidade-base</th><th>Necessário</th><th>Disponível</th><th>Faltante</th><th>Custo estimado ({{ result.currency_code }})</th></tr></thead><tbody>
+{% for item in result.detalhes %}<tr><td>{{ item.descricao }} (#{{ item.material_id }})</td><td>{{ item.unidade_base or '—' }}</td><td>{{ item.quantidade }}</td><td>{{ item.saldo_disponivel }}</td><td>{{ item.quantidade_faltante }}</td><td>{{ item.custo_estimado if item.custo_estimado is not none else 'Sem saldo' }}</td></tr>{% endfor %}
+</tbody></table></div>
+<p>Ingredientes ignorados: {{ result.ignorados|length }}. Quantidades provenientes do cadastro legado são adaptadas para Decimal; a precisão já perdida em Float não pode ser recuperada. Valores estimados não congelam custo nem reservam estoque.</p>
+{% endif %}
+<a href="{{ url_for('plant_workspace.shell', plant_id=plant.id, tab='recipe', recipe_id=recipe.id) }}">Voltar à receita</a>
+{% endblock %}

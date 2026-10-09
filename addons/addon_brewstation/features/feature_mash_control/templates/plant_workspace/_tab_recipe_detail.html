@@ -1,5 +1,8 @@
 {% if current_user.has_permission('brewfather_syncs.list') %}<a class="btn btn-sm btn-outline-primary mb-3" href="{{ url_for('brewfather_syncs.portal', workspace_plant_id=plant.id) }}">{{ t('brewstation_brewfather.continuity.portal') }}</a>{% endif %}
 {# A receita é global; a planta selecionada apenas preenche o destino da sessão. #}
+{% if current_user.has_permission('saldos.list') %}
+<a class="btn btn-sm btn-outline-primary mb-3" href="{{ url_for('plant_workspace.recipe_organization_preview', plant_id=plant.id, recipe_id=recipe.id) }}">Consultar ingredientes por organização</a>
+{% endif %}
 <div class="row g-3 mb-3">
   <div class="col-lg-8">
     <div class="card h-100">

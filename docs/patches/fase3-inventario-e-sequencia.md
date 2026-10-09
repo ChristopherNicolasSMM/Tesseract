@@ -259,3 +259,11 @@ rascunho sem histórico podem ser vinculados explicitamente. Pedidos gerados
 herdam o vínculo. Estoque permite transferência pareada com commit único,
 custo contábil preservado na mesma moeda ou taxa explícita do destino entre
 moedas diferentes. Sem nova migration. Ver [aplicação e fluxo](fase3-cotacao-organizacao-transferencia.md).
+
+## Continuação — prévia organizacional no BrewStation (09/10/2026)
+
+Primeira etapa do consumo organizacional: receita permite consultar saldo e
+custo por organização explícita, agregando materiais repetidos e preservando
+separação do legado. Sem vínculo persistente/baixa/migration nesta etapa.
+Confirmação do lote e envase ainda globais; vínculo imutável/baixa organizacional
+são a próxima entrega. Ver [uso e limites](fase3-brewstation-previa-organizacional.md).

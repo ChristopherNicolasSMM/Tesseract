@@ -39,7 +39,7 @@ class IngredientesPendentesError(ValueError):
     pass
 
 
-def conferir_ingredientes(recipe_id: int) -> dict:
+def conferir_ingredientes(recipe_id: int, *, estimate_cost: bool = True) -> dict:
     """Prévia sem efeitos colaterais para a confirmação e a tela do lote."""
     itens = []
     for ing in RecipeIngredient.query.filter_by(recipe_id=recipe_id, is_deleted=False).order_by(RecipeIngredient.id).all():
@@ -63,7 +63,7 @@ def conferir_ingredientes(recipe_id: int) -> dict:
                 linha["estado"] = "pendente"
                 linha["motivo"] = str(exc)
             else:
-                saldo = material_lookup.get_saldo(ing.material_id)
+                saldo = material_lookup.get_saldo(ing.material_id) if estimate_cost else None
                 custo = saldo.get("custo_medio") if saldo else None
                 if custo is not None:
                     linha["custo_estimado"] = linha["quantidade_base"] * custo
