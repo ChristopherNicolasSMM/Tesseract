@@ -1,0 +1,1138 @@
+{
+  "layout": {
+    "schema_version": 1,
+    "page": {
+      "format": "A4",
+      "orientation": "landscape",
+      "margin_top": 12,
+      "margin_right": 12,
+      "margin_bottom": 12,
+      "margin_left": 12,
+      "number_pages": true
+    },
+    "body": [
+      {
+        "id": "lib_22",
+        "type": "text",
+        "props": {
+          "text": "Receita de brassagem — ficha operacional",
+          "level": "title"
+        }
+      },
+      {
+        "id": "lib_23",
+        "type": "text",
+        "props": {
+          "text": "Receita atual cadastrada. Não representa snapshot histórico de uma sessão. Quantidades conservam as unidades de origem; sem estimativa de OG, IBU ou rendimento calculado.",
+          "level": "body",
+          "style": {
+            "font_size": 9
+          }
+        }
+      },
+      {
+        "id": "lib_24",
+        "type": "section",
+        "props": {
+          "pagination": {
+            "keep_together": true
+          }
+        },
+        "children": [
+          {
+            "id": "lib_25",
+            "type": "text",
+            "props": {
+              "text": "Gerado em (UTC)",
+              "level": "body",
+              "style": {
+                "bold": true,
+                "font_size": 9,
+                "margin_bottom": 0
+              }
+            }
+          },
+          {
+            "id": "value_25",
+            "type": "text",
+            "props": {
+              "binding": {
+                "source": "data",
+                "path": [
+                  "generated_at"
+                ]
+              },
+              "format": {
+                "kind": "datetime",
+                "null_text": "Não informado"
+              },
+              "style": {
+                "font_size": 10,
+                "margin_bottom": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "section_9",
+        "type": "section",
+        "props": {
+          "columns": 4,
+          "gap": 8
+        },
+        "children": [
+          {
+            "id": "lib_1",
+            "type": "section",
+            "props": {
+              "pagination": {
+                "keep_together": true
+              }
+            },
+            "children": [
+              {
+                "id": "lib_2",
+                "type": "text",
+                "props": {
+                  "text": "Nome",
+                  "level": "body",
+                  "style": {
+                    "bold": true,
+                    "font_size": 9,
+                    "margin_bottom": 0
+                  }
+                }
+              },
+              {
+                "id": "value_2",
+                "type": "text",
+                "props": {
+                  "binding": {
+                    "source": "data",
+                    "path": [
+                      "recipe",
+                      "name"
+                    ]
+                  },
+                  "format": {
+                    "kind": "raw",
+                    "null_text": "Não informado"
+                  },
+                  "style": {
+                    "font_size": 10,
+                    "margin_bottom": 6
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": "lib_3",
+            "type": "section",
+            "props": {
+              "pagination": {
+                "keep_together": true
+              }
+            },
+            "children": [
+              {
+                "id": "lib_4",
+                "type": "text",
+                "props": {
+                  "text": "Versão",
+                  "level": "body",
+                  "style": {
+                    "bold": true,
+                    "font_size": 9,
+                    "margin_bottom": 0
+                  }
+                }
+              },
+              {
+                "id": "value_4",
+                "type": "text",
+                "props": {
+                  "binding": {
+                    "source": "data",
+                    "path": [
+                      "recipe",
+                      "versao"
+                    ]
+                  },
+                  "format": {
+                    "kind": "number",
+                    "null_text": "Não informado"
+                  },
+                  "style": {
+                    "font_size": 10,
+                    "margin_bottom": 6
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": "lib_5",
+            "type": "section",
+            "props": {
+              "pagination": {
+                "keep_together": true
+              }
+            },
+            "children": [
+              {
+                "id": "lib_6",
+                "type": "text",
+                "props": {
+                  "text": "Origem",
+                  "level": "body",
+                  "style": {
+                    "bold": true,
+                    "font_size": 9,
+                    "margin_bottom": 0
+                  }
+                }
+              },
+              {
+                "id": "value_6",
+                "type": "text",
+                "props": {
+                  "binding": {
+                    "source": "data",
+                    "path": [
+                      "recipe",
+                      "origem_receita"
+                    ]
+                  },
+                  "format": {
+                    "kind": "raw",
+                    "null_text": "Não informado"
+                  },
+                  "style": {
+                    "font_size": 10,
+                    "margin_bottom": 6
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": "lib_7",
+            "type": "section",
+            "props": {
+              "pagination": {
+                "keep_together": true
+              }
+            },
+            "children": [
+              {
+                "id": "lib_8",
+                "type": "text",
+                "props": {
+                  "text": "Volume planejado (L)",
+                  "level": "body",
+                  "style": {
+                    "bold": true,
+                    "font_size": 9,
+                    "margin_bottom": 0
+                  }
+                }
+              },
+              {
+                "id": "value_8",
+                "type": "text",
+                "props": {
+                  "binding": {
+                    "source": "data",
+                    "path": [
+                      "recipe",
+                      "volume_planejado_litros"
+                    ]
+                  },
+                  "format": {
+                    "kind": "number",
+                    "null_text": "Não informado"
+                  },
+                  "style": {
+                    "font_size": 10,
+                    "margin_bottom": 6
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "lib_10",
+        "type": "section",
+        "props": {
+          "pagination": {
+            "keep_together": true
+          }
+        },
+        "children": [
+          {
+            "id": "lib_11",
+            "type": "text",
+            "props": {
+              "text": "Descrição",
+              "level": "body",
+              "style": {
+                "bold": true,
+                "font_size": 9,
+                "margin_bottom": 0
+              }
+            }
+          },
+          {
+            "id": "value_11",
+            "type": "text",
+            "props": {
+              "binding": {
+                "source": "data",
+                "path": [
+                  "recipe",
+                  "description"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "Não informado"
+              },
+              "style": {
+                "font_size": 10,
+                "margin_bottom": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "lib_12",
+        "type": "section",
+        "props": {
+          "pagination": {
+            "keep_together": true
+          }
+        },
+        "children": [
+          {
+            "id": "lib_13",
+            "type": "text",
+            "props": {
+              "text": "Mapeamento de equipamento registrado",
+              "level": "body",
+              "style": {
+                "bold": true,
+                "font_size": 9,
+                "margin_bottom": 0
+              }
+            }
+          },
+          {
+            "id": "value_13",
+            "type": "text",
+            "props": {
+              "binding": {
+                "source": "data",
+                "path": [
+                  "recipe",
+                  "equipment_mapping"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "Não informado"
+              },
+              "style": {
+                "font_size": 10,
+                "margin_bottom": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "lib_14",
+        "type": "text",
+        "props": {
+          "text": "Ingredientes",
+          "level": "subtitle"
+        }
+      },
+      {
+        "id": "table_15",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "ingredients"
+            ]
+          },
+          "columns": [
+            {
+              "label": "Ingrediente",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "descricao_origem"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Quantidade",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "quantidade"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Unidade",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "unidade_medida"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Tipo",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "tipo_ingrediente"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Etapa",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "etapa"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Adição (min)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "tempo_adicao_min"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Resolução",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "status_resolucao"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            }
+          ],
+          "empty_text": "Nenhum registro encontrado.",
+          "style": {
+            "font_size": 9,
+            "cell_padding": 3
+          }
+        }
+      },
+      {
+        "id": "lib_16",
+        "type": "text",
+        "props": {
+          "text": "Etapas registradas",
+          "level": "subtitle"
+        }
+      },
+      {
+        "id": "table_17",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "steps"
+            ]
+          },
+          "columns": [
+            {
+              "label": "Ordem",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "ordem"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Etapa",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "nome"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Tipo",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "step_type"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Temperatura (°C)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "temperatura"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Duração (min)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "tempo_min"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Rampa (min)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "ramp_time_min"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            }
+          ],
+          "empty_text": "Nenhum registro encontrado.",
+          "style": {
+            "font_size": 9,
+            "cell_padding": 3
+          }
+        }
+      },
+      {
+        "id": "lib_18",
+        "type": "text",
+        "props": {
+          "text": "Fermentação planejada",
+          "level": "subtitle"
+        }
+      },
+      {
+        "id": "table_19",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "fermentation"
+            ]
+          },
+          "columns": [
+            {
+              "label": "Ordem",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "ordem"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Etapa",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "nome"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Temperatura (°C)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "temperatura"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Tempo (dias)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "tempo_dias"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            }
+          ],
+          "empty_text": "Nenhum registro encontrado.",
+          "style": {
+            "font_size": 9,
+            "cell_padding": 3
+          }
+        }
+      },
+      {
+        "id": "lib_20",
+        "type": "text",
+        "props": {
+          "text": "Perfis de água registrados",
+          "level": "subtitle"
+        }
+      },
+      {
+        "id": "table_21",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "water"
+            ]
+          },
+          "columns": [
+            {
+              "label": "Contexto",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "contexto"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Ca",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "calcio"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Mg",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "magnesio"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Na",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "sodio"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Cl",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "cloreto"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "SO₄",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "sulfato"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "HCO₃",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "bicarbonato"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "pH",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "ph"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            }
+          ],
+          "empty_text": "Nenhum registro encontrado.",
+          "style": {
+            "font_size": 9,
+            "cell_padding": 3
+          }
+        }
+      }
+    ]
+  },
+  "data_schema": {
+    "type": "object",
+    "properties": {
+      "contract": {
+        "const": "reports.library.recipe.v1"
+      },
+      "generated_at": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "recipe": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "versao": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "origem_receita": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "volume_planejado_litros": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "equipment_mapping": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "versao",
+          "description",
+          "origem_receita",
+          "volume_planejado_litros",
+          "equipment_mapping"
+        ]
+      },
+      "ingredients": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "descricao_origem": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "quantidade": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "unidade_medida": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tipo_ingrediente": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "etapa": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tempo_adicao_min": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "status_resolucao": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "material_id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "descricao_origem",
+            "quantidade",
+            "unidade_medida",
+            "tipo_ingrediente",
+            "etapa",
+            "tempo_adicao_min",
+            "status_resolucao",
+            "material_id"
+          ]
+        },
+        "maxItems": 2000
+      },
+      "steps": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "nome": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "ordem": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "step_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "temperatura": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "tempo_min": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "ramp_time_min": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "tipo": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "nome",
+            "ordem",
+            "step_type",
+            "temperatura",
+            "tempo_min",
+            "ramp_time_min",
+            "tipo"
+          ]
+        },
+        "maxItems": 2000
+      },
+      "fermentation": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "nome": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "ordem": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "temperatura": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "tempo_dias": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "nome",
+            "ordem",
+            "temperatura",
+            "tempo_dias"
+          ]
+        },
+        "maxItems": 2000
+      },
+      "water": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "calcio": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "magnesio": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "sodio": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "cloreto": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "sulfato": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "bicarbonato": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "ph": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "contexto": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "calcio",
+            "magnesio",
+            "sodio",
+            "cloreto",
+            "sulfato",
+            "bicarbonato",
+            "ph",
+            "contexto"
+          ]
+        },
+        "maxItems": 2000
+      }
+    },
+    "required": [
+      "contract",
+      "generated_at",
+      "recipe",
+      "ingredients",
+      "steps",
+      "fermentation",
+      "water"
+    ]
+  },
+  "sample_data": {
+    "contract": "reports.library.recipe.v1",
+    "generated_at": null,
+    "recipe": {
+      "id": null,
+      "name": null,
+      "versao": null,
+      "description": null,
+      "origem_receita": null,
+      "volume_planejado_litros": null,
+      "equipment_mapping": null
+    },
+    "ingredients": [],
+    "steps": [],
+    "fermentation": [],
+    "water": []
+  },
+  "parameters": []
+}

@@ -29,3 +29,6 @@ Menu de Relatórios usa a descoberta padrão do AddonBase/ModuleBase: pasta
 Relatórios com Modelo de relatório, endpoint report_templates.list e RBAC
 existente. A entrada manual antiga é desativada no boot pelo manifesto;
 nenhum link avulso adicional ou CRUD interno é criado.
+
+
+Biblioteca operacional e limites: [modelos operacionais](10-biblioteca-modelos-operacionais.md).

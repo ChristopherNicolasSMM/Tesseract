@@ -24,4 +24,5 @@ def consumer_context():
 @permission_required('report_templates.list')
 def workspace():
     token = session.setdefault('reports_csrf', secrets.token_urlsafe(32))
-    return render_template('addon_reports/workspace.html', items=svc.list_templates(), csrf=token)
+    from ..services.report_library_service import CATALOG
+    return render_template('addon_reports/workspace.html',items=svc.list_templates(),csrf=token,library=CATALOG)

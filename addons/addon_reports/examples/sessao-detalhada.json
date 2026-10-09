@@ -1,0 +1,1290 @@
+{
+  "layout": {
+    "schema_version": 1,
+    "page": {
+      "format": "A4",
+      "orientation": "landscape",
+      "margin_top": 12,
+      "margin_right": 12,
+      "margin_bottom": 12,
+      "margin_left": 12,
+      "number_pages": true
+    },
+    "body": [
+      {
+        "id": "lib_73",
+        "type": "text",
+        "props": {
+          "text": "Sessão de brassagem — acompanhamento detalhado",
+          "level": "title"
+        }
+      },
+      {
+        "id": "lib_74",
+        "type": "text",
+        "props": {
+          "text": "Somente registros da sessão no instante da leitura. Inclui etapas, registros e alarmes; não contém curva de sensores nem snapshot da receita. Valores e custos não são recalculados.",
+          "level": "body",
+          "style": {
+            "font_size": 9
+          }
+        }
+      },
+      {
+        "id": "lib_75",
+        "type": "section",
+        "props": {
+          "pagination": {
+            "keep_together": true
+          }
+        },
+        "children": [
+          {
+            "id": "lib_76",
+            "type": "text",
+            "props": {
+              "text": "Gerado em (UTC)",
+              "level": "body",
+              "style": {
+                "bold": true,
+                "font_size": 9,
+                "margin_bottom": 0
+              }
+            }
+          },
+          {
+            "id": "value_76",
+            "type": "text",
+            "props": {
+              "binding": {
+                "source": "data",
+                "path": [
+                  "generated_at"
+                ]
+              },
+              "format": {
+                "kind": "datetime",
+                "null_text": "Não informado"
+              },
+              "style": {
+                "font_size": 10,
+                "margin_bottom": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "section_48",
+        "type": "section",
+        "props": {
+          "columns": 4,
+          "gap": 8
+        },
+        "children": [
+          {
+            "id": "lib_40",
+            "type": "section",
+            "props": {
+              "pagination": {
+                "keep_together": true
+              }
+            },
+            "children": [
+              {
+                "id": "lib_41",
+                "type": "text",
+                "props": {
+                  "text": "Sessão",
+                  "level": "body",
+                  "style": {
+                    "bold": true,
+                    "font_size": 9,
+                    "margin_bottom": 0
+                  }
+                }
+              },
+              {
+                "id": "value_41",
+                "type": "text",
+                "props": {
+                  "binding": {
+                    "source": "data",
+                    "path": [
+                      "session",
+                      "name"
+                    ]
+                  },
+                  "format": {
+                    "kind": "raw",
+                    "null_text": "Não informado"
+                  },
+                  "style": {
+                    "font_size": 10,
+                    "margin_bottom": 6
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": "lib_42",
+            "type": "section",
+            "props": {
+              "pagination": {
+                "keep_together": true
+              }
+            },
+            "children": [
+              {
+                "id": "lib_43",
+                "type": "text",
+                "props": {
+                  "text": "Status registrado",
+                  "level": "body",
+                  "style": {
+                    "bold": true,
+                    "font_size": 9,
+                    "margin_bottom": 0
+                  }
+                }
+              },
+              {
+                "id": "value_43",
+                "type": "text",
+                "props": {
+                  "binding": {
+                    "source": "data",
+                    "path": [
+                      "session",
+                      "status"
+                    ]
+                  },
+                  "format": {
+                    "kind": "raw",
+                    "null_text": "Não informado"
+                  },
+                  "style": {
+                    "font_size": 10,
+                    "margin_bottom": 6
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": "lib_44",
+            "type": "section",
+            "props": {
+              "pagination": {
+                "keep_together": true
+              }
+            },
+            "children": [
+              {
+                "id": "lib_45",
+                "type": "text",
+                "props": {
+                  "text": "Planta (ID)",
+                  "level": "body",
+                  "style": {
+                    "bold": true,
+                    "font_size": 9,
+                    "margin_bottom": 0
+                  }
+                }
+              },
+              {
+                "id": "value_45",
+                "type": "text",
+                "props": {
+                  "binding": {
+                    "source": "data",
+                    "path": [
+                      "session",
+                      "plant_id"
+                    ]
+                  },
+                  "format": {
+                    "kind": "number",
+                    "null_text": "Não informado"
+                  },
+                  "style": {
+                    "font_size": 10,
+                    "margin_bottom": 6
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": "lib_46",
+            "type": "section",
+            "props": {
+              "pagination": {
+                "keep_together": true
+              }
+            },
+            "children": [
+              {
+                "id": "lib_47",
+                "type": "text",
+                "props": {
+                  "text": "Receita vinculada (ID)",
+                  "level": "body",
+                  "style": {
+                    "bold": true,
+                    "font_size": 9,
+                    "margin_bottom": 0
+                  }
+                }
+              },
+              {
+                "id": "value_47",
+                "type": "text",
+                "props": {
+                  "binding": {
+                    "source": "data",
+                    "path": [
+                      "session",
+                      "recipe_id"
+                    ]
+                  },
+                  "format": {
+                    "kind": "number",
+                    "null_text": "Não informado"
+                  },
+                  "style": {
+                    "font_size": 10,
+                    "margin_bottom": 6
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "section_57",
+        "type": "section",
+        "props": {
+          "columns": 4,
+          "gap": 8
+        },
+        "children": [
+          {
+            "id": "lib_49",
+            "type": "section",
+            "props": {
+              "pagination": {
+                "keep_together": true
+              }
+            },
+            "children": [
+              {
+                "id": "lib_50",
+                "type": "text",
+                "props": {
+                  "text": "Início",
+                  "level": "body",
+                  "style": {
+                    "bold": true,
+                    "font_size": 9,
+                    "margin_bottom": 0
+                  }
+                }
+              },
+              {
+                "id": "value_50",
+                "type": "text",
+                "props": {
+                  "binding": {
+                    "source": "data",
+                    "path": [
+                      "session",
+                      "started_at"
+                    ]
+                  },
+                  "format": {
+                    "kind": "datetime",
+                    "null_text": "Não informado"
+                  },
+                  "style": {
+                    "font_size": 10,
+                    "margin_bottom": 6
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": "lib_51",
+            "type": "section",
+            "props": {
+              "pagination": {
+                "keep_together": true
+              }
+            },
+            "children": [
+              {
+                "id": "lib_52",
+                "type": "text",
+                "props": {
+                  "text": "Conclusão",
+                  "level": "body",
+                  "style": {
+                    "bold": true,
+                    "font_size": 9,
+                    "margin_bottom": 0
+                  }
+                }
+              },
+              {
+                "id": "value_52",
+                "type": "text",
+                "props": {
+                  "binding": {
+                    "source": "data",
+                    "path": [
+                      "session",
+                      "completed_at"
+                    ]
+                  },
+                  "format": {
+                    "kind": "datetime",
+                    "null_text": "Não informado"
+                  },
+                  "style": {
+                    "font_size": 10,
+                    "margin_bottom": 6
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": "lib_53",
+            "type": "section",
+            "props": {
+              "pagination": {
+                "keep_together": true
+              }
+            },
+            "children": [
+              {
+                "id": "lib_54",
+                "type": "text",
+                "props": {
+                  "text": "Pausa",
+                  "level": "body",
+                  "style": {
+                    "bold": true,
+                    "font_size": 9,
+                    "margin_bottom": 0
+                  }
+                }
+              },
+              {
+                "id": "value_54",
+                "type": "text",
+                "props": {
+                  "binding": {
+                    "source": "data",
+                    "path": [
+                      "session",
+                      "paused_at"
+                    ]
+                  },
+                  "format": {
+                    "kind": "datetime",
+                    "null_text": "Não informado"
+                  },
+                  "style": {
+                    "font_size": 10,
+                    "margin_bottom": 6
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": "lib_55",
+            "type": "section",
+            "props": {
+              "pagination": {
+                "keep_together": true
+              }
+            },
+            "children": [
+              {
+                "id": "lib_56",
+                "type": "text",
+                "props": {
+                  "text": "Baixa dos insumos",
+                  "level": "body",
+                  "style": {
+                    "bold": true,
+                    "font_size": 9,
+                    "margin_bottom": 0
+                  }
+                }
+              },
+              {
+                "id": "value_56",
+                "type": "text",
+                "props": {
+                  "binding": {
+                    "source": "data",
+                    "path": [
+                      "session",
+                      "insumos_baixados_em"
+                    ]
+                  },
+                  "format": {
+                    "kind": "datetime",
+                    "null_text": "Não informado"
+                  },
+                  "style": {
+                    "font_size": 10,
+                    "margin_bottom": 6
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "section_64",
+        "type": "section",
+        "props": {
+          "columns": 3,
+          "gap": 8
+        },
+        "children": [
+          {
+            "id": "lib_58",
+            "type": "section",
+            "props": {
+              "pagination": {
+                "keep_together": true
+              }
+            },
+            "children": [
+              {
+                "id": "lib_59",
+                "type": "text",
+                "props": {
+                  "text": "Volume real (L)",
+                  "level": "body",
+                  "style": {
+                    "bold": true,
+                    "font_size": 9,
+                    "margin_bottom": 0
+                  }
+                }
+              },
+              {
+                "id": "value_59",
+                "type": "text",
+                "props": {
+                  "binding": {
+                    "source": "data",
+                    "path": [
+                      "session",
+                      "volume_real_litros"
+                    ]
+                  },
+                  "format": {
+                    "kind": "number",
+                    "null_text": "Não informado"
+                  },
+                  "style": {
+                    "font_size": 10,
+                    "margin_bottom": 6
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": "lib_60",
+            "type": "section",
+            "props": {
+              "pagination": {
+                "keep_together": true
+              }
+            },
+            "children": [
+              {
+                "id": "lib_61",
+                "type": "text",
+                "props": {
+                  "text": "Custo registrado dos insumos (moeda não exportada)",
+                  "level": "body",
+                  "style": {
+                    "bold": true,
+                    "font_size": 9,
+                    "margin_bottom": 0
+                  }
+                }
+              },
+              {
+                "id": "value_61",
+                "type": "text",
+                "props": {
+                  "binding": {
+                    "source": "data",
+                    "path": [
+                      "session",
+                      "custo_total_insumos"
+                    ]
+                  },
+                  "format": {
+                    "kind": "number",
+                    "null_text": "Não informado"
+                  },
+                  "style": {
+                    "font_size": 10,
+                    "margin_bottom": 6
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": "lib_62",
+            "type": "section",
+            "props": {
+              "pagination": {
+                "keep_together": true
+              }
+            },
+            "children": [
+              {
+                "id": "lib_63",
+                "type": "text",
+                "props": {
+                  "text": "Índice atual de etapa",
+                  "level": "body",
+                  "style": {
+                    "bold": true,
+                    "font_size": 9,
+                    "margin_bottom": 0
+                  }
+                }
+              },
+              {
+                "id": "value_63",
+                "type": "text",
+                "props": {
+                  "binding": {
+                    "source": "data",
+                    "path": [
+                      "session",
+                      "current_step_index"
+                    ]
+                  },
+                  "format": {
+                    "kind": "number",
+                    "null_text": "Não informado"
+                  },
+                  "style": {
+                    "font_size": 10,
+                    "margin_bottom": 6
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "lib_65",
+        "type": "text",
+        "props": {
+          "text": "Etapas da sessão",
+          "level": "subtitle"
+        }
+      },
+      {
+        "id": "table_66",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "steps"
+            ]
+          },
+          "columns": [
+            {
+              "label": "Índice",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "step_index"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Etapa",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "name"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Tipo",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "step_type"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Status",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "status"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Alvo (°C)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "target_temp"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Previsto (s)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "duration_seconds"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Real (s)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "actual_duration_s"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Início",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "started_at"
+                ]
+              },
+              "format": {
+                "kind": "datetime",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Conclusão",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "completed_at"
+                ]
+              },
+              "format": {
+                "kind": "datetime",
+                "null_text": "—"
+              }
+            }
+          ],
+          "empty_text": "Nenhum registro encontrado.",
+          "style": {
+            "font_size": 9,
+            "cell_padding": 3
+          }
+        }
+      },
+      {
+        "id": "lib_67",
+        "type": "section",
+        "props": {
+          "pagination": {
+            "keep_together": true
+          }
+        },
+        "children": [
+          {
+            "id": "lib_68",
+            "type": "text",
+            "props": {
+              "text": "Observações",
+              "level": "body",
+              "style": {
+                "bold": true,
+                "font_size": 9,
+                "margin_bottom": 0
+              }
+            }
+          },
+          {
+            "id": "value_68",
+            "type": "text",
+            "props": {
+              "binding": {
+                "source": "data",
+                "path": [
+                  "session",
+                  "notes"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "Não informado"
+              },
+              "style": {
+                "font_size": 10,
+                "margin_bottom": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "lib_69",
+        "type": "text",
+        "props": {
+          "text": "Registros da sessão",
+          "level": "subtitle"
+        }
+      },
+      {
+        "id": "table_70",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "logs"
+            ]
+          },
+          "columns": [
+            {
+              "label": "Data",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "created_at"
+                ]
+              },
+              "format": {
+                "kind": "datetime",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Nível",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "log_level"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Origem",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "source"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Mensagem",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "message"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            }
+          ],
+          "empty_text": "Nenhum registro encontrado.",
+          "style": {
+            "font_size": 9,
+            "cell_padding": 3
+          }
+        }
+      },
+      {
+        "id": "lib_71",
+        "type": "text",
+        "props": {
+          "text": "Alarmes registrados",
+          "level": "subtitle"
+        }
+      },
+      {
+        "id": "table_72",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "alarms"
+            ]
+          },
+          "columns": [
+            {
+              "label": "Data",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "created_at"
+                ]
+              },
+              "format": {
+                "kind": "datetime",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Tipo",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "alarm_type"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Severidade",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "severity"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Mensagem",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "message"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Reconhecido",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "is_acknowledged"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Reconhecido em",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "acknowledged_at"
+                ]
+              },
+              "format": {
+                "kind": "datetime",
+                "null_text": "—"
+              }
+            }
+          ],
+          "empty_text": "Nenhum registro encontrado.",
+          "style": {
+            "font_size": 9,
+            "cell_padding": 3
+          }
+        }
+      }
+    ]
+  },
+  "data_schema": {
+    "type": "object",
+    "properties": {
+      "contract": {
+        "const": "reports.library.session.v1"
+      },
+      "generated_at": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "logs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "created_at": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "log_level": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "message": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "created_at",
+            "log_level",
+            "source",
+            "message"
+          ]
+        },
+        "maxItems": 2000
+      },
+      "alarms": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "created_at": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "alarm_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "severity": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "message": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "is_acknowledged": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "acknowledged_at": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "created_at",
+            "alarm_type",
+            "severity",
+            "message",
+            "is_acknowledged",
+            "acknowledged_at"
+          ]
+        },
+        "maxItems": 2000
+      },
+      "session": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "plant_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "recipe_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "current_step_index": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "completed_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paused_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "insumos_baixados_em": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "custo_total_insumos": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "volume_real_litros": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "plant_id",
+          "recipe_id",
+          "status",
+          "current_step_index",
+          "notes",
+          "started_at",
+          "completed_at",
+          "paused_at",
+          "insumos_baixados_em",
+          "custo_total_insumos",
+          "volume_real_litros"
+        ]
+      },
+      "steps": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "step_index": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "step_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "target_temp": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "duration_seconds": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "actual_duration_s": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "started_at": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "completed_at": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "step_index",
+            "name",
+            "step_type",
+            "status",
+            "target_temp",
+            "duration_seconds",
+            "actual_duration_s",
+            "started_at",
+            "completed_at"
+          ]
+        },
+        "maxItems": 2000
+      }
+    },
+    "required": [
+      "contract",
+      "generated_at",
+      "logs",
+      "alarms",
+      "session",
+      "steps"
+    ]
+  },
+  "sample_data": {
+    "contract": "reports.library.session.v1",
+    "generated_at": null,
+    "session": {
+      "id": null,
+      "name": null,
+      "plant_id": null,
+      "recipe_id": null,
+      "status": null,
+      "current_step_index": null,
+      "notes": null,
+      "started_at": null,
+      "completed_at": null,
+      "paused_at": null,
+      "insumos_baixados_em": null,
+      "custo_total_insumos": null,
+      "volume_real_litros": null
+    },
+    "steps": [],
+    "logs": [],
+    "alarms": []
+  },
+  "parameters": []
+}

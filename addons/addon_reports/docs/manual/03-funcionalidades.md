@@ -205,3 +205,39 @@ desfaz e Ctrl+Shift+Z ou Ctrl+Y refaz. Dentro dos campos, o navegador mantém
 seu próprio desfazer de digitação; use os botões para restaurar o documento.
 Atalhos não atuam com um modal aberto nem em revisão publicada. Os valores
 informados para testar parâmetros não fazem parte do histórico do template.
+
+
+## Biblioteca de modelos operacionais
+
+Em Relatórios → Modelo de relatório, selecione um modelo pronto e clique em criar.
+A ação cria e salva um rascunho com estrutura e contrato; não publica nem inventa
+dados. Se a chave já existir, abra o modelo existente ou clone sua versão.
+
+No editor, escolha a fonte correspondente, busque e selecione uma receita ou
+sessão quando solicitado e clique em carregar dados reais. Para validade,
+informe a janela de dias e opcionalmente a data de referência (padrão: dia UTC).
+Confira a prévia, salve e imprima pelo navegador. A folha acompanha o tema
+escuro na edição (cinza azulado #273549) e fica branca na impressão.
+
+| Modelo | Conteúdo existente utilizado |
+| --- | --- |
+| Receita completa | Cadastro atual, ingredientes, mostura, fermentação e água |
+| Sessão detalhada | Sessão, etapas registradas, logs, alarmes, observações e valores armazenados |
+| Estoque atual | Saldos legados do exportador de estoque, identificados no título |
+| Banco de leveduras | Itens, cepas, localização, datas e viabilidade já registrada |
+| Dashboard geral | Contagens de registros, sessões, leveduras e starters existentes |
+| Disponibilidade e validade | Itens ativos do banco de leveduras: disponíveis, a vencer, vencidos e sem validade |
+| Planejamento de starters | Eventos Starter já cadastrados como planned ou active |
+| Checklist de receita | Dados atuais da receita e campos em branco para conferência manual |
+
+Carregar dados exige as permissões de leitura das fontes. Os dados são uma
+cópia do momento da consulta: salvar ou abrir a prévia persiste essa cópia nos
+dados de exemplo do relatório. Quem puder ler o relatório poderá acessar essa
+cópia; verifique o público do modelo antes de salvar informações sensíveis.
+Atualize a cópia explicitamente para obter registros mais recentes.
+
+Não há baixa de estoque, recalculo de viabilidade, criação de starter ou alteração
+da receita/sessão. A disponibilidade não certifica uso biológico; usa status e
+datas cadastrados. O estoque não representa o novo saldo por organização.
+O checklist não marca regras como cumpridas automaticamente. Receita atual
+não equivale a uma fotografia histórica da receita usada em uma sessão.

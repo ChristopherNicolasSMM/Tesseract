@@ -5834,3 +5834,11 @@ Chromium de 100 linhas preservadas e paginação conferidos visualmente.
 - Documentação/manual atualizados. 206 testes Python e 10 subtestes,
   navegador aprovados; um WeasyPrint opt-in desabilitado.
 - Patch incremental após grupo 3; sem nova migration/dependência.
+
+
+## Reports — biblioteca operacional
+
+- Oito modelos completos com contratos, criação de rascunho e carga explícita de dados reais na IDE.
+- Adaptadores somente leitura dos serviços públicos; nenhum addon de origem alterado.
+- Documentados saldos legados, validade de leveduras, starters existentes e cópias salvas.
+- Fontes .list sem paginação permanecem limitação documentada; evolução depende de autorização futura.

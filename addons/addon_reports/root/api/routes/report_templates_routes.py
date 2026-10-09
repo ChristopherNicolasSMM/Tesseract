@@ -139,15 +139,26 @@ def consumer_render(consumer):
 @reports_api_bp.get('/examples/<name>')
 @api
 def example(name):
-    import json
-    from pathlib import Path
+    from ...services.report_library_service import definition
     svc.authorize('detail')
-    if name not in ('estoque-saldos', 'brewstation-session'):
-        raise ReportError('reports.error.not_found', status=404)
-    example_path = Path(__file__).resolve().parents[3] / 'examples' / (name + '.json')
-    return jsonify(success=True, item=json.loads(example_path.read_text(encoding='utf-8')))
+    return jsonify(success=True,item=definition(name))
 
 
+@reports_api_bp.get('/examples/<name>/choices')
+@api
+def library_choices(name):
+    from ...services.report_library_service import choices
+    response=jsonify(success=True,items=choices(name));response.headers['Cache-Control']='no-store';return response
+
+
+@reports_api_bp.post('/examples/<name>/data')
+@api
+def library_data(name):
+    from ...services.report_library_service import data
+    value=payload({'options'})
+    if type(value.get('options',{})) is not dict:
+        raise ReportError('reports.error.input')
+    response=jsonify(success=True,item=data(name,value.get('options',{})));response.headers['Cache-Control']='no-store';return response
 @reports_api_bp.route('/blocks', methods=['GET', 'POST'])
 @api
 def blocks_collection():

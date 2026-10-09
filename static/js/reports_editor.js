@@ -4,7 +4,7 @@
   const root = document.getElementById('reports-workspace'); if (!root) return;
   const tr = JSON.parse(document.getElementById('reports-translations').textContent);
   const $ = id => document.getElementById(id);
-  const layout=window.TesseractReportsLayout, blocks=new Map();
+  const layout=window.TesseractReportsLayout, blocks=new Map(),library=JSON.parse($('reports-library-config').textContent);
   const find=id=>layout.locate(revision.layout.body,id);
   let templateId, revision, selected, parameterScope, dirty = false, busy = false, blockCatalog = [];
   const say = (key, state=key) => { $('report-status').textContent = tr[key] || key; $('report-status').dataset.state = state; };
@@ -110,7 +110,7 @@
     $('save-block').disabled=!find(selected);
     $('archive-block').disabled=!$('block-select').value;
     $('add-page_break').disabled=revision.status!=='draft'||withinColumns(find(selected)?.node);
-    historyButtons();
+    historyButtons();libraryControls();
   }
   function control(label, id, value, update, textarea=false) {
     const div=document.createElement('div');div.className='mb-3';const title=document.createElement('label');title.className='form-label';title.htmlFor=id;title.textContent=label;
@@ -225,6 +225,33 @@
     say('saving');revision=(await api(path(),{lock_version:revision.lock_version,layout:revision.layout,data_schema:JSON.parse($('data-schema').value),sample_data:JSON.parse($('sample-data').value),parameters:defs()},'PUT')).item;dirty=false;editingHistory.reset(snapshot());historyButtons();say('saved');
   }
   root.reportValidity=()=>Array.from($('editor-panel').querySelectorAll('input,textarea,select')).every(el=>el.disabled||el.reportValidity());
+  function libraryControls() {
+    const source=library[$('report-example').value]?.[0];
+    $('library-data-panel').hidden=!source;$('library-record-panel').hidden=!['recipe','session'].includes(source);$('library-expiry-panel').hidden=source!=='expiry';
+    $('load-library-data').disabled=!source||revision?.status!=='draft';
+  }
+  $('report-example').onchange=()=>{$('library-record').replaceChildren();libraryControls();};
+  $('create-ready-template').onclick=()=>guarded(async()=>{
+    if(dirty)throw Error(tr.unsaved);
+    const name=$('ready-template').value,source=library[name][0],config=(await api('/examples/'+name,undefined,'GET')).item;
+    const item=(await api('/templates',{key:'ready.'+name,name:tr.library_names[name==='checklist-receita'?'checklist':source]})).item;
+    const option=document.createElement('option');option.value=item.id;option.textContent=item.name;$('template-select').append(option);templateId=item.id;$('template-select').value=templateId;
+    await choose(1);revision.layout=config.layout;selected=config.layout.body[0]?.id;
+    $('data-schema').value=JSON.stringify(config.data_schema,null,2);$('sample-data').value=JSON.stringify(config.sample_data,null,2);$('parameter-definitions').value=JSON.stringify(config.parameters,null,2);
+    $('report-example').value=name;parameterForm();mark();await save();
+  });
+  $('refresh-library-records').onclick=()=>guarded(async()=>{
+    const value=await api('/examples/'+$('report-example').value+'/choices',undefined,'GET');$('library-record').replaceChildren();
+    const blank=document.createElement('option');blank.value='';blank.textContent=tr.choose;$('library-record').append(blank);
+    value.items.forEach(item=>{const option=document.createElement('option');option.value=JSON.stringify(item.value);option.textContent=item.label;$('library-record').append(option);});
+  });
+  $('load-library-data').onclick=()=>guarded(async()=>{
+    if(revision.status!=='draft')return;
+    const name=$('report-example').value,source=library[name][0];let options={};
+    if(['recipe','session'].includes(source)){if(!$('library-record').value)throw Error(tr.error);options=JSON.parse($('library-record').value);}
+    if(source==='expiry'){options.days=Number($('library-days').value);if(!$('library-days').value||!Number.isInteger(options.days)||options.days<0||options.days>365)throw Error(tr.error);if($('library-reference-date').value)options.reference_date=$('library-reference-date').value;}
+    const value=(await api('/examples/'+name+'/data',{options})).item;$('sample-data').value=JSON.stringify(value,null,2);mark();
+  });
   $('create-report').onsubmit=event=>{event.preventDefault();guarded(async()=>{if(dirty)throw Error(tr.unsaved);const item=(await api('/templates',{key:$('report-key').value,name:$('report-name').value})).item;const option=document.createElement('option');option.value=item.id;option.textContent=item.name;$('template-select').append(option);templateId=item.id;$('template-select').value=templateId;await choose(1);});};
   $('template-select').onchange=()=>guarded(async()=>{if(dirty){$('template-select').value=templateId;throw Error(tr.unsaved);}if(!$('template-select').value){$('editor-panel').hidden=true;templateId=undefined;revision=undefined;return;}templateId=$('template-select').value;await choose();});
   $('version-select').onchange=()=>guarded(async()=>{if(dirty){$('version-select').value=revision.version;throw Error(tr.unsaved);}await load(Number($('version-select').value));});

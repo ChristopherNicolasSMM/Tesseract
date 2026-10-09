@@ -1,0 +1,318 @@
+{
+  "layout": {
+    "schema_version": 1,
+    "page": {
+      "format": "A4",
+      "orientation": "landscape",
+      "margin_top": 12,
+      "margin_right": 12,
+      "margin_bottom": 12,
+      "margin_left": 12,
+      "number_pages": true
+    },
+    "body": [
+      {
+        "id": "lib_105",
+        "type": "text",
+        "props": {
+          "text": "Starters — planejamento já cadastrado",
+          "level": "title"
+        }
+      },
+      {
+        "id": "lib_106",
+        "type": "text",
+        "props": {
+          "text": "Eventos Starter com status planned ou active e item do banco existente fora da lixeira. Não cria plano, não estima crescimento, células necessárias, volume novo ou viabilidade futura. Ordenado pela data de início registrada.",
+          "level": "body",
+          "style": {
+            "font_size": 9
+          }
+        }
+      },
+      {
+        "id": "lib_107",
+        "type": "section",
+        "props": {
+          "pagination": {
+            "keep_together": true
+          }
+        },
+        "children": [
+          {
+            "id": "lib_108",
+            "type": "text",
+            "props": {
+              "text": "Gerado em (UTC)",
+              "level": "body",
+              "style": {
+                "bold": true,
+                "font_size": 9,
+                "margin_bottom": 0
+              }
+            }
+          },
+          {
+            "id": "value_108",
+            "type": "text",
+            "props": {
+              "binding": {
+                "source": "data",
+                "path": [
+                  "generated_at"
+                ]
+              },
+              "format": {
+                "kind": "datetime",
+                "null_text": "Não informado"
+              },
+              "style": {
+                "font_size": 10,
+                "margin_bottom": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "table_104",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "items"
+            ]
+          },
+          "columns": [
+            {
+              "label": "Evento",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "id"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              },
+              "aggregate": "count"
+            },
+            {
+              "label": "Item do banco",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "bank_item_id"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Cepa",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "strain_name"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Status",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "starter_status"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Início planejado",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "start_date"
+                ]
+              },
+              "format": {
+                "kind": "date",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Brassagem",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "brew_date"
+                ]
+              },
+              "format": {
+                "kind": "date",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Volume alvo (L)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "target_volume_l"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Objetivo",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "objective"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Observações",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "notes"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            }
+          ],
+          "empty_text": "Nenhum registro encontrado.",
+          "style": {
+            "font_size": 9,
+            "cell_padding": 3
+          }
+        }
+      }
+    ]
+  },
+  "data_schema": {
+    "type": "object",
+    "properties": {
+      "contract": {
+        "const": "reports.library.starters.v1"
+      },
+      "generated_at": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "bank_item_id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "strain_name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "starter_status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "brew_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "start_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "target_volume_l": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "objective": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "notes": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "bank_item_id",
+            "strain_name",
+            "starter_status",
+            "brew_date",
+            "start_date",
+            "target_volume_l",
+            "objective",
+            "notes"
+          ]
+        },
+        "maxItems": 2000
+      }
+    },
+    "required": [
+      "contract",
+      "generated_at",
+      "items"
+    ]
+  },
+  "sample_data": {
+    "contract": "reports.library.starters.v1",
+    "generated_at": null,
+    "items": []
+  },
+  "parameters": []
+}

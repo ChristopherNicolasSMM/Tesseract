@@ -12,13 +12,22 @@
 </form>
 <div class="row g-3"><div class="col-md-8"><label for="template-select" class="form-label">{{ t('reports.model') }}</label><select id="template-select" class="form-select"><option value="">{{ t('reports.choose') }}</option>{% for item in items %}<option value="{{ item.id }}">{{ item.name }}</option>{% endfor %}</select></div><div class="col-md-4"><label for="version-select" class="form-label">{{ t('reports.version') }}</label><select id="version-select" class="form-select" disabled></select></div></div>
 </div></div>
+<div class="card"><div class="card-body pt-3"><div class="row g-3 align-items-end">
+<div class="col-md-8"><label class="form-label" for="ready-template">{{ t('reports.library.catalog') }}</label><select id="ready-template" class="form-select">{% for name, info in library.items() %}<option value="{{ name }}">{{ t(info[1]) }}</option>{% endfor %}</select></div>
+<div class="col-md-4"><button id="create-ready-template" type="button" class="btn btn-outline-primary">{{ t('reports.library.create') }}</button></div>
+<div class="col-12"><p class="small text-muted mb-0">{{ t('reports.library.hint') }}</p></div>
+</div></div></div>
 <div id="editor-panel" hidden>
 <div class="card"><div class="card-body pt-3"><div class="d-flex flex-wrap gap-2 align-items-center">
 <button id="save-report" class="btn btn-primary">{{ t('reports.save') }}</button><button id="undo-report" type="button" class="btn btn-outline-secondary" disabled>{{ t('reports.undo') }}</button><button id="redo-report" type="button" class="btn btn-outline-secondary" disabled>{{ t('reports.redo') }}</button><button id="preview-report" class="btn btn-outline-primary">{{ t('reports.preview') }}</button><button id="publish-report" class="btn btn-outline-success">{{ t('reports.publish') }}</button><button id="clone-report" class="btn btn-outline-secondary">{{ t('reports.clone') }}</button>
 <span id="report-status" class="ms-auto" role="status" aria-live="polite"></span></div></div></div>
 <div class="card"><div class="card-body pt-3"><div class="row g-2 align-items-end">
-<div class="col-md-8"><label for="report-example" class="form-label">{{ t('reports.example') }}</label><select id="report-example" class="form-select"><option value="estoque-saldos">{{ t('reports.example.stock') }}</option><option value="brewstation-session">{{ t('reports.example.session') }}</option></select></div>
+<div class="col-md-8"><label for="report-example" class="form-label">{{ t('reports.example') }}</label><select id="report-example" class="form-select"><option value="estoque-saldos">{{ t('reports.example.stock') }}</option><option value="brewstation-session">{{ t('reports.example.session') }}</option>{% for name, info in library.items() %}<option value="{{ name }}">{{ t(info[1]) }}</option>{% endfor %}</select></div>
 <div class="col-md-4"><button id="load-example" type="button" class="btn btn-outline-secondary">{{ t('reports.example.load') }}</button></div>
+</div><div id="library-data-panel" class="row g-3 mt-1" hidden>
+<div id="library-record-panel" class="col-md-8"><label for="library-record" class="form-label">{{ t('reports.library.choose_source') }}</label><select id="library-record" class="form-select"></select><button id="refresh-library-records" type="button" class="btn btn-sm btn-outline-secondary mt-2">{{ t('reports.library.refresh') }}</button></div>
+<div id="library-expiry-panel" class="col-md-8" hidden><label for="library-days" class="form-label">{{ t('reports.library.days') }}</label><input id="library-days" type="number" min="0" max="365" step="1" value="30" class="form-control"><label for="library-reference-date" class="form-label mt-2">{{ t('reports.library.reference_date') }}</label><input id="library-reference-date" type="date" class="form-control"></div>
+<div class="col-md-4 d-flex align-items-end"><button id="load-library-data" type="button" class="btn btn-outline-primary">{{ t('reports.library.load_data') }}</button></div>
 </div></div></div>
 <ul class="nav nav-tabs nav-tabs-bordered mb-3" role="tablist">
 {% for name in ['layout','data','parameters','versions'] %}<li class="nav-item" role="presentation"><button class="nav-link {% if loop.first %}active{% endif %}" id="tab-{{ name }}" data-bs-toggle="tab" data-bs-target="#pane-{{ name }}" type="button" role="tab" aria-controls="pane-{{ name }}" aria-selected="{{ 'true' if loop.first else 'false' }}">{{ t('reports.' ~ name) }}</button></li>{% endfor %}
@@ -44,7 +53,9 @@
 <div class="modal fade" id="reports-preview" tabindex="-1" aria-labelledby="reports-preview-title" aria-hidden="true"><div class="modal-dialog modal-xl"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5" id="reports-preview-title">{{ t('reports.preview') }}</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ t('reports.close') }}"></button></div><div class="modal-body"><p class="small text-muted">{{ t('reports.print_hint') }}</p><iframe id="html-preview" title="{{ t('reports.preview') }}" class="reports-preview-frame" sandbox="allow-same-origin allow-modals"></iframe></div><div class="modal-footer"><button id="print-report" type="button" class="btn btn-primary" disabled>{{ t('reports.print') }}</button></div></div></div></div>
 {% endblock %}
 {% block extra_js %}
+<script id="reports-library-config" type="application/json">{{ library|tojson }}</script>
 <script id="reports-translations" type="application/json">{{ {
+ 'library_names':{'recipe':t('reports.library.recipe'),'session':t('reports.library.session'),'stock':t('reports.library.stock'),'yeast':t('reports.library.yeast'),'dashboard':t('reports.library.dashboard'),'expiry':t('reports.library.expiry'),'starters':t('reports.library.starters'),'checklist':t('reports.library.checklist')},
  'composition_columns':t('reports.composition_columns'),'composition_gap':t('reports.composition_gap'),
  'image':t('reports.image'),'image_file':t('reports.image_file'),'image_alt':t('reports.image_alt'),'image_width':t('reports.image_width'),'image_height':t('reports.image_height'),'image_hint':t('reports.image_hint'),'image_error':t('reports.error.image'),
  'pagination':t('reports.pagination'),'break_before':t('reports.break_before'),'break_after':t('reports.break_after'),'keep_together':t('reports.keep_together'),'pagination_hint':t('reports.pagination_hint'),

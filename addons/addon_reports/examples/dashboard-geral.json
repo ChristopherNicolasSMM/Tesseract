@@ -1,0 +1,746 @@
+{
+  "layout": {
+    "schema_version": 1,
+    "page": {
+      "format": "A4",
+      "orientation": "landscape",
+      "margin_top": 12,
+      "margin_right": 12,
+      "margin_bottom": 12,
+      "margin_left": 12,
+      "number_pages": true
+    },
+    "body": [
+      {
+        "id": "lib_117",
+        "type": "text",
+        "props": {
+          "text": "Dashboard geral — panorama dos registros",
+          "level": "title"
+        }
+      },
+      {
+        "id": "lib_118",
+        "type": "text",
+        "props": {
+          "text": "Panorama de cadastros, não dashboard de telemetria. Contagens de registros atuais sem lixeira, sem somar moedas/unidades ou consultar sensores. Estoque contabiliza somente saldos legados do exportador existente.",
+          "level": "body",
+          "style": {
+            "font_size": 9
+          }
+        }
+      },
+      {
+        "id": "lib_119",
+        "type": "section",
+        "props": {
+          "pagination": {
+            "keep_together": true
+          }
+        },
+        "children": [
+          {
+            "id": "lib_120",
+            "type": "text",
+            "props": {
+              "text": "Gerado em (UTC)",
+              "level": "body",
+              "style": {
+                "bold": true,
+                "font_size": 9,
+                "margin_bottom": 0
+              }
+            }
+          },
+          {
+            "id": "value_120",
+            "type": "text",
+            "props": {
+              "binding": {
+                "source": "data",
+                "path": [
+                  "generated_at"
+                ]
+              },
+              "format": {
+                "kind": "datetime",
+                "null_text": "Não informado"
+              },
+              "style": {
+                "font_size": 10,
+                "margin_bottom": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "lib_109",
+        "type": "text",
+        "props": {
+          "text": "Indicadores dos cadastros acessíveis",
+          "level": "subtitle"
+        }
+      },
+      {
+        "id": "table_110",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "indicators"
+            ]
+          },
+          "columns": [
+            {
+              "label": "Indicador",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "name"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Registros",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "count"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            }
+          ],
+          "empty_text": "Nenhum registro encontrado.",
+          "style": {
+            "font_size": 9,
+            "cell_padding": 3
+          }
+        }
+      },
+      {
+        "id": "lib_111",
+        "type": "text",
+        "props": {
+          "text": "Sessões registradas",
+          "level": "subtitle"
+        }
+      },
+      {
+        "id": "table_112",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "sessions"
+            ]
+          },
+          "columns": [
+            {
+              "label": "Sessão",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "name"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Status",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "status"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Planta (ID)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "plant_id"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            }
+          ],
+          "empty_text": "Nenhum registro encontrado.",
+          "style": {
+            "font_size": 9,
+            "cell_padding": 3
+          }
+        }
+      },
+      {
+        "id": "lib_113",
+        "type": "text",
+        "props": {
+          "text": "Banco de leveduras",
+          "level": "subtitle"
+        }
+      },
+      {
+        "id": "table_114",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "yeast"
+            ]
+          },
+          "columns": [
+            {
+              "label": "ID",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "id"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              },
+              "aggregate": "count"
+            },
+            {
+              "label": "Cepa",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "strain_name"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Armazenamento",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "storage_type"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Local",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "location"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Posição",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "storage_slot"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Validade",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "expiry_date"
+                ]
+              },
+              "format": {
+                "kind": "date",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Status",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "status"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Viabilidade registrada (%)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "estimated_viability_pct"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            }
+          ],
+          "empty_text": "Nenhum registro encontrado.",
+          "style": {
+            "font_size": 9,
+            "cell_padding": 3
+          }
+        }
+      },
+      {
+        "id": "lib_115",
+        "type": "text",
+        "props": {
+          "text": "Starters planejados/ativos",
+          "level": "subtitle"
+        }
+      },
+      {
+        "id": "table_116",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "starters"
+            ]
+          },
+          "columns": [
+            {
+              "label": "Evento",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "id"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              },
+              "aggregate": "count"
+            },
+            {
+              "label": "Item do banco",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "bank_item_id"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Cepa",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "strain_name"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Status",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "starter_status"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Início planejado",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "start_date"
+                ]
+              },
+              "format": {
+                "kind": "date",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Brassagem",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "brew_date"
+                ]
+              },
+              "format": {
+                "kind": "date",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Volume alvo (L)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "target_volume_l"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Objetivo",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "objective"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Observações",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "notes"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            }
+          ],
+          "empty_text": "Nenhum registro encontrado.",
+          "style": {
+            "font_size": 9,
+            "cell_padding": 3
+          }
+        }
+      }
+    ]
+  },
+  "data_schema": {
+    "type": "object",
+    "properties": {
+      "contract": {
+        "const": "reports.library.dashboard.v1"
+      },
+      "generated_at": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "indicators": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "count": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "name",
+            "count"
+          ]
+        },
+        "maxItems": 2000
+      },
+      "sessions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "plant_id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "name",
+            "status",
+            "plant_id"
+          ]
+        },
+        "maxItems": 2000
+      },
+      "yeast": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "strain_name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "storage_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "location": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "storage_slot": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "container_name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "prepared_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "expiry_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "last_checked": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "estimated_viability_pct": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "estimated_viability_updated_at": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "viability_notes": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "strain_name",
+            "storage_type",
+            "location",
+            "storage_slot",
+            "container_name",
+            "prepared_date",
+            "expiry_date",
+            "status",
+            "last_checked",
+            "estimated_viability_pct",
+            "estimated_viability_updated_at",
+            "viability_notes"
+          ]
+        },
+        "maxItems": 2000
+      },
+      "starters": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "bank_item_id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "strain_name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "starter_status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "brew_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "start_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "target_volume_l": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "objective": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "notes": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "bank_item_id",
+            "strain_name",
+            "starter_status",
+            "brew_date",
+            "start_date",
+            "target_volume_l",
+            "objective",
+            "notes"
+          ]
+        },
+        "maxItems": 2000
+      }
+    },
+    "required": [
+      "contract",
+      "generated_at",
+      "indicators",
+      "sessions",
+      "yeast",
+      "starters"
+    ]
+  },
+  "sample_data": {
+    "contract": "reports.library.dashboard.v1",
+    "generated_at": null,
+    "indicators": [],
+    "sessions": [],
+    "yeast": [],
+    "starters": []
+  },
+  "parameters": []
+}

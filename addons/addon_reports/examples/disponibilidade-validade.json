@@ -1,0 +1,1168 @@
+{
+  "layout": {
+    "schema_version": 1,
+    "page": {
+      "format": "A4",
+      "orientation": "landscape",
+      "margin_top": 12,
+      "margin_right": 12,
+      "margin_bottom": 12,
+      "margin_left": 12,
+      "number_pages": true
+    },
+    "body": [
+      {
+        "id": "lib_100",
+        "type": "text",
+        "props": {
+          "text": "Leveduras — disponibilidade registrada e validade",
+          "level": "title"
+        }
+      },
+      {
+        "id": "lib_101",
+        "type": "text",
+        "props": {
+          "text": "Classificação somente de itens com status active e pela expiry_date registrada. Janela padrão 30 dias, incluindo hoje e a data final. Itens contaminados/descartados não entram. Não é liberação microbiológica nem validade de materiais de estoque.",
+          "level": "body",
+          "style": {
+            "font_size": 9
+          }
+        }
+      },
+      {
+        "id": "lib_102",
+        "type": "section",
+        "props": {
+          "pagination": {
+            "keep_together": true
+          }
+        },
+        "children": [
+          {
+            "id": "lib_103",
+            "type": "text",
+            "props": {
+              "text": "Gerado em (UTC)",
+              "level": "body",
+              "style": {
+                "bold": true,
+                "font_size": 9,
+                "margin_bottom": 0
+              }
+            }
+          },
+          {
+            "id": "value_103",
+            "type": "text",
+            "props": {
+              "binding": {
+                "source": "data",
+                "path": [
+                  "generated_at"
+                ]
+              },
+              "format": {
+                "kind": "datetime",
+                "null_text": "Não informado"
+              },
+              "style": {
+                "font_size": 10,
+                "margin_bottom": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "section_91",
+        "type": "section",
+        "props": {
+          "columns": 2,
+          "gap": 8
+        },
+        "children": [
+          {
+            "id": "lib_87",
+            "type": "section",
+            "props": {
+              "pagination": {
+                "keep_together": true
+              }
+            },
+            "children": [
+              {
+                "id": "lib_88",
+                "type": "text",
+                "props": {
+                  "text": "Data de referência",
+                  "level": "body",
+                  "style": {
+                    "bold": true,
+                    "font_size": 9,
+                    "margin_bottom": 0
+                  }
+                }
+              },
+              {
+                "id": "value_88",
+                "type": "text",
+                "props": {
+                  "binding": {
+                    "source": "data",
+                    "path": [
+                      "reference_date"
+                    ]
+                  },
+                  "format": {
+                    "kind": "date",
+                    "null_text": "Não informado"
+                  },
+                  "style": {
+                    "font_size": 10,
+                    "margin_bottom": 6
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": "lib_89",
+            "type": "section",
+            "props": {
+              "pagination": {
+                "keep_together": true
+              }
+            },
+            "children": [
+              {
+                "id": "lib_90",
+                "type": "text",
+                "props": {
+                  "text": "Fim da janela",
+                  "level": "body",
+                  "style": {
+                    "bold": true,
+                    "font_size": 9,
+                    "margin_bottom": 0
+                  }
+                }
+              },
+              {
+                "id": "value_90",
+                "type": "text",
+                "props": {
+                  "binding": {
+                    "source": "data",
+                    "path": [
+                      "until_date"
+                    ]
+                  },
+                  "format": {
+                    "kind": "date",
+                    "null_text": "Não informado"
+                  },
+                  "style": {
+                    "font_size": 10,
+                    "margin_bottom": 6
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "lib_92",
+        "type": "text",
+        "props": {
+          "text": "Ativos com validade após a janela",
+          "level": "subtitle"
+        }
+      },
+      {
+        "id": "table_93",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "available"
+            ]
+          },
+          "columns": [
+            {
+              "label": "ID",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "id"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              },
+              "aggregate": "count"
+            },
+            {
+              "label": "Cepa",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "strain_name"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Armazenamento",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "storage_type"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Local",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "location"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Posição",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "storage_slot"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Validade",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "expiry_date"
+                ]
+              },
+              "format": {
+                "kind": "date",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Status",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "status"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Viabilidade registrada (%)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "estimated_viability_pct"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            }
+          ],
+          "empty_text": "Nenhum registro encontrado.",
+          "style": {
+            "font_size": 9,
+            "cell_padding": 3
+          }
+        }
+      },
+      {
+        "id": "lib_94",
+        "type": "text",
+        "props": {
+          "text": "Ativos a vencer na janela",
+          "level": "subtitle"
+        }
+      },
+      {
+        "id": "table_95",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "expiring"
+            ]
+          },
+          "columns": [
+            {
+              "label": "ID",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "id"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              },
+              "aggregate": "count"
+            },
+            {
+              "label": "Cepa",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "strain_name"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Armazenamento",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "storage_type"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Local",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "location"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Posição",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "storage_slot"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Validade",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "expiry_date"
+                ]
+              },
+              "format": {
+                "kind": "date",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Status",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "status"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Viabilidade registrada (%)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "estimated_viability_pct"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            }
+          ],
+          "empty_text": "Nenhum registro encontrado.",
+          "style": {
+            "font_size": 9,
+            "cell_padding": 3
+          }
+        }
+      },
+      {
+        "id": "lib_96",
+        "type": "text",
+        "props": {
+          "text": "Ativos com validade vencida",
+          "level": "subtitle"
+        }
+      },
+      {
+        "id": "table_97",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "expired"
+            ]
+          },
+          "columns": [
+            {
+              "label": "ID",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "id"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              },
+              "aggregate": "count"
+            },
+            {
+              "label": "Cepa",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "strain_name"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Armazenamento",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "storage_type"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Local",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "location"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Posição",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "storage_slot"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Validade",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "expiry_date"
+                ]
+              },
+              "format": {
+                "kind": "date",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Status",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "status"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Viabilidade registrada (%)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "estimated_viability_pct"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            }
+          ],
+          "empty_text": "Nenhum registro encontrado.",
+          "style": {
+            "font_size": 9,
+            "cell_padding": 3
+          }
+        }
+      },
+      {
+        "id": "lib_98",
+        "type": "text",
+        "props": {
+          "text": "Ativos sem validade informada",
+          "level": "subtitle"
+        }
+      },
+      {
+        "id": "table_99",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "undated"
+            ]
+          },
+          "columns": [
+            {
+              "label": "ID",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "id"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              },
+              "aggregate": "count"
+            },
+            {
+              "label": "Cepa",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "strain_name"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Armazenamento",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "storage_type"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Local",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "location"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Posição",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "storage_slot"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Validade",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "expiry_date"
+                ]
+              },
+              "format": {
+                "kind": "date",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Status",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "status"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Viabilidade registrada (%)",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "estimated_viability_pct"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            }
+          ],
+          "empty_text": "Nenhum registro encontrado.",
+          "style": {
+            "font_size": 9,
+            "cell_padding": 3
+          }
+        }
+      }
+    ]
+  },
+  "data_schema": {
+    "type": "object",
+    "properties": {
+      "contract": {
+        "const": "reports.library.expiry.v1"
+      },
+      "generated_at": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "reference_date": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "until_date": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "available": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "strain_name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "storage_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "location": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "storage_slot": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "container_name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "prepared_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "expiry_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "last_checked": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "estimated_viability_pct": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "estimated_viability_updated_at": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "viability_notes": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "strain_name",
+            "storage_type",
+            "location",
+            "storage_slot",
+            "container_name",
+            "prepared_date",
+            "expiry_date",
+            "status",
+            "last_checked",
+            "estimated_viability_pct",
+            "estimated_viability_updated_at",
+            "viability_notes"
+          ]
+        },
+        "maxItems": 2000
+      },
+      "expiring": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "strain_name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "storage_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "location": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "storage_slot": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "container_name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "prepared_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "expiry_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "last_checked": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "estimated_viability_pct": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "estimated_viability_updated_at": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "viability_notes": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "strain_name",
+            "storage_type",
+            "location",
+            "storage_slot",
+            "container_name",
+            "prepared_date",
+            "expiry_date",
+            "status",
+            "last_checked",
+            "estimated_viability_pct",
+            "estimated_viability_updated_at",
+            "viability_notes"
+          ]
+        },
+        "maxItems": 2000
+      },
+      "expired": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "strain_name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "storage_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "location": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "storage_slot": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "container_name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "prepared_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "expiry_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "last_checked": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "estimated_viability_pct": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "estimated_viability_updated_at": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "viability_notes": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "strain_name",
+            "storage_type",
+            "location",
+            "storage_slot",
+            "container_name",
+            "prepared_date",
+            "expiry_date",
+            "status",
+            "last_checked",
+            "estimated_viability_pct",
+            "estimated_viability_updated_at",
+            "viability_notes"
+          ]
+        },
+        "maxItems": 2000
+      },
+      "undated": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "strain_name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "storage_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "location": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "storage_slot": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "container_name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "prepared_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "expiry_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "last_checked": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "estimated_viability_pct": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "estimated_viability_updated_at": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "viability_notes": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "strain_name",
+            "storage_type",
+            "location",
+            "storage_slot",
+            "container_name",
+            "prepared_date",
+            "expiry_date",
+            "status",
+            "last_checked",
+            "estimated_viability_pct",
+            "estimated_viability_updated_at",
+            "viability_notes"
+          ]
+        },
+        "maxItems": 2000
+      }
+    },
+    "required": [
+      "contract",
+      "generated_at",
+      "reference_date",
+      "until_date",
+      "available",
+      "expiring",
+      "expired",
+      "undated"
+    ]
+  },
+  "sample_data": {
+    "contract": "reports.library.expiry.v1",
+    "generated_at": null,
+    "reference_date": null,
+    "until_date": null,
+    "available": [],
+    "expiring": [],
+    "expired": [],
+    "undated": []
+  },
+  "parameters": []
+}

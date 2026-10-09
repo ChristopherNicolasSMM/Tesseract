@@ -35,7 +35,10 @@ with app.app_context():
     db.session.add_all([material, lot]); db.session.flush()
     saldo = Saldo(material_id=material.id, quantidade_atual=25, custo_medio=6.5, valor_total_estoque=162.5)
     db.session.add(saldo); db.session.commit()
-    fixture = {'plant_id':plant.id, 'session_id':lot.id, 'saldo_id':saldo.id}
+    from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
+    recipe=MashRecipe(name='Receita real de teste',volume_planejado_litros=25,description='Cadastro usado na verificação da biblioteca')
+    db.session.add(recipe);db.session.commit()
+    fixture = {'recipe_id':recipe.id, 'plant_id':plant.id, 'session_id':lot.id, 'saldo_id':saldo.id}
 
 
 @app.get('/__reports_fixture')

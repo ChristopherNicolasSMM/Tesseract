@@ -296,6 +296,30 @@ const fs = require('node:fs');
     if(process.env.REPORTS_SCREENSHOTS){fs.mkdirSync(process.env.REPORTS_SCREENSHOTS,{recursive:true});fs.writeFileSync(process.env.REPORTS_SCREENSHOTS+'/reports-pagination-'+name+'.pdf',output);}
   }
   await paginated.close();
+  await page.goto(base+'/reports/');
+  for(const name of ['receita-completa','sessao-detalhada','estoque-atual','banco-leveduras','dashboard-geral','disponibilidade-validade','planejamento-starters','checklist-receita']) {
+    await page.locator('#ready-template').selectOption(name);await page.locator('#create-ready-template').click();await state('saved');
+    await page.waitForFunction(name=>document.querySelector('#report-example').value===name,name);
+    await page.waitForFunction(()=>!document.querySelector('#load-library-data').disabled && !document.querySelector('#create-ready-template').disabled);
+    if(['receita-completa','checklist-receita','sessao-detalhada'].includes(name)) {
+      await page.locator('#refresh-library-records').click();
+      await page.waitForFunction(()=>document.querySelector('#library-record').options.length>1);
+      const option=name==='sessao-detalhada'?{session_id:fixtures.session_id,plant_id:fixtures.plant_id}:{recipe_id:fixtures.recipe_id};
+      const selected=await page.locator('#library-record option').evaluateAll((nodes,expected)=>nodes.find(node=>{try{const value=JSON.parse(node.value);return Object.keys(expected).every(key=>value[key]===expected[key]);}catch{return false;}})?.value,option);
+      assert.ok(selected);await page.locator('#library-record').selectOption(selected);
+    }
+    await page.locator('#load-library-data').click();await state('dirty');
+    await page.locator('#preview-report').click();await state('preview');
+    assert.equal(await page.frameLocator('#html-preview').locator('table').count()>0,true);
+    if(name==='receita-completa')assert.equal(await page.frameLocator('#html-preview').getByText('Receita real de teste',{exact:true}).count(),1);
+    if(name==='estoque-atual')assert.equal(await page.frameLocator('#html-preview').getByText('REPORTS-TEST',{exact:true}).count(),1);
+    if(process.env.REPORTS_SCREENSHOTS) {
+      fs.writeFileSync(process.env.REPORTS_SCREENSHOTS+'/library-'+name+'.html',await page.locator('#html-preview').getAttribute('srcdoc'));
+      if(name==='receita-completa')await page.screenshot({path:process.env.REPORTS_SCREENSHOTS+'/reports-library-recipe.png',fullPage:true});
+    }
+    await page.waitForFunction(()=>!bootstrap.Modal.getInstance(document.getElementById('reports-preview'))._isTransitioning);
+    await page.locator('#reports-preview .btn-close').click();await page.locator('#reports-preview').waitFor({state:'hidden'});
+  }
   assert.deepEqual(errors,[]);await browser.close();
   console.log('Reports IDE, themes, print, conflict and consumer HTML/print passed');
 })().catch(error=>{console.error(error);process.exit(1)});
