@@ -32,3 +32,5 @@ nenhum link avulso adicional ou CRUD interno é criado.
 
 
 Biblioteca operacional e limites: [modelos operacionais](10-biblioteca-modelos-operacionais.md).
+
+Emissão por menus e botões dos addons: [emissão contextual](11-emissao-contextual.md).

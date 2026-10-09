@@ -257,7 +257,7 @@ const fs = require('node:fs');
   await page.waitForFunction(()=>getComputedStyle(document.getElementById('main')).marginLeft==='0px');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
   await page.setViewportSize({width:1440,height:1000});
-  for(const [url,consumer] of [[fixtures.saldo_url,'stock'],[fixtures.session_url,'session']]) {
+  for(const [url,consumer] of [[fixtures.saldo_url,'stock']]) {
     await page.goto(base+url);await page.locator(`[data-report-consumer="${consumer}"]`).click();
     await page.waitForFunction(()=>!document.querySelector('#reports-consumer-submit').disabled);
     if(consumer==='stock'){await page.locator('#reports-consumer-parameter-fields-1-include').check();await page.locator('#reports-consumer-parameter-fields-2-include').check();assert.deepEqual(JSON.parse(await page.locator('#reports-consumer-parameters').inputValue()),{count:0,flag:false});}
@@ -297,14 +297,14 @@ const fs = require('node:fs');
   }
   await paginated.close();
   await page.goto(base+'/reports/');
-  for(const name of ['receita-completa','sessao-detalhada','estoque-atual','banco-leveduras','dashboard-geral','disponibilidade-validade','planejamento-starters','checklist-receita']) {
+  for(const name of ['receita-completa','sessao-detalhada','estoque-atual','estoque-organizacional','banco-leveduras','dashboard-geral','disponibilidade-validade','planejamento-starters','checklist-receita']) {
     await page.locator('#ready-template').selectOption(name);await page.locator('#create-ready-template').click();await state('saved');
     await page.waitForFunction(name=>document.querySelector('#report-example').value===name,name);
     await page.waitForFunction(()=>!document.querySelector('#load-library-data').disabled && !document.querySelector('#create-ready-template').disabled);
-    if(['receita-completa','checklist-receita','sessao-detalhada'].includes(name)) {
+    if(['receita-completa','checklist-receita','sessao-detalhada','estoque-organizacional'].includes(name)) {
       await page.locator('#refresh-library-records').click();
-      await page.waitForFunction(()=>document.querySelector('#library-record').options.length>1);
-      const option=name==='sessao-detalhada'?{session_id:fixtures.session_id,plant_id:fixtures.plant_id}:{recipe_id:fixtures.recipe_id};
+      await page.waitForFunction(()=>document.querySelector('#library-record').options.length>1 && !document.querySelector('#refresh-library-records').disabled);
+      const option=name==='estoque-organizacional'?{organization_code:fixtures.organization_code}:name==='sessao-detalhada'?{session_id:fixtures.session_id,plant_id:fixtures.plant_id}:{recipe_id:fixtures.recipe_id};
       const selected=await page.locator('#library-record option').evaluateAll((nodes,expected)=>nodes.find(node=>{try{const value=JSON.parse(node.value);return Object.keys(expected).every(key=>value[key]===expected[key]);}catch{return false;}})?.value,option);
       assert.ok(selected);await page.locator('#library-record').selectOption(selected);
     }
@@ -319,7 +319,33 @@ const fs = require('node:fs');
     }
     await page.waitForFunction(()=>!bootstrap.Modal.getInstance(document.getElementById('reports-preview'))._isTransitioning);
     await page.locator('#reports-preview .btn-close').click();await page.locator('#reports-preview').waitFor({state:'hidden'});
+    await publish();
   }
+  for(const [screen,source,initial] of [['receitas','receita-completa',`recipe_id=${fixtures.recipe_id}`],['sessoes','sessao-detalhada',`session_id=${fixtures.session_id}&plant_id=${fixtures.plant_id}`],['banco-leveduras','banco-leveduras',''],['disponibilidade-validade','disponibilidade-validade',''],['starters','planejamento-starters',''],['dashboard','dashboard-geral',''],['estoque','estoque-organizacional',`organization_code=${fixtures.organization_code}`]]) {
+    await page.goto(base+'/'+(screen==='estoque'?'estoque':'brewstation')+'/reports/'+screen+'?'+initial);
+    await page.waitForFunction(()=>!document.querySelector('#emission-generate').disabled);
+    await page.locator('#emission-template').selectOption('ready.'+source);
+    if(['receitas','sessoes','estoque'].includes(screen))assert.ok(await page.locator('#emission-record').inputValue());
+    await page.locator('#emission-generate').click();
+    await page.waitForFunction(()=>!document.querySelector('#emission-print').disabled);
+    assert.ok((await page.frameLocator('#emission-preview').locator('main').textContent()).trim());
+    await page.locator('#emission-preview').evaluate(frame=>{frame.contentWindow.print=()=>{frame.dataset.printCalled='true';};});
+    await page.locator('#emission-print').click();assert.equal(await page.locator('#emission-preview').getAttribute('data-print-called'),'true');
+    if(process.env.REPORTS_SCREENSHOTS)await page.screenshot({path:process.env.REPORTS_SCREENSHOTS+'/emission-'+screen+'.png',fullPage:true});
+    if(screen==='estoque'){await page.locator('#emission-positive_only').check();assert.equal(await page.locator('#emission-print').isDisabled(),true);}
+  }
+  await page.goto(base+fixtures.session_url);const sessionLink=page.locator('a[href*="/brewstation/reports/sessoes?"]');
+  assert.ok((await sessionLink.getAttribute('href')).includes('session_id='+fixtures.session_id));
+  await sessionLink.click();await page.waitForURL('**/brewstation/reports/sessoes?**');
+  await page.waitForFunction(()=>Boolean(document.querySelector('#emission-record')?.value));
+  await page.waitForFunction(()=>!document.querySelector('#emission-generate').disabled);
+  assert.ok(page.url().includes('session_id='+fixtures.session_id));
+  assert.equal((await page.request.post(base+'/api/auth/update-theme',{data:{theme:'dark'}})).status(),200);
+  await page.reload();await page.waitForFunction(()=>!document.querySelector('#emission-generate').disabled);
+  await page.locator('#emission-template').selectOption('ready.sessao-detalhada');await page.locator('#emission-generate').click();
+  await page.waitForFunction(()=>!document.querySelector('#emission-print').disabled);
+  assert.equal(await page.frameLocator('#emission-preview').locator('.report-document').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(39, 53, 73)');
+  if(process.env.REPORTS_SCREENSHOTS)await page.screenshot({path:process.env.REPORTS_SCREENSHOTS+'/emission-dark.png',fullPage:true});
   assert.deepEqual(errors,[]);await browser.close();
   console.log('Reports IDE, themes, print, conflict and consumer HTML/print passed');
 })().catch(error=>{console.error(error);process.exit(1)});

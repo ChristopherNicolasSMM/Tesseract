@@ -1,4 +1,5 @@
 {% extends "core/base.html" %}{% block content %}
+<div class="d-flex gap-2 flex-wrap mb-3">{% if (reports_emissions|default({})).get('estoque') %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('report_emission.estoque',organization_code=selected.code if selected else '') }}"><i class="bi bi-file-earmark-text me-1"></i>Relatório do estoque</a>{% endif %}</div>
 <div class="pagetitle"><h1>Estoque por organização</h1></div>
 <div class="card"><div class="card-body pt-3">
 <p>Catálogo compartilhado. Saldos e custos separados. O estoque legado não é atribuído nem somado a uma organização.</p>

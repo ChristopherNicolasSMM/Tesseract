@@ -15,6 +15,7 @@ CATALOG = {
     'receita-completa': ('recipe', 'reports.library.recipe'),
     'sessao-detalhada': ('session', 'reports.library.session'),
     'estoque-atual': ('stock', 'reports.library.stock'),
+    'estoque-organizacional': ('stock_org', 'reports.library.stock_org'),
     'banco-leveduras': ('yeast', 'reports.library.yeast'),
     'dashboard-geral': ('dashboard', 'reports.library.dashboard'),
     'disponibilidade-validade': ('expiry', 'reports.library.expiry'),
@@ -28,6 +29,7 @@ PERMISSIONS = {
     'yeast': ('yeast_bank_items.list', 'yeast_strains.list', 'yeast_containers.list'),
     'starters': ('yeast_bank_events.list', 'yeast_bank_items.list', 'yeast_strains.list', 'yeast_containers.list'),
 }
+PERMISSIONS['stock_org'] = PERMISSIONS['stock']
 PERMISSIONS['expiry'] = PERMISSIONS['yeast']
 PERMISSIONS['dashboard'] = tuple(dict.fromkeys(PERMISSIONS['recipe'] + PERMISSIONS['session'] + PERMISSIONS['stock'] + PERMISSIONS['yeast'] + PERMISSIONS['starters']))
 MASH = 'addons.addon_brewstation.features.feature_mash_control.services.'
@@ -40,16 +42,16 @@ def definition(name):
     return json.loads((Path(__file__).resolve().parents[2] / 'examples' / (name+'.json')).read_text(encoding='utf-8'))
 
 
-def authorize(name):
-    reports.authorize('detail')
+def authorize(name, action='detail'):
+    reports.authorize(action)
     if name not in CATALOG:
         raise ReportError('reports.error.not_found', status=404)
     source = CATALOG[name][0]
-    addons = ('estoque',) if source=='stock' else ('brewstation','estoque') if source=='dashboard' else ('brewstation',)
+    addons = ('estoque',) if source in ('stock','stock_org') else ('brewstation','estoque') if source=='dashboard' else ('brewstation',)
     with db.session.no_autoflush:
         if not all(addon in current_app.module_manager.active_modules for addon in addons):
             raise ReportError('reports.error.consumer_unavailable', status=503)
-        features=() if source=='stock' else ('feature_mash_control','feature_yeast_bank') if source=='dashboard' else ('feature_mash_control',) if source in ('recipe','session') else ('feature_yeast_bank',)
+        features=() if source in ('stock','stock_org') else ('feature_mash_control','feature_yeast_bank') if source=='dashboard' else ('feature_mash_control',) if source in ('recipe','session') else ('feature_yeast_bank',)
         if not all('brewstation/'+feature in current_app.module_manager.active_features for feature in features):
             raise ReportError('reports.error.consumer_unavailable',status=503)
         if not all(current_user.has_permission(p) for p in PERMISSIONS[source]):
@@ -68,9 +70,12 @@ def records(prefix, module, cls):
     return values
 
 
-def choices(name):
-    source=authorize(name)
+def choices(name, action='detail'):
+    source=authorize(name, action)
     with db.session.no_autoflush:
+        if source=='stock_org':
+            from services.core.organization_service import list_organizations
+            return [{'value':{'organization_code':v.code},'label':v.name+' ('+v.code+')'} for v in list_organizations()]
         if source=='recipe':
             values=records(MASH,'mash_recipe_service','MashRecipeService')
             return [{'value':{'recipe_id':v.id},'label':v.name} for v in values]
@@ -119,9 +124,9 @@ def recipe_data(ident):
     return {'recipe':value.to_dict(),'ingredients':ingredients,'steps':steps,'fermentation':fermentation,'water':water}
 
 
-def data(name, options):
-    source=authorize(name)
-    allowed={'recipe_id'} if source=='recipe' else {'session_id','plant_id'} if source=='session' else {'days','reference_date'} if source=='expiry' else set()
+def data(name, options, action='detail'):
+    source=authorize(name, action)
+    allowed={'organization_code','material_id'} if source=='stock_org' else {'recipe_id'} if source=='recipe' else {'session_id','plant_id'} if source=='session' else {'days','reference_date'} if source=='expiry' else set()
     if set(options)-allowed:
         raise ReportError('reports.error.input')
     if source in ('recipe','session') and (set(options)!=allowed or any(type(v) is not int or v<1 for v in options.values())):
@@ -138,6 +143,9 @@ def data(name, options):
                 result['logs']=[v.to_dict() for v in records(MASH,'brew_session_log_service','BrewSessionLogService') if v.session_id==options['session_id']]
                 result['alarms']=[v.to_dict() for v in records(MASH,'brew_session_alarm_service','BrewSessionAlarmService') if v.session_id==options['session_id']]
                 result['contract']='reports.library.session.v1'
+            elif source=='stock_org':
+                from addons.addon_estoque.root.services.report_data_service import build_organization_stock_report_data
+                result=build_organization_stock_report_data(options.get('organization_code'),options.get('material_id'))
             elif source=='stock':
                 from addons.addon_estoque.root.services.report_data_service import build_stock_report_data
                 result=build_stock_report_data()
@@ -168,7 +176,7 @@ def data(name, options):
                     'yeast':yeast,'starters':starters}
     except HTTPException as exc:
         raise ReportError('reports.error.input' if exc.code==400 else 'reports.error.not_found' if exc.code==404 else 'reports.error.forbidden',status=exc.code or 422) from exc
-    if source not in ('session','stock'):
+    if source not in ('session','stock','stock_org'):
         result['contract']='reports.library.'+source+'.v1'
     result['generated_at']=datetime.now(timezone.utc).isoformat()
     reports.guard_json(result)

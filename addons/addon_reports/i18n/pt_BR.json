@@ -206,5 +206,6 @@
   "reports.library.indicator_sessions": "Sessões registradas",
   "reports.library.indicator_yeast": "Itens no banco de leveduras",
   "reports.library.indicator_starters": "Starters planejados ou ativos",
-  "reports.library.indicator_stock": "Saldos legados de estoque"
+  "reports.library.indicator_stock": "Saldos legados de estoque",
+  "reports.library.stock_org": "Estoque por organização"
 }

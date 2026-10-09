@@ -29,7 +29,11 @@ def authorize_consumer(consumer):
 def published_templates(consumer):
     """Catálogo de emissão: revisão ativa compatível, sem acesso a rascunhos."""
     authorize_consumer(consumer)
-    contract = CONSUMERS[consumer][1]
+    return templates_for_contract(CONSUMERS[consumer][1])
+
+
+def templates_for_contract(contract):
+    reports.authorize('render')
     from ..model.report_parameter import ReportParameter
     with db.session.session_factory() as reader:
         rows = (reader.query(ReportTemplate, ReportTemplateVersion)

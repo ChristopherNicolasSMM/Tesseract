@@ -241,3 +241,25 @@ da receita/sessão. A disponibilidade não certifica uso biológico; usa status 
 datas cadastrados. O estoque não representa o novo saldo por organização.
 O checklist não marca regras como cumpridas automaticamente. Receita atual
 não equivale a uma fotografia histórica da receita usada em uma sessão.
+
+## Relatórios dentro dos addons
+
+Abra BrewStation → Relatórios para receitas/checklist, sessões detalhadas,
+banco de leveduras, validade, starters ou dashboard. Abra Estoque → Relatórios →
+Estoque atual para saldos por organização. As telas têm filtros e escolha de
+modelo publicado compatível. Gere a prévia e use Imprimir / salvar PDF.
+
+Os botões com ícone de relatório nas telas de receita, sessão, banco, dashboard
+e estoque levam à mesma consulta. Receita, sessão/planta ou organização vêm
+pré-selecionados quando o botão tem esse contexto. O checklist é escolhido como
+modelo de receita. Campos de conferência continuam manuais.
+
+Antes da primeira emissão, crie e publique os modelos na IDE. Para estoque por
+organização use o novo modelo pronto **Estoque por organização**, não o modelo
+legado. Nenhuma publicação ou carga de exemplo acontece automaticamente.
+Sem modelo publicado, a consulta mostra uma orientação e desabilita a geração.
+
+Esta emissão lê dados atuais e não salva uma cópia no template. Carregar dados
+na IDE continua sendo a ação distinta que pode salvar uma cópia de exemplo.
+O dashboard conserva indicadores globais e saldos legados explicitamente
+identificados; a busca afeta apenas suas listas.

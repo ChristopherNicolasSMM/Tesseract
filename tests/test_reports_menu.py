@@ -9,7 +9,7 @@ from tests.test_reports_workspace import app, client
 
 
 def test_menu_uses_default_discovery_and_registered_list_endpoint(app, client):
-    assert AddonReports.get_transactions is ModuleBase.get_transactions
+    # IDE ainda vem da descoberta padrão; emissão contribui sob addons de origem.
     with app.app_context():
         group=Transaction.query.filter_by(code='TX_GROUP_AUTO_REPORTS').one()
         item=Transaction.query.filter_by(code='TX_AUTO_REPORT_TEMPLATES').one()
@@ -18,7 +18,7 @@ def test_menu_uses_default_discovery_and_registered_list_endpoint(app, client):
         assert item.icon=='bi-file-earmark-text'
         assert item.permission_required=='report_templates.list'
         active=Transaction.query.filter_by(source_module='reports',is_active=True).all()
-        assert {tx.code for tx in active}=={group.code,item.code}
+        assert {group.code,item.code}.issubset({tx.code for tx in active})
         with app.test_request_context():assert url_for('report_templates.list')=='/reports/'
     html=client.get('/reports/').data.decode('utf-8')
     assert 'TX_GROUP_AUTO_REPORTS' in html

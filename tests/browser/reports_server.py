@@ -29,7 +29,7 @@ with app.app_context():
     plant = BrewPlant(name='Planta de teste')
     category = Categoria(descricao='Categoria de teste', codigo='REPORTS-TEST')
     db.session.add_all([plant, category]); db.session.flush()
-    material = Material(nome='Material de teste', sku='REPORTS-TEST', origem_id=Origem.query.first().id,
+    material = Material(unidade_medida='kg',nome='Material de teste', sku='REPORTS-TEST', origem_id=Origem.query.first().id,
                         tipo_produto_id=TipoProduto.query.first().id, categoria_id=category.id)
     lot = BrewSession(name='Lote de teste', plant_id=plant.id, custo_total_insumos=42.13)
     db.session.add_all([material, lot]); db.session.flush()
@@ -38,7 +38,13 @@ with app.app_context():
     from addons.addon_brewstation.features.feature_mash_control.model.mash_recipe import MashRecipe
     recipe=MashRecipe(name='Receita real de teste',volume_planejado_litros=25,description='Cadastro usado na verificação da biblioteca')
     db.session.add(recipe);db.session.commit()
-    fixture = {'recipe_id':recipe.id, 'plant_id':plant.id, 'session_id':lot.id, 'saldo_id':saldo.id}
+    from decimal import Decimal
+    from services.core.organization_service import save_organization
+    from addons.addon_estoque.root.model.organization_stock import OrganizationBalance
+    save_organization({'code':'REPORTS','name':'Organização de teste'})
+    balance=OrganizationBalance(organization_code='REPORTS',material_id=material.id,currency_code='BRL',quantity=Decimal('25'),stock_value=Decimal('162.5'))
+    db.session.add(balance);db.session.commit()
+    fixture = {'organization_code':'REPORTS','recipe_id':recipe.id, 'plant_id':plant.id, 'session_id':lot.id, 'saldo_id':saldo.id}
 
 
 @app.get('/__reports_fixture')

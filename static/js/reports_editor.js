@@ -227,7 +227,7 @@
   root.reportValidity=()=>Array.from($('editor-panel').querySelectorAll('input,textarea,select')).every(el=>el.disabled||el.reportValidity());
   function libraryControls() {
     const source=library[$('report-example').value]?.[0];
-    $('library-data-panel').hidden=!source;$('library-record-panel').hidden=!['recipe','session'].includes(source);$('library-expiry-panel').hidden=source!=='expiry';
+    $('library-data-panel').hidden=!source;$('library-record-panel').hidden=!['recipe','session','stock_org'].includes(source);$('library-expiry-panel').hidden=source!=='expiry';
     $('load-library-data').disabled=!source||revision?.status!=='draft';
   }
   $('report-example').onchange=()=>{$('library-record').replaceChildren();libraryControls();};
@@ -238,7 +238,7 @@
     const option=document.createElement('option');option.value=item.id;option.textContent=item.name;$('template-select').append(option);templateId=item.id;$('template-select').value=templateId;
     await choose(1);revision.layout=config.layout;selected=config.layout.body[0]?.id;
     $('data-schema').value=JSON.stringify(config.data_schema,null,2);$('sample-data').value=JSON.stringify(config.sample_data,null,2);$('parameter-definitions').value=JSON.stringify(config.parameters,null,2);
-    $('report-example').value=name;parameterForm();mark();await save();
+    $('report-example').value=name;$('library-record').replaceChildren();parameterForm();mark();await save();
   });
   $('refresh-library-records').onclick=()=>guarded(async()=>{
     const value=await api('/examples/'+$('report-example').value+'/choices',undefined,'GET');$('library-record').replaceChildren();
@@ -248,7 +248,7 @@
   $('load-library-data').onclick=()=>guarded(async()=>{
     if(revision.status!=='draft')return;
     const name=$('report-example').value,source=library[name][0];let options={};
-    if(['recipe','session'].includes(source)){if(!$('library-record').value)throw Error(tr.error);options=JSON.parse($('library-record').value);}
+    if(['recipe','session','stock_org'].includes(source)){if(!$('library-record').value)throw Error(tr.error);options=JSON.parse($('library-record').value);}
     if(source==='expiry'){options.days=Number($('library-days').value);if(!$('library-days').value||!Number.isInteger(options.days)||options.days<0||options.days>365)throw Error(tr.error);if($('library-reference-date').value)options.reference_date=$('library-reference-date').value;}
     const value=(await api('/examples/'+name+'/data',{options})).item;$('sample-data').value=JSON.stringify(value,null,2);mark();
   });

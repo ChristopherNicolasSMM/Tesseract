@@ -1,0 +1,315 @@
+{
+  "layout": {
+    "schema_version": 1,
+    "page": {
+      "format": "A4",
+      "orientation": "landscape",
+      "margin_top": 12,
+      "margin_right": 12,
+      "margin_bottom": 12,
+      "margin_left": 12,
+      "number_pages": true
+    },
+    "body": [
+      {
+        "id": "lib_78",
+        "type": "text",
+        "props": {
+          "text": "Estoque atual — por organização",
+          "level": "title"
+        }
+      },
+      {
+        "id": "lib_79",
+        "type": "text",
+        "props": {
+          "text": "Saldos registrados da organização selecionada. Quantidades mantêm a unidade-base de cada material e valores mantêm a moeda registrada. Sem soma entre unidades ou moedas diferentes.",
+          "level": "body",
+          "style": {
+            "font_size": 9
+          }
+        }
+      },
+      {
+        "id": "org-heading",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "organization",
+              "name"
+            ]
+          },
+          "level": "subtitle"
+        }
+      },
+      {
+        "id": "table_77",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "items"
+            ]
+          },
+          "columns": [
+            {
+              "label": "SKU",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "sku"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              },
+              "aggregate": "count"
+            },
+            {
+              "label": "Material",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "nome"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Quantidade registrada",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "quantidade_atual"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Custo médio registrado",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "custo_medio"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Valor registrado",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "valor_total_estoque"
+                ]
+              },
+              "format": {
+                "kind": "number",
+                "null_text": "—",
+                "decimals": 2
+              }
+            },
+            {
+              "label": "Atualização",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "ultima_atualizacao"
+                ]
+              },
+              "format": {
+                "kind": "datetime",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Unidade",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "unidade"
+                ]
+              }
+            },
+            {
+              "label": "Moeda",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "currency_code"
+                ]
+              }
+            }
+          ],
+          "empty_text": "Nenhum registro encontrado.",
+          "style": {
+            "font_size": 9,
+            "cell_padding": 3
+          }
+        }
+      }
+    ]
+  },
+  "data_schema": {
+    "type": "object",
+    "properties": {
+      "contract": {
+        "const": "estoque.organizacao.saldos.v1"
+      },
+      "generated_at": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "nome": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "sku": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "quantidade_atual": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "custo_medio": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "valor_total_estoque": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "estoque_minimo": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "estoque_maximo": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "ultima_atualizacao": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "unidade": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "currency_code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "organization_code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "nome",
+            "sku",
+            "quantidade_atual",
+            "custo_medio",
+            "valor_total_estoque",
+            "ultima_atualizacao"
+          ]
+        },
+        "maxItems": 2000
+      },
+      "organization": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "is_active": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "is_active"
+        ]
+      }
+    },
+    "required": [
+      "contract",
+      "items",
+      "organization"
+    ]
+  },
+  "sample_data": {
+    "contract": "estoque.organizacao.saldos.v1",
+    "generated_at": null,
+    "items": [],
+    "organization": {
+      "code": null,
+      "name": null,
+      "is_active": null
+    }
+  },
+  "parameters": []
+}

@@ -17,7 +17,15 @@ def consumer_context():
         permissions = {name: bool(visible and addon in current_app.module_manager.active_modules
                        and all(current_user.has_permission(p) for p in perms))
                        for name, (addon, _, perms) in CONSUMERS.items()}
-    return {'reports_consumers': permissions}
+    from ..services.report_emission_service import SCREENS, authorize
+    from ..services.report_layout_service import ReportError
+    emissions={}
+    for name in SCREENS:
+        try:
+            authorize(name);emissions[name]=True
+        except ReportError:
+            emissions[name]=False
+    return {'reports_consumers': permissions,'reports_emissions':emissions}
 
 
 @report_templates_bp.get('/', endpoint='list')

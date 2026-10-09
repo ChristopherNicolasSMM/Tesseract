@@ -9,6 +9,7 @@
 {% block title %}Painel do Banco de Levedura - Tesseract{% endblock %}
 
 {% block content %}
+<div class="d-flex gap-2 flex-wrap mb-3">{% for screen,label in [('banco-leveduras','Relatório do banco'),('disponibilidade-validade','Disponibilidade e validade'),('starters','Relatório de starters')] %}{% if (reports_emissions|default({})).get(screen) %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('report_emission.brewstation',screen=screen) }}"><i class="bi bi-file-earmark-text me-1"></i>{{ label }}</a>{% endif %}{% endfor %}</div>
 <div class="pagetitle">
   <h1>Banco de Levedura</h1>
   <nav>

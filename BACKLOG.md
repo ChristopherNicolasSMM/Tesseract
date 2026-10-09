@@ -5842,3 +5842,11 @@ Chromium de 100 linhas preservadas e paginação conferidos visualmente.
 - Adaptadores somente leitura dos serviços públicos; nenhum addon de origem alterado.
 - Documentados saldos legados, validade de leveduras, starters existentes e cópias salvas.
 - Fontes .list sem paginação permanecem limitação documentada; evolução depende de autorização futura.
+
+## Reports — emissão contextual nos addons
+
+- Sete telas de filtros com menus BrewStation/Estoque → Relatórios.
+- Botões contextuais em receita, sessão, banco, dashboard e estoque organizacional.
+- Emissão centralizada, apenas modelos publicados compatíveis, leitura atual e CSRF/RBAC.
+- DTO/modelo de estoque organizacional separado do legado, sem alterar movimentações.
+- Manual, contratos e roteiro incremental atualizados; sem migration/dependência.

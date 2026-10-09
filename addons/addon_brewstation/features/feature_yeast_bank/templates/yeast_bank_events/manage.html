@@ -1,5 +1,6 @@
 {% extends "core/base.html" %}
 {% block content %}
+<div class="d-flex gap-2 flex-wrap mb-3">{% if (reports_emissions|default({})).get('starters') %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('report_emission.brewstation',screen='starters') }}"><i class="bi bi-file-earmark-text me-1"></i>Relatório de starters</a>{% endif %}</div>
 <div class="pagetitle">
   <h1>Evento do Banco</h1>
 </div>

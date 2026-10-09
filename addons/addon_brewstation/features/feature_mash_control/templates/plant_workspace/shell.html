@@ -43,9 +43,6 @@ body.pw-kiosk-mode #main { margin-left: 0 !important; padding-top: 12px !importa
 {% endblock %}
 
 {% block extra_js %}
-{% if (reports_consumers|default({})).get('session') %}
-{% include 'addon_reports/consumer_ui.html' ignore missing %}
-{% endif %}
 <script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>
 <script src="{{ url_for('static', filename='js/dashboard_standby.js') }}"></script>
 <script>

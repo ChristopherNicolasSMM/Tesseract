@@ -84,7 +84,7 @@ def test_consumer_endpoints_auth_csrf_scope_and_html(client, app):
     assert response.status_code == 200 and response.data.startswith(b'<!doctype html>') and response.mimetype == 'text/html'
     assert response.headers['Cache-Control'] == 'no-store'
     fragment = client.get(f'/brewstation/plant-workspace/{plant_id}/tab/sessions?session_id={session_id}')
-    assert fragment.status_code == 200 and b'data-report-consumer="session"' in fragment.data
+    assert fragment.status_code == 200 and b'/brewstation/reports/sessoes?' in fragment.data
 
 
 def test_consumer_addon_unavailable_does_not_import_domain(client, app):
