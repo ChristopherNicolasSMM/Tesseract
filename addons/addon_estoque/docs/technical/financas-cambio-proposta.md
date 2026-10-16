@@ -69,3 +69,8 @@ fiscais nem regras tributárias.
 
 - [Microsoft Business Central: moedas, taxas com vigência e histórico](https://learn.microsoft.com/en-gb/dynamics365/business-central/finance-set-up-currencies).
 - [Oracle: taxas diárias por par, data e tipo](https://docs.oracle.com/en/cloud/saas/financials/25a/facsf/currency-rates.html).
+
+
+## Continuidade — 16/10/2026
+
+Produção, envase e reconciliação organizacional foram entregues no pacote 1 de 3. Novas escritas exigem organização; histórico global é somente consultado/reconciliado.

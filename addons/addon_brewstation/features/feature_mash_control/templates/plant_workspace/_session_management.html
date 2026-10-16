@@ -1,3 +1,4 @@
+<a class="btn btn-sm btn-outline-primary mb-3" href="{{ url_for('brew_sessions.detail', id=selected_session.id) }}">Organização e confirmação do lote</a>
 {% if current_user.has_permission('brew_sessions.update') %}
 <details class="card mb-3" id="pwSessionEditor">
   <summary class="card-header">Editar dados do lote</summary>
@@ -30,10 +31,10 @@
     <h5 class="card-title">Ingredientes e custo do lote</h5>
     {% if selected_session.insumos_baixados_em %}
       <p class="text-success">Ingredientes confirmados em {{ selected_session.insumos_baixados_em.strftime('%d/%m/%Y %H:%M') }}.</p>
-      <p>Custo registrado dos insumos: <strong>{{ 'R$ %.2f'|format(selected_session.custo_total_insumos) if selected_session.custo_total_insumos is not none else 'Não registrado' }}</strong></p>
+      <p>Custo registrado dos insumos (moeda e valor exatos no detalhe do lote): <strong>{{ '%.2f'|format(selected_session.custo_total_insumos) if selected_session.custo_total_insumos is not none else 'Não registrado' }}</strong></p>
     {% elif conference %}
       <p>Ingredientes ainda não confirmados. {{ conference.pendencias|length }} pendência(s).</p>
-      {% if estimated_cost %}<p>Custo estimado dos insumos: <strong>R$ {{ '%.2f'|format(estimated_cost.custo_total_estimado) }}</strong>{% if not estimated_cost.custo_completo %} <span class="badge bg-warning text-dark">Estimativa incompleta</span>{% endif %}</p>{% endif %}
+      {% if estimated_cost %}<p>Custo estimado dos insumos: <strong>{{ estimated_cost.custo_total_estimado }} {{ estimated_cost.currency_code }}</strong>{% if not estimated_cost.custo_completo %} <span class="badge bg-warning text-dark">Estimativa incompleta</span>{% endif %}</p>{% endif %}
       <div class="table-responsive"><table class="table table-sm">
         <thead><tr><th>Ingrediente</th><th>Quantidade</th><th>Estado</th><th>Orientação</th></tr></thead>
         <tbody>{% for line in conference.itens %}<tr>

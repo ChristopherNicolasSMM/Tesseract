@@ -28,7 +28,7 @@ def test_aggregate_shortage_and_exact_cost_are_scoped_and_pure(app, monkeypatch)
     with app.app_context():
         recipe, material, _ = setup()
         move(material, quantity='4', cost='0.333333333333')
-        stock.registrar_movimentacao(material.id, 'entrada', 99, custo_unitario=99)
+        stock._registrar_movimentacao_legada(material.id, 'entrada', 99, custo_unitario=99)
         monkeypatch.setattr(material_lookup, 'get_saldo', lambda *_: pytest.fail('Consultou saldo global'))
         before = OrganizationMovement.query.count()
         result = preview(recipe.id, ' a ')

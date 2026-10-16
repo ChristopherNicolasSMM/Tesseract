@@ -192,3 +192,8 @@ registradas e mantém ingredientes da brassagem consumidos e custo congelado.
 Repetir registro com a mesma confirmação não duplica baixa; novo envase exige
 nova confirmação. Envases antigos sem movimentos identificados precisam de
 reconciliação própria e não recebem um estorno inventado.
+
+
+## Continuidade — 16/10/2026
+
+Envase novo exige lote com organização vinculada e volume real. Baixa embalagens e registra entrada do produto acabado com custo congelado; consulte docs/patches/fase3-entrega1-producao-reconciliacao.md.

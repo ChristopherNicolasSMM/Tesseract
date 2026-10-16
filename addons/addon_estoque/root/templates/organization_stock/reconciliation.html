@@ -1,0 +1,16 @@
+{% extends 'core/base.html' %}{% block content %}
+<div class="pagetitle"><h1>Reconciliar estoque legado</h1></div>
+<div class="card"><div class="card-body pt-3">
+<p>Confira a quantidade e informe uma avaliação monetária explícita. A confirmação retira a quantidade do legado e registra a entrada na organização em uma única operação.</p>
+{% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+{% if result %}<div class="alert alert-success">Reconciliação registrada. Movimento {{ result.movimentacao.id }}.</div>{% endif %}
+<form method="post" class="row g-3">
+{% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+<div class="col-md-6"><label class="form-label" for="organization_code">Organização destino</label><select class="form-select" name="organization_code" id="organization_code" required><option value="">Selecione</option>{% for org in organizations if org.is_active %}<option value="{{ org.code }}" {% if values.get('organization_code') == org.code %}selected{% endif %}>{{ org.code }} — {{ org.name }}</option>{% endfor %}</select></div>
+<div class="col-md-6"><label class="form-label" for="material_id">Material</label><select class="form-select" name="material_id" id="material_id" required><option value="">Selecione</option>{% for material in materials %}<option value="{{ material.id }}" {% if values.get('material_id')|string == material.id|string %}selected{% endif %}>{{ material.nome }} — {{ material.unidade_medida }}</option>{% endfor %}</select></div>
+{% for name, label, type in [('quantity','Quantidade na unidade-base','text'),('source_currency','Moeda da avaliação (código cadastrado)','text'),('source_amount','Valor total avaliado na moeda informada','text'),('operation_date','Data da operação','date'),('rate_id','ID da taxa explícita (vazio para moeda-base)','number'),('policy_version_id','ID da versão monetária (vazio para inicial)','number'),('idempotency_key','Referência única','text'),('reason','Justificativa da avaliação e destinação','text')] %}
+<div class="col-md-6"><label class="form-label" for="{{ name }}">{{ label }}</label><input class="form-control" id="{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ values.get(name,today if name == 'operation_date' else '') or '' }}" {% if name not in ['rate_id','policy_version_id'] %}required{% endif %}></div>{% endfor %}
+<div class="col-12"><button class="btn btn-outline-primary" name="action" value="preview">Conferir prévia</button></div>
+{% if plan %}<div class="col-12 alert alert-warning">Saldo legado: {{ plan.source.quantity }}. Retirada: {{ plan.request.quantity }}. Entrada avaliada: {{ plan.conversion.converted_amount }} {{ plan.conversion.policy.currency_code }}. Confira os dados antes de confirmar.</div>
+<input type="hidden" name="preview_token" value="{{ plan.preview_token }}"><div class="col-12"><button class="btn btn-primary" name="action" value="confirm">Confirmar reconciliação</button></div>{% endif %}
+</form><a class="btn btn-link mt-3" href="{{ url_for('saldos.organization_stock') }}">Estoque por organização</a></div></div>{% endblock %}

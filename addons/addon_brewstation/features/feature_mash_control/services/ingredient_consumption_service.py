@@ -159,96 +159,14 @@ def calcular_custo_insumos_receita(recipe_id: int) -> dict:
     }
 
 
-def _confirmar_consumo_ingredientes(brew_session_id: int, *, commit: bool = True) -> dict:
-    """
-    Baixa real de estoque dos insumos da receita vinculada ao lote —
-    idempotente via `BrewSession.insumos_baixados_em` (chamar de novo
-    num lote já confirmado só devolve o resultado já congelado, não
-    baixa de novo).
-
-    Todas as saídas e a marcação do lote são confirmadas juntas.
-    Qualquer falha desfaz as saídas, permitindo tentar novamente.
-    """
-    lote = BrewSession.query.filter_by(id=brew_session_id, is_deleted=False).populate_existing().first()
-    if lote is None:
-        raise LoteNaoEncontradoError(f"BrewSession id={brew_session_id} não encontrada ou removida")
-
-    if lote.insumos_baixados_em is not None:
-        return {
-            "ja_confirmado": True,
-            "insumos_baixados_em": lote.insumos_baixados_em.isoformat(),
-            "custo_total_insumos": lote.custo_total_insumos,
-        }
-
-    if not lote.recipe_id:
-        raise ReceitaNaoVinculadaError(f"BrewSession id={brew_session_id} não tem receita vinculada")
-
-    if not MashRecipe.query.filter_by(id=lote.recipe_id, is_deleted=False).first():
-        raise ReceitaNaoVinculadaError('Receita do lote não encontrada ou removida.')
-
-    conferencia = conferir_ingredientes(lote.recipe_id)
-    if conferencia["pendencias"]:
-        nomes = ", ".join(f"{linha['descricao']} ({linha['motivo']})"
-                          for linha in conferencia["pendencias"][:3])
-        raise IngredientesPendentesError(
-            f"Resolva {len(conferencia['pendencias'])} ingrediente(s) antes de confirmar: {nomes}."
-        )
-    preparados = [(db.session.get(RecipeIngredient, linha["id"]), linha["quantidade_base"])
-                 for linha in conferencia["prontos"]]
-    resultados = []
-    custo_total = 0.0
-    try:
-        for ing, quantidade_base in preparados:
-            saldo = material_lookup.get_saldo(ing.material_id)
-            custo_medio = saldo.get("custo_medio") if saldo else None
-            resultado = estoque_service.registrar_movimentacao(
-                ing.material_id, "saida", quantidade_base,
-                custo_unitario=custo_medio,
-                observacoes=f"Consumo de insumo — confirmação de ingredientes do lote #{lote.id} ({lote.name}).",
-                commit=False,
-            )
-            custo_linha = resultado["movimentacao"].get("custo_total")
-            if custo_linha is not None:
-                custo_total += custo_linha
-            resultados.append({
-                "recipe_ingredient_id": ing.id, "material_id": ing.material_id,
-                "sucesso": True, "custo_total": custo_linha,
-            })
-        lote.insumos_baixados_em = datetime.now(timezone.utc)
-        lote.custo_total_insumos = custo_total
-        if commit:
-            db.session.commit()
-        else:
-            db.session.flush()
-    except Exception:
-        db.session.rollback()
-        raise
-
-    return {
-        "ja_confirmado": False,
-        "resultados": resultados,
-        "custo_total_insumos": custo_total,
-        "confirmacao_completa": True,
-    }
-
-
 def confirmar_consumo_ingredientes(brew_session_id: int, *, commit: bool = True) -> dict:
-    """Reserva escrita antes de reler confirmação; todas as baixas seguem centrais.
-
-    SQLite serializa escritores pelo UPDATE sem alterar custo/data. O estado
-    é relido mesmo quando a tentativa aguardou outro escritor. commit=False
-    mantém reserva, baixas e confirmação na transação externa de envase.
-    """
+    """Confirma consumo por organização, reservando o lote na transação externa."""
+    from .production_organization_service import consume
     try:
-        lote = BrewSession.query.filter_by(id=brew_session_id, is_deleted=False).populate_existing().first()
-        if lote is None or lote.insumos_baixados_em is not None:
-            return _confirmar_consumo_ingredientes(brew_session_id, commit=commit)
-        db.session.execute(update(BrewSession).where(
-            BrewSession.id == brew_session_id, BrewSession.is_deleted.is_(False),
-            BrewSession.insumos_baixados_em.is_(None)).values(
-                custo_total_insumos=BrewSession.custo_total_insumos,
-                updated_at=BrewSession.updated_at).execution_options(synchronize_session=False))
-        return _confirmar_consumo_ingredientes(brew_session_id, commit=commit)
+        from flask import has_request_context
+        from flask_login import current_user
+        actor = current_user.username if has_request_context() and current_user.is_authenticated else 'production-service'
+        return consume(brew_session_id, actor=actor, commit=commit)
     except Exception:
         db.session.rollback()
         raise

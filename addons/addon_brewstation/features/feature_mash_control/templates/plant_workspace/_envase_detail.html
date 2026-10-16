@@ -1,3 +1,4 @@
+{% if selected_envase.producao_snapshot and selected_envase.producao_snapshot.get('version') == 2 %}<p>Organização: {{ selected_envase.producao_snapshot.organization_code }} · Moeda: {{ selected_envase.producao_snapshot.currency_code }} · Entrada do produto: #{{ selected_envase.producao_snapshot.entrada_produto_id }}</p>{% endif %}
 <div class="border rounded p-3 mt-3" id="pwEnvaseDetail">
   <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
     <h6 class="mb-0">Detalhes do envase #{{ selected_envase.id }}</h6>
@@ -23,8 +24,8 @@
     <thead><tr><th>Material</th><th>Quantidade</th><th>Custo unitário registrado</th><th>Custo registrado da linha</th><th>Saída</th></tr></thead>
     <tbody>{% for component in selected_envase.componentes_snapshot %}<tr>
       <td>#{{ component.material_componente_id }}</td><td>{{ component.quantidade_total }}</td>
-      <td>{{ 'R$ %.2f'|format(component.custo_medio) if component.custo_medio is not none else 'Sem custo registrado' }}</td>
-      <td>{{ 'R$ %.2f'|format(component.custo_linha) if component.custo_linha is not none else 'Sem custo registrado' }}</td>
+      <td>{{ '%.2f'|format(component.custo_medio|float) if component.custo_medio is not none else 'Sem custo registrado' }}</td>
+      <td>{{ '%.2f'|format(component.custo_linha|float) if component.custo_linha is not none else 'Sem custo registrado' }}</td>
       <td>#{{ component.movimentacao_id }}</td>
     </tr>{% endfor %}</tbody>
   </table></div>

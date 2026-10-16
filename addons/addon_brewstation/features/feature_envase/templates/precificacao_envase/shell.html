@@ -77,7 +77,8 @@
 <script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>
 <script>
 (function () {
-  const fmtR$ = function (v) { return 'R$ ' + Number(v || 0).toFixed(2); };
+  let priceCurrency = '';
+  const fmtR$ = function (v) { return (priceCurrency ? priceCurrency + ' ' : '') + Number(v || 0).toFixed(2); };
   const escapeHtml = function (value) { const el = document.createElement('span'); el.textContent = String(value == null ? '' : value); return el.innerHTML; };
   const origemLabel = { real: '<span class="badge bg-success">Preço médio atual</span>', padrao: '<span class="badge bg-warning text-dark">Preço padrão estimado</span>', registrado: '<span class="badge bg-primary">Registrado no envase</span>', sem_preco: '<span class="badge bg-secondary">Sem preço</span>' };
 
@@ -104,6 +105,7 @@
       (r.ingredientes_registrados ? 'Ingredientes: custo registrado do lote. O total congelado não tem detalhamento por material nesta tela.' : 'Ingredientes: estimativa pelos preços atuais/padrão.') +
       (r.embalagens_registradas ? ' Embalagens: snapshot registrado do envase.' : (r.envase_id ? ' Embalagens: estimativa legada pelos preços atuais.' : ' Sem envase selecionado: embalagens não incluídas.'));
     document.getElementById('pcCostScope').textContent = (r.escopo_custo || '') + (r.estimativa_incompleta ? ' Estimativa incompleta: há ingrediente sem vínculo, preço ausente ou conversão não confiável.' : '');
+    priceCurrency = r.currency_code || (r.base_calculo_snapshot || {}).currency_code || '';
     document.getElementById('pcResCustoIng').textContent = fmtR$(r.custo_ingredientes_total);
     document.getElementById('pcResCustoEmb').textContent = fmtR$(r.custo_embalagem_total);
     document.getElementById('pcResSubtotal').textContent = fmtR$(r.subtotal);
@@ -116,7 +118,7 @@
     const unitMessage = basis.origem_unidades === 'registrado' ? 'Unidades registradas no envase.' :
       (basis.origem_unidades === 'estimado_cadastro_atual' ? 'Unidades estimadas pelo volume atual do produto (envase legado).' : 'Preço por unidade indisponível: falta volume/unidades identificáveis do produto.');
     document.getElementById('pcRateioBasis').textContent = basis.escopo === 'envase' ?
-      ('Rateio: ' + basis.volume_envase_litros + ' L / ' + basis.volume_registrado_lote_litros + ' L registrados (' + (basis.fator_rateio * 100).toFixed(2) + '%). Ingredientes do lote: ' + fmtR$(basis.custo_ingredientes_lote_total) + '. ' + unitMessage + (basis.unidades_envase != null ? ' Unidades: ' + basis.unidades_envase + '.' : '') + ' Novos registros ou estornos alteram a base de novos cálculos; cálculos salvos conservam sua base.') : 'Sem envase selecionado: total do lote, sem rateio ou preço por unidade.';
+      (basis.version === 2 ? 'Custos congelados da organização ' + basis.organization_code + '. Unidades: ' + basis.unidades_envase : 'Rateio: ' + basis.volume_envase_litros + ' L / ' + basis.volume_registrado_lote_litros + ' L registrados (' + ((basis.fator_rateio || 0) * 100).toFixed(2) + '%). Ingredientes do lote: ' + fmtR$(basis.custo_ingredientes_lote_total) + '. ' + unitMessage + (basis.unidades_envase != null ? ' Unidades: ' + basis.unidades_envase + '.' : '') + ' Novos registros ou estornos alteram a base de novos cálculos; cálculos salvos conservam sua base.') : 'Sem envase selecionado: total do lote, sem rateio ou preço por unidade.';
     document.getElementById('pcUnitCost').textContent = basis.custo_por_unidade == null ? 'Indisponível' : fmtR$(basis.custo_por_unidade);
     document.getElementById('pcUnitPrice').textContent = basis.preco_por_unidade == null ? 'Indisponível' : fmtR$(basis.preco_por_unidade);
     document.getElementById('pcLiterPrice').textContent = basis.preco_por_litro == null ? 'Indisponível' : fmtR$(basis.preco_por_litro);

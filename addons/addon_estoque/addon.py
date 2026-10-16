@@ -134,6 +134,9 @@ class AddonEstoque(AddonBase):
             )
             pedido_compras_bp._receber_route_registered = True
 
+        from addons.addon_estoque.root.controller.movimentacaos_hooks import protect_legacy_history_screen
+        app.before_request(protect_legacy_history_screen)
+
         # Extensões manuais nos blueprints existentes; nenhum CRUD gerado alterado.
         from addons.addon_estoque.root.controller.purchase_context_hooks import order_context_view, process_context_view
         for blueprint, view in ((pedido_compras_bp, order_context_view), (processo_cotacaos_bp, process_context_view)):
@@ -153,6 +156,11 @@ class AddonEstoque(AddonBase):
             saldos_bp.add_url_rule('/transferir', endpoint='organization_transfer', view_func=organization_transfer_view,
                 methods=['GET', 'POST'])
             saldos_bp._organization_transfer_registered = True
+        from addons.addon_estoque.root.controller.legacy_reconciliation_hooks import reconciliation_view
+        if not getattr(saldos_bp, '_legacy_reconciliation_registered', False):
+            saldos_bp.add_url_rule('/reconciliar-legado', endpoint='legacy_reconciliation', view_func=reconciliation_view,
+                methods=['GET', 'POST'])
+            saldos_bp._legacy_reconciliation_registered = True
         if not getattr(pedido_compras_bp, '_order_valuation_registered', False):
             pedido_compras_bp.add_url_rule('/<int:id>/avaliacao-monetaria',endpoint='valuation',view_func=order_valuation_view,methods=['GET','POST'])
             pedido_compras_bp._order_valuation_registered = True
@@ -283,7 +291,7 @@ class AddonEstoque(AddonBase):
             },
             {
                 "code": "TX_MOVIMENTACAOS",
-                "label": "Movimentações",
+                "label": "Histórico de movimentações legadas",
                 "parent_code": "TX_GROUP_ESTOQUE",
                 "description": "Ledger de entrada/saída/ajuste de estoque.",
                 "icon": "bi-arrow-left-right",
@@ -292,13 +300,17 @@ class AddonEstoque(AddonBase):
             },
             {
                 "code": "TX_SALDOS",
-                "label": "Saldo de Estoque",
+                "label": "Estoque por organização",
                 "parent_code": "TX_GROUP_ESTOQUE",
                 "description": "Saldo atual por material.",
                 "icon": "bi-clipboard-data",
-                "route": "/estoque/saldos",
+                "route": "/estoque/saldos/por-organizacao",
                 "permission_required": "saldos.list",
             },
+            {"code": "TX_STOCK_TRANSFER", "label": "Transferir entre organizações", "parent_code": "TX_GROUP_ESTOQUE",
+             "icon": "bi-arrow-left-right", "route": "/estoque/saldos/transferir", "permission_required": "movimentacaos.create"},
+            {"code": "TX_STOCK_RECONCILE", "label": "Reconciliar estoque legado", "parent_code": "TX_GROUP_ESTOQUE",
+             "icon": "bi-check2-square", "route": "/estoque/saldos/reconciliar-legado", "permission_required": "movimentacaos.create"},
             {
                 "code": "TX_COMPOSICAOS",
                 "label": "Composições",

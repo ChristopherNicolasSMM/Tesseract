@@ -29,7 +29,7 @@ def setup(currency='BRL'):
 def test_transfer_preserves_total_quantity_value_legacy_and_frozen_link(app):
     with app.app_context():
         material = setup()
-        stock.registrar_movimentacao(material.id,'entrada',99,custo_unitario=9)
+        stock._registrar_movimentacao_legada(material.id,'entrada',99,custo_unitario=9)
         result = stock.transferir_entre_organizacoes(payload(material),actor='admin')
         assert not result['replayed']
         assert result['saida']['saldo']['quantidade_atual']=='2'

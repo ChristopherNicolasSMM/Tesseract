@@ -240,6 +240,18 @@ def registrar_movimentacao(
     }
 
 
+# Implementação histórica privada para reconciliação/estorno de registros legados.
+# Novas integrações e interfaces devem usar obrigatoriamente a API organizacional.
+_registrar_movimentacao_legada = registrar_movimentacao
+
+
+@wraps(_registrar_movimentacao_legada)
+def registrar_movimentacao(*args, **kwargs):
+    if kwargs.get('organization_code') is None:
+        raise ValueError('Organização obrigatória. Use estoque por organização; saldos antigos exigem reconciliação explícita.')
+    return _registrar_movimentacao_legada(*args, **kwargs)
+
+
 def _aplicar_entrada(saldo: Saldo, quantidade: float, custo_unitario: float | None) -> None:
     """Custo médio ponderado: (saldo_atual*custo_medio_atual + entrada*custo_entrada) / (saldo_atual+entrada)."""
     quantidade_anterior = saldo.quantidade_atual
@@ -795,3 +807,47 @@ def modificar_materiais_em_massa(material_ids: list[int], alteracoes: dict) -> d
         "material_ids_atualizados": sorted(encontrados_ids),
         "material_ids_nao_encontrados": nao_encontrados,
     }
+
+
+def previa_reconciliacao_legado(data):
+    from .legacy_reconciliation_service import preview
+    return preview(data)
+
+
+def reconciliar_legado(data, preview_token, *, actor):
+    from .legacy_reconciliation_service import confirm
+    return confirm(data, preview_token, actor=actor)
+
+
+def registrar_valor_producao(*, organization_code, material_id, kind, quantity, value, policy,
+                             request, snapshot, actor, key, commit=False):
+    """Contrato interno confiável: montante produtivo exato, sem reconstruir preço unitário.
+
+    Chamadores autorizados orquestram a transação. A política é conferida no
+    Financeiro; nenhum ORM de Estoque precisa atravessar a fronteira do addon.
+    """
+    from decimal import Decimal
+    from .financial_stock_contract import resolve_selected_policy, text
+    from .organization_stock_service import _record
+    resolved = resolve_selected_policy(organization_code, policy_version_id=policy.get('version_id'),
+        operation_date=snapshot.get('operation_date') or request.get('operation_date') or policy.get('valid_from'))
+    if resolved != policy or kind not in ('entrada', 'saida'):
+        raise ValueError('Política/tipo da operação produtiva incompatível.')
+    if not isinstance(quantity, Decimal) or not quantity.is_finite() or quantity == 0 or abs(quantity) >= Decimal('1e18'):
+        raise ValueError('Quantidade produtiva fora dos limites.')
+    if (kind == 'entrada') != (quantity > 0):
+        raise ValueError('Sinal da quantidade produtiva incompatível.')
+    if quantity > 0 and (not isinstance(value, Decimal) or not value.is_finite() or not 0 <= value < Decimal('1e18')):
+        raise ValueError('Valor produtivo fora dos limites.')
+    return _record(organization_code=organization_code, material_id=material_id, kind=kind,
+        quantity=quantity, value=value, policy=resolved, request=request, snapshot=snapshot,
+        actor=text(actor, 120, 'Autor'), key=text(key, 80, 'Referência produtiva'), commit=commit)
+
+
+def consultar_movimento_organizacional(movement_id):
+    """DTO histórico para consumidores autorizados; autorização cabe ao chamador."""
+    from addons.addon_estoque.root.model.organization_stock import OrganizationMovement
+    if type(movement_id) is not int or movement_id <= 0:
+        raise ValueError('Movimento inválido.')
+    row = db.session.get(OrganizationMovement, movement_id)
+    return row.to_dict() if row else None

@@ -54,7 +54,7 @@ def scoped_purchase():
 def test_organizations_and_legacy_have_independent_quantities_values_and_currencies(app):
     with app.app_context():
         finance();finance('B','USD');material=_criar_material()
-        stock.registrar_movimentacao(material.id,'entrada',100,custo_unitario=7)
+        stock._registrar_movimentacao_legada(material.id,'entrada',100,custo_unitario=7)
         result=move(material,quantity='2',cost='1.005')
         assert result['saldo']['valor_total_estoque']=='2.01'
         other=stock.registrar_movimentacao(material.id,'entrada','3',organization_code='B',custo_unitario='9',source_currency='USD',
@@ -114,7 +114,7 @@ def test_invalid_new_values_have_no_balance_or_ledger(app,quantity,cost):
 def test_negative_adjustment_is_costed_from_local_balance_and_cannot_use_global_stock(app):
     with app.app_context():
         finance();material=_criar_material()
-        stock.registrar_movimentacao(material.id,'entrada',100,custo_unitario=7)
+        stock._registrar_movimentacao_legada(material.id,'entrada',100,custo_unitario=7)
         with pytest.raises(ValueError,match='insuficiente'):move(material,quantity='1',cost=None,kind='saida')
         move(material,quantity='2',cost='0.335',key='in')
         move(material,quantity='-1',cost=None,kind='ajuste',key='adjust')
@@ -437,7 +437,7 @@ def test_disabled_financeiro_preserves_legacy_and_history_but_refuses_new_moneta
         with monkeypatch.context() as ctx:
             ctx.setattr(app.module_manager,'_registered_modules',modules)
             assert not stock_valuation_options('A')['available']
-            stock.registrar_movimentacao(material.id,'entrada',1,custo_unitario=1)
+            stock._registrar_movimentacao_legada(material.id,'entrada',1,custo_unitario=1)
             with pytest.raises(ValueError,match='Ative o addon Financeiro'):move(material,key='disabled')
             assert client.get('/estoque/saldos/por-organizacao?organization_code=A').status_code==200
             assert OrganizationMovement.query.count()==1 and Movimentacao.query.count()==1

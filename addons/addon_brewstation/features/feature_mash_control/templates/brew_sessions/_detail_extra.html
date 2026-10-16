@@ -1,30 +1,16 @@
-{#-
-  templates/brew_sessions/_detail_extra.html
-
-  Hook de TEMPLATE (skill 25, extensão) — criado UMA ÚNICA VEZ pelo
-  CrudGen, nunca sobrescrito, mesmo com --overwrite.
-
-  Use este arquivo pra anexar seções inteiras de conteúdo extra depois
-  do card de edição de "Sessão de Brassagem" (ex.: grid de Unidades de Materiais,
-  bloco de endereços de Fornecedor) — diferente de
-  _acoes_em_massa_extra.html (que é só pra botões avulsos dentro da
-  barra de ações em massa de manage.html), este arquivo é incluído no
-  FIM de detail.html, fora de qualquer <section> já existente, então
-  pode conter seu(s) próprio(s) <section>, <script type="application/json">
-  de config e <script src="..."> — igual a como já era feito antes de
-  existir este hook.
-
-  Vazio por padrão — "ignore missing" faz o Jinja não reclamar mesmo
-  se o arquivo for removido, e um arquivo vazio (como este) também não
-  renderiza nada extra na tela.
--#}
-
-{#- ═══ Confirmar Ingredientes (skill 26) ═══════════════════════════
-    Gatilho explícito escolhido pra baixa de insumo da receita — não
-    dispara automaticamente na mudança de status. Idempotente
-    (BrewSession.insumos_baixados_em); registrar_envase() também
-    dispara isso como fallback se o operador chegar direto no envase
-    sem confirmar antes. -#}
+{# Extensão manual preservada pelo CrudGen: organização e confirmação do lote. #}
+<section class="section"><div class="card"><div class="card-body pt-3">
+<h5>Organização do lote</h5>
+{% if production_context %}<p>{{ production_context.organization_code }} — {{ production_context.organization_name }} · {{ production_context.policy.currency_code }} · Data: {{ production_context.operation_date }}</p>
+{% elif not item.insumos_baixados_em %}
+<form method="post" action="{{ url_for('brew_sessions.production_organization', id=item.id) }}" class="row g-3">
+{% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+<div class="col-md-5"><label class="form-label">Organização</label><select name="organization_code" class="form-select" required><option value="">Selecione</option>{% for org in organizations if org.is_active %}<option value="{{ org.code }}" {% if production_values.get('organization_code') == org.code %}selected{% endif %}>{{ org.code }} — {{ org.name }}</option>{% endfor %}</select></div>
+<div class="col-md-3"><label class="form-label">Data do consumo</label><input class="form-control" type="date" name="operation_date" value="{{ production_values.get('operation_date', today) }}" required></div>
+<div class="col-md-4"><label class="form-label">ID da versão monetária (vazio: inicial)</label><input class="form-control" type="number" min="1" name="policy_version_id" value="{{ production_values.get('policy_version_id','') }}"></div>
+<div class="col-12"><button class="btn btn-primary">Vincular organização ao lote</button></div></form>
+{% else %}<p>Consumo histórico sem organização. O lote não pode ser reatribuído.</p>{% endif %}
+</div></div></section>
 <section class="section">
   <div class="card">
     <div class="card-body">
@@ -32,7 +18,7 @@
       {% if item.insumos_baixados_em %}
       <p class="text-success mb-0">
         <i class="bi bi-check-circle"></i>
-        Confirmado em {{ item.insumos_baixados_em }} — custo total: R$ {{ "%.2f"|format(item.custo_total_insumos or 0) }}
+        Confirmado em {{ item.insumos_baixados_em }} — custo total: {% if production_cost %}{{ production_cost.custo_total_insumos }} {{ production_cost.currency_code }}{% else %}{{ item.custo_total_insumos }} (moeda histórica não identificada){% endif %}
       </p>
       {% else %}
       <p class="text-muted">Ainda não confirmado — o estoque dos insumos da receita ainda não foi baixado pra este lote.</p>
@@ -51,7 +37,7 @@
                 {% else %}<span class="badge bg-warning text-dark">Pendente</span>{% endif %}
               </td>
               <td>{{ linha.quantidade if linha.quantidade is not none else '—' }} {{ linha.unidade or '' }}</td>
-              <td>{% if linha.estado == 'pronto' %}{{ 'R$ %.2f'|format(linha.custo_estimado) if linha.custo_estimado is not none else 'Sem custo médio' }}{% else %}—{% endif %}</td>
+              <td>{% if linha.estado == 'pronto' %}Consulte a prévia organizacional{% else %}—{% endif %}</td>
               <td>{{ linha.motivo or ('Consumo: ' ~ linha.quantidade_base ~ ' ' ~ (linha.unidade_base or '')) }}</td>
             </tr>
           {% else %}
@@ -65,7 +51,7 @@
       {% endif %}
       {% endif %}
       <form method="post" action="{{ url_for('brew_sessions.confirmar_ingredientes', id=item.id) }}" data-confirm-key="brewstation_mashctrl.brew_session.confirm_confirmar_ingredientes">
-        <button type="submit" class="btn btn-primary" {% if not item.recipe_id or (conferencia_ingredientes and conferencia_ingredientes.pendencias) %}disabled{% endif %}>
+        <button type="submit" class="btn btn-primary" {% if not production_context or not item.recipe_id or (conferencia_ingredientes and conferencia_ingredientes.pendencias) %}disabled{% endif %}>
           <i class="bi bi-clipboard-check"></i> Confirmar Ingredientes
         </button>
       </form>

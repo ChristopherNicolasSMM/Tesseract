@@ -190,140 +190,60 @@ def _calcular(lote_id: int, envase_id: int | None, percentual_lucro: float,
         if envase.status != "registrado":
             raise ValueError("Envase cancelado não pode compor uma nova precificação.")
 
-    ingredientes_registrados = lote.insumos_baixados_em is not None
-    if ingredientes_registrados:
-        if lote.custo_total_insumos is None:
-            raise ValueError("Lote confirmado sem custo registrado: requer conferência do histórico.")
-        custo_ingredientes_total = lote.custo_total_insumos
-    elif lote.recipe_id:
-        ingredientes = RecipeIngredient.query.filter_by(
-            recipe_id=lote.recipe_id, is_deleted=False
-        ).all()
-        for ing in ingredientes:
-            if ing.status_resolucao == "ignorado" or not ing.quantidade:
-                continue
-            if not ing.material_id:
-                estimativa_incompleta = True
-                continue
-            preco_unitario, origem, unidade_preco = _resolver_custo_material(ing.material_id)
-            quantidade_convertida, conversao_ok = converter_quantidade(
-                ing.quantidade, ing.unidade_medida, unidade_preco, ing.material_id
-            )
-            estimativa_incompleta |= origem == "sem_preco" or not conversao_ok
-            custo_total = preco_unitario * quantidade_convertida
-            custo_ingredientes_total += custo_total
-            itens_resultado.append({
-                "material_id": ing.material_id,
-                "material_nome": _material_display(ing.material_id),
-                "quantidade": ing.quantidade,
-                "unidade_medida": ing.unidade_medida,
-                "quantidade_convertida": quantidade_convertida,
-                "unidade_preco": unidade_preco,
-                "conversao_confiavel": conversao_ok,
-                "preco_unitario_usado": preco_unitario,
-                "custo_total": custo_total,
-                "origem_preco": origem,
-            })
+    from addons.addon_brewstation.features.feature_mash_control.services.production_organization_service import context
+    if context(lote_id):
+        return _organizational_price(lote, envase, percentual_lucro, percentual_ipi, percentual_icms)
+    raise ValueError('Vincule uma organização ao lote para uma nova precificação; históricos salvos permanecem disponíveis.')
 
-    custo_ingredientes_lote = custo_ingredientes_total
-    basis = {"version": 1, "escopo": "lote", "fator_rateio": 1.0,
-             "custo_ingredientes_lote_total": custo_ingredientes_lote,
-             "volume_envase_litros": None, "volume_registrado_lote_litros": None,
-             "volume_por_unidade_litros": None, "unidades_envase": None,
-             "origem_unidades": "indisponivel"}
-    if envase is not None:
-        from addons.addon_brewstation.features.feature_envase.services.envase_cost_basis import volume_rateio, unit_basis
-        basis.update(volume_rateio(envase))
-        basis.update(unit_basis(envase))
-        basis["escopo"] = "envase"
-        custo_ingredientes_total *= basis["fator_rateio"]
-        # Quantidades continuam sendo as quantidades da receita do lote.
-        # Somente os custos das linhas são rateados; não inventa consumo parcial.
-        for item in itens_resultado:
-            item["custo_total_lote"] = item["custo_total"]
-            item["custo_total"] *= basis["fator_rateio"]
-
-    custo_embalagem_total = 0.0
-    embalagens_registradas = envase is not None and envase.componentes_snapshot is not None
-    if embalagens_registradas:
-        for component in envase.componentes_snapshot:
-            cost = component.get("custo_linha")
-            if cost is None or component.get("custo_medio") is None:
-                raise ValueError("Snapshot de embalagem sem custo registrado: requer conferência do histórico.")
-            custo_embalagem_total += cost
-            itens_resultado.append({
-                "material_id": component["material_componente_id"],
-                "material_nome": _material_display(component["material_componente_id"]),
-                "quantidade": component["quantidade_total"],
-                "unidade_medida": None, "quantidade_convertida": component["quantidade_total"],
-                "unidade_preco": None, "conversao_confiavel": True,
-                "preco_unitario_usado": component["custo_medio"],
-                "custo_total": cost, "origem_preco": "registrado",
-            })
-    elif envase is not None:
-        itens_envase = ItemEnvase.query.filter_by(envase_id=envase_id, is_deleted=False).all()
-        if not itens_envase:
-            estimativa_incompleta = True
-        for item in itens_envase:
-            preco_unitario, origem, unidade_preco = _resolver_custo_material(item.material_id)
-            # ItemEnvase não guarda unidade própria — assume que já
-            # está na unidade-base do Material (mesma premissa de
-            # antes; sem dado de unidade de origem pra converter).
-            estimativa_incompleta |= origem == "sem_preco"
-            custo_total = preco_unitario * item.quantidade
-            custo_embalagem_total += custo_total
-            itens_resultado.append({
-                "material_id": item.material_id,
-                "material_nome": _material_display(item.material_id),
-                "quantidade": item.quantidade,
-                "unidade_medida": None,
-                "quantidade_convertida": item.quantidade,
-                "unidade_preco": unidade_preco,
-                "conversao_confiavel": True,
-                "preco_unitario_usado": preco_unitario,
-                "custo_total": custo_total,
-                "origem_preco": origem,
-            })
-
-    for cost in (custo_ingredientes_lote, custo_ingredientes_total, custo_embalagem_total):
-        if isinstance(cost, bool) or not isinstance(cost, (int, float)) or not isfinite(cost) or cost < 0:
-            raise ValueError("Custos devem ser números finitos e não negativos; confira a base.")
-    subtotal = custo_ingredientes_total + custo_embalagem_total
-    valor_lucro = subtotal * (percentual_lucro / 100.0)
-    total_antes_impostos = subtotal + valor_lucro
-    valor_ipi = total_antes_impostos * (percentual_ipi / 100.0)
-    valor_icms = total_antes_impostos * (percentual_icms / 100.0)
-    valor_total = total_antes_impostos + valor_ipi + valor_icms
-
-    if not all(isfinite(value) for value in (subtotal, valor_lucro, valor_ipi, valor_icms, valor_total)):
-        raise ValueError("Resultado fora do intervalo numérico; confira os percentuais e custos.")
-    units = basis["unidades_envase"]
-    basis.update({"ingredientes_registrados": ingredientes_registrados,
-                  "embalagens_registradas": embalagens_registradas,
-                  "estimativa_incompleta": estimativa_incompleta,
-                  "custo_por_unidade": subtotal / units if units else None,
-                  "preco_por_unidade": valor_total / units if units else None,
-                  "preco_por_litro": valor_total / basis["volume_envase_litros"] if envase else None})
-    if any(value is not None and not isfinite(value) for value in
-           (basis["custo_por_unidade"], basis["preco_por_unidade"], basis["preco_por_litro"])):
-        raise ValueError("Preço unitário fora do intervalo numérico; confira o volume e as unidades.")
-    return {
-        "base_calculo_snapshot": basis,
-        "lote_id": lote_id,
-        "envase_id": envase_id,
-        "estimativa_incompleta": estimativa_incompleta,
-        "ingredientes_registrados": ingredientes_registrados,
-        "embalagens_registradas": embalagens_registradas,
-        "escopo_custo": ("Ingredientes rateados pelos litros registrados; embalagens deste envase." if envase else "Ingredientes do lote completo. Selecione um envase para rateio e preço por unidade."),
-        "custo_ingredientes_total": custo_ingredientes_total,
-        "custo_embalagem_total": custo_embalagem_total,
-        "subtotal": subtotal,
-        "percentual_lucro": percentual_lucro,
-        "valor_lucro": valor_lucro,
-        "percentual_ipi": percentual_ipi,
-        "valor_ipi": valor_ipi,
-        "percentual_icms": percentual_icms,
-        "valor_icms": valor_icms,
-        "valor_total": valor_total,
-        "itens": itens_resultado,
-    }
+def _organizational_price(lote, envase, profit, ipi, icms):
+    """Decimal autoritativo no snapshot; Float somente no DTO/colunas de apresentação legadas."""
+    from decimal import Decimal, localcontext
+    from addons.addon_brewstation.features.feature_mash_control.model.production_organization import ProductionConsumption
+    from addons.addon_brewstation.features.feature_mash_control.services.production_organization_service import context
+    from addons.addon_brewstation.features.feature_mash_control.services.organization_recipe_preview import preview
+    link = context(lote.id).snapshot()
+    consumed = db.session.get(ProductionConsumption, lote.id)
+    frozen = consumed.snapshot() if consumed else None
+    plan = None if frozen else preview(lote.recipe_id, link['organization_code'])
+    with localcontext() as ctx:
+        ctx.prec = 64
+        ingredient_total = Decimal(frozen['custo_total_insumos'] if frozen else plan['custo_total_estimado'])
+        ingredient = ingredient_total
+        packaging = Decimal(0)
+        units = volume = None
+        if envase:
+            production = envase.producao_snapshot
+            if not production or production.get('version') != 2:
+                raise ValueError('Envase sem custo organizacional congelado.')
+            ingredient = Decimal(production['custo_cerveja'])
+            packaging = Decimal(production['custo_embalagens'])
+            units = Decimal(production['unidades_exatas'])
+            volume = Decimal(production['litros_exatos'])
+        subtotal = ingredient + packaging
+        gain = subtotal * Decimal(str(profit)) / 100
+        base = subtotal + gain
+        tax_ipi = base * Decimal(str(ipi)) / 100
+        tax_icms = base * Decimal(str(icms)) / 100
+        total = base + tax_ipi + tax_icms
+        amounts = {'custo_ingredientes_total': ingredient, 'custo_embalagem_total': packaging,
+            'subtotal': subtotal, 'valor_lucro': gain, 'valor_ipi': tax_ipi, 'valor_icms': tax_icms, 'valor_total': total}
+        if any(not value.is_finite() or abs(value) >= Decimal('1e18') for value in amounts.values()):
+            raise ValueError('Resultado monetário fora da magnitude suportada.')
+        exact = {key: format(value, 'f') for key, value in amounts.items()}
+        incomplete = not frozen and not plan['custo_completo']
+        basis = {'version': 2, 'organization_code': link['organization_code'], 'currency_code': link['policy']['currency_code'],
+            'exact_amounts': exact, 'custo_ingredientes_lote_total': format(ingredient_total, 'f'),
+            'origem_unidades': 'registrado' if envase else 'indisponivel',
+            'escopo': 'envase' if envase else 'lote', 'ingredientes_registrados': frozen is not None,
+            'embalagens_registradas': envase is not None, 'estimativa_incompleta': incomplete,
+            'volume_envase_litros': float(volume) if volume else None,
+            'unidades_envase': float(units) if units else None,
+            'custo_por_unidade': float(subtotal / units) if units else None,
+            'preco_por_unidade': float(total / units) if units else None,
+            'preco_por_litro': float(total / volume) if volume else None}
+    return {**{key: float(value) for key, value in amounts.items()},
+        'base_calculo_snapshot': basis, 'organization_code': link['organization_code'],
+        'currency_code': link['policy']['currency_code'], 'lote_id': lote.id, 'envase_id': envase.id if envase else None,
+        'estimativa_incompleta': incomplete, 'ingredientes_registrados': frozen is not None,
+        'embalagens_registradas': envase is not None, 'escopo_custo': 'Custos da organização e rateio congelado do envase.',
+        'percentual_lucro': profit, 'percentual_ipi': ipi, 'percentual_icms': icms, 'itens': []}

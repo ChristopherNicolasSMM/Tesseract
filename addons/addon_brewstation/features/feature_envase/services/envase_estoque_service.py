@@ -141,80 +141,12 @@ def registrar_envase(
         raise VolumeRealNaoConfiguradoError("Unidades geradas devem ser positivas e finitas.")
     componentes = material_lookup.get_composicao(material_resultante_id)
 
-    try:
-        envase = Envase(
-            lote_id=lote_id,
-            material_resultante_id=material_resultante_id,
-            quantidade_litros=quantidade_litros,
-            data_envase=data_envase,
-            tipo_envase=tipo_envase,
-            status="registrado",
-            componentes_snapshot=[],
-            producao_snapshot={"version": 1, "material_resultante_id": material_resultante_id,
-                               "volume_por_unidade_litros": volume_real,
-                               "unidades_geradas": unidades_geradas},
-            idempotency_key=idempotency_key,
-        )
-        db.session.add(envase)
-        db.session.flush()
-        # O INSERT obtém a reserva de escrita no SQLite; reler o lote evita
-        # usar a confirmação antiga mantida no identity map por outro POST.
-        db.session.refresh(lote)
-        if lote.insumos_baixados_em is None:
-            ingredient_consumption_service.confirmar_consumo_ingredientes(lote_id, commit=False)
-
-        movimentacoes = []
-        snapshot = []
-        for componente in componentes:
-            quantidade_total = componente["quantidade"] * unidades_geradas
-            if not isfinite(quantidade_total) or quantidade_total <= 0:
-                raise ValueError("Composição do produto acabado contém quantidade inválida.")
-            saldo = material_lookup.get_saldo(componente["material_componente_id"])
-            custo_medio = saldo.get("custo_medio") if saldo else None
-            resultado = estoque_service.registrar_movimentacao(
-                componente["material_componente_id"], "saida", quantidade_total,
-                custo_unitario=custo_medio,
-                observacoes=f"Baixa de componente de embalagem — Envase #{envase.id} (lote #{lote_id}).",
-                commit=False, usuario_id=usuario_id,
-            )
-            movimentacoes.append(resultado)
-            snapshot.append({
-                "material_componente_id": componente["material_componente_id"],
-                "quantidade_por_unidade": componente["quantidade"],
-                "quantidade_total": quantidade_total,
-                "custo_medio": custo_medio,
-                "custo_linha": resultado["movimentacao"].get("custo_total"),
-                "movimentacao_id": resultado["movimentacao"]["id"],
-            })
-        envase.componentes_snapshot = snapshot
-        if idempotency_key:
-            from addons.addon_brewstation.features.feature_mash_control.model.brew_session_log import BrewSessionLog
-            db.session.add(BrewSessionLog(
-                session_id=lote_id, log_level="info", source="envase",
-                message=f"Envase #{envase.id} registrado: {quantidade_litros} L.",
-                detail_json={"envase_id": envase.id, "usuario_id": usuario_id,
-                             "material_resultante_id": material_resultante_id},
-            ))
-        db.session.commit()
-    except IntegrityError:
-        db.session.rollback()
-        if idempotency_key:
-            replay = _envase_repetido(idempotency_key, lote_id, material_resultante_id,
-                                     quantidade_litros, data_envase, tipo_envase)
-            if replay is not None:
-                return replay
-        raise
-    except Exception:
-        db.session.rollback()
-        raise
-
-    return {
-        "envase": envase.to_dict(),
-        "ja_registrado": False,
-        "unidades_geradas": unidades_geradas,
-        "componentes_baixados": len(componentes),
-        "movimentacoes": movimentacoes,
-    }
+    from .organization_envase_service import register
+    from flask import has_request_context
+    from flask_login import current_user
+    actor = current_user.username if has_request_context() and current_user.is_authenticated else 'production-service'
+    return register(lote_id, material_resultante, quantidade_litros, volume_real, componentes,
+                    operation_date=data_envase, kind=tipo_envase, key=idempotency_key, actor=actor)
 
 
 def estornar_envase(envase_id: int, motivo: str, *, usuario_id: int | None = None) -> dict:
@@ -223,6 +155,13 @@ def estornar_envase(envase_id: int, motivo: str, *, usuario_id: int | None = Non
     Ingredientes são consumo do lote, não deste envase, e não são estornados.
     Envases antigos sem fotografia de movimentos exigem reconciliação manual.
     """
+    candidate = db.session.get(Envase, envase_id)
+    if candidate and candidate.producao_snapshot and candidate.producao_snapshot.get('version') == 2:
+        from .organization_envase_service import reverse
+        from flask import has_request_context
+        from flask_login import current_user
+        actor = current_user.username if has_request_context() and current_user.is_authenticated else 'production-service'
+        return reverse(envase_id, motivo, actor=actor, usuario_id=usuario_id)
     from addons.addon_estoque.root.model.movimentacao import Movimentacao
 
     envase = db.session.get(Envase, envase_id)
@@ -250,7 +189,7 @@ def estornar_envase(envase_id: int, motivo: str, *, usuario_id: int | None = Non
                     or original.material_id != componente["material_componente_id"]
                     or original.quantidade != componente["quantidade_total"]):
                 raise EnvaseNaoEstornavelError("A saída original não corresponde ao registro do envase.")
-            resultado = estoque_service.registrar_movimentacao(
+            resultado = estoque_service._registrar_movimentacao_legada(
                 original.material_id, "entrada", original.quantidade,
                 custo_unitario=original.custo_unitario,
                 usuario_id=usuario_id,
@@ -293,6 +232,14 @@ def calcular_custo_industrializacao_envase(envase_id: int) -> dict:
         raise LoteNaoEncontradoError(f"Envase id={envase_id} não encontrado ou removido")
     if envase.status == "cancelado":
         raise EnvaseNaoEstornavelError("Envase cancelado não compõe o custo de produção.")
+
+    if envase.producao_snapshot and envase.producao_snapshot.get('version') == 2:
+        frozen = envase.producao_snapshot
+        return {'envase_id': envase_id, 'componentes_historicos': True,
+            'organization_code': frozen['organization_code'], 'currency_code': frozen['currency_code'],
+            'custo_cerveja': frozen['custo_cerveja'], 'custo_componentes': frozen['custo_embalagens'],
+            'custo_total_industrializacao': frozen['custo_produto'],
+            'detalhe_componentes': envase.componentes_snapshot}
 
     lote = envase.lote
     from addons.addon_brewstation.features.feature_envase.services.envase_cost_basis import volume_rateio

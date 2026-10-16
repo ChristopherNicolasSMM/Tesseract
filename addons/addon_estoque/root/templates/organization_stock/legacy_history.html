@@ -1,0 +1,12 @@
+{% extends 'core/base.html' %}{% block content %}
+<div class="pagetitle"><h1>Histórico de movimentações legadas</h1></div>
+<div class="card"><div class="card-body pt-3">
+<p>Registros históricos sem organização ou moeda identificada. Novas operações exigem organização.</p>
+<a class="btn btn-outline-primary mb-3" href="{{ url_for('saldos.organization_stock') }}">Estoque por organização</a>
+{% if current_user.has_permission('movimentacaos.create') and current_user.has_permission('saldos.list') %}<a class="btn btn-outline-primary mb-3" href="{{ url_for('saldos.legacy_reconciliation') }}">Reconciliar saldo legado</a>{% endif %}
+<div class="table-responsive"><table class="table table-striped"><thead><tr><th>ID</th><th>Material</th><th>Tipo</th><th>Quantidade</th><th>Valor histórico (moeda não identificada)</th><th>Observações</th></tr></thead><tbody>
+{% for row in movements %}<tr><td><a href="{{ url_for('movimentacaos.detail', id=row.id) }}">{{ row.id }}</a></td><td>{{ names.get(row.material_id, row.material_id) }}</td><td>{{ row.tipo_movimentacao }}</td><td>{{ row.quantidade }}</td><td>{{ row.custo_total if row.custo_total is not none else 'Não registrado' }}</td><td>{{ row.observacoes or '' }}</td></tr>{% else %}<tr><td colspan="6">Sem movimentos legados.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if page > 1 %}<a class="btn btn-outline-secondary" href="{{ url_for('movimentacaos.manage', page=page-1) }}">Anterior</a>{% endif %}
+{% if has_next %}<a class="btn btn-outline-secondary" href="{{ url_for('movimentacaos.manage', page=page+1) }}">Próxima</a>{% endif %}
+</div></div>{% endblock %}

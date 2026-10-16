@@ -45,6 +45,12 @@ def preparar_envase(lote_id: int, material_resultante_id: int, quantidade_litros
     if not _number(units, positive=True):
         raise ValueError("A quantidade de unidades calculada não é válida.")
 
+    from addons.addon_brewstation.features.feature_mash_control.services.production_organization_service import context
+    from addons.addon_estoque.root.services.estoque_service import consultar_saldo
+    link = context(lote_id)
+    if link is None:
+        raise ValueError('Vincule a organização ao lote antes de preparar o envase.')
+    currency = link.snapshot()['policy']['currency_code']
     avisos = []
     if not units.is_integer():
         avisos.append("O volume corresponde a unidades fracionadas; revise os litros. A prévia não arredonda quantidades.")
@@ -66,7 +72,9 @@ def preparar_envase(lote_id: int, material_resultante_id: int, quantidade_litros
         component = material_lookup.get_material(identity)
         available = component is not None and component.get("ativo", False)
         label = component["display"] if component else f"Material #{identity}"
-        balance = material_lookup.get_saldo(identity)
+        balance = consultar_saldo(identity, organization_code=link.organization_code)
+        if balance:
+            balance = {**balance, 'quantidade_atual': float(balance['quantidade_atual']), 'custo_medio': float(balance['custo_medio'])}
         if balance and balance.get("is_deleted"):
             balance = None
         base = material_lookup.get_unidade_base(identity)
@@ -103,12 +111,12 @@ def preparar_envase(lote_id: int, material_resultante_id: int, quantidade_litros
     if not confirmed:
         avisos.append("Ao registrar envase pelo fluxo existente, os ingredientes ainda não confirmados serão consumidos junto com as embalagens. Esta prévia não confirma ingredientes.")
         if lote.recipe_id:
-            pending = conferir_ingredientes(lote.recipe_id)["pendencias"]
+            pending = conferir_ingredientes(lote.recipe_id, estimate_cost=False)["pendencias"]
             if pending:
                 avisos.append(f"Existem {len(pending)} pendência(s) de ingredientes que impedem o registro pelo serviço de envase.")
         else:
             avisos.append("O lote não possui receita vinculada; o serviço de registro exige receita para confirmar ingredientes.")
-    return {"lote_id": lote_id, "material_resultante_id": material_resultante_id,
+    return {"organization_code": link.organization_code, "currency_code": currency, "lote_id": lote_id, "material_resultante_id": material_resultante_id,
             "material_descricao": material["display"], "quantidade_litros": quantidade_litros,
             "volume_por_unidade_litros": volume, "unidades_geradas": units,
             "componentes": componentes, "custo_embalagem_estimado": total,

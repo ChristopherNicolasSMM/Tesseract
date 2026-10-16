@@ -66,6 +66,8 @@ def organization_movement_view():
         if not request.is_json:
             data={key:value for key,value in data.items() if key != 'csrf_token'}
         data={'custo_unitario':None,'source_currency':None,'rate_id':None,'policy_version_id':None,'observacoes':None}|data
+        if str(data.get('idempotency_key', '')).startswith(('production:', 'packaging:', 'finished:', 'reverse-')):
+            raise ValueError('Referência reservada a operações de produção.')
         data['material_id']=_optional_id(data.get('material_id'))
         for field in ('rate_id','policy_version_id'):
             data[field]=_optional_id(data[field])

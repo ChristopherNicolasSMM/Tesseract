@@ -267,3 +267,8 @@ custo por organização explícita, agregando materiais repetidos e preservando
 separação do legado. Sem vínculo persistente/baixa/migration nesta etapa.
 Confirmação do lote e envase ainda globais; vínculo imutável/baixa organizacional
 são a próxima entrega. Ver [uso e limites](fase3-brewstation-previa-organizacional.md).
+
+
+## Continuidade — 16/10/2026
+
+Plano aprovado em 16/10/2026: entrega 1 produção organizacional + reconciliação; entrega 2 contas, pagar/receber e liquidações; entrega 3 fluxo, conciliação e relatórios. Refatorações amplas depois das três entregas.

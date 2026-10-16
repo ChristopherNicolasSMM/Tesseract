@@ -430,6 +430,7 @@ def update_session(plant_id, session_id):
 @plant_workspace_bp.route("/<int:plant_id>/sessions/<int:session_id>/confirm-ingredients", methods=["POST"])
 @login_required
 @permission_required("brew_sessions.update")
+@permission_required("movimentacaos.create")
 def confirm_session_ingredients(plant_id, session_id):
     session = (BrewSession.query.join(BrewPlant)
                .filter(BrewSession.id == session_id, BrewSession.plant_id == plant_id,
@@ -527,8 +528,12 @@ def tab_sessions(plant_id: int):
     alarm_page = {"page": 1, "has_next": False}
     if selected_session:
         if selected_session.recipe_id and selected_session.insumos_baixados_em is None:
-            conference = conferir_ingredientes(selected_session.recipe_id)
-            estimated_cost = calcular_custo_insumos_receita(selected_session.recipe_id)
+            conference = conferir_ingredientes(selected_session.recipe_id, estimate_cost=False)
+            from .brew_sessions_hooks import detail_context_extra
+            production = detail_context_extra(selected_session)
+            if production['production_context']:
+                from ..services.organization_recipe_preview import preview
+                estimated_cost = preview(selected_session.recipe_id, production['production_context']['organization_code'])
         if current_user.has_permission("envases.list"):
             envases = (Envase.query.filter_by(lote_id=selected_session.id, is_deleted=False)
                        .order_by(Envase.id.desc()).all())
