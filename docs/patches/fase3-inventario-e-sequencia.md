@@ -272,3 +272,8 @@ são a próxima entrega. Ver [uso e limites](fase3-brewstation-previa-organizaci
 ## Continuidade — 16/10/2026
 
 Plano aprovado em 16/10/2026: entrega 1 produção organizacional + reconciliação; entrega 2 contas, pagar/receber e liquidações; entrega 3 fluxo, conciliação e relatórios. Refatorações amplas depois das três entregas.
+
+
+## Continuidade — tesouraria 1.3.0
+
+Entrega 2 de 3 concluída em 16/10/2026: cadastros financeiros, títulos, parcelas, pagamentos/recebimentos e estornos. Fluxo de caixa, conciliação e relatórios permanecem na entrega 3; ver fase3-entrega2-tesouraria.md.

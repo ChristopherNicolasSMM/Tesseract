@@ -52,3 +52,8 @@ se o plugin não carregou, a tela informa que o preenchimento é manual.
 Falha/CEP ausente aparece junto ao campo, sem apagar endereço. Reinicie a
 aplicação depois do patch; se houver página antiga em cache, use Ctrl+F5.
 Não há nova migration sobre a revisão financeira b82d9e43a017 já aplicada.
+
+
+## Continuidade — tesouraria 1.3.0
+
+A versão 1.3.0 acrescenta contas, títulos a pagar/receber, baixas e estornos. Consulte 04-tesouraria.md; os limites descritos acima são da fundação inicial.

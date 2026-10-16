@@ -851,3 +851,28 @@ def consultar_movimento_organizacional(movement_id):
         raise ValueError('Movimento inválido.')
     row = db.session.get(OrganizationMovement, movement_id)
     return row.to_dict() if row else None
+
+
+def consultar_obrigacao_pedido(order_id, *, reserve=False):
+    """DTO exato para geração financeira explícita; não cria título nem altera estoque."""
+    import json
+    from decimal import Decimal, localcontext
+    from .purchase_context_service import document, get_context
+    from .purchase_pricing_service import get_pricing
+    order = document('order', order_id, reserve=reserve)
+    if order.status not in ('confirmado', 'recebido'):
+        raise ValueError('Título de compra exige pedido confirmado ou recebido.')
+    context = get_context('order', order_id); pricing = get_pricing('order', order_id)
+    if context is None or pricing is None or context.organization_code != pricing.organization_code:
+        raise ValueError('Pedido exige contexto organizacional e cadastro monetário congelados.')
+    source = json.loads(pricing.snapshot_json)
+    with localcontext() as precision:
+        precision.prec = 64
+        total = Decimal(source['freight']) + sum((Decimal(line['subtotal']) for line in source['items']), Decimal(0))
+    if not total.is_finite() or not 0 < total < Decimal('1e18'):
+        raise ValueError('Total do pedido fora dos limites para título financeiro.')
+    supplier = order.fornecedor
+    return {'order_id': order.id, 'organization_code': context.organization_code,
+        'currency_code': pricing.currency_code, 'amount': format(total, 'f'),
+        'counterparty': supplier.razao_social, 'supplier_id': supplier.id,
+        'pricing_id': pricing.id, 'pricing': source, 'status_at_creation': order.status}

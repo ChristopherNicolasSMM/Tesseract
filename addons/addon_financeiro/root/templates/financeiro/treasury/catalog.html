@@ -1,0 +1,31 @@
+{% extends 'core/base.html' %}{% block content %}
+<div class="pagetitle"><h1>{{ label }}</h1></div>
+<section class="section">
+{% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+<div class="card"><div class="card-body pt-3">{% include 'financeiro/treasury/_filter.html' %}
+{% if current_user.has_permission('admin') %}
+<button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#newCatalog"><i class="bi bi-plus-lg"></i> Novo cadastro</button><div class="collapse{% if values %} show{% endif %}" id="newCatalog">
+<form method="post" action="{{ url_for(endpoint) }}" class="row g-3 mb-4">
+{% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+<div class="col-md-6">{% include 'financeiro/treasury/_organization.html' %}</div>
+<div class="col-md-6"><label class="form-label" for="catalog-name">Nome</label><input class="form-control" id="catalog-name" name="name" maxlength="100" value="{{ values.get('name','') }}" required></div>
+{% if kind == 'categories' %}<div class="col-md-6"><label class="form-label" for="direction">Finalidade</label><select class="form-select" name="direction" id="direction" required><option value="">Selecione</option>{% for code,label in [('PAYABLE','Despesa / pagar'),('RECEIVABLE','Receita / receber')] %}<option value="{{ code }}" {% if values.get('direction')==code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>{% endif %}
+{% if kind == 'accounts' %}
+<div class="col-md-4"><label class="form-label" for="account-kind">Tipo</label><select class="form-select" name="kind" id="account-kind" required><option value="">Selecione</option>{% for code,label in [('BANK','Conta bancária'),('CASH','Caixa')] %}<option value="{{ code }}" {% if values.get('kind')==code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+<div class="col-md-4"><label class="form-label" for="opening_balance">Saldo inicial na moeda-base</label><input class="form-control" id="opening_balance" name="opening_balance" inputmode="decimal" value="{{ values.get('opening_balance','') }}" required></div>
+<div class="col-md-4"><label class="form-label" for="opening_date">Data de abertura</label><input class="form-control" type="date" id="opening_date" name="opening_date" value="{{ values.get('opening_date',today) }}" required></div>
+{% for key,label in [('bank_name','Banco (opcional)'),('branch','Agência'),('account_number','Número da conta')] %}<div class="col-md-4"><label class="form-label" for="{{ key }}">{{ label }}</label><input class="form-control" name="{{ key }}" id="{{ key }}" value="{{ values.get(key,'') }}"></div>{% endfor %}
+<div class="col-md-6">{% include 'financeiro/treasury/_policy.html' %}</div>
+<p class="text-muted mb-0">A conta opera na moeda-base da organização. A abertura é registrada no histórico e não pode ser sobrescrita.</p>
+{% endif %}<div class="col-12"><button class="btn btn-primary">Salvar cadastro</button></div></form></div>{% endif %}
+<div class="table-responsive"><table class="table table-striped"><thead><tr><th>ID</th><th>Organização</th><th>Nome</th><th>{{ 'Saldo / moeda' if kind == 'accounts' else 'Finalidade' if kind == 'categories' else 'Estado' }}</th><th>Ativo</th>{% if current_user.has_permission('admin') %}<th>Manutenção</th>{% endif %}</tr></thead><tbody>
+{% for item in items %}<tr><td>{{ item.id }}</td><td>{{ item.organization_code }}</td><td>{{ item.name }}</td><td>{% if kind == 'accounts' %}{{ item.balance }} {{ item.currency_code }}<br><a href="{{ url_for('financial_movements.list',organization_code=item.organization_code,account_id=item.id) }}">Lançamentos</a>{% elif kind == 'categories' %}{{ 'Pagar' if item.direction=='PAYABLE' else 'Receber' }}{% else %}Centro de custo{% endif %}</td><td>{{ 'Sim' if item.is_active else 'Não' }}</td>
+{% if current_user.has_permission('admin') %}<td><details {% if error and edit_values.get('edit_id')|string==item.id|string %}open{% endif %}><summary>Editar / inativar</summary>
+<form method="post" action="{{ url_for(endpoint.rsplit('.',1)[0] ~ '.edit_' ~ ('account' if kind=='accounts' else 'category' if kind=='categories' else 'center'),row_id=item.id,organization_code=selected_code,page=page) }}" class="mt-2">
+{% set edit = edit_values if error and edit_values.get('edit_id')|string == item.id|string else item %}
+{% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+<input type="hidden" name="expected_version" value="{{ edit.get('expected_version',item.version) }}"><input type="hidden" name="edit_id" value="{{ item.id }}">
+<label class="form-label">Nome</label><input name="name" class="form-control mb-2" value="{{ edit.name }}" required>
+<label class="form-label">Ativo</label><select name="is_active" class="form-select mb-2"><option value="true" {% if edit.is_active == true or edit.is_active == 'true' %}selected{% endif %}>Sim</option><option value="false" {% if edit.is_active == false or edit.is_active == 'false' %}selected{% endif %}>Não</option></select>
+{% if kind == 'accounts' %}{% for key,label in [('bank_name','Banco'),('branch','Agência'),('account_number','Conta')] %}<label class="form-label">{{ label }}</label><input class="form-control mb-2" name="{{ key }}" value="{{ edit.get(key,'') or '' }}">{% endfor %}{% endif %}<button class="btn btn-sm btn-outline-primary">Atualizar</button></form></details></td>{% endif %}</tr>{% else %}<tr><td colspan="6">Nenhum cadastro.</td></tr>{% endfor %}</tbody></table></div>
+{% include 'financeiro/treasury/_pagination.html' %}</div></div></section>{% endblock %}
