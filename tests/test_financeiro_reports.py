@@ -13,7 +13,7 @@ from addons.addon_reports.root.services import report_library_service as library
 from addons.addon_reports.root.services.report_layout_service import validate_data
 
 
-@pytest.mark.parametrize('screen,kind',[('financeiro-fluxo-caixa','cash_flow'),('financeiro-titulos','titles'),('financeiro-liquidacoes','settlements'),('financeiro-conciliacao','reconciliation'),('financeiro-dre','dre')])
+@pytest.mark.parametrize('screen,kind',[('financeiro-fluxo-caixa','cash_flow'),('financeiro-titulos','titles'),('financeiro-liquidacoes','settlements'),('financeiro-conciliacao','reconciliation'),('financeiro-dre','dre'),('financeiro-resultados','results_dashboard')])
 def test_public_data_published_html_segregation_and_readonly(client,app,screen,kind):
     code='F'+uuid.uuid4().hex[:12].upper()
     with app.app_context():
@@ -60,7 +60,8 @@ def test_finance_report_menu_permissions_and_optional_addon(client,app,monkeypat
     finally: app.module_manager._registered_modules['financeiro']=addon
 
 
-def test_dre_report_renders_recognized_result_with_permission(client,app,monkeypatch):
+@pytest.mark.parametrize('screen',['financeiro-dre','financeiro-resultados'])
+def test_dre_report_renders_recognized_result_with_permission(client,app,monkeypatch,screen):
     from addons.addon_financeiro.root.services import accrual_service as accrual
     from tests.test_financeiro_accrual import classification,request
     code='D'+uuid.uuid4().hex[:12].upper()
@@ -69,11 +70,11 @@ def test_dre_report_renders_recognized_result_with_permission(client,app,monkeyp
         c=ok(accrual.classify(classification(data),actor='admin'))
         ok(accrual.recognize(request(data,c,source),actor='admin'))
         before=(t.Movement.query.count(),accrual.Entry.query.count(),db.session.get(t.Account,data[0]['id']).balance)
-    obj=publish(client,'financeiro-dre')
+    obj=publish(client,screen)
     body={'template':obj['key'],'version':1,'options':{'organization_code':code},'filters':{'date_from':'2026-10-01','date_to':'2026-10-31'}}
-    response=post(client,'/emission/financeiro-dre',body)
+    response=post(client,'/emission/'+screen,body)
     assert response.status_code==200,response.data.decode()[:2000]
     html=response.data.decode();assert '-100.01' in html and 'DRE gerencial parcial' in html
     with app.app_context():assert before==(t.Movement.query.count(),accrual.Entry.query.count(),db.session.get(t.Account,data[0]['id']).balance)
     monkeypatch.setattr(User,'has_permission',lambda self,key:key!='financial_results.list')
-    assert client.get('/api/reports/emission/financeiro-dre').status_code==403
+    assert client.get('/api/reports/emission/'+screen).status_code==403

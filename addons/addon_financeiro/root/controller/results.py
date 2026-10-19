@@ -4,7 +4,7 @@ from flask import Blueprint,request,render_template,redirect,flash,g
 from flask_login import login_required,current_user
 from core.permissions import permission_required
 from core.admin_list_helpers import paginate
-from ..services import accrual_service as s
+from ..services import accrual_service as s,result_closing_service as closing_service,result_dashboard_service as dashboard_service
 from .workspace import finance_url,link
 
 results_bp=Blueprint('financial_results',__name__,url_prefix='/financeiro/resultados')
@@ -14,10 +14,18 @@ def panel(*,values=None,error=None,status=200,preview=None):
     values=values if values is not None else request.form.to_dict()
     code=request.args.get('organization_code','');view=request.args.get('view') or getattr(g,'finance_context',{}).get('view','dre')
     if getattr(g,'finance_context',None):g.finance_context.update(tab='results',view=view)
-    data=None;review=None;entries=[];classifications=[];categories=[];centers=[];total=0;pages=0
+    data=None;review=None;costs=None;conference=None;closings=[];entries=[];classifications=[];categories=[];centers=[];total=0;pages=0
     page=max(1,min(request.args.get('page',1,type=int),1000000))
     if code:
         try:
+            if view=='dashboard':
+                data=dashboard_service.dashboard({k:request.args[k] for k in ('organization_code','date_from','date_to')})
+            if view=='costs':costs=s.cost_review(code)
+            if view=='closing':
+                month=request.args.get('period',request.args['date_to'][:7])
+                conference=closing_service.conference(code,month)
+                closed_rows,closed_total,closed_pages=paginate(closing_service.Close.query.filter_by(organization_code=code).order_by(closing_service.Close.period.desc(),closing_service.Close.version.desc()),page)
+                closings=[closing_service.close_detail(row) for row in closed_rows]
             if view=='dre':
                 options={k:request.args[k] for k in ('organization_code','date_from','date_to')}
                 if request.args.get('cost_center_id'):options['cost_center_id']=int(request.args['cost_center_id'])
@@ -31,6 +39,7 @@ def panel(*,values=None,error=None,status=200,preview=None):
             if view=='entries' and request.args.get('entry_id'):query=query.filter(s.Entry.id==s.t.ident(int(request.args['entry_id'])))
             rows,total,pages=paginate(query.order_by(s.Entry.id.desc()),page)
             entries=[s.entry_detail(row) for row in rows]
+            if view=='closing':total,pages=closed_total,closed_pages
         except ValueError as exc:error,status=str(exc),422
     if not values and request.args.get('source_type'):
         values={k:request.args[k] for k in ('source_type','source_id','component','reference','amount','currency_code','classification_id') if k in request.args}
@@ -39,7 +48,7 @@ def panel(*,values=None,error=None,status=200,preview=None):
         if classification.category_id not in latest:latest[classification.category_id]=classification.version
     allocation_rows=list(zip(request.form.getlist('allocation_period'),request.form.getlist('allocation_amount'),request.form.getlist('allocation_center')))[:120]
     if not allocation_rows:allocation_rows=[('','','')]
-    return render_template('financeiro/results.html',data=data,review=review,values=values,error=error,preview=preview,
+    return render_template('financeiro/results.html',data=data,review=review,costs=costs,conference=conference,closings=closings,values=values,error=error,preview=preview,
         result_view=view,allocation_rows=allocation_rows,groups=s.GROUPS,classifications=classifications,categories=categories,centers=centers,entries=entries,latest=latest,
         new_key=uuid4().hex,page=page,pages=pages,total=total),status
 
@@ -117,3 +126,43 @@ def classifications():return panel()
 @login_required
 @permission_required('financial_results.list')
 def entries():return panel()
+
+
+@results_bp.get('/dashboard',endpoint='dashboard')
+@login_required
+@permission_required('financial_results.list')
+def dashboard():return panel()
+
+
+@results_bp.get('/custos',endpoint='costs')
+@login_required
+@permission_required('financial_results.list')
+def costs():return panel()
+
+
+@results_bp.get('/fechamento',endpoint='closing')
+@login_required
+@permission_required('financial_results.list')
+def closing():return panel()
+
+
+@results_bp.post('/fechar')
+@login_required
+@permission_required('admin')
+def close():
+    values=form()
+    values['attestations']={key:values.pop(key,None)=='true' for key in closing_service.ATTESTATIONS}
+    result=closing_service.close(values,actor=current_user.username)
+    if not result.success:return panel(error=result.error,status=result.code)
+    flash('Competência fechada com snapshot e cobertura declarada.','success')
+    return redirect(link('results','closing',organization_code=result.data['organization_code'],period=result.data['period'][:7]))
+
+
+@results_bp.post('/fechamentos/<int:row_id>/reabrir')
+@login_required
+@permission_required('admin')
+def reopen(row_id):
+    result=closing_service.reopen(row_id,form(),actor=current_user.username)
+    if not result.success:return panel(error=result.error,status=result.code)
+    flash('Competência reaberta; snapshot anterior preservado.','success')
+    return redirect(link('results','closing',organization_code=result.data['organization_code']))

@@ -19,9 +19,12 @@ VIEWS={
  ('cash','movements'):('financial_movements.history',('financial_movements.list',)),
  ('cash','transfers'):('financial_transfers.list',('financial_transfers.list',)),
  ('reconciliation','list'):('financial_reconciliations.list',('financial_reconciliations.list','financial_movements.list')),
+ ('results','dashboard'):('financial_results.dashboard',('financial_results.list',)),
  ('results','dre'):('financial_results.list',('financial_results.list',)),
  ('results','review'):('financial_results.review',('financial_results.list',)),
  ('results','classifications'):('financial_results.classifications',('financial_results.list',)),
+ ('results','costs'):('financial_results.costs',('financial_results.list',)),
+ ('results','closing'):('financial_results.closing',('financial_results.list',)),
  ('results','entries'):('financial_results.entries',('financial_results.list',)),
  ('settings','categories'):('financial_categories.list',('financial_categories.list',)),
  ('settings','centers'):('financial_cost_centers.list',('financial_cost_centers.list',)),
@@ -32,7 +35,7 @@ VIEWS={
  ('settings','conversions'):('monetary_conversions.list',('monetary_conversions.list',)),
 }
 LABELS={'overview':'Visão geral','titles':'Títulos','cash':'Caixa e bancos','reconciliation':'Conciliação','results':'DRE e resultados','settings':'Configurações'}
-VIEW_LABELS={'dre':'Demonstrativo','review':'Revisão assistida','classifications':'Classificações','entries':'Apropriações e ajustes','list':'Títulos','detail':'Detalhe do título','settlements':'Pagamentos e recebimentos','accounts':'Contas',
+VIEW_LABELS={'dashboard':'Dashboard de resultados','costs':'Custos de estoque/produção','closing':'Conferência e fechamento','dre':'Demonstrativo','review':'Revisão assistida','classifications':'Classificações','entries':'Apropriações e ajustes','list':'Títulos','detail':'Detalhe do título','settlements':'Pagamentos e recebimentos','accounts':'Contas',
  'flow':'Fluxo de caixa','movements':'Lançamentos','transfers':'Transferências','categories':'Categorias','centers':'Centros de custo',
  'currencies':'Moedas','policies':'Políticas','versions':'Versões monetárias','rates':'Taxas de câmbio','conversions':'Conversões'}
 REVERSE={config[0]:key for key,config in VIEWS.items() if config[0]!='finance_workspace.index'}
@@ -136,7 +139,7 @@ def context():
     if ctx.get('organization_code') and ctx['tab'] in ('cash','reconciliation') and current_user.has_permission('financial_accounts.list'):
         from ..model.treasury import FinancialAccount
         accounts=FinancialAccount.query.filter_by(organization_code=ctx['organization_code']).order_by(FinancialAccount.name).all()
-    screens={('results','dre'):'financeiro-dre',('overview','dashboard'):'financeiro-fluxo-caixa',('cash','flow'):'financeiro-fluxo-caixa',('titles','list'):'financeiro-titulos',('titles','settlements'):'financeiro-liquidacoes',('reconciliation','list'):'financeiro-conciliacao'}
+    screens={('results','dashboard'):'financeiro-resultados',('results','dre'):'financeiro-dre',('overview','dashboard'):'financeiro-fluxo-caixa',('cash','flow'):'financeiro-fluxo-caixa',('titles','list'):'financeiro-titulos',('titles','settlements'):'financeiro-liquidacoes',('reconciliation','list'):'financeiro-conciliacao'}
     report=screens.get((ctx['tab'],ctx['view']))
     if 'reports' not in current_app.module_manager.active_modules or not current_user.has_permission('report_templates.render'): report=None
     return {'fw':ctx,'fw_tabs':tabs,'fw_views':subviews,'fw_organizations':orgs,'fw_accounts':accounts,

@@ -79,7 +79,7 @@ class ModelFieldDefinition(db.Model):
     # metadado de relação (skill 06 — Model Builder, tabela filha de
     # verdade, ver BACKLOG.md). A FK de fato mora no FILHO
     # (ModelDefinition.parent_fk_column_name), nunca no pai.
-    child_model_definition_id = db.Column(db.Integer, db.ForeignKey("tesseract_model_definition.id"), nullable=True)
+    child_model_definition_id = db.Column(db.Integer, db.ForeignKey("tesseract_model_definition.id", name="fk_model_field_definition_child_id"), nullable=True)
 
     def to_dict(self) -> dict:
         return {

@@ -88,7 +88,7 @@ def parent_id(source_type,source_id):
 
 def normalize(data):
     data=t.fields(data,{'organization_code','source_type','source_id','component','reference','classification_id','effect','amount','currency_code','policy_version_id','reason','idempotency_key','allocations'})
-    if data['source_type'] not in ('TITLE','SETTLEMENT','ADJUSTMENT'):raise ValueError('Origem inválida.')
+    if data['source_type'] not in ('TITLE','SETTLEMENT','STOCK','ADJUSTMENT'):raise ValueError('Origem inválida.')
     if data['effect'] not in ('RECOGNIZE','REDUCE'):raise ValueError('Efeito inválido.')
     org=resolve_organization_by_code(data['organization_code'],require_active=False)['code']
     t.ident(data['policy_version_id'],optional=True)
@@ -97,7 +97,7 @@ def normalize(data):
     else:
         t.ident(data['source_id'])
         if data['effect']!='RECOGNIZE' or data['policy_version_id'] is not None:raise ValueError('Origem registrada não admite redução ou nova política; estorne e reapresente.')
-        if data['source_type']=='TITLE' and data['component'] is not None or data['source_type']=='SETTLEMENT' and data['component'] not in COMPONENTS:raise ValueError('Componente inválido para a origem.')
+        if data['source_type']=='TITLE' and data['component'] is not None or data['source_type']=='SETTLEMENT' and data['component'] not in COMPONENTS or data['source_type']=='STOCK' and data['component'] not in ('COST_OF_SALES','OPERATING_LOSS','NON_RESULT'):raise ValueError('Componente inválido para a origem.')
     request={**data,'organization_code':org,'classification_id':t.ident(data['classification_id']),
         'amount':t.canonical(t.amount(data['amount'])),'reference':text(data['reference'],120,'Referência'),
         'reason':text(data['reason'],1000,'Motivo'),'idempotency_key':text(data['idempotency_key'],80,'Chave')}
@@ -119,6 +119,9 @@ def recognize(data,*,actor,preview=False):
     old=replay(Entry,org,request['idempotency_key'],request)
     if old:return Result(True,data=entry_detail(old))
     resolve_organization_by_code(org,require_active=True)
+    from .result_closing_service import lock_organization,assert_open
+    if not preview:lock_organization(org)
+    assert_open(org,[period(line['period']) for line in request['allocations']])
     title_id=parent_id(request['source_type'],request['source_id'])
     title=None
     if title_id:
@@ -147,6 +150,14 @@ def recognize(data,*,actor,preview=False):
         value=values[component]['amount'];source_key=f'settlement:{row.id}:{component}'
         snapshot=json.loads(row.snapshot_json);policy=snapshot['conversions']['cash']['policy']
         source={'title_id':title.id,'settlement_id':row.id,'component':component,'settlement_snapshot':snapshot}
+    elif request['source_type']=='STOCK':
+        from .result_cost_contract import cost_source
+        stock=cost_source(org,request['source_id'])
+        required={'COST_OF_SALES':'COST','OPERATING_LOSS':'OPERATING_EXPENSE','NON_RESULT':'NON_RESULT'}[request['component']]
+        if group!=required:raise ValueError('Destinação do custo exige grupo compatível.')
+        source_key=f"stock:{stock['movement_id']}";value=Decimal(stock['amount']);policy=stock['policy']
+        if not policy or policy.get('currency_code')!=stock['currency_code']:raise ValueError('Custo sem política/moeda congeladas; exige revisão da origem.')
+        source={'stock':stock,'usage':request['component']}
     else:
         source_key='adjustment:'+request['reference'];value=t.amount(request['amount'],positive=True)
         policy=resolve_selected_policy(org,policy_version_id=request['policy_version_id'],operation_date=request['allocations'][0]['period']+'-01')
@@ -193,6 +204,9 @@ def reverse(entry_id,data,*,actor):
     old=replay(Reversal,row.organization_code,request['idempotency_key'],request)
     if old:return Result(True,data=old.to_dict())
     resolve_organization_by_code(row.organization_code,require_active=True)
+    from .result_closing_service import lock_organization,assert_open
+    lock_organization(row.organization_code)
+    assert_open(row.organization_code,[line.period for line in Allocation.query.filter_by(entry_id=row.id)])
     parent=parent_id(row.source_type,row.source_id)
     if parent:t.reserve(t.Title,parent)
     t.reserve(t.Category,db.session.get(Classification,row.classification_id).category_id)
@@ -230,7 +244,7 @@ def review(organization_code):
             'amount':t.canonical(title.base_amount),'currency_code':json.loads(title.snapshot_json)['conversion']['target_currency'],
             'category_id':category.id,'category_name':category.name,'classification':latest.get(category.id),
             'purchase_stock':bool(title.source_reference and title.source_reference.startswith('purchase:')),
-            'status':'NEEDS_RECOGNITION' if category.id in latest else 'NEEDS_CLASSIFICATION'})
+            'source_date':title.issue_date.isoformat(),'status':'NEEDS_RECOGNITION' if category.id in latest else 'NEEDS_CLASSIFICATION'})
     settlements=f.bounded(t.Settlement.query.filter_by(organization_code=org),2000)
     reversed_ids={row.settlement_id for row in t.Reversal.query.filter(t.Reversal.settlement_id.in_([row.id for row in settlements])).all()}
     for row in settlements:
@@ -242,9 +256,11 @@ def review(organization_code):
             pending.append({'source_type':'SETTLEMENT','source_id':row.id,'component':component,'source_key':key,
                 'reference':f'Baixa {row.id} / {component}','amount':t.canonical(value['amount']),'currency_code':snapshot['base_currency'],
                 'category_id':None,'category_name':'Classificação financeira explícita','classification':None,'required_group':value['group_code'],
-                'purchase_stock':False,'status':'NEEDS_FINANCIAL_CLASSIFICATION'})
+                'source_date':row.operation_date.isoformat(),'purchase_stock':False,'status':'NEEDS_FINANCIAL_CLASSIFICATION'})
+    costs=cost_review(org)
+    pending.extend(costs['pending'])
     if len(pending)>2000:raise ValueError('Revisão excede 2000 origens; regularize as pendências antes de ampliar a consulta.')
-    return {'items':pending,'count':len(pending),'classifications':list(latest.values())}
+    return {'items':pending,'count':len(pending),'classifications':list(latest.values()),'cost_source_available':costs['available']}
 
 
 @f.exact
@@ -292,11 +308,41 @@ def statement(options):
     add('OPERATING_RESULT','Resultado operacional',base)
     add('FINANCIAL_INCOME',GROUPS['FINANCIAL_INCOME'][0]);add('FINANCIAL_EXPENSE',GROUPS['FINANCIAL_EXPENSE'][0])
     base+=('FINANCIAL_INCOME','FINANCIAL_EXPENSE');add('BEFORE_TAX','Resultado antes dos tributos sobre o lucro',base)
-    add('INCOME_TAX',GROUPS['INCOME_TAX'][0]);add('NET_RESULT','Resultado líquido gerencial parcial',base+('INCOME_TAX',))
+    add('INCOME_TAX',GROUPS['INCOME_TAX'][0]);add('NET_RESULT','Resultado líquido gerencial',base+('INCOME_TAX',))
     add('NON_RESULT','Exclusões patrimoniais (efeito zero)')
     pending=review(org['code'])
+    from .result_closing_service import statuses
+    closed=statuses(org['code'],months)
+    late_pending=[item for item in pending['items'] if not item.get('source_date') or day(item['source_date'])<=end]
+    status='CLOSED_WITH_PENDING' if len(closed)==len(months) and late_pending else 'CLOSED_MANAGERIAL' if len(closed)==len(months) else 'PARTIAL'
+    label={'CLOSED_WITH_PENDING':'Fechado com novas pendências para revisão','CLOSED_MANAGERIAL':'Fechamento gerencial com cobertura declarada','PARTIAL':'DRE gerencial parcial'}[status]
     return {'contract':'financeiro.dre.v1','organization_code':org['code'],'organization_name':org['name'],'currency_code':currency,
         'date_from':start.isoformat(),'date_to':end.isoformat(),'months':months,'rows':lines,'items':export,'details':details,
-        'pending_count':pending['count'],'status':'PARTIAL','status_label':'DRE gerencial parcial',
-        'basis':'Competências mensais integrais. Estado atual dos reconhecimentos; estornos reapresentam a competência original. Integração automática de custos e fechamento ainda não disponíveis. Pendências abrangem o cadastro atual da organização.',
+        'pending_count':pending['count'],'status':status,'status_label':label,'closures':closed,'late_pending_count':len(late_pending),
+        'basis':'Competências mensais integrais e estado atual dos reconhecimentos. Custos exigem destinação explícita. Fechamento bloqueia apropriações até reabertura; cobertura econômica é declarada, sem certificação contábil. Pendências abrangem o cadastro atual da organização.',
         'cost_center_id':center_id,'group_code':group_filter}
+
+
+@f.exact
+def cost_review(org):
+    from .result_cost_contract import sources
+    data=sources(org)
+    active={row.source_key:row.entry_id for row in f.bounded(Active.query.filter_by(organization_code=org))}
+    pending=[]
+    for source in data['items']:
+        key=f"stock:{source['movement_id']}"
+        source['recognition_id']=active.get(key)
+        if (source['eligible'] or source['status']=='REVIEW_REQUIRED') and key not in active:
+            pending.append({'source_type':'STOCK','source_id':source['movement_id'],'component':None,'source_key':key,
+                'reference':source['reference'],'amount':source['amount'],'currency_code':source['currency_code'],
+                'category_id':None,'category_name':'Destinação explícita do custo','classification':None,'purchase_stock':False,
+                'source_date':source['operation_date'],'status':'REVIEW_REQUIRED' if source['status']=='REVIEW_REQUIRED' else 'NEEDS_COST_RECOGNITION'})
+    if data['available']:
+        eligible={source['movement_id'] for source in data['items'] if source['eligible']}
+        for row in f.bounded(Entry.query.join(Active,Active.entry_id==Entry.id).filter(Entry.organization_code==org,Entry.source_type=='STOCK')):
+            if row.source_id not in eligible:
+                pending.append({'source_type':'STOCK','source_id':row.source_id,'component':None,'source_key':row.source_key,
+                    'reference':row.reference,'amount':t.canonical(row.amount),'currency_code':row.currency_code,'category_id':None,
+                    'category_name':'Origem de custo mudou; estorne/revise o reconhecimento','classification':None,'purchase_stock':False,
+                    'source_date':None,'status':'SOURCE_CHANGED'})
+    return {**data,'pending':pending}

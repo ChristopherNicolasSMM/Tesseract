@@ -66,8 +66,8 @@ principal. FX/ROUNDING congelados são classificados pelo sinal e tipo da baixa.
 `statement(options)` entrega `financeiro.dre.v1`: rows mensais/acumulado,
 items achatados para Reports, details rastreáveis, pending_count, status PARTIAL
 e basis. Usa estado atual dos reconhecimentos ativos, com estorno reapresentando
-os meses originais. Não oferece consulta temporal "as of", fechamento ou
-certificação de cobertura contábil. NON_RESULT aparece com efeito zero.
+os meses originais. Não oferece consulta temporal "as of" ou
+certificação de cobertura contábil. O fechamento gerencial está descrito no manual técnico 08. NON_RESULT aparece com efeito zero.
 
 Intervalo de consulta até 366 dias; até 120 linhas por reconhecimento;
 fontes do demonstrativo limitadas a 10.000 registros. Revisão limita títulos,
@@ -87,6 +87,7 @@ Upgrade valida todas as tabelas existentes antes de DDL e é repetível no esque
 inicializado. Downgrade é recusado quando qualquer uma das cinco tabelas contém
 dados. Os registros anteriores permanecem sem reconhecimento presumido.
 
-A próxima entrega trata dashboard de resultados, custos disponíveis e fechamento
-após conferência. Esta entrega inclui o demonstrativo e sua composição, sem
-antecipar gráficos/margens nem valores de custos ausentes.
+A entrega 3 acrescenta dashboard de resultados, custos disponíveis e fechamento
+após conferência. Consulte o manual técnico 08 para esses contratos.
+
+A entrega seguinte acrescenta dashboard, integração explícita de custos e fechamento gerencial: consulte [08-resultados-custos-fechamento.md](08-resultados-custos-fechamento.md).

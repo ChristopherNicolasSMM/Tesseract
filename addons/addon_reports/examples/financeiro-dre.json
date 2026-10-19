@@ -15,7 +15,7 @@
         "id": "title",
         "type": "text",
         "props": {
-          "text": "DRE gerencial parcial — por competência",
+          "text": "DRE gerencial por competência",
           "level": "title"
         }
       },
@@ -223,7 +223,7 @@
     "date_from": "2026-10-01",
     "date_to": "2026-10-31",
     "status_label": "DRE gerencial parcial",
-    "basis": "Competências explícitas. Sem integração automática de custos ou fechamento.",
+    "basis": "Competências explícitas; cobertura gerencial declarada no fechamento.",
     "contract": "financeiro.dre.v1",
     "items": []
   },

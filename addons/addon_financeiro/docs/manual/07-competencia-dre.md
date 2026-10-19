@@ -55,8 +55,8 @@ reconhecimento ativo; repetir a mesma chave/conteúdo retorna o evento original.
 
 Títulos originados de compras de estoque só podem ser reconhecidos em **Não afeta
 o resultado** nesta entrega. Isso regulariza a revisão sem transformar o pagamento
-da compra em despesa. O custo reconhecido dos produtos terá integração própria
-na próxima entrega. Produção, compras, pagamentos e custo não devem ser somados
+da compra em despesa. O custo reconhecido dos produtos possui integração explícita
+na entrega 3, descrita no manual 08. Produção, compras, pagamentos e custo não devem ser somados
 como despesas duplicadas. Exclusões aparecem com efeito zero no demonstrativo.
 
 ### Componentes das baixas
@@ -94,9 +94,9 @@ Cada reconhecimento possui origem, competência, classificação/versionamento,
 centro registrado, autor e motivo; o link abre o evento mesmo fora da primeira
 página do histórico. Moedas originais não são somadas; o resultado usa a moeda base.
 
-A DRE permanece marcada **parcial**, mesmo com zero pendências cadastradas:
-integração automática de custos, conferência de cobertura e fechamento ainda
-não estão disponíveis. Ausência de registros não comprova resultado zero.
+A DRE permanece marcada **parcial** enquanto houver competência aberta.
+O fechamento gerencial com cobertura declarada está descrito no manual 08.
+Ausência de registros não comprova resultado zero.
 
 ## 4. Corrigir com histórico
 
@@ -105,8 +105,7 @@ reapresente a mesma origem com novas competências ou classificação. O estorno
 retira o evento ativo e reapresenta suas competências originais; não lança uma
 nova despesa/receita no mês atual, não movimenta caixa e não apaga registros.
 A consulta representa o estado atual por competência, não uma posição histórica
-"como era conhecido naquele dia". Fechamento e bloqueio de competência são da
-próxima etapa.
+"como era conhecido naquele dia". Fechamento e bloqueio de competência estão descritos no manual 08.
 
 Para cancelar um título reconhecido, estorne antes o reconhecimento do principal.
 Para estornar uma baixa com componentes reconhecidos, estorne antes esses
@@ -121,3 +120,5 @@ gere HTML e imprima/salve PDF pelo navegador. O relatório preserva valores exat
 e informa o caráter parcial. Centro/grupo não são propagados por esse botão;
 fontes JSON podem informar esses filtros explicitamente. Sem Reports ativo,
 a DRE e as operações do workspace permanecem disponíveis.
+
+A entrega seguinte acrescenta dashboard, integração explícita de custos e fechamento gerencial: consulte [08-resultados-custos-fechamento.md](08-resultados-custos-fechamento.md).

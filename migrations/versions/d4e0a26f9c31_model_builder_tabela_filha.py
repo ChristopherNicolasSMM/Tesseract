@@ -29,7 +29,13 @@ def _column_exists(table_name: str, column_name: str) -> bool:
 def _fk_exists(table_name: str, fk_name: str) -> bool:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
-    return fk_name in {fk["name"] for fk in inspector.get_foreign_keys(table_name) if fk["name"]}
+    signatures = {
+        'fk_model_definition_parent_id': (['parent_model_definition_id'], 'tesseract_model_definition', ['id']),
+        'fk_model_field_definition_child_id': (['child_model_definition_id'], 'tesseract_model_definition', ['id']),
+    }
+    expected = signatures.get(fk_name)
+    return any(fk['name'] == fk_name or expected == (fk['constrained_columns'], fk['referred_table'], fk['referred_columns'])
+               for fk in inspector.get_foreign_keys(table_name))
 
 
 def upgrade():

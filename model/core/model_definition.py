@@ -68,7 +68,7 @@ class ModelDefinition(db.Model):
     # (decisão registrada em BACKLOG.md): a UI só oferece criar tabela
     # filha em quem ainda não tem pai; além disso é manual, fora da
     # ferramenta.
-    parent_model_definition_id = db.Column(db.Integer, db.ForeignKey("tesseract_model_definition.id"), nullable=True)
+    parent_model_definition_id = db.Column(db.Integer, db.ForeignKey("tesseract_model_definition.id", name="fk_model_definition_parent_id"), nullable=True)
     parent_fk_column_name = db.Column(db.String(100), nullable=True)
     parent_relation_label = db.Column(db.String(150), nullable=True)
     parent_relation_type = db.Column(db.String(20), nullable=True)

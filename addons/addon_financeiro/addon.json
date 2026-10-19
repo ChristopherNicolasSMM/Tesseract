@@ -1,7 +1,7 @@
 {
   "name": "financeiro",
   "label": "Financeiro",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "type": "addon",
   "table_prefix": "financeiro",
   "tesseract_min_version": "1.0.0",
@@ -18,7 +18,10 @@
     "financial_transfers",
     "bank_reconciliation",
     "financial_accrual",
-    "financial_dre"
+    "financial_dre",
+    "financial_results_dashboard",
+    "financial_cost_sources",
+    "financial_period_closing"
   ],
   "features": [],
   "default_locale": "pt_BR",
