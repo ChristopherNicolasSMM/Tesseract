@@ -1,7 +1,7 @@
 """Conferência, bloqueio de competências e reabertura com snapshot auditável."""
 import calendar
 import hashlib
-from datetime import date
+from hmac import compare_digest
 from core.db import db
 from services.core.organization_service import Result,resolve_organization_by_code
 from ..model.monetary import MonetaryPolicy
@@ -24,7 +24,17 @@ def assert_open(org,periods):
 
 def close_detail(row):
     reopened=Reopen.query.filter_by(close_id=row.id).first()
-    return {**row.to_dict(),'status':'REOPENED' if reopened else 'CLOSED','reopening':reopened.to_dict() if reopened else None}
+    value=row.to_dict()
+    calculated=hashlib.sha256(t.dump(value['snapshot']).encode('utf-8')).hexdigest()
+    return {**value,'status':'REOPENED' if reopened else 'CLOSED','reopening':reopened.to_dict() if reopened else None,
+        'integrity':{'valid':compare_digest(calculated,row.digest),'calculated_digest':calculated}}
+
+
+def detail(organization_code,close_id):
+    org=resolve_organization_by_code(organization_code,require_active=False)['code']
+    row=Close.query.filter_by(organization_code=org,id=t.ident(close_id)).first()
+    if not row:return None
+    return close_detail(row)
 
 
 def statuses(org,months):
@@ -36,9 +46,7 @@ def conference(org,month):
     start=a.period(month);end=start.replace(day=calendar.monthrange(start.year,start.month)[1])
     review=a.review(org)
     pending=[item for item in review['items'] if not item.get('source_date') or a.day(item['source_date'])<=end]
-    from .result_cost_contract import sources
-    costs=sources(org)
-    return {'period':month,'pending':pending,'pending_count':len(pending),'cost_source_available':costs['available'],
+    return {'period':month,'pending':pending,'pending_count':len(pending),'cost_source_available':review['cost_source_available'],
         'basis':'Conferência abrange origens pendentes com data até o fim da competência, inclusive anteriores. Cobertura econômica exige declaração administrativa explícita.'}
 
 

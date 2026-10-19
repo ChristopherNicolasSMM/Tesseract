@@ -19,3 +19,5 @@ Em **Conferência e fechamento**, selecione a competência. A conferência consi
 O administrador declara a cobertura de receitas, custos, tributos e ajustes e registra as evidências. O fechamento guarda DRE, conferência, declarações, autor, motivo e checksum SHA-256 em uma versão imutável. Ele bloqueia novos reconhecimentos e estornos que atinjam a competência. É um fechamento gerencial com cobertura declarada, sujeito à revisão contábil.
 
 Novos títulos ou movimentos retroativos podem surgir depois do fechamento. Eles aparecem como pendência e o resultado passa a indicar fechamento com pendências; o snapshot anterior permanece intacto. Reabra explicitamente, com motivo, corrija as apropriações e faça novo fechamento. A versão anterior e a reabertura continuam disponíveis no histórico. Repetir a mesma solicitação não cria outro evento nem reabre uma versão posterior.
+
+A revisão posterior acrescenta conferência de integridade e exportação das versões: veja [09-revisao-consolidacao.md](09-revisao-consolidacao.md).

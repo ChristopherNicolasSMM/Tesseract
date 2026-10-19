@@ -134,7 +134,7 @@ def context():
         permitted=[key for key in VIEWS if key[0]==tab and key[1]!='detail' and allowed(key)]
         if permitted: tabs.append({'key':tab,'label':label,'url':link(*permitted[0])})
         if tab==ctx['tab']:
-            subviews=[{'key':key[1],'label':VIEW_LABELS.get(key[1],label),'url':link(*key)} for key in permitted if key[1]!='dashboard']
+            subviews=[{'key':key[1],'label':VIEW_LABELS.get(key[1],label),'url':link(*key)} for key in permitted if key[1]!='dashboard' or key[0]=='results']
     orgs=list_organizations(); accounts=[]
     if ctx.get('organization_code') and ctx['tab'] in ('cash','reconciliation') and current_user.has_permission('financial_accounts.list'):
         from ..model.treasury import FinancialAccount

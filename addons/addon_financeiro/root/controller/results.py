@@ -18,28 +18,34 @@ def panel(*,values=None,error=None,status=200,preview=None):
     page=max(1,min(request.args.get('page',1,type=int),1000000))
     if code:
         try:
+            # Cada visão carrega apenas os dados que apresenta.
+            if view not in ('dashboard','dre'):
+                s.f.selection({k:request.args[k] for k in ('organization_code','date_from','date_to')})
             if view=='dashboard':
                 data=dashboard_service.dashboard({k:request.args[k] for k in ('organization_code','date_from','date_to')})
-            if view=='costs':costs=s.cost_review(code)
-            if view=='closing':
+            elif view=='costs':costs=s.cost_review(code)
+            elif view=='closing':
                 month=request.args.get('period',request.args['date_to'][:7])
                 conference=closing_service.conference(code,month)
-                closed_rows,closed_total,closed_pages=paginate(closing_service.Close.query.filter_by(organization_code=code).order_by(closing_service.Close.period.desc(),closing_service.Close.version.desc()),page)
-                closings=[closing_service.close_detail(row) for row in closed_rows]
-            if view=='dre':
+                rows,total,pages=paginate(closing_service.Close.query.filter_by(organization_code=code).order_by(closing_service.Close.period.desc(),closing_service.Close.version.desc()),page)
+                closings=[closing_service.close_detail(row) for row in rows]
+            elif view=='dre':
                 options={k:request.args[k] for k in ('organization_code','date_from','date_to')}
                 if request.args.get('cost_center_id'):options['cost_center_id']=int(request.args['cost_center_id'])
                 if request.args.get('group_code'):options['group_code']=request.args['group_code']
                 data=s.statement(options)
-            if view=='review':review=s.review(code)
-            categories=s.f.bounded(s.t.Category.query.filter_by(organization_code=code).order_by(s.t.Category.name),2000)
-            centers=s.f.bounded(s.t.Center.query.filter_by(organization_code=code).order_by(s.t.Center.name),2000)
-            classifications=s.f.bounded(s.Classification.query.filter_by(organization_code=code).order_by(s.Classification.category_id,s.Classification.version.desc()),2000)
-            query=s.Entry.query.filter_by(organization_code=code)
-            if view=='entries' and request.args.get('entry_id'):query=query.filter(s.Entry.id==s.t.ident(int(request.args['entry_id'])))
-            rows,total,pages=paginate(query.order_by(s.Entry.id.desc()),page)
-            entries=[s.entry_detail(row) for row in rows]
-            if view=='closing':total,pages=closed_total,closed_pages
+                centers=s.f.bounded(s.t.Center.query.filter_by(organization_code=code).order_by(s.t.Center.name),2000)
+            elif view=='review':review=s.review(code)
+            if view=='classifications':
+                categories=s.f.bounded(s.t.Category.query.filter_by(organization_code=code).order_by(s.t.Category.name),2000)
+            if view in ('classifications','entries'):
+                classifications=s.f.bounded(s.Classification.query.filter_by(organization_code=code).order_by(s.Classification.category_id,s.Classification.version.desc()),2000)
+            if view=='entries':
+                centers=s.f.bounded(s.t.Center.query.filter_by(organization_code=code).order_by(s.t.Center.name),2000)
+                query=s.Entry.query.filter_by(organization_code=code)
+                if request.args.get('entry_id'):query=query.filter(s.Entry.id==s.t.ident(int(request.args['entry_id'])))
+                rows,total,pages=paginate(query.order_by(s.Entry.id.desc()),page)
+                entries=[s.entry_detail(row) for row in rows]
         except ValueError as exc:error,status=str(exc),422
     if not values and request.args.get('source_type'):
         values={k:request.args[k] for k in ('source_type','source_id','component','reference','amount','currency_code','classification_id') if k in request.args}

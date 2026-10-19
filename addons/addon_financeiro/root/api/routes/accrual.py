@@ -77,3 +77,15 @@ def close():return response(closing_service.close(request.get_json(silent=True),
 @login_required
 @permission_required('admin')
 def reopen(row_id):return response(closing_service.reopen(row_id,request.get_json(silent=True),actor=current_user.username))
+
+
+@api_bp.get('/closures/<int:row_id>')
+@login_required
+@permission_required('financial_results.list')
+def closure(row_id):
+    try:
+        options=s.t.fields(request.args.to_dict(),{'organization_code'})
+        value=closing_service.detail(options['organization_code'],row_id)
+        if value is None:return jsonify(success=False,error='Fechamento não encontrado nesta organização.'),404,{'Cache-Control':'no-store'}
+        return jsonify(success=True,item=value),200,{'Cache-Control':'no-store'}
+    except ValueError as exc:return jsonify(success=False,error=str(exc)),422,{'Cache-Control':'no-store'}

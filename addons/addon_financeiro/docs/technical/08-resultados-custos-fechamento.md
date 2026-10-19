@@ -13,3 +13,5 @@ Revisão `a93dbe671ca5`, pai `f82cad560b94`, cria três tabelas de fechamento. V
 O warning de `parent_model_definition_id` vinha de FKs equivalentes, uma sem nome e outra nomeada, duplicadas pela migração `d4e0a26f9c31`. A verificação histórica passa a comparar também a assinatura da FK; os modelos usam nomes estáveis. Para bancos já afetados, a nova migração lê `PRAGMA foreign_key_list`, deduplica por assinatura e recria somente as duas tabelas afetadas, preservando colunas, dados, índices e constraints. Não há filtro de warnings. Como outras recriações batch do SQLite, o reparo exige `foreign_keys=OFF` antes da transação e recusa prosseguir se estiver ligado.
 
 Validação inclui upgrade completo com SAWarning como erro, reparo de banco duplicado populado, reflexão sem warning e `foreign_key_check`, fechamento/reabertura idempotentes, exclusão de capitalização, dashboard/Reports, autorização e disputa entre fechamento e estorno em conexões independentes.
+
+A revisão posterior acrescenta conferência de integridade e exportação das versões: veja [09-revisao-consolidacao.md](09-revisao-consolidacao.md).
