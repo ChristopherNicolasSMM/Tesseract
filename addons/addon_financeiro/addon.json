@@ -1,7 +1,7 @@
 {
   "name": "financeiro",
   "label": "Financeiro",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "type": "addon",
   "table_prefix": "financeiro",
   "tesseract_min_version": "1.0.0",
@@ -13,7 +13,10 @@
     "monetary_policy_versions",
     "financial_accounts",
     "financial_titles",
-    "financial_settlements"
+    "financial_settlements",
+    "financial_cash_flow",
+    "financial_transfers",
+    "bank_reconciliation"
   ],
   "features": [],
   "default_locale": "pt_BR",

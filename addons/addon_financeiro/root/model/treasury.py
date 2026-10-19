@@ -194,7 +194,7 @@ class FinancialCancellation(db.Model):
 
 
 @menu_icon('bi-list-columns-reverse')
-@label('Lançamentos financeiros')
+@label('Fluxo de caixa')
 @plural('financial_movements')
 @display_field('reference')
 class FinancialMovement(db.Model):

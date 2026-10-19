@@ -6,6 +6,11 @@ from . import report_template_service as reports
 from .report_layout_service import ReportError
 
 SCREENS = {
+    'financeiro-fluxo-caixa': ('financeiro-fluxo-caixa','Fluxo de caixa','bi-file-earmark-text','financeiro',None),
+    'financeiro-titulos': ('financeiro-titulos','Títulos a pagar e receber','bi-file-earmark-text','financeiro',None),
+    'financeiro-liquidacoes': ('financeiro-liquidacoes','Pagamentos e recebimentos','bi-file-earmark-text','financeiro',None),
+    'financeiro-conciliacao': ('financeiro-conciliacao','Conciliação bancária','bi-file-earmark-text','financeiro',None),
+
     'receitas': ('receita-completa', 'Receitas', 'bi-journal-text', 'brewstation', 'feature_mash_control'),
     'sessoes': ('sessao-detalhada', 'Sessões', 'bi-cup-straw', 'brewstation', 'feature_mash_control'),
     'banco-leveduras': ('banco-leveduras', 'Banco de leveduras', 'bi-archive', 'brewstation', 'feature_yeast_bank'),
@@ -15,6 +20,11 @@ SCREENS = {
     'estoque': ('estoque-organizacional', 'Estoque atual', 'bi-box-seam', 'estoque', None),
 }
 FILTERS = {
+    'financeiro-fluxo-caixa': ('date_from','date_to'),
+    'financeiro-titulos': ('date_from','date_to'),
+    'financeiro-liquidacoes': ('date_from','date_to'),
+    'financeiro-conciliacao': ('date_from','date_to'),
+
     'receitas': (), 'sessoes': (),
     'banco-leveduras': ('status', 'strain_id', 'location'),
     'disponibilidade-validade': ('strain_id', 'location'),
@@ -34,7 +44,7 @@ def authorize(screen):
 def catalog_transactions():
     """Contribuição opcional nos grupos dos addons; IDE mantém descoberta padrão."""
     result = []
-    for addon, parent in (('brewstation','TX_GROUP_BREWSTATION'),('estoque','TX_GROUP_ESTOQUE')):
+    for addon, parent in (('brewstation','TX_GROUP_BREWSTATION'),('estoque','TX_GROUP_ESTOQUE'),('financeiro','TX_GROUP_AUTO_FINANCEIRO')):
         if addon not in current_app.module_manager.active_modules:
             continue
         group = 'TX_GROUP_REPORTS_' + addon.upper()
@@ -96,6 +106,9 @@ def filtered_data(screen, options, filters):
                 raise ReportError('reports.error.input')
     if filters.get('date_from','')>filters.get('date_to','9999-12-31'):
         raise ReportError('reports.error.input')
+    if config[3]=='financeiro':
+        if set(options)&set(filters): raise ReportError('reports.error.input')
+        options={**options,**filters}
     value = library.data(config[0],options,action='render')
     if screen in ('banco-leveduras','disponibilidade-validade','starters'):
         fields = ('available','expiring','expired','undated') if screen=='disponibilidade-validade' else ('items',)

@@ -1,0 +1,354 @@
+{
+  "layout": {
+    "schema_version": 1,
+    "page": {
+      "format": "A4",
+      "orientation": "landscape",
+      "margin_top": 12,
+      "margin_right": 12,
+      "margin_bottom": 12,
+      "margin_left": 12,
+      "number_pages": true
+    },
+    "body": [
+      {
+        "id": "title",
+        "type": "text",
+        "props": {
+          "text": "Títulos a pagar e receber",
+          "level": "title"
+        }
+      },
+      {
+        "id": "organization_name",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "organization_name"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "currency_code",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "currency_code"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "date_from",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "date_from"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "date_to",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "date_to"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "note",
+        "type": "text",
+        "props": {
+          "text": "Valores monetários exatos. Estados são atuais; período seleciona a data de emissão dos títulos, operação das baixas e data das linhas bancárias. Não somar moedas originais diferentes.",
+          "level": "body",
+          "style": {
+            "font_size": 9
+          }
+        }
+      },
+      {
+        "id": "items",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "items"
+            ]
+          },
+          "columns": [
+            {
+              "label": "Referência",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "reference"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Contraparte",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "counterparty"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Tipo",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "kind"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Emissão",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "issue_date"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Moeda original",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "currency_code"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Original",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "amount"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Valor base",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "base_amount"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Pendente original",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "remaining"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Pendente base",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "base_remaining"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Estado atual",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "status"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "data_schema": {
+    "type": "object",
+    "properties": {
+      "contract": {
+        "const": "financeiro.titles.v1"
+      },
+      "organization_code": {
+        "type": "string"
+      },
+      "organization_name": {
+        "type": "string"
+      },
+      "currency_code": {
+        "type": "string"
+      },
+      "date_from": {
+        "type": "string"
+      },
+      "date_to": {
+        "type": "string"
+      },
+      "items": {
+        "type": "array",
+        "maxItems": 2000,
+        "items": {
+          "type": "object",
+          "properties": {
+            "reference": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "counterparty": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "kind": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "issue_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "currency_code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "amount": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "base_amount": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "remaining": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "base_remaining": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "reference",
+            "counterparty",
+            "kind",
+            "issue_date",
+            "currency_code",
+            "amount",
+            "base_amount",
+            "remaining",
+            "base_remaining",
+            "status"
+          ]
+        }
+      }
+    },
+    "required": [
+      "contract",
+      "organization_code",
+      "organization_name",
+      "currency_code",
+      "date_from",
+      "date_to",
+      "items"
+    ]
+  },
+  "sample_data": {
+    "contract": "financeiro.titles.v1",
+    "organization_code": "DEMO",
+    "organization_name": "Demonstração",
+    "currency_code": "BRL",
+    "date_from": "2026-10-01",
+    "date_to": "2026-10-31",
+    "items": []
+  },
+  "parameters": []
+}

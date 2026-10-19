@@ -1,0 +1,294 @@
+{
+  "layout": {
+    "schema_version": 1,
+    "page": {
+      "format": "A4",
+      "orientation": "landscape",
+      "margin_top": 12,
+      "margin_right": 12,
+      "margin_bottom": 12,
+      "margin_left": 12,
+      "number_pages": true
+    },
+    "body": [
+      {
+        "id": "title",
+        "type": "text",
+        "props": {
+          "text": "Conciliação bancária",
+          "level": "title"
+        }
+      },
+      {
+        "id": "organization_name",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "organization_name"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "currency_code",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "currency_code"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "date_from",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "date_from"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "date_to",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "date_to"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "note",
+        "type": "text",
+        "props": {
+          "text": "Valores monetários exatos. Estados são atuais; período seleciona a data de emissão dos títulos, operação das baixas e data das linhas bancárias. Não somar moedas originais diferentes.",
+          "level": "body",
+          "style": {
+            "font_size": 9
+          }
+        }
+      },
+      {
+        "id": "items",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "items"
+            ]
+          },
+          "columns": [
+            {
+              "label": "Conta",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "account_id"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "ID bancário",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "external_id"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Data",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "operation_date"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Descrição",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "description"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Valor base",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "amount"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Estado",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "status"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Lançamento",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "movement_id"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "data_schema": {
+    "type": "object",
+    "properties": {
+      "contract": {
+        "const": "financeiro.reconciliation.v1"
+      },
+      "organization_code": {
+        "type": "string"
+      },
+      "organization_name": {
+        "type": "string"
+      },
+      "currency_code": {
+        "type": "string"
+      },
+      "date_from": {
+        "type": "string"
+      },
+      "date_to": {
+        "type": "string"
+      },
+      "items": {
+        "type": "array",
+        "maxItems": 2000,
+        "items": {
+          "type": "object",
+          "properties": {
+            "account_id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "external_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "operation_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "description": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "amount": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "movement_id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "account_id",
+            "external_id",
+            "operation_date",
+            "description",
+            "amount",
+            "status",
+            "movement_id"
+          ]
+        }
+      }
+    },
+    "required": [
+      "contract",
+      "organization_code",
+      "organization_name",
+      "currency_code",
+      "date_from",
+      "date_to",
+      "items"
+    ]
+  },
+  "sample_data": {
+    "contract": "financeiro.reconciliation.v1",
+    "organization_code": "DEMO",
+    "organization_name": "Demonstração",
+    "currency_code": "BRL",
+    "date_from": "2026-10-01",
+    "date_to": "2026-10-31",
+    "items": []
+  },
+  "parameters": []
+}

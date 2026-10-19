@@ -250,7 +250,7 @@ def settlements():
         **common(), page=page, total=total, pages=pages, search=request.args.get('q', ''))
 
 
-@movements_bp.get('/', endpoint='list')
+@movements_bp.get('/historico', endpoint='history')
 @login_required
 @permission_required('financial_movements.list')
 def movements():
@@ -264,3 +264,12 @@ def movements():
     page = max(1, min(request.args.get('page', 1, type=int), 1000000)); rows, total, pages = paginate(query.order_by(Movement.id.desc()), page)
     return render_template('financeiro/treasury/history.html', mode='movements', items=[row.to_dict() for row in rows],
         **context, page=page, total=total, pages=pages, search='')
+
+
+@movements_bp.get('/', endpoint='list')
+@login_required
+@permission_required('financial_movements.list')
+@permission_required('financial_titles.list')
+def flow_entry():
+    from .cash_operations import panel
+    return panel('flow')

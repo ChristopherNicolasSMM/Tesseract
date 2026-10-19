@@ -207,5 +207,9 @@
   "reports.library.indicator_yeast": "Itens no banco de leveduras",
   "reports.library.indicator_starters": "Starters planejados ou ativos",
   "reports.library.indicator_stock": "Saldos legados de estoque",
-  "reports.library.stock_org": "Estoque por organização"
+  "reports.library.stock_org": "Estoque por organização",
+  "reports.library.finance_cash_flow": "Fluxo de caixa",
+  "reports.library.finance_titles": "Títulos a pagar e receber",
+  "reports.library.finance_settlements": "Pagamentos e recebimentos",
+  "reports.library.finance_reconciliation": "Conciliação bancária"
 }

@@ -1,0 +1,464 @@
+{
+  "layout": {
+    "schema_version": 1,
+    "page": {
+      "format": "A4",
+      "orientation": "landscape",
+      "margin_top": 12,
+      "margin_right": 12,
+      "margin_bottom": 12,
+      "margin_left": 12,
+      "number_pages": true
+    },
+    "body": [
+      {
+        "id": "title",
+        "type": "text",
+        "props": {
+          "text": "Fluxo de caixa",
+          "level": "title"
+        }
+      },
+      {
+        "id": "organization_name",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "organization_name"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "currency_code",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "currency_code"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "date_from",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "date_from"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "date_to",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "date_to"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "note",
+        "type": "text",
+        "props": {
+          "text": "Previsão atual pelo valor contábil congelado, sem cotação futura. Vencidos anteriores compõem o saldo projetado inicial. Transferências internas separadas das receitas e despesas. Não representa posição histórica das parcelas.",
+          "level": "body",
+          "style": {
+            "font_size": 9
+          }
+        }
+      },
+      {
+        "id": "opening_balance",
+        "type": "text",
+        "props": {
+          "text": "Saldo inicial",
+          "level": "body"
+        }
+      },
+      {
+        "id": "opening_balancevalue",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "opening_balance"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "closing_balance",
+        "type": "text",
+        "props": {
+          "text": "Saldo realizado final",
+          "level": "body"
+        }
+      },
+      {
+        "id": "closing_balancevalue",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "closing_balance"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "projected_balance",
+        "type": "text",
+        "props": {
+          "text": "Saldo projetado final",
+          "level": "body"
+        }
+      },
+      {
+        "id": "projected_balancevalue",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "projected_balance"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "overdue_income",
+        "type": "text",
+        "props": {
+          "text": "Vencidos a receber",
+          "level": "body"
+        }
+      },
+      {
+        "id": "overdue_incomevalue",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "overdue_income"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "overdue_outflow",
+        "type": "text",
+        "props": {
+          "text": "Vencidos a pagar",
+          "level": "body"
+        }
+      },
+      {
+        "id": "overdue_outflowvalue",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "overdue_outflow"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "items",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "items"
+            ]
+          },
+          "columns": [
+            {
+              "label": "Data",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "date"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Entradas",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "income"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Saídas",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "outflow"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Aberturas",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "funding"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Transf. líquidas",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "internal_net"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Saldo realizado",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "realized_balance"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "A receber",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "pending_income"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "A pagar",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "pending_outflow"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Saldo projetado",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "projected_balance"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "data_schema": {
+    "type": "object",
+    "properties": {
+      "contract": {
+        "const": "financeiro.cash_flow.v1"
+      },
+      "organization_code": {
+        "type": "string"
+      },
+      "organization_name": {
+        "type": "string"
+      },
+      "currency_code": {
+        "type": "string"
+      },
+      "date_from": {
+        "type": "string"
+      },
+      "date_to": {
+        "type": "string"
+      },
+      "items": {
+        "type": "array",
+        "maxItems": 2000,
+        "items": {
+          "type": "object",
+          "properties": {
+            "date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "income": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "outflow": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "funding": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "internal_net": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "realized_balance": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "pending_income": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "pending_outflow": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "projected_balance": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "date",
+            "income",
+            "outflow",
+            "funding",
+            "internal_net",
+            "realized_balance",
+            "pending_income",
+            "pending_outflow",
+            "projected_balance"
+          ]
+        }
+      },
+      "opening_balance": {
+        "type": "string"
+      },
+      "closing_balance": {
+        "type": "string"
+      },
+      "projected_balance": {
+        "type": "string"
+      },
+      "overdue_income": {
+        "type": "string"
+      },
+      "overdue_outflow": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "contract",
+      "organization_code",
+      "organization_name",
+      "currency_code",
+      "date_from",
+      "date_to",
+      "items",
+      "opening_balance",
+      "closing_balance",
+      "projected_balance",
+      "overdue_income",
+      "overdue_outflow"
+    ]
+  },
+  "sample_data": {
+    "contract": "financeiro.cash_flow.v1",
+    "organization_code": "DEMO",
+    "organization_name": "Demonstração",
+    "currency_code": "BRL",
+    "date_from": "2026-10-01",
+    "date_to": "2026-10-31",
+    "items": [],
+    "opening_balance": "0",
+    "closing_balance": "0",
+    "projected_balance": "0",
+    "overdue_income": "0",
+    "overdue_outflow": "0"
+  },
+  "parameters": []
+}

@@ -1,0 +1,331 @@
+{
+  "layout": {
+    "schema_version": 1,
+    "page": {
+      "format": "A4",
+      "orientation": "landscape",
+      "margin_top": 12,
+      "margin_right": 12,
+      "margin_bottom": 12,
+      "margin_left": 12,
+      "number_pages": true
+    },
+    "body": [
+      {
+        "id": "title",
+        "type": "text",
+        "props": {
+          "text": "Pagamentos e recebimentos",
+          "level": "title"
+        }
+      },
+      {
+        "id": "organization_name",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "organization_name"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "currency_code",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "currency_code"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "date_from",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "date_from"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "date_to",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "date_to"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "note",
+        "type": "text",
+        "props": {
+          "text": "Valores monetários exatos. Estados são atuais; período seleciona a data de emissão dos títulos, operação das baixas e data das linhas bancárias. Não somar moedas originais diferentes.",
+          "level": "body",
+          "style": {
+            "font_size": 9
+          }
+        }
+      },
+      {
+        "id": "items",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "items"
+            ]
+          },
+          "columns": [
+            {
+              "label": "ID",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "id"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Parcela",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "installment_id"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Conta",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "account_id"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Data",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "operation_date"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Moeda original",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "currency_code"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Principal original",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "principal"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Caixa na moeda base",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "cash_base"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Baixa contábil base",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "carrying_base"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Estado atual",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "status"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "data_schema": {
+    "type": "object",
+    "properties": {
+      "contract": {
+        "const": "financeiro.settlements.v1"
+      },
+      "organization_code": {
+        "type": "string"
+      },
+      "organization_name": {
+        "type": "string"
+      },
+      "currency_code": {
+        "type": "string"
+      },
+      "date_from": {
+        "type": "string"
+      },
+      "date_to": {
+        "type": "string"
+      },
+      "items": {
+        "type": "array",
+        "maxItems": 2000,
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "installment_id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "account_id": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "operation_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "principal": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "cash_base": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "carrying_base": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "currency_code": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "installment_id",
+            "account_id",
+            "operation_date",
+            "principal",
+            "cash_base",
+            "carrying_base",
+            "status",
+            "currency_code"
+          ]
+        }
+      }
+    },
+    "required": [
+      "contract",
+      "organization_code",
+      "organization_name",
+      "currency_code",
+      "date_from",
+      "date_to",
+      "items"
+    ]
+  },
+  "sample_data": {
+    "contract": "financeiro.settlements.v1",
+    "organization_code": "DEMO",
+    "organization_name": "Demonstração",
+    "currency_code": "BRL",
+    "date_from": "2026-10-01",
+    "date_to": "2026-10-31",
+    "items": []
+  },
+  "parameters": []
+}

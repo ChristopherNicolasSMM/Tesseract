@@ -43,3 +43,11 @@ def metadata(screen):
 def generate(screen):
     value=payload(('template','version','options','filters','parameters','format'))
     return output_response(service.generate(screen,value),value.get('format','html'))
+
+
+@report_emission_bp.get('/financeiro/reports/<screen>')
+def financeiro(screen):
+    if screen not in service.SCREENS or service.SCREENS[screen][3]!='financeiro':
+        from flask import abort
+        abort(404)
+    return screen_view(screen)
