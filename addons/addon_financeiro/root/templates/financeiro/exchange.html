@@ -1,13 +1,13 @@
-{% extends 'core/base.html' %}
+{% extends 'financeiro/workspace_shell.html' %}
 {% block title %}{{ 'Taxas de câmbio' if panel == 'rates' else 'Conversões monetárias' }} - Financeiro{% endblock %}
-{% block content %}
-<div class="pagetitle"><h1>{{ 'Taxas de câmbio' if panel == 'rates' else 'Conversões monetárias' }}</h1></div>
+{% block finance_content %}
+<div class="mb-3"><h2 class="h5">{{ 'Taxas de câmbio' if panel == 'rates' else 'Conversões monetárias' }}</h2></div>
 <section class="section">
 {% if current_user.has_permission('admin') %}
 <div class="card"><div class="card-body"><h2 class="card-title">{{ 'Cadastrar taxa' if panel == 'rates' else 'Simular ou confirmar conversão' }}</h2>
 {% if form_error %}<div class="alert alert-danger" role="alert">{{ form_error }}</div>{% endif %}
-<form method="post" class="row g-3">
-<div class="col-md-4"><label class="form-label" for="org">Organização</label><select id="org" name="organization_code" class="form-select" required><option value="">Selecione</option>{% for item in organizations if item.is_active %}<option value="{{ item.code }}" {% if submitted.get('organization_code')==item.code %}selected{% endif %}>{{ item.code }} — {{ item.name }}</option>{% endfor %}</select></div>
+<form method="post" action="{{ finance_url('exchange_rates.save_rate' if panel=='rates' else 'monetary_conversions.convert') }}" class="row g-3">
+<div class="col-md-4"><label class="form-label" for="org">Organização</label><select id="org" name="organization_code" class="form-select" required><option value="">Selecione</option>{% for item in organizations if item.is_active %}<option value="{{ item.code }}" {% if submitted.get('organization_code',fw.get('organization_code'))==item.code %}selected{% endif %}>{{ item.code }} — {{ item.name }}</option>{% endfor %}</select></div>
 {% for field, title in [('source_currency','Moeda original')] + ([('target_currency','Moeda-base (destino)')] if panel == 'rates' else []) %}
 <div class="col-md-4"><label class="form-label" for="{{ field }}">{{ title }}</label><select id="{{ field }}" name="{{ field }}" class="form-select" required><option value="">Selecione</option>{% for item in currencies %}<option value="{{ item.code }}" {% if submitted.get(field)==item.code %}selected{% endif %}>{{ item.code }} — {{ item.name }}</option>{% endfor %}</select></div>{% endfor %}
 {% if panel == 'rates' %}

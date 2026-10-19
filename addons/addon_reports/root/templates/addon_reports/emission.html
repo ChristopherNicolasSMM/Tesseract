@@ -1,6 +1,7 @@
 {% extends 'core/base.html' %}
 {% block content %}
 <div class="pagetitle"><h1><i class="bi {{ icon }} me-2"></i>Relatórios — {{ label }}</h1><nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item">{{ 'BrewStation' if addon=='brewstation' else 'Financeiro' if addon=='financeiro' else 'Estoque' }}</li><li class="breadcrumb-item">Relatórios</li><li class="breadcrumb-item active">{{ label }}</li></ol></nav></div>
+{% if addon=='financeiro' %}<a class="btn btn-outline-secondary mb-3" href="{{ url_for('finance_workspace.index',organization_code=initial.get('organization_code',''),date_from=initial.get('date_from') or none,date_to=initial.get('date_to') or none) }}"><i class="bi bi-arrow-left me-1"></i>Voltar ao Financeiro</a>{% endif %}
 <section class="section"><div class="card"><div class="card-body"><h2 class="card-title">Filtros e modelo</h2>
 <form id="report-emission-form" class="row g-3">
 {% if addon=='financeiro' or screen in ('receitas','sessoes','estoque') %}<div class="col-md-6"><label for="emission-record" class="form-label">{{ 'Receita' if screen=='receitas' else 'Sessão e planta' if screen=='sessoes' else 'Organização' }}</label><select id="emission-record" class="form-select" required disabled></select></div>{% endif %}

@@ -1,15 +1,15 @@
-{% extends 'core/base.html' %}
+{% extends 'financeiro/workspace_shell.html' %}
 {% block title %}Versões monetárias - Financeiro{% endblock %}
-{% block content %}
-<div class="pagetitle"><h1>Versões monetárias</h1></div>
+{% block finance_content %}
+<div class="mb-3"><h2 class="h5">Versões monetárias</h2></div>
 <section class="section">
 {% if current_user.has_permission('admin') %}
 <div class="card"><div class="card-body"><h2 class="card-title">Nova versão da política</h2>
 {% if form_error %}<div class="alert alert-danger" role="alert">{{ form_error }}</div>{% endif %}
 <p>Escolha a precisão e o arredondamento das novas operações. A versão será usada quando selecionada na conversão.</p>
-<form method="post" class="row g-3">
+<form method="post" action="{{ finance_url('policy_versions.create') }}" class="row g-3">
 <input type="hidden" id="expected_version" name="expected_version" value="{{ submitted.get('expected_version','') }}">
-<div class="col-md-6"><label class="form-label" for="version-org">Organização / política inicial</label><select id="version-org" name="organization_code" class="form-select" required><option value="">Selecione</option>{% for item in policies %}<option value="{{ item.organization_code }}" data-version="{{ item.last_version }}" data-summary="{{ item.currency_code }} · última versão {{ item.last_version }} · {{ item.last_scale }} casas · {{ item.last_rounding }}" {% if submitted.get('organization_code')==item.organization_code %}selected{% endif %}>{{ item.organization_code }} — {{ item.currency_code }} — versão {{ item.last_version }}</option>{% endfor %}</select><div id="version-summary" class="form-text" role="status">Selecione uma organização com política cadastrada.</div></div>
+<div class="col-md-6"><label class="form-label" for="version-org">Organização / política inicial</label><select id="version-org" name="organization_code" class="form-select" required><option value="">Selecione</option>{% for item in policies %}<option value="{{ item.organization_code }}" data-version="{{ item.last_version }}" data-summary="{{ item.currency_code }} · última versão {{ item.last_version }} · {{ item.last_scale }} casas · {{ item.last_rounding }}" {% if submitted.get('organization_code',fw.get('organization_code'))==item.organization_code %}selected{% endif %}>{{ item.organization_code }} — {{ item.currency_code }} — versão {{ item.last_version }}</option>{% endfor %}</select><div id="version-summary" class="form-text" role="status">Selecione uma organização com política cadastrada.</div></div>
 <div class="col-md-3"><label class="form-label" for="version-scale">Casas decimais</label><input id="version-scale" name="decimal_places" type="number" min="0" max="6" class="form-control" value="{{ submitted.get('decimal_places','') }}" required></div>
 <div class="col-md-3"><label class="form-label" for="version-rounding">Arredondamento</label><select id="version-rounding" name="rounding" class="form-select" required><option value="">Selecione</option>{% for code in ['HALF_UP','HALF_EVEN'] %}<option value="{{ code }}" {% if submitted.get('rounding')==code %}selected{% endif %}>{{ code }}</option>{% endfor %}</select><div class="form-text">HALF_UP afasta de zero no empate; HALF_EVEN escolhe o último dígito par.</div></div>
 <div class="col-md-4"><label class="form-label" for="version-date">Válida a partir de</label><input id="version-date" name="valid_from" type="date" class="form-control" value="{{ submitted.get('valid_from','') }}" required></div>
@@ -23,7 +23,7 @@
 {% for item in items %}<tr><td>{{ item.organization_code }}</td><td>{{ item.version_number }} / #{{ item.id }}</td><td>{{ item.currency_code }}</td><td>{{ item.decimal_places }}</td><td>{{ item.rounding }}</td><td>{{ item.valid_from }}</td><td>{{ item.reason }}<div class="text-muted">{{ item.created_by }} · {{ item.created_at }}</div></td></tr>{% else %}<tr><td colspan="7" class="text-muted">Nenhuma revisão cadastrada. As políticas iniciais continuam disponíveis.</td></tr>{% endfor %}
 </tbody></table></div></div></div></section>
 {% endblock %}
-{% block extra_js %}
+{% block extra_js %}{{ super() }}
 <script>
 (function () {
   const org = document.getElementById('version-org');

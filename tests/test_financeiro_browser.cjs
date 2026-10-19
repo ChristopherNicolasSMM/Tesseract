@@ -67,8 +67,8 @@ const {chromium} = require('playwright');
     await page.waitForFunction(()=>document.querySelector('[name=cidade]').value==='São Paulo');
     assert.equal(await page.locator('[name=estado]').inputValue(),'SP');
     await page.goto(origin+'/financeiro/currencies/');
-    assert.equal(await page.locator('#sidebar-nav a[href="/financeiro/currencies/"]').count(),1);
-    assert.equal(await page.locator('#sidebar-nav a[href="/financeiro/monetary-policies/"]').count(),1);
+    assert.equal(await page.locator('#sidebar-nav a[href="/financeiro/"]').count(),1);
+    assert.equal(await page.locator('#sidebar-nav a[href="/financeiro/monetary-policies/"]').count(),0);
     // Use the real stored preference and dark stylesheet, not a synthetic attribute.
     for(const theme of ['dark','light']) {
       const result=await page.evaluate(async theme=>{
@@ -79,7 +79,7 @@ const {chromium} = require('playwright');
       await page.reload();
       assert.equal(await page.locator('html').getAttribute('data-theme'),theme);
       assert.equal(await page.locator('#theme-dark-css').count(),theme==='dark'?1:0);
-      assert.equal(await page.locator('.pagetitle h1').innerText(),'Moedas');
+      assert.equal(await page.locator('.pagetitle h1').innerText(),'Financeiro');
       assert.equal(await page.locator('table.table-striped').count(),1);
       await page.goto(origin+'/admin/organizations/');
       assert.equal(await page.locator('html').getAttribute('data-theme'),theme);

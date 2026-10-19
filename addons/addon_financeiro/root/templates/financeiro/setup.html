@@ -1,18 +1,18 @@
-{% extends 'core/base.html' %}
+{% extends 'financeiro/workspace_shell.html' %}
 {% block title %}{{ 'Moedas' if panel == 'currencies' else 'Políticas monetárias' }} - Financeiro{% endblock %}
-{% block content %}
-<div class="pagetitle"><h1>{{ 'Moedas' if panel == 'currencies' else 'Políticas monetárias' }}</h1></div>
+{% block finance_content %}
+<div class="mb-3"><h2 class="h5">{{ 'Moedas' if panel == 'currencies' else 'Políticas monetárias' }}</h2></div>
 <section class="section"><div class="card"><div class="card-body">
 {% if current_user.has_permission('admin') %}<button class="btn btn-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#novoRegistroFinanceiro"><i class="bi bi-plus-lg"></i> {{ 'Nova moeda' if panel == 'currencies' else 'Nova política' }}</button>
 {% if form_error %}<div class="alert alert-danger" role="alert">{{ form_error }}</div>{% endif %}
 <div id="novoRegistroFinanceiro" class="collapse{% if submitted %} show{% endif %}">
-<form method="post" action="{{ url_for('finance_setup.save', kind=panel) }}" class="row g-3">
+<form method="post" action="{{ finance_url('finance_setup.save', kind=panel) }}" class="row g-3">
 {% if panel == 'currencies' %}
 <div class="col-md-3"><label class="form-label" for="currency-code">Código (3 letras)</label><input id="currency-code" name="code" class="form-control" pattern="[A-Z]{3}" maxlength="3" value="{{ submitted.get('code','') }}" required></div>
 <div class="col-md-6"><label class="form-label" for="currency-name">Nome</label><input id="currency-name" name="name" class="form-control" maxlength="80" value="{{ submitted.get('name','') }}" required></div>
 <div class="col-md-3"><label class="form-label" for="currency-scale">Casas decimais</label><input id="currency-scale" name="decimal_places" class="form-control" type="number" min="0" max="6" value="{{ submitted.get('decimal_places','') if submitted.get('decimal_places') is not none else '' }}" required></div>
 {% else %}
-<div class="col-md-4"><label class="form-label" for="policy-org">Organização</label><select id="policy-org" name="organization_code" class="form-select" required><option value="">Selecione</option>{% for item in organizations if item.is_active %}<option value="{{ item.code }}" {% if submitted.get('organization_code')==item.code %}selected{% endif %}>{{ item.code }} — {{ item.name }}</option>{% endfor %}</select></div>
+<div class="col-md-4"><label class="form-label" for="policy-org">Organização</label><select id="policy-org" name="organization_code" class="form-select" required><option value="">Selecione</option>{% for item in organizations if item.is_active %}<option value="{{ item.code }}" {% if submitted.get('organization_code',fw.get('organization_code'))==item.code %}selected{% endif %}>{{ item.code }} — {{ item.name }}</option>{% endfor %}</select></div>
 <div class="col-md-4"><label class="form-label" for="policy-currency">Moeda-base</label><select id="policy-currency" name="currency_code" class="form-select" required><option value="">Selecione</option>{% for item in currencies %}<option value="{{ item.code }}" {% if submitted.get('currency_code')==item.code %}selected{% endif %}>{{ item.code }} — {{ item.name }}</option>{% endfor %}</select></div>
 <div class="col-md-4"><label class="form-label" for="policy-rounding">Arredondamento</label><select id="policy-rounding" name="rounding" class="form-select" required><option value="">Selecione</option>{% for code in ['HALF_UP','HALF_EVEN'] %}<option value="{{ code }}" {% if submitted.get('rounding')==code %}selected{% endif %}>{{ code }}</option>{% endfor %}</select><div class="form-text">HALF_UP afasta de zero no empate; HALF_EVEN escolhe o último dígito par.</div></div>
 {% endif %}

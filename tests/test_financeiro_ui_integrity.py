@@ -95,9 +95,11 @@ def test_menu_uses_defaults_and_retires_only_own_obsolete_leaf(app):
         assert Transaction.query.filter_by(code='OTHER').one().is_active is True
         folder=Transaction.query.filter_by(code='TX_GROUP_AUTO_FINANCEIRO').one()
         assert folder.route is None
-        leaves=Transaction.query.filter_by(parent_id=folder.id).filter(Transaction.route.isnot(None)).all()
-        assert {t.code for t in leaves}=={'TX_AUTO_CURRENCIES','TX_AUTO_MONETARY_POLICIES','TX_AUTO_EXCHANGE_RATES','TX_AUTO_MONETARY_CONVERSIONS','TX_AUTO_POLICY_VERSIONS','TX_AUTO_FINANCIAL_ACCOUNTS','TX_AUTO_FINANCIAL_CATEGORIES','TX_AUTO_FINANCIAL_COST_CENTERS','TX_AUTO_FINANCIAL_TITLES','TX_AUTO_FINANCIAL_SETTLEMENTS','TX_AUTO_FINANCIAL_MOVEMENTS','TX_AUTO_FINANCIAL_TRANSFERS','TX_AUTO_FINANCIAL_RECONCILIATIONS'}
-        assert {t.route for t in leaves}=={'/financeiro/currencies/','/financeiro/monetary-policies/','/financeiro/exchange-rates/','/financeiro/conversions/','/financeiro/policy-versions/','/financeiro/contas/','/financeiro/categorias/','/financeiro/centros-custo/','/financeiro/titulos/','/financeiro/liquidacoes/','/financeiro/lancamentos/','/financeiro/transferencias/','/financeiro/conciliacao/'}
+        leaves=Transaction.query.filter_by(parent_id=folder.id,is_active=True).filter(Transaction.route.isnot(None)).all()
+        assert {t.code for t in leaves}=={'TX_WORKSPACE_FINANCEIRO'}
+        assert {t.route for t in leaves}=={'/financeiro/'}
+        assert leaves[0].is_workspace
+        assert not Transaction.query.filter_by(code='TX_AUTO_FINANCIAL_TITLES').one().is_active
         app.module_manager.sync_all_transactions()
         assert Transaction.query.filter_by(code='TX_GROUP_AUTO_FINANCEIRO').count()==1
 

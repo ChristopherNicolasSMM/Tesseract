@@ -1,6 +1,7 @@
 """Telas manuais com endpoints list para descoberta padrão do addon."""
-from datetime import date
-from flask import Blueprint, request, render_template, redirect, url_for, abort, flash
+from datetime import timedelta
+from flask import Blueprint, request, render_template, redirect, abort, flash, g
+from .workspace import finance_url as url_for, today_date
 from flask_login import login_required, current_user
 from core.permissions import permission_required
 from core.admin_list_helpers import paginate
@@ -39,9 +40,11 @@ def form_data():
 def common(values=None):
     values = values or {}
     code = values.get('organization_code', request.args.get('organization_code', ''))
+    if getattr(g,'finance_context',None) is not None and 'organization_code' in values:
+        g.finance_context['organization_code']=code
     try: options = stock_valuation_options(code) if code else stock_valuation_options()
     except ValueError: options = stock_valuation_options()
-    return dict(values=values, organizations=list_organizations(), selected_code=code, options=options, today=date.today().isoformat())
+    return dict(values=values, organizations=list_organizations(), selected_code=code, options=options, today=today_date().isoformat())
 
 
 def filtered(query, model, code=None):
@@ -61,6 +64,11 @@ def render_catalog(kind, *, values=None, error=None, status=200):
     try:
         context = common(values)
         query = filtered(model.query, model, code=context['selected_code'])
+        if kind=='accounts' and request.args.get('account_id'):
+            aid=int(request.args['account_id'])
+            account=service.db.session.get(Account,service.ident(aid))
+            if account is None or context['selected_code'] and account.organization_code!=context['selected_code']: raise ValueError('Conta não pertence à organização.')
+            query=query.filter(Account.id==aid)
     except ValueError as exc:
         query = model.query.filter(model.id < 0); context = common({}); error, status = str(exc), 422
     page = max(1, min(request.args.get('page', 1, type=int), 1000000))
@@ -156,6 +164,28 @@ def title_panel(*, values=None, error=None, status=200, preview=None):
         context = common({}); query = Title.query.filter(Title.id < 0); error, status = str(exc), 422
     kind = request.args.get('kind')
     if kind in ('PAYABLE', 'RECEIVABLE'): query = query.filter_by(kind=kind)
+    try:
+        scope=request.args.get('scope','period')
+        if scope not in ('period','open','overdue','upcoming'): raise ValueError('Filtro de títulos inválido.')
+        start=service.day(request.args['date_from']); end=service.day(request.args['date_to'])
+        if end<start or (end-start).days>365: raise ValueError('Intervalo inválido; máximo 366 dias.')
+        if scope=='period': query=query.filter(Title.issue_date.between(start,end))
+        category=request.args.get('category_id'); center=request.args.get('cost_center_id')
+        if category: query=query.filter(Title.category_id==int(category))
+        if center: query=query.filter(Title.cost_center_id==int(center))
+        if scope!='period':
+            candidates=query.limit(10001).all()
+            if len(candidates)>10000: raise ValueError('Consulta excede 10.000 títulos.')
+            ids=[]
+            days=request.args.get('days','30')
+            if days not in ('7','15','30'): raise ValueError('Janela inválida.')
+            for candidate in candidates:
+                detail=service.title_detail(candidate.id)
+                if detail['status']=='CANCELLED': continue
+                parts=[p for p in detail['installments'] if service.Decimal(p['remaining'])>0]
+                if scope=='open' and parts or scope=='overdue' and any(service.day(p['due_date'])<end for p in parts) or scope=='upcoming' and any(end<=service.day(p['due_date'])<end+timedelta(days=int(days)) for p in parts): ids.append(candidate.id)
+            query=query.filter(Title.id.in_(ids))
+    except ValueError as exc: error,status=str(exc),422;query=query.filter(Title.id<0)
     page = max(1, min(request.args.get('page', 1, type=int), 1000000))
     rows, total, pages = paginate(query.order_by(Title.id.desc()), page)
     cats = Category.query.filter_by(is_active=True); centers = Center.query.filter_by(is_active=True)
@@ -188,9 +218,11 @@ def create_title():
 def detail_panel(row_id, *, error=None, status=200, preview=None, installment_id=None):
     try: item = service.title_detail(row_id)
     except ValueError: abort(404)
+    if request.args.get('organization_code') and request.args['organization_code']!=item['organization_code']: abort(404)
+    if getattr(g,'finance_context',None): g.finance_context.update(organization_code=item['organization_code'],tab='titles',view='detail')
     accounts = Account.query.filter_by(organization_code=item['organization_code'], is_active=True).order_by(Account.name).all()
     return render_template('financeiro/treasury/title_detail.html', item=item, accounts=accounts,
-        options=stock_valuation_options(item['organization_code']), today=date.today().isoformat(), values=request.form.to_dict(),
+        options=stock_valuation_options(item['organization_code']), today=today_date().isoformat(), values=request.form.to_dict(),
         error=error, preview=preview, selected_installment=installment_id), status
 
 
@@ -245,8 +277,13 @@ def reverse(row_id):
 def settlements():
     try: query = filtered(Settlement.query, Settlement)
     except ValueError as exc: return str(exc), 422
+    try:
+        if request.args.get('date_from'): query=query.filter(Settlement.operation_date>=service.day(request.args['date_from']))
+        if request.args.get('date_to'): query=query.filter(Settlement.operation_date<=service.day(request.args['date_to']))
+        if request.args.get('kind') in ('PAYABLE','RECEIVABLE'): query=query.join(Installment).join(Title).filter(Title.kind==request.args['kind'])
+    except ValueError as exc: return str(exc),422
     page = max(1, min(request.args.get('page', 1, type=int), 1000000)); rows, total, pages = paginate(query.order_by(Settlement.id.desc()), page)
-    return render_template('financeiro/treasury/history.html', mode='settlements', items=[service.settlement_detail(row) for row in rows],
+    return render_template('financeiro/treasury/history.html', mode='settlements', items=[{**service.settlement_detail(row),'title_id':service.db.session.get(Installment,row.installment_id).title_id} for row in rows],
         **common(), page=page, total=total, pages=pages, search=request.args.get('q', ''))
 
 
@@ -255,10 +292,27 @@ def settlements():
 @permission_required('financial_movements.list')
 def movements():
     query = Movement.query.join(Account)
+    context_org=request.args.get('organization_code')
     try:
         if request.args.get('organization_code'):
             org = resolve_organization_by_code(request.args['organization_code'], require_active=False)['code']; query = query.filter(Account.organization_code == org)
         if request.args.get('account_id'): query = query.filter(Movement.account_id == int(request.args['account_id']))
+        if request.args.get('date_from'): query=query.filter(Movement.operation_date>=service.day(request.args['date_from']))
+        if request.args.get('date_to'): query=query.filter(Movement.operation_date<=service.day(request.args['date_to']))
+        if request.args.get('account_id'):
+            account=service.db.session.get(Account,int(request.args['account_id']))
+            if account is None or context_org and account.organization_code!=context_org: raise ValueError('Conta não pertence à organização.')
+        if request.args.get('source')=='operating' or request.args.get('direction'):
+            from ..services.cash_flow_service import bounded
+            rows=bounded(query)
+            ids=[]
+            direction=request.args.get('direction')
+            if direction not in (None,'in','out'): raise ValueError('Direção inválida.')
+            for row in rows:
+                if request.args.get('source')=='operating' and row.reference.startswith(('opening:','transfer:','transfer-reversal:')): continue
+                if direction=='in' and row.amount_delta<=0 or direction=='out' and row.amount_delta>=0: continue
+                ids.append(row.id)
+            query=query.filter(Movement.id.in_(ids))
         context = common()
     except ValueError as exc: return str(exc), 422
     page = max(1, min(request.args.get('page', 1, type=int), 1000000)); rows, total, pages = paginate(query.order_by(Movement.id.desc()), page)

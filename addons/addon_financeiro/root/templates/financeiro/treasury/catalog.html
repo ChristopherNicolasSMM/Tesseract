@@ -1,5 +1,5 @@
-{% extends 'core/base.html' %}{% block content %}
-<div class="pagetitle"><h1>{{ label }}</h1></div>
+{% extends 'financeiro/workspace_shell.html' %}{% block finance_content %}
+<div class="mb-3"><h2 class="h5">{{ label }}</h2></div>
 <section class="section">
 {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
 <div class="card"><div class="card-body pt-3">{% include 'financeiro/treasury/_filter.html' %}
@@ -19,9 +19,9 @@
 <p class="text-muted mb-0">A conta opera na moeda-base da organização. A abertura é registrada no histórico e não pode ser sobrescrita.</p>
 {% endif %}<div class="col-12"><button class="btn btn-primary">Salvar cadastro</button></div></form></div>{% endif %}
 <div class="table-responsive"><table class="table table-striped"><thead><tr><th>ID</th><th>Organização</th><th>Nome</th><th>{{ 'Saldo / moeda' if kind == 'accounts' else 'Finalidade' if kind == 'categories' else 'Estado' }}</th><th>Ativo</th>{% if current_user.has_permission('admin') %}<th>Manutenção</th>{% endif %}</tr></thead><tbody>
-{% for item in items %}<tr><td>{{ item.id }}</td><td>{{ item.organization_code }}</td><td>{{ item.name }}</td><td>{% if kind == 'accounts' %}{{ item.balance }} {{ item.currency_code }}<br><a href="{{ url_for('financial_movements.history',organization_code=item.organization_code,account_id=item.id) }}">Lançamentos</a>{% elif kind == 'categories' %}{{ 'Pagar' if item.direction=='PAYABLE' else 'Receber' }}{% else %}Centro de custo{% endif %}</td><td>{{ 'Sim' if item.is_active else 'Não' }}</td>
+{% for item in items %}<tr><td>{{ item.id }}</td><td>{{ item.organization_code }}</td><td>{{ item.name }}</td><td>{% if kind == 'accounts' %}{{ item.balance }} {{ item.currency_code }}<br><a href="{{ finance_url('financial_movements.history',organization_code=item.organization_code,account_id=item.id) }}">Lançamentos</a>{% elif kind == 'categories' %}{{ 'Pagar' if item.direction=='PAYABLE' else 'Receber' }}{% else %}Centro de custo{% endif %}</td><td>{{ 'Sim' if item.is_active else 'Não' }}</td>
 {% if current_user.has_permission('admin') %}<td><details {% if error and edit_values.get('edit_id')|string==item.id|string %}open{% endif %}><summary>Editar / inativar</summary>
-<form method="post" action="{{ url_for(endpoint.rsplit('.',1)[0] ~ '.edit_' ~ ('account' if kind=='accounts' else 'category' if kind=='categories' else 'center'),row_id=item.id,organization_code=selected_code,page=page) }}" class="mt-2">
+<form method="post" action="{{ finance_url(endpoint.rsplit('.',1)[0] ~ '.edit_' ~ ('account' if kind=='accounts' else 'category' if kind=='categories' else 'center'),row_id=item.id,organization_code=selected_code,page=page) }}" class="mt-2">
 {% set edit = edit_values if error and edit_values.get('edit_id')|string == item.id|string else item %}
 {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
 <input type="hidden" name="expected_version" value="{{ edit.get('expected_version',item.version) }}"><input type="hidden" name="edit_id" value="{{ item.id }}">

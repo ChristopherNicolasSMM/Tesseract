@@ -1,9 +1,9 @@
-{% extends 'core/base.html' %}{% block content %}
-<div class="pagetitle"><h1>{{ 'Conta a pagar' if item.kind=='PAYABLE' else 'Conta a receber' }} #{{ item.id }}</h1></div>
+{% extends 'financeiro/workspace_shell.html' %}{% block finance_content %}
+<div class="mb-3"><h2 class="h5">{{ 'Conta a pagar' if item.kind=='PAYABLE' else 'Conta a receber' }} #{{ item.id }}</h2></div>
 <section class="section">{% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
 {% if preview %}<div class="alert alert-info" role="status"><h2 class="h5">Prévia da baixa</h2>Movimento na conta: {{ preview.cash_base }} {{ preview.base_currency }} · saldo após a operação: {{ preview.balance_after }}. Diferença cambial do principal: {{ preview.exchange_difference }}. A prévia não reserva saldo nem confirma a baixa.</div>{% endif %}
 <div class="card"><div class="card-body pt-3">
-<a class="btn btn-outline-secondary mb-3" href="{{ url_for('financial_titles.list',organization_code=item.organization_code) }}">Voltar aos títulos</a>
+<a class="btn btn-outline-secondary mb-3" href="{{ finance_url('financial_titles.list',organization_code=item.organization_code) }}">Voltar aos títulos</a>
 <h2 class="h5">{{ item.reference }} · {{ item.counterparty }}</h2><p>Organização {{ item.organization_code }} · {{ item.amount }} {{ item.currency_code }} · saldo aberto {{ item.remaining }} {{ item.currency_code }} · {{ {'OPEN':'Aberto','PARTIAL':'Parcial','PAID':'Liquidado','CANCELLED':'Cancelado'}.get(item.status,item.status) }}</p>
 <p>Avaliação na emissão: {{ item.base_amount }} {{ item.snapshot.conversion.target_currency }} · categoria {{ item.snapshot.category.name }} · centro {{ item.snapshot.cost_center.name }}.</p>
 {% if item.snapshot.purchase %}<p>Origem: pedido #{{ item.snapshot.purchase.order_id }} · cadastro monetário #{{ item.snapshot.purchase.pricing_id }}. O documento de compra e seu recebimento permanecem independentes das baixas financeiras.</p>{% endif %}
@@ -13,7 +13,7 @@
 {% if current_user.has_permission('admin') and item.status != 'CANCELLED' and installment.status != 'PAID' %}
 <details {% if selected_installment==installment.id %}open{% endif %}><summary>Registrar {{ 'pagamento' if item.kind=='PAYABLE' else 'recebimento' }}</summary>
 {% set values = values if selected_installment==installment.id else {} %}{% set prefix='parcel-' ~ installment.id ~ '-' %}
-<form method="post" action="{{ url_for('financial_settlements.settle',row_id=installment.id) }}" class="row g-3 mt-1">
+<form method="post" action="{{ finance_url('financial_settlements.settle',row_id=installment.id) }}" class="row g-3 mt-1">
 {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
 <div class="col-md-6"><label class="form-label" for="{{ prefix }}account">Conta na moeda-base</label><select class="form-select" id="{{ prefix }}account" name="account_id" required><option value="">Selecione</option>{% for account in accounts %}<option value="{{ account.id }}" {% if values.get('account_id')|string==account.id|string %}selected{% endif %}>{{ account.name }} · {{ account.balance }} {{ account.currency_code }}</option>{% endfor %}</select></div>
 <div class="col-md-6"><label class="form-label" for="{{ prefix }}date">Data da baixa</label><input class="form-control" type="date" id="{{ prefix }}date" name="operation_date" value="{{ values.get('operation_date',today) }}" required></div>
@@ -23,12 +23,12 @@
 <div class="col-md-6"><label class="form-label" for="{{ prefix }}notes">Observações</label><input class="form-control" id="{{ prefix }}notes" name="notes" maxlength="1000" value="{{ values.get('notes','') }}"></div>
 <div class="col-12 d-flex gap-2"><button class="btn btn-outline-primary" name="action" value="preview">Conferir prévia</button><button class="btn btn-primary" name="action" value="confirm">Confirmar baixa</button></div>
 </form></details>{% endif %}</div>{% endfor %}
-{% if current_user.has_permission('admin') and item.status != 'CANCELLED' %}<details class="mb-3"><summary>Cancelar título</summary><p>O cancelamento exige estorno prévio de todas as baixas ativas.</p><form method="post" action="{{ url_for('financial_titles.cancel',row_id=item.id) }}" class="input-group">
+{% if current_user.has_permission('admin') and item.status != 'CANCELLED' %}<details class="mb-3"><summary>Cancelar título</summary><p>O cancelamento exige estorno prévio de todas as baixas ativas.</p><form method="post" action="{{ finance_url('financial_titles.cancel',row_id=item.id) }}" class="input-group">
 {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}<input class="form-control" name="reason" maxlength="1000" placeholder="Motivo do cancelamento" required><button class="btn btn-outline-danger">Cancelar título</button></form></details>{% endif %}
 <h3 class="h5">Histórico de baixas e estornos</h3>
 {% for settlement in item.settlements %}<div class="border rounded p-3 mb-3"><p>Baixa #{{ settlement.id }} · {{ settlement.operation_date }} · principal {{ settlement.principal }} {{ item.currency_code }} · conta #{{ settlement.account_id }} · movimento {{ settlement.cash_base }} {{ settlement.snapshot.base_currency }} · diferença cambial {{ settlement.snapshot.exchange_difference }}.</p>
 {% if settlement.reversal %}<p class="text-warning mb-0">Estornada em {{ settlement.reversal.operation_date }} — {{ settlement.reversal.reason }} · {{ settlement.reversal.created_by }}</p>
-{% elif current_user.has_permission('admin') %}<details><summary>Estornar baixa</summary><form method="post" action="{{ url_for('financial_settlements.reverse',row_id=settlement.id) }}" class="row g-2 mt-1">
+{% elif current_user.has_permission('admin') %}<details><summary>Estornar baixa</summary><form method="post" action="{{ finance_url('financial_settlements.reverse',row_id=settlement.id) }}" class="row g-2 mt-1">
 {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}<div class="col-md-3"><label class="form-label">Data do estorno</label><input class="form-control" type="date" name="operation_date" value="{{ values.get('operation_date',today) }}" required></div><div class="col-md-4"><label class="form-label">Referência única</label><input class="form-control" name="idempotency_key" maxlength="80" value="{{ values.get('idempotency_key','') }}" required></div><div class="col-md-5"><label class="form-label">Motivo</label><input class="form-control" name="reason" maxlength="1000" value="{{ values.get('reason','') }}" required></div><div class="col-12"><button class="btn btn-outline-danger">Confirmar estorno</button></div></form></details>{% endif %}
 <details class="mt-2"><summary>Valores e taxa registrados</summary><pre class="small text-wrap">{{ settlement.snapshot|tojson(indent=2) }}</pre></details></div>{% else %}<p class="text-muted">Nenhuma baixa.</p>{% endfor %}
 </div></div></section>{% endblock %}

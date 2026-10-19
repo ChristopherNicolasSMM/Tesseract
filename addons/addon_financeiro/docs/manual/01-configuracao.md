@@ -1,6 +1,7 @@
 # Financeiro — primeira parte
 
-Acesse **Configuração financeira** no menu, ou `/financeiro/`, como administrador.
+Acesse **Financeiro > Workspace financeiro > Configurações**, em `/financeiro/`, como administrador.
+Para a navegação integrada e o dashboard, veja [Workspace financeiro](06-workspace-dashboard.md).
 
 1. Cadastre uma moeda: código ASCII de três letras, nome e casas decimais (0–6).
    Exemplo de configuração deliberada: BRL, Real, 2. Não há moeda pré-cadastrada.

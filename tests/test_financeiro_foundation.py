@@ -168,7 +168,7 @@ def test_api_forms_plugin_loading_and_no_generic_mutation(app,client):
     assert client.post('/api/financeiro/policies',json={'organization_code':'A','currency_code':'BRL','rounding':'HALF_UP'}).status_code==201
     assert client.put('/api/financeiro/policies',json={}).status_code==405
     assert client.delete('/api/financeiro/currencies').status_code==405
-    assert client.get('/financeiro/').status_code==302
+    assert client.get('/financeiro/').status_code==200
     assert client.get('/financeiro/currencies/').status_code==200
     assert client.get('/financeiro/monetary-policies/').status_code==200
     page=client.get(f'/admin/organizations/{ident}').data

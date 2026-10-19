@@ -156,7 +156,19 @@ def test_addon_com_override_manual_continua_funcionando(app):
         # tipo "TX_AUTOMATION_RULES" (automation_rules do device_manager).
         from core.module_base import ModuleBase
         manual_modules = {name for name, module in app.module_manager._registered_modules.items()
-                          if type(module).get_transactions is not ModuleBase.get_transactions}
+                          if type(module).get_transactions is not ModuleBase.get_transactions and name!='reports'}
+        # Reports compõe explicitamente super().get_transactions() com suas emissões;
+        # sua entrada automática é intencional e tem teste em test_reports_menu.
         auto_codes = {t.code for t in Transaction.query.filter(Transaction.source_module.in_(manual_modules)).all()
                       if t.code.startswith("TX_AUTO_")}
         assert auto_codes == set()  # outros addons podem usar descoberta automática legítima
+
+
+def test_optional_declarative_workspace_uses_registered_route(app):
+    from core.module_discovery import manifest_workspaces
+    with app.app_context():
+        assert manifest_workspaces({},module_name='autodisco_smoketest')==[]
+        rows=manifest_workspaces({'workspaces':[{'code':'TX_TEST_WORKSPACE','label':'Workspace teste','endpoint':'autodisco_widgets.list'}]},module_name='autodisco_smoketest')
+        assert rows[0]['route']=='/autodisco/widgets/' and rows[0]['is_workspace']
+        assert rows[0]['parent_code']=='TX_GROUP_AUTO_AUTODISCO_SMOKETEST'
+        with pytest.raises(ValueError):manifest_workspaces({'workspaces':[{'code':'BAD','label':'Inválido','endpoint':'missing.endpoint'}]},module_name='autodisco_smoketest')

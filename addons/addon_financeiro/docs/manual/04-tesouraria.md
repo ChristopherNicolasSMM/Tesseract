@@ -104,3 +104,7 @@ execute SQL direto para corrigir valores. A entrega não executa operações em
 bancos externos, emissão fiscal, partidas dobradas ou apuração tributária.
 Fluxo de caixa, transferências entre contas, conciliação e relatórios são a
 terceira entrega; lançamentos de caixa já estão disponíveis para auditoria.
+
+
+A navegação atual está consolidada no [Workspace financeiro](06-workspace-dashboard.md).
+Os endereços operacionais descritos neste manual permanecem compatíveis.

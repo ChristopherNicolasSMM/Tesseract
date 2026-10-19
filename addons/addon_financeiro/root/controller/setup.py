@@ -1,5 +1,6 @@
 """Configuração manual administrativa; nenhum CRUD monetário genérico."""
-from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
+from flask import Blueprint, render_template, request, redirect, flash, abort
+from .workspace import finance_url as url_for
 from flask_login import login_required
 from core.permissions import permission_required
 from addons.addon_financeiro.root.model.monetary import Currency, MonetaryPolicy
@@ -16,6 +17,7 @@ def render_panel(kind, *, submitted=None, error=None, status=200):
     search = (request.args.get('q') or '').strip()
     page = max(1, request.args.get('page', 1, type=int))
     query = Currency.query.order_by(Currency.code) if kind == 'currencies' else MonetaryPolicy.query.order_by(MonetaryPolicy.organization_code)
+    if kind!='currencies' and request.args.get('organization_code'): query=query.filter(MonetaryPolicy.organization_code==request.args['organization_code'])
     if search:
         pattern = f'%{search}%'
         query = query.filter((Currency.code.ilike(pattern) | Currency.name.ilike(pattern)) if kind == 'currencies' else (MonetaryPolicy.organization_code.ilike(pattern) | MonetaryPolicy.currency_code.ilike(pattern)))
@@ -25,11 +27,11 @@ def render_panel(kind, *, submitted=None, error=None, status=200):
                            currencies=Currency.query.order_by(Currency.code).all(), organizations=list_organizations()), status
 
 
-@finance_setup_bp.get('/')
+@finance_setup_bp.get('/configuracao-legada')
 @login_required
 @permission_required('admin')
 def manage():
-    return redirect(url_for('currencies.list'))
+    return redirect(url_for('finance_workspace.index',tab='settings',view='currencies'))
 
 
 @currencies_bp.get('/', endpoint='list')

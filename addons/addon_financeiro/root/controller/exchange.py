@@ -1,6 +1,7 @@
 """Telas manuais com descoberta automática de transações pelo addon."""
 import uuid
-from flask import Blueprint, request, render_template, flash, redirect, url_for
+from flask import Blueprint, request, render_template, flash, redirect
+from .workspace import finance_url as url_for
 from flask_login import login_required, current_user
 from core.permissions import permission_required
 from core.admin_list_helpers import paginate
@@ -19,6 +20,7 @@ def panel(kind, submitted=None, error=None, preview=None, status=200):
     search = (request.args.get('q') or '').strip()
     page = max(1, request.args.get('page', 1, type=int))
     query = model.query.order_by(model.id.desc())
+    if request.args.get('organization_code'): query=query.filter(model.organization_code==request.args['organization_code'])
     if search:
         field = model.source if kind == 'rates' else model.reference
         query = query.filter(model.organization_code.ilike(f'%{search}%') | field.ilike(f'%{search}%'))

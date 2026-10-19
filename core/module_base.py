@@ -52,12 +52,13 @@ class ModuleBase(ABC):
         "group": "..."}. `permission_required` é opcional — None
         significa visível a qualquer usuário autenticado.
         """
-        from core.module_discovery import auto_transactions_from_models
+        from core.module_discovery import auto_transactions_from_models, manifest_workspaces
 
         register_models = getattr(self, "register_models", None)
         if not callable(register_models):
             return []
-        return auto_transactions_from_models(register_models(), module_name=self.name, module_label=self.label)
+        return (auto_transactions_from_models(register_models(), module_name=self.name, module_label=self.label)
+                + manifest_workspaces(self.manifest, module_name=self.name))
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} name={self.name!r} v{self.version}>"

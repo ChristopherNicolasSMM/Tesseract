@@ -306,3 +306,24 @@ def auto_transactions_from_models(models: list[type], *, module_name: str, modul
         entry["parent_code"] = folder_code
 
     return [folder_entry] + leaf_entries
+
+
+def manifest_workspaces(manifest: dict, *, module_name: str) -> list[dict]:
+    """Workspaces declarativos opcionais; preserva descoberta de models e rotas."""
+    workspaces = manifest.get('workspaces', [])
+    if not isinstance(workspaces, list):
+        raise ValueError('workspaces deve ser lista de configurações.')
+    result = []
+    for item in workspaces:
+        if not isinstance(item, dict) or set(item) - {'code','label','endpoint','icon','permission_required'}:
+            raise ValueError('Configuração de workspace inválida.')
+        if not all(isinstance(item.get(k), str) and item[k].strip() for k in ('code','label','endpoint')):
+            raise ValueError('Workspace exige código, label e endpoint.')
+        route = find_route_for_endpoint(item['endpoint'])
+        if not route:
+            raise ValueError('Endpoint do workspace não registrado: ' + item['endpoint'])
+        result.append({'code':item['code'],'label':item['label'],'route':route,
+            'parent_code':'TX_GROUP_AUTO_' + _slugify_code(module_name),
+            'icon':item.get('icon','bi-layout-text-window-reverse'),
+            'permission_required':item.get('permission_required'),'is_workspace':True})
+    return result

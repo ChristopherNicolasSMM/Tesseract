@@ -85,3 +85,8 @@ filtra data da linha bancária; estados apresentados são atuais. Moedas origina
 são identificadas e não agregadas. Valores base pertencem à organização.
 O Financeiro funciona sem Reports; nenhum modelo financeiro é publicado
 silenciosamente. As consultas não alteram títulos, baixas, estoque ou extratos.
+
+
+A navegação atual utiliza as áreas Caixa e bancos e Conciliação do
+[Workspace financeiro](06-workspace-dashboard.md). Relatórios são acessados
+por botões contextuais; seus modelos continuam mantidos no Reports.

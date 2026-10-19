@@ -1,7 +1,7 @@
 {
   "name": "financeiro",
   "label": "Financeiro",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "type": "addon",
   "table_prefix": "financeiro",
   "tesseract_min_version": "1.0.0",
@@ -24,6 +24,27 @@
     "pt_BR"
   ],
   "deprecated_transactions": [
-    "FIN_SETUP"
+    "FIN_SETUP",
+    "TX_AUTO_CURRENCIES",
+    "TX_AUTO_MONETARY_POLICIES",
+    "TX_AUTO_EXCHANGE_RATES",
+    "TX_AUTO_MONETARY_CONVERSIONS",
+    "TX_AUTO_POLICY_VERSIONS",
+    "TX_AUTO_FINANCIAL_ACCOUNTS",
+    "TX_AUTO_FINANCIAL_CATEGORIES",
+    "TX_AUTO_FINANCIAL_COST_CENTERS",
+    "TX_AUTO_FINANCIAL_TITLES",
+    "TX_AUTO_FINANCIAL_SETTLEMENTS",
+    "TX_AUTO_FINANCIAL_MOVEMENTS",
+    "TX_AUTO_FINANCIAL_TRANSFERS",
+    "TX_AUTO_FINANCIAL_RECONCILIATIONS"
+  ],
+  "workspaces": [
+    {
+      "code": "TX_WORKSPACE_FINANCEIRO",
+      "label": "Workspace financeiro",
+      "endpoint": "finance_workspace.index",
+      "icon": "bi-wallet2"
+    }
   ]
 }

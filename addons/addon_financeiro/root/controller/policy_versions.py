@@ -1,5 +1,6 @@
 """Cadastro manual de revisões e descoberta padrão de menu/permissão."""
-from flask import Blueprint, request, render_template, flash, redirect, url_for
+from flask import Blueprint, request, render_template, flash, redirect
+from .workspace import finance_url as url_for
 from flask_login import login_required, current_user
 from core.permissions import permission_required
 from core.admin_list_helpers import paginate
@@ -15,6 +16,7 @@ def render_panel(*, submitted=None, error=None, status=200):
     search = (request.args.get('q') or '').strip()
     page = max(1, request.args.get('page', 1, type=int))
     query = MonetaryPolicyVersion.query.join(MonetaryPolicy).order_by(MonetaryPolicyVersion.id.desc())
+    if request.args.get('organization_code'): query=query.filter(MonetaryPolicy.organization_code==request.args['organization_code'])
     if search:
         query = query.filter(MonetaryPolicy.organization_code.ilike(f'%{search}%') |
                              MonetaryPolicyVersion.reason.ilike(f'%{search}%'))

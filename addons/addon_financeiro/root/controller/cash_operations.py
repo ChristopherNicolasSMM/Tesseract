@@ -1,7 +1,7 @@
 """Operação manual no padrão de descoberta automática do Financeiro."""
-from datetime import date
 from uuid import uuid4
-from flask import Blueprint, request, render_template, redirect, url_for, flash, current_app
+from flask import Blueprint, request, render_template, redirect, flash, current_app
+from .workspace import finance_url as url_for, today_date
 from flask_login import login_required, current_user
 from core.permissions import permission_required
 from core.admin_list_helpers import paginate
@@ -16,7 +16,7 @@ flow_bp=Blueprint('financial_cash_flow',__name__,url_prefix='/financeiro/fluxo-c
 
 
 def selection():
-    today=date.today()
+    today=today_date()
     value={'organization_code':request.args.get('organization_code',''),'date_from':request.args.get('date_from',today.replace(day=1).isoformat()),
         'date_to':request.args.get('date_to',today.isoformat())}
     if request.args.get('account_id'):
@@ -38,6 +38,9 @@ def panel(mode,*,error=None,status=200,preview=None,values=None):
         model=Transfer if mode=='transfers' else Statement
         query=model.query
         if code: query=query.filter_by(organization_code=code)
+        if mode=='transfers':
+            try: query=query.filter(Transfer.operation_date.between(flow.day(selected['date_from']),flow.day(selected['date_to'])))
+            except ValueError as exc: query=query.filter(Transfer.id<0);error,status=str(exc),422
         if mode=='reconciliation' and selected.get('account_id'): query=query.filter_by(account_id=selected['account_id'])
         rows,total,pages=paginate(query.order_by(model.id.desc()),page)
         items=[operations.transfer_detail(row) if mode=='transfers' else row.to_dict() for row in rows]
