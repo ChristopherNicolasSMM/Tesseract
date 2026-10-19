@@ -12,6 +12,7 @@ from . import report_template_service as reports
 from .report_layout_service import ReportError
 
 CATALOG = {
+    'financeiro-dre': ('finance_dre','reports.library.finance_dre'),
     'financeiro-fluxo-caixa': ('finance_cash_flow', 'reports.library.finance_cash_flow'),
     'financeiro-titulos': ('finance_titles', 'reports.library.finance_titles'),
     'financeiro-liquidacoes': ('finance_settlements', 'reports.library.finance_settlements'),
@@ -34,6 +35,7 @@ PERMISSIONS = {
     'yeast': ('yeast_bank_items.list', 'yeast_strains.list', 'yeast_containers.list'),
     'starters': ('yeast_bank_events.list', 'yeast_bank_items.list', 'yeast_strains.list', 'yeast_containers.list'),
 }
+PERMISSIONS['finance_dre'] = ('financial_results.list',)
 PERMISSIONS['finance_cash_flow'] = ('financial_movements.list','financial_titles.list')
 PERMISSIONS['finance_titles'] = ('financial_titles.list',)
 PERMISSIONS['finance_settlements'] = ('financial_settlements.list',)
@@ -135,7 +137,7 @@ def recipe_data(ident):
 
 def data(name, options, action='detail'):
     source=authorize(name, action)
-    allowed={'organization_code','date_from','date_to','account_id'} if source.startswith('finance_') else {'organization_code','material_id'} if source=='stock_org' else {'recipe_id'} if source=='recipe' else {'session_id','plant_id'} if source=='session' else {'days','reference_date'} if source=='expiry' else set()
+    allowed={'organization_code','date_from','date_to','cost_center_id','group_code'} if source=='finance_dre' else {'organization_code','date_from','date_to','account_id'} if source.startswith('finance_') else {'organization_code','material_id'} if source=='stock_org' else {'recipe_id'} if source=='recipe' else {'session_id','plant_id'} if source=='session' else {'days','reference_date'} if source=='expiry' else set()
     if set(options)-allowed:
         raise ReportError('reports.error.input')
     if source in ('recipe','session') and (set(options)!=allowed or any(type(v) is not int or v<1 for v in options.values())):

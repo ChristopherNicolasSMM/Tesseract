@@ -6,6 +6,7 @@ from . import report_template_service as reports
 from .report_layout_service import ReportError
 
 SCREENS = {
+    'financeiro-dre': ('financeiro-dre','DRE gerencial','bi-table','financeiro',None),
     'financeiro-fluxo-caixa': ('financeiro-fluxo-caixa','Fluxo de caixa','bi-file-earmark-text','financeiro',None),
     'financeiro-titulos': ('financeiro-titulos','Títulos a pagar e receber','bi-file-earmark-text','financeiro',None),
     'financeiro-liquidacoes': ('financeiro-liquidacoes','Pagamentos e recebimentos','bi-file-earmark-text','financeiro',None),
@@ -20,6 +21,7 @@ SCREENS = {
     'estoque': ('estoque-organizacional', 'Estoque atual', 'bi-box-seam', 'estoque', None),
 }
 FILTERS = {
+    'financeiro-dre': ('date_from','date_to'),
     'financeiro-fluxo-caixa': ('date_from','date_to'),
     'financeiro-titulos': ('date_from','date_to'),
     'financeiro-liquidacoes': ('date_from','date_to'),

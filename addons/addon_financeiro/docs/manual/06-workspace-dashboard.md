@@ -70,5 +70,7 @@ a relatórios que não os suportam. O botão identifica o escopo organizacional.
 A emissão possui retorno ao Financeiro e continua exigindo modelo publicado.
 Sem Reports ativo, o workspace continua funcionando e não mostra esse botão.
 
-DRE e resultados entrarão nas próximas entregas, com competência e classificação
-próprias. Esta entrega não cria classificação contábil presumida para o legado.
+DRE e resultados está disponível com competência e classificação próprias; veja
+[Competência e DRE](07-competencia-dre.md). Dashboard de resultados, integração
+de custos e fechamento permanecem na próxima entrega. Não há classificação
+contábil presumida para o legado.

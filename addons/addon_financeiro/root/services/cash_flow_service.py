@@ -123,6 +123,11 @@ def reconciliation_data(options):
 @exact
 def report_data(kind,options):
     """Contrato público somente DTOs, strings monetárias e limites explícitos."""
+    if kind=='dre':
+        from .accrual_service import statement
+        value=statement(options)
+        if len(value['items'])>2000:raise ValueError('Relatório excede 2000 linhas.')
+        return value
     org,start,end,account_id,currency=selection(options)
     if kind=='cash_flow': value=cash_flow(options)
     elif kind=='reconciliation': value=reconciliation_data(options)

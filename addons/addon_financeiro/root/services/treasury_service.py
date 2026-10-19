@@ -358,6 +358,8 @@ def reverse(settlement_id, data, *, actor):
     if Reversal.query.filter_by(settlement_id=settlement_id).first(): raise ValueError('Baixa já estornada.')
     resolve_organization_by_code(title.organization_code)
     if date_value < settlement.operation_date: raise ValueError('Estorno anterior à baixa original.')
+    from .accrual_service import assert_source_unrecognized
+    assert_source_unrecognized(f'settlement:{settlement.id}:',prefix=True)
     account = reserve(Account, settlement.account_id)
     row = Reversal(settlement_id=settlement_id, organization_code=title.organization_code, operation_date=date_value,
         reason=data['reason'], idempotency_key=data['idempotency_key'], created_by=actor)
@@ -380,6 +382,8 @@ def cancel_title(title_id, data, *, actor):
     resolve_organization_by_code(title.organization_code)
     if any(active_settlements(item.id) for item in Installment.query.filter_by(title_id=title_id).all()):
         raise ValueError('Estorne as baixas ativas antes de cancelar o título.')
+    from .accrual_service import assert_source_unrecognized
+    assert_source_unrecognized(f'title:{title_id}')
     row = Cancellation(title_id=title_id, reason=reason, created_by=actor); db.session.add(row); db.session.flush()
     return Result(True, data=row.to_dict(), code=201)
 

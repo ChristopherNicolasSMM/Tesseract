@@ -1,0 +1,231 @@
+{
+  "layout": {
+    "schema_version": 1,
+    "page": {
+      "format": "A4",
+      "orientation": "portrait",
+      "margin_top": 12,
+      "margin_right": 12,
+      "margin_bottom": 12,
+      "margin_left": 12,
+      "number_pages": true
+    },
+    "body": [
+      {
+        "id": "title",
+        "type": "text",
+        "props": {
+          "text": "DRE gerencial parcial — por competência",
+          "level": "title"
+        }
+      },
+      {
+        "id": "organization_name",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "organization_name"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "currency_code",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "currency_code"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "date_from",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "date_from"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "date_to",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "date_to"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "status_label",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "status_label"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "basis",
+        "type": "text",
+        "props": {
+          "binding": {
+            "source": "data",
+            "path": [
+              "basis"
+            ]
+          },
+          "level": "body"
+        }
+      },
+      {
+        "id": "items",
+        "type": "table",
+        "props": {
+          "collection": {
+            "source": "data",
+            "path": [
+              "items"
+            ]
+          },
+          "columns": [
+            {
+              "label": "Competência",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "period"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Composição",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "label"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            },
+            {
+              "label": "Valor na moeda base",
+              "binding": {
+                "source": "item",
+                "path": [
+                  "amount"
+                ]
+              },
+              "format": {
+                "kind": "raw",
+                "null_text": "—"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "data_schema": {
+    "type": "object",
+    "properties": {
+      "organization_code": {
+        "type": "string"
+      },
+      "organization_name": {
+        "type": "string"
+      },
+      "currency_code": {
+        "type": "string"
+      },
+      "date_from": {
+        "type": "string"
+      },
+      "date_to": {
+        "type": "string"
+      },
+      "status_label": {
+        "type": "string"
+      },
+      "basis": {
+        "type": "string"
+      },
+      "contract": {
+        "type": "string",
+        "const": "financeiro.dre.v1"
+      },
+      "items": {
+        "type": "array",
+        "maxItems": 2000,
+        "items": {
+          "type": "object",
+          "properties": {
+            "period": {
+              "type": "string"
+            },
+            "label": {
+              "type": "string"
+            },
+            "amount": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "period",
+            "label",
+            "amount"
+          ]
+        }
+      }
+    },
+    "required": [
+      "organization_code",
+      "organization_name",
+      "currency_code",
+      "date_from",
+      "date_to",
+      "status_label",
+      "basis",
+      "contract",
+      "items"
+    ]
+  },
+  "sample_data": {
+    "organization_code": "Demonstração",
+    "organization_name": "Demonstração",
+    "currency_code": "BRL",
+    "date_from": "2026-10-01",
+    "date_to": "2026-10-31",
+    "status_label": "DRE gerencial parcial",
+    "basis": "Competências explícitas. Sem integração automática de custos ou fechamento.",
+    "contract": "financeiro.dre.v1",
+    "items": []
+  },
+  "parameters": []
+}

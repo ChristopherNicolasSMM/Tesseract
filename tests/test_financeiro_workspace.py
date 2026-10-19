@@ -47,7 +47,7 @@ def test_views_render_same_shell_without_iframes(client,app,key):
     html=response.data.decode()
     assert 'id="finance-workspace"' in html and 'financeiro_workspace.js' in html
     assert 'aria-label="Áreas financeiras"' in html and '<iframe' not in html
-    assert 'DRE e resultados' not in html
+    assert 'DRE e resultados' in html
 
 
 def test_context_survives_navigation_posts_errors_and_organization_change(client,app):

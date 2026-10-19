@@ -211,5 +211,6 @@
   "reports.library.finance_cash_flow": "Fluxo de caixa",
   "reports.library.finance_titles": "Títulos a pagar e receber",
   "reports.library.finance_settlements": "Pagamentos e recebimentos",
-  "reports.library.finance_reconciliation": "Conciliação bancária"
+  "reports.library.finance_reconciliation": "Conciliação bancária",
+  "reports.library.finance_dre": "DRE gerencial por competência"
 }

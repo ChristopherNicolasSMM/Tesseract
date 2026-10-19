@@ -1,7 +1,7 @@
 {
   "name": "financeiro",
   "label": "Financeiro",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "type": "addon",
   "table_prefix": "financeiro",
   "tesseract_min_version": "1.0.0",
@@ -16,7 +16,9 @@
     "financial_settlements",
     "financial_cash_flow",
     "financial_transfers",
-    "bank_reconciliation"
+    "bank_reconciliation",
+    "financial_accrual",
+    "financial_dre"
   ],
   "features": [],
   "default_locale": "pt_BR",
@@ -37,7 +39,8 @@
     "TX_AUTO_FINANCIAL_SETTLEMENTS",
     "TX_AUTO_FINANCIAL_MOVEMENTS",
     "TX_AUTO_FINANCIAL_TRANSFERS",
-    "TX_AUTO_FINANCIAL_RECONCILIATIONS"
+    "TX_AUTO_FINANCIAL_RECONCILIATIONS",
+    "TX_AUTO_FINANCIAL_RESULTS"
   ],
   "workspaces": [
     {
