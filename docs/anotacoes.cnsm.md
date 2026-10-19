@@ -97,5 +97,15 @@ client.post("/api/auth/login", json={"username": "operador_reconhecimento", "pas
 
 # Validar 
 
+---
 
----> Commit ponto BKP - Validado até aqui..... 
+
+
+
+
+
+Continuam no radar, em frentes separadas:
+- YeastBank físico: unidade de cultura, genealogia, consumo, propagação, descarte, estorno e custos.
+- Recebimento parcial: quantidades restantes, estados do pedido e proteção contra repetição.
+- Compatibilidade: reprodução das dependências fixadas, Windows e PostgreSQL.
+- Automação/hardware: identificação física dos eventos e execução PID, com ensaio real separado dos testes de software.
