@@ -599,3 +599,9 @@ ambiguidades precisam de saneamento. Conversões permanecem no material.
 Cadastros globais/avançados continuam disponíveis. Não há migration, baixa de
 estoque ou mudança de custos dos lotes. YeastBank e estoque serão auditados
 depois da validação local deste pacote.
+
+## Aquecimento, HLT e sparge — entrega 1
+
+Fontes principais/auxiliares e sensor principal por tanque, widget Aquecimento no
+dashboard e configuração na aba Planta. Planejamento de água quente/lavagem, sem
+novos comandos físicos nesta entrega. Consulte o [contrato e roteiro](../../../../../../docs/manual/08-aquecimento-hlt-sparge.md).

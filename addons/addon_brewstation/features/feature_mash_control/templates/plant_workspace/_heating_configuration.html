@@ -1,0 +1,45 @@
+{% from '_reference_combo.html' import reference %}
+<div class="card border-secondary mt-3"><div class="card-body">
+<h5 class="card-title"><i class="bi bi-fire"></i> Aquecimento e água de lavagem</h5>
+<p class="text-muted small">Configuração de preparação. Não envia comandos físicos nem liga fontes automaticamente. HLT é o tanque aberto de água quente para lavagem/sparge.</p>
+{% for vessel in vessels %}
+{% set cfg = heating_configs[vessel.id] %}
+<details id="heating-{{ vessel.id }}" class="border rounded p-3 mb-3">
+<summary><strong>{{ vessel.label_text }}</strong> · {{ heating_usages[cfg.usage] }} · {{ cfg.sources|length }} fonte(s)</summary>
+{% if current_user.has_permission('brew_plant_vessels.update') %}
+<form class="pw-edit-form row g-2 mt-2" method="post" action="{{ url_for('heating_workspace.save', plant_id=plant.id, vessel_id=vessel.id, action='profile') }}">
+<input type="hidden" name="expected_version" value="{{ vessel.heating_version }}">
+<div class="col-md-4"><label class="form-label" for="heatingUsage{{ vessel.id }}">Uso do aquecimento</label><select class="form-select" name="usage" id="heatingUsage{{ vessel.id }}">{% for key, text in heating_usages.items() %}<option value="{{ key }}" {{ 'selected' if cfg.usage == key else '' }}>{{ text }}</option>{% endfor %}</select></div>
+<div class="col-md-4"><label class="form-label" for="heatingSensor{{ vessel.id }}Search">Sensor principal de temperatura</label>
+{% set selected = heating_sensors[vessel.id]|selectattr('id','equalto',cfg.primary_sensor_mapping_id)|first %}
+{{ reference('heatingSensor' ~ vessel.id, 'brew_plant_mappings', name='primary_sensor_mapping_id', value=cfg.primary_sensor_mapping_id, text=(selected.label_text or selected.role_key) if selected else '', ids=heating_sensors[vessel.id]|map(attribute='id')|list, placeholder='Buscar sensor deste tanque; vazio mantém legado') }}
+</div>
+<div class="col-md-2"><label class="form-label" for="heatingTarget{{ vessel.id }}">Alvo planejado (°C)</label><input class="form-control" id="heatingTarget{{ vessel.id }}" type="number" step="any" min="0" max="110" name="target_temp" value="{{ cfg.target_temp if cfg.target_temp is not none else '' }}"></div>
+<div class="col-md-2"><label class="form-label" for="heatingVolume{{ vessel.id }}">Volume planejado (L)</label><input class="form-control" id="heatingVolume{{ vessel.id }}" type="number" step="any" min="0" max="100000" name="planned_volume_liters" value="{{ cfg.planned_volume_liters if cfg.planned_volume_liters is not none else '' }}"></div>
+<div class="col-12 small text-muted">Volume planejado não é medição de nível nem vazão. Sem seleção explícita, usa o sensor legado canônico/único; múltiplos sensores exigem escolha. Durante sessão ativa/pausada a configuração fica bloqueada.</div>
+<div class="col-12"><button type="submit" class="btn btn-primary">Salvar preparação do tanque</button></div>
+</form>
+{% else %}<p class="mt-2">{{ heating_usages[cfg.usage] }} · alvo planejado: {{ cfg.target_temp if cfg.target_temp is not none else '—' }} °C · volume planejado: {{ cfg.planned_volume_liters if cfg.planned_volume_liters is not none else '—' }} L</p>{% endif %}
+{% for source in cfg.sources %}
+<details class="border rounded p-2 mt-3"><summary>{{ source.name }} · {{ heating_types[source.type] }} · {{ heating_roles[source.role] }} · {{ 'Disponível na configuração' if source.enabled else 'Desabilitada' }}</summary>
+{% if current_user.has_permission('brew_plant_vessels.update') %}{% include 'plant_workspace/_heating_source_form.html' %}
+<form class="pw-edit-form mt-2" method="post" action="{{ url_for('heating_workspace.save', plant_id=plant.id, vessel_id=vessel.id, action='remove-source') }}"><input type="hidden" name="expected_version" value="{{ vessel.heating_version }}"><input type="hidden" name="source_id" value="{{ source.id }}"><button type="submit" class="btn btn-sm btn-outline-danger">Remover associação da fonte</button></form>
+{% else %}<p>{{ heating_modes[source.mode] }} · sem confirmação de funcionamento</p>{% endif %}
+</details>
+{% endfor %}
+{% if current_user.has_permission('brew_plant_vessels.update') %}
+<details class="mt-3"><summary>Adicionar fonte principal/auxiliar</summary>{% set source = none %}{% include 'plant_workspace/_heating_source_form.html' %}</details>
+{% endif %}
+<p class="small text-muted mt-3 mb-0">Proteções de chama, vazamento de gás, nível mínimo, fluxo e sobretemperatura independente: não configuradas / sem confirmação nesta etapa. Gás com piloto sem supervisão permanece manual; o widget não abre solenoide.</p>
+</details>
+{% else %}<p class="text-muted">Cadastre um tanque, inclusive Água quente (HLT), para preparar o aquecimento.</p>{% endfor %}
+</div></div>
+
+<script>
+(function () {
+  const id = window.location.hash.slice(1);
+  if (!/^heating-\d+$/.test(id)) return;
+  const target = document.getElementById(id);
+  if (target) { target.open = true; target.scrollIntoView({block: 'start'}); }
+})();
+</script>

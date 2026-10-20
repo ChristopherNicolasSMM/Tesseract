@@ -617,10 +617,12 @@ def tab_plant(plant_id: int):
             .all()
         )
     vessels_by_id = {v.id: v for v in vessels}
+    from ..services.heating_configuration_service import workspace_context
 
     return render_template(
         "plant_workspace/_tab_plant.html",
         plant=plant, vessels=vessels, mappings=mappings, vessels_by_id=vessels_by_id,
+        **workspace_context(vessels),
         device_functions=list_functions_for_mapping(),
         vessel_trash=BrewPlantVessel.query.filter_by(plant_id=plant_id, is_deleted=True).order_by(BrewPlantVessel.id).paginate(page=max(1, request.args.get("vessels_trash_page", 1, type=int) or 1), per_page=20, error_out=False),
         mapping_trash=BrewPlantMapping.query.join(BrewPlantVessel).filter(BrewPlantVessel.plant_id == plant_id, BrewPlantMapping.is_deleted.is_(True)).order_by(BrewPlantMapping.id).paginate(page=max(1, request.args.get("mappings_trash_page", 1, type=int) or 1), per_page=20, error_out=False),

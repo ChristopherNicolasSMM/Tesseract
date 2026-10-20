@@ -237,11 +237,15 @@ def update_config(widget_id: int):
     if not widget or widget.is_deleted:
         return jsonify({"ok": False, "error": "Widget não encontrado."}), 404
     payload = request.get_json(silent=True) or {}
-    svc.update_widget_config(
-        widget, label_text=payload.get("label_text"), config_json=payload.get("config_json"),
-        vessel_id=payload.get("vessel_id"), device_function_name=payload.get("device_function_name"),
-        clear_reference=bool(payload.get("clear_reference")),
-    )
+    try:
+        svc.update_widget_config(
+            widget, label_text=payload.get("label_text"), config_json=payload.get("config_json"),
+            vessel_id=payload.get("vessel_id"), device_function_name=payload.get("device_function_name"),
+            clear_reference=bool(payload.get("clear_reference")) or (widget.widget_type == "heating" and "vessel_id" in payload and payload["vessel_id"] is None),
+        )
+    except svc.DashboardEditorError as exc:
+        db.session.rollback()
+        return jsonify(ok=False, error=str(exc)), 400
     return jsonify({"ok": True})
 
 

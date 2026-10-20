@@ -6,9 +6,10 @@ Tanque de uma planta (mash tun, boil kettle, fermenter...).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, display_field, enum_field, weak_ref
+from annotations import label, plural, required, display_field, enum_field, weak_ref, readonly_fields
 
 
+@readonly_fields(["heating_config_json", "heating_version"])
 @label("Tanque")
 @plural("brew_plant_vessels")
 @enum_field("vessel_type", options=["mash_tun", "boil_kettle", "hlt", "fermenter", "bright_tank"])
@@ -28,6 +29,10 @@ class BrewPlantVessel(db.Model):
     label_text = db.Column(db.String(100), nullable=False)  # "label" renomeado (colide com @label)
     position_order = db.Column(db.Integer, default=1, nullable=True)
     description = db.Column(db.Text, nullable=True)
+
+    # Typed/validated by heating_configuration_service, not a second device registry.
+    heating_config_json = db.Column(db.JSON, nullable=True)
+    heating_version = db.Column(db.Integer, nullable=False, default=0, server_default="0")
 
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)

@@ -445,3 +445,9 @@ Detalhes, comandos e roteiro estão em
 `docs/patches/workspace-consolidacao-receita-planta-brewfather.md`.
 Sem migration. A proteção descrita é dos caminhos integrados; cadastros
 avançados preservados continuam com suas regras próprias.
+
+## Aquecimento, HLT e sparge — entrega 1
+
+Fontes principais/auxiliares e sensor principal por tanque, widget Aquecimento no
+dashboard e configuração na aba Planta. Planejamento de água quente/lavagem, sem
+novos comandos físicos nesta entrega. Consulte o [contrato e roteiro](../../../../../../docs/technical/08-aquecimento-hlt-sparge.md).

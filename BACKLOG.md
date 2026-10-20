@@ -5854,4 +5854,25 @@ Chromium de 100 linhas preservadas e paginação conferidos visualmente.
 
  
 
- 
+
+## Mash Control — expansão de aquecimento (2026-10-20)
+
+Plano registrado antes da implementação em `docs/patches/mash-control-aquecimento-expansao.md`.
+
+- [x] Entrega 1: fontes principais/auxiliares, sensor principal explícito,
+  widget Aquecimento, configuração no workspace, preparação HLT e água de lavagem/sparge.
+- [ ] Entrega 2: regras persistentes de solicitação, demanda > X% por tempo mínimo,
+  distância do alvo, histerese e respostas do operador; não depende do navegador.
+- [ ] Entrega 3: telemetria real de demanda/potência e estados confirmados, arbitragem e
+  integração com controlador local; gás automático condicionado a proteções adequadas.
+- Fogareiro atual: GLP de botijão, piloto sem supervisão; somente representação manual/
+  solicitação nesta fase. Sensores de gás/chama/nível/fluxo ficam previstos, não simulados.
+- HLT é tanque aberto de água quente para preparação/lavagem; não inclui vapor/pressurização.
+
+- [ ] Pendência preexistente de regressão: `test_workspace_lote_mostra_pendencias_custo_registrado_e_envases_corretos`
+  falha esperando “Estimativa incompleta”; reproduzida também no commit base `0c610ac`,
+  sem a expansão de aquecimento. Revisar separadamente o resumo de custos do lote.
+
+- [ ] Revisar regressões preexistentes de preparação/envase/estorno do workspace,
+  incluindo fixtures que não fornecem organização exigida pelo estoque atual.
+  Falhas reproduzidas no commit base `0c610ac`; não alterar o fluxo de estoque nesta entrega.

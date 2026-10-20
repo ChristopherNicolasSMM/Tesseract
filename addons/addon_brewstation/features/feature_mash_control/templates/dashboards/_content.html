@@ -99,6 +99,7 @@
         ('chart', 'bi-graph-up', 'Gráfico'),
         ('toggle', 'bi-toggle-on', 'Botão'),
         ('vessel', 'bi-cup-straw', 'Tanque'),
+        ('heating', 'bi-fire', 'Aquecimento'),
         ('step_card', 'bi-list-check', 'Etapa'),
         ('alarm_list', 'bi-bell', 'Alarme'),
         ('text', 'bi-fonts', 'Texto'),
@@ -134,7 +135,7 @@
            style="position:absolute; left:{{ w.x }}px; top:{{ w.y }}px; width:{{ w.width }}px; height:{{ w.height }}px;
                   transform:rotate({{ w.rotation or 0 }}deg); z-index:{{ (w.z_index or 1) + 1 }};">
 
-        {% set needs_vessel = w.widget_type == 'vessel' and not w.vessel_id %}
+        {% set needs_vessel = w.widget_type in ('vessel', 'heating') and not w.vessel_id %}
       {% set needs_function = w.widget_type in ('toggle', 'gauge', 'digital', 'chart') and not w.device_function_name %}
       {% if needs_vessel or needs_function %}
       <span class="badge bg-secondary position-absolute top-0 start-0 m-1" style="z-index:10;">
@@ -201,6 +202,12 @@
           <div class="db-vessel-roles d-flex flex-wrap gap-1 justify-content-center mt-1"></div>
         </div>
 
+      {% elif w.widget_type == 'heating' %}
+        <div class="db-status-card h-100 d-flex flex-column">
+          <div class="db-status-header"><i class="bi bi-fire"></i> {{ w.label_text or 'Aquecimento' }}</div>
+          <div class="db-heating-body p-2 flex-grow-1" style="overflow:auto;" aria-live="polite">Selecione o tanque no editor para acompanhar suas fontes.</div>
+          {% if current_user.has_permission('brew_plant_vessels.update') %}<a class="db-heating-config db-no-drag btn btn-sm btn-outline-secondary" href="{{ url_for('plant_workspace.shell', plant_id=layout.plant_id, tab='plant') if layout.plant_id else '#' }}">Configurar fontes e sensores na Planta</a>{% endif %}
+        </div>
       {% elif w.widget_type == 'toggle' %}
         <button type="button" class="db-toggle btn btn-outline-light w-100 h-100 d-flex flex-column align-items-center justify-content-center">
           <i class="bi {{ (w.config_json or {}).get('icon', 'bi-power') }} fs-4"></i>

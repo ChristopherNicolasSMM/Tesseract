@@ -104,7 +104,18 @@ def get_layout_snapshot(layout: DashboardLayout, session_id_override: Optional[i
     widgets_out = {}
     for widget in DashboardWidget.query.filter_by(layout_id=layout.id, is_deleted=False, is_visible=True).all():
         if widget.widget_type == "vessel" and widget.vessel_id:
-            widgets_out[widget.id] = {"roles": _resolve_vessel_snapshot(widget.vessel_id)}
+            from .heating_configuration_service import primary_sensor
+            vessel = db.session.get(BrewPlantVessel, widget.vessel_id)
+            selected = primary_sensor(vessel) if vessel and not vessel.is_deleted else None
+            widgets_out[widget.id] = {"roles": _resolve_vessel_snapshot(widget.vessel_id),
+                                      "primary_temperature_role_key": selected.role_key if selected else None}
+        elif widget.widget_type == "heating":
+            from .heating_configuration_service import scoped_vessel, snapshot, HeatingError
+            try:
+                vessel = scoped_vessel(layout.plant_id, widget.vessel_id)
+                widgets_out[widget.id] = snapshot(vessel, active_session)
+            except HeatingError as exc:
+                widgets_out[widget.id] = {"error": str(exc), "can_actuate": False}
         elif widget.widget_type in ("toggle", "gauge", "digital"):
             widgets_out[widget.id] = _resolve_value_and_meta(widget.device_function_name)
         elif widget.widget_type == "alarm_list":
@@ -364,6 +375,8 @@ def set_widget_value(widget: DashboardWidget, value, *, role_key: Optional[str] 
     vasilhame está sendo acionado — resolvido via BrewPlantMapping,
     igual a leitura.
     """
+    if widget.widget_type == "heating":
+        return {"ok": False, "mqtt_connected": None, "error": "Widget Aquecimento é de preparação e acompanhamento; não envia comandos físicos."}
     function_name = widget.device_function_name
     action_label = widget.label_text or "Widget"
     if widget.widget_type == "vessel" and widget.vessel_id:
@@ -512,7 +525,7 @@ def get_session_readings(session_id: int, function_name: str, window_minutes: in
 # ── arrastar/redimensionar, botão direito (configurações/remover), pipes  ──
 
 _VALID_WIDGET_TYPES = (
-    "vessel", "toggle", "gauge", "digital", "alarm_list", "chart", "step_card", "text", "image",
+    "heating", "vessel", "toggle", "gauge", "digital", "alarm_list", "chart", "step_card", "text", "image",
     # Novos (conversa — painel de status + log de comunicação): ao
     # contrário dos demais, não têm vessel_id/device_function_name —
     # são plant-wide (leem tudo da Planta do layout), resolvidos por
@@ -553,6 +566,11 @@ def update_widget_config(widget: DashboardWidget, *, label_text=None, config_jso
     usuário troca o tipo de referência). A tela de CRUD separada
     (`/dashboard-widgets/<id>`) continua existindo e funcionando igual,
     pra edição em lote/tabular."""
+    if widget.widget_type == "heating":
+        if not clear_reference and vessel_id is not None:
+            _validate_heating_vessel(widget.layout, vessel_id)
+        if device_function_name is not None:
+            raise DashboardEditorError("Aquecimento se vincula ao tanque, não diretamente a uma função.")
     if label_text is not None:
         widget.label_text = label_text
     if config_json is not None:
@@ -577,6 +595,8 @@ def create_widget_from_editor(layout: DashboardLayout, *, widget_type: str, labe
     if widget_type not in _VALID_WIDGET_TYPES:
         raise DashboardEditorError(f"Tipo de widget inválido: {widget_type}")
 
+    if widget_type == "heating" and vessel_id is not None:
+        _validate_heating_vessel(layout, vessel_id)
     max_z = db.session.query(db.func.max(DashboardWidget.z_index)).filter_by(
         layout_id=layout.id, is_deleted=False,
     ).scalar() or 0
@@ -584,7 +604,7 @@ def create_widget_from_editor(layout: DashboardLayout, *, widget_type: str, labe
     widget = DashboardWidget(
         layout_id=layout.id, widget_type=widget_type, label_text=label_text,
         x=x, y=y, width=width, height=height, z_index=max_z + 1,
-        vessel_id=vessel_id if widget_type == "vessel" else None,
+        vessel_id=vessel_id if widget_type in ("vessel", "heating") else None,
         device_function_name=device_function_name if widget_type in ("toggle", "gauge", "digital", "chart") else None,
     )
     db.session.add(widget)
@@ -628,3 +648,11 @@ def update_plant_connections(layout: DashboardLayout, connections: list[dict]) -
         })
     layout.plant.plant_schema_json = {"connections": sanitized}
     db.session.commit()
+
+
+def _validate_heating_vessel(layout, vessel_id):
+    from .heating_configuration_service import scoped_vessel, HeatingError
+    try:
+        scoped_vessel(layout.plant_id, vessel_id)
+    except HeatingError as exc:
+        raise DashboardEditorError(str(exc)) from None

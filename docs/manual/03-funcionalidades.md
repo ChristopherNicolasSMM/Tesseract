@@ -217,3 +217,10 @@ Moeda/Política monetária descobertos automaticamente pelo addon, em
 por pausa de digitação/blur/botão e exibe estado ou erro ao lado do campo.
 Sem nova migration sobre o pacote financeiro inicial. Detalhes:
 [corretivo](../patches/fase3-financeiro-cadastro-getcep-correcao.md).
+
+## Aquecimento, HLT e água de lavagem
+
+O Mash Control possui o widget **Aquecimento** e configuração de fontes principais/auxiliares
+na aba Planta. Inclui sensor principal e planejamento de HLT/sparge. Esta entrega
+é de configuração e acompanhamento, sem novos comandos físicos. Consulte o
+[manual de aquecimento](08-aquecimento-hlt-sparge.md).
