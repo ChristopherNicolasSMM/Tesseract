@@ -136,6 +136,12 @@ def _import_devices(devices: list[dict], bridge_device: DeviceMetadata) -> dict:
 
         existing_actor = DeviceActor.query.filter_by(function_id=function.id, is_deleted=False).first()
         if existing_actor:
+            config = existing_actor.get_config()
+            mqtt = config.setdefault('mqtt_config', {})
+            for key in ('state_topic', 'command_topic'):
+                if not mqtt.get(key) and entry.get(key):
+                    mqtt[key] = entry[key]
+            existing_actor.set_config(config)
             actors_reused.append(function_name)
             continue
 
@@ -152,6 +158,8 @@ def _import_devices(devices: list[dict], bridge_device: DeviceMetadata) -> dict:
             is_risk=bool(entry.get("is_risk", False)),
             is_active=True,
         )
+        actor.set_config({'mqtt_config': {key: entry[key] for key in ('state_topic', 'command_topic') if entry.get(key)},
+                          'hardware_mapping': dict(hardware)})
         db.session.add(actor)
         db.session.flush()
         actors_created.append(function_name)

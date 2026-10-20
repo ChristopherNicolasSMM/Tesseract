@@ -104,7 +104,20 @@ def _on_message(client: mqtt.Client, userdata, msg) -> None:
         except UnicodeDecodeError:
             logger.error("Payload MQTT não-UTF8 em %s, ignorado.", msg.topic)
             return
-        device_service.update_from_mqtt(actor, payload)
+        try:
+            decoded = json.loads(payload)
+        except json.JSONDecodeError:
+            if payload.lstrip().startswith(('{', '[')):
+                logger.warning('JSON de estado inválido em %s', msg.topic)
+                return
+            decoded = payload  # Keep legacy plain string sensors.
+        if isinstance(decoded, dict):
+            if 'value' not in decoded:
+                return
+            device_service.update_from_mqtt(actor, decoded['value'], heating_telemetry=decoded.get('heating'),
+                                            retained=bool(getattr(msg, 'retain', False)))
+        elif not isinstance(decoded, list):
+            device_service.update_from_mqtt(actor, decoded, retained=bool(getattr(msg, 'retain', False)))
 
 
 def _find_actor_by_state_topic(full_topic: str) -> DeviceActor | None:

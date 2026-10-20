@@ -21,7 +21,7 @@ from . import heating_configuration_service as configuration
 logger = logging.getLogger(__name__)
 _registered = False
 DEFAULTS = {"enabled": False, "source_id": None, "demand_mapping_id": None,
-            "require_demand": True, "demand_threshold": 80.0, "demand_hysteresis": 10.0,
+            "require_demand": True, "demand_source": "sensor", "demand_threshold": 80.0, "demand_hysteresis": 10.0,
             "minimum_gap": 2.0, "gap_hysteresis": 0.5, "minimum_seconds": 10.0,
             "cooldown_seconds": 60.0, "validity_seconds": 120.0, "max_age_seconds": 15.0}
 ACTIVE_STATES = ("requested", "acknowledged")
@@ -71,6 +71,11 @@ def save_rule(vessel, data):
     if mapping_id is not None and mapping_id not in {m.id for m in demand_options(vessel)}:
         raise configuration.HeatingError("Demanda exige sensor percentual deste tanque, não atuador/comando.")
     value['demand_mapping_id'] = mapping_id
+    value['demand_source'] = configuration._enum(data.get('demand_source', 'sensor'), ('sensor','bridge'), 'Origem da demanda')
+    if enabled and value['require_demand'] and value['demand_source'] == 'bridge':
+        from .heating_telemetry_service import controller_options
+        if configuration.config(vessel).get('controller_mapping_id') not in {m.id for m in controller_options(vessel)}:
+            raise configuration.HeatingError('Selecione o controlador Bridge na preparação do tanque.')
     bounds = {"demand_threshold": (0, 100), "demand_hysteresis": (0, 100),
               "minimum_gap": (0.1, 50), "gap_hysteresis": (0.1, 50),
               "minimum_seconds": (1, 3600), "cooldown_seconds": (1, 86400),
@@ -131,19 +136,30 @@ def facts(vessel, now):
     temp = observation(configuration.primary_sensor(vessel), now, settings['max_age_seconds'], 0, 110)
     if not temp:
         return {**base, "reason": "Temperatura recebida ausente, antiga ou inválida"}
-    demand = None
+    demand, bridge_boot = None, None
     if settings['require_demand']:
-        mapping = next((m for m in demand_options(vessel) if m.id == settings['demand_mapping_id']), None)
-        demand = observation(mapping, now, settings['max_age_seconds'], 0, 100)
-        if not demand:
-            return {**base, "reason": "Demanda percentual recebida ausente, antiga ou inválida"}
+        if settings['demand_source'] == 'bridge':
+            from .heating_telemetry_service import read
+            telemetry = read(vessel, now, settings['max_age_seconds'])
+            if (not telemetry['fresh'] or telemetry.get('backend') != 'real'
+                    or telemetry.get('owner') != 'local_recipe' or telemetry.get('fault')
+                    or telemetry.get('demand_percent') is None
+                    or telemetry.get('target') is None or abs(telemetry['target']-target) > 0.1
+                    or telemetry.get('temperature') is None or abs(telemetry['temperature']-temp['value']) > 0.5):
+                return {**base, 'reason':'Bridge sem receita local real/fresca compatível com o alvo e sensor deste tanque'}
+            demand, bridge_boot = {'value':telemetry['demand_percent']}, telemetry['boot_id']
+        else:
+            mapping = next((m for m in demand_options(vessel) if m.id == settings['demand_mapping_id']), None)
+            demand = observation(mapping, now, settings['max_age_seconds'], 0, 100)
+            if not demand:
+                return {**base, "reason": "Demanda percentual recebida ausente, antiga ou inválida"}
     gap = target - temp['value']
     enters = gap >= settings['minimum_gap'] and (demand is None or demand['value'] > settings['demand_threshold'])
     exits = gap <= settings['minimum_gap'] - settings['gap_hysteresis'] or (demand is not None and demand['value'] <= settings['demand_threshold'] - settings['demand_hysteresis'])
     return {**base, "valid": True, "reason": "Condição atendida" if enters else "Aguardando condição",
             "source": source, "session_id": session.id, "step_id": step_id, "target": target,
             "temperature": temp['value'], "demand": demand['value'] if demand else None,
-            "context": [session.id, step_id, target, vessel.heating_version, source['id']],
+            "context": [session.id, step_id, target, vessel.heating_version, source['id']] + ([bridge_boot] if bridge_boot else []),
             "enters": enters, "exits": exits}
 
 

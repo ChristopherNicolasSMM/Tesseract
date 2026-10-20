@@ -207,7 +207,20 @@
       line((source.enabled ? 'Disponível na configuração' : 'Desabilitada') + ' · ' + source.state + (source.nominal_power_kw === null ? '' : ' · nominal ' + source.nominal_power_kw + ' kW'), 'small text-muted mb-2');
     });
     if (!data.sources.length) line('Nenhuma fonte cadastrada. Equipamentos legados permanecem nos mapeamentos.');
-    line('Demanda automática: ' + (data.automatic_demand_percent == null ? '—' : data.automatic_demand_percent + '%') + ' · ' + data.power_status, 'small text-muted mb-2');
+    line('Demanda na regra: ' + (data.automatic_demand_percent == null ? '—' : data.automatic_demand_percent + '%') + ' · ' + data.power_status, 'small text-muted mb-2');
+    const controller = data.controller || {};
+    if (controller.available) {
+      line('Bridge: ' + controller.status + ' · ' + controller.owner_label, 'small fw-bold mb-2');
+      line('Origem: ' + controller.backend + ' · observado: ' + controller.observed_at, 'small text-muted mb-2');
+      if (controller.fresh) {
+        function percent(value) { return value == null ? '—' : fmtValue(value, 1) + '%'; }
+        line('Demanda calculada: ' + percent(controller.demand_percent) + ' · teto: ' + percent(controller.power_limit_percent));
+        line('Automático limitado: ' + percent(controller.automatic_percent) + ' · selecionado: ' + percent(controller.selected_percent));
+        line('Janela aplicada: ' + percent(controller.applied_window_percent) + ' · saída lógica GPIO: ' + (controller.output_on ? 'ON' : 'OFF'));
+        line('Política externa: ' + controller.external_policy + (controller.fault ? ' · falha: ' + controller.fault : ''), 'small text-muted mb-2');
+      }
+      line('Telemetria lógica; não mede potência elétrica nem confirma chama.', 'small text-muted mb-2');
+    } else { line(controller.status || 'Telemetria Bridge não configurada.', 'small text-muted mb-2'); }
     line(data.rule_status, 'small text-muted mb-2');
     ((data.request_rule || {}).requests || []).forEach(function (request) {
       line(request.source_name + ' · ' + request.status_label, 'small fw-bold mb-2');

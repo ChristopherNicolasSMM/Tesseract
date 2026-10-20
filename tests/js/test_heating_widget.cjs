@@ -56,3 +56,24 @@ test('operator responses are explicit, permission gated and contain no actuator 
   assert.equal(ui.body.children.filter(node => node.type === 'button').length, 0);
   assert.ok(ui.body.children.some(node => /Revise manualmente/.test(node.textContent)));
 });
+
+test('Bridge metrics keep demand, selected duty and current window distinct and hide stale percentages', () => {
+  const ui = setup();
+  const data = {vessel_id:7,vessel_name:'HLT',usage_label:'Sparge',temperature:60,target_temp:65,
+    planned_volume_liters:null,sources:[],rule_status:'Sem condição',power_status:'indisponível',
+    controller:{available:true,fresh:true,status:'Telemetria recebida',owner_label:'Receita local',backend:'simulated',
+      observed_at:'2026-10-20',demand_percent:95,power_limit_percent:60,automatic_percent:60,selected_percent:60,
+      applied_window_percent:100,output_on:true,external_policy:'local_only',fault:null}};
+  ui.render(data);
+  let text=ui.body.children.map(node=>node.textContent).join('\n');
+  assert.match(text,/Demanda calculada: 95% · teto: 60%/);
+  assert.match(text,/selecionado: 60%/);
+  assert.match(text,/Janela aplicada: 100% · saída lógica GPIO: ON/);
+  assert.match(text,/Origem: simulated/);
+  assert.match(text,/não mede potência elétrica nem confirma chama/);
+  data.controller.fresh=false;data.controller.status='Telemetria antiga';ui.render(data);
+  text=ui.body.children.map(node=>node.textContent).join('\n');
+  assert.match(text,/Telemetria antiga/);
+  assert.doesNotMatch(text,/Janela aplicada: 100%/);
+  assert.equal(ui.calls.length,0);
+});

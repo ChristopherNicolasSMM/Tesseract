@@ -1,4 +1,4 @@
-# Aquecimento, HLT e água de lavagem — entregas 1 e 2
+# Aquecimento, HLT e água de lavagem — entregas 1, 2 e 3
 
 ## Atualização
 
@@ -11,7 +11,8 @@ python run.py db upgrade
 A revisão `b04e7c98d216` acrescenta configuração e versão ao tanque, preservando
 os registros existentes. O comando é o mesmo no Windows e no Linux/Raspberry Pi.
 A entrega 2 acrescenta a revisão `c18f7d23a904`, com estado do avaliador e histórico
-de solicitações. Nenhuma das duas exige atualização do Tesseract Device Bridge.
+de solicitações. As entregas 1 e 2 não exigiam atualização do Bridge; a telemetria da entrega 3
+exige atualizar também o Bridge. Ela não adiciona migração ao banco do Tesseract.
 
 ## Configurar os equipamentos
 
@@ -129,10 +130,50 @@ executa transferência de água. O fogareiro GLP existente com chama piloto sem
 supervisão permanece sob operação manual do responsável.
 
 Sensores de gás, chama, nível, fluxo e sobretemperatura independente estão previstos;
-não são considerados presentes ou confirmados por este cadastro. A entrega 3 trata
-telemetria específica e arbitragem com o controlador local antes de qualquer nova
-atuação física. O HLT desta etapa é recipiente aberto de água quente; não envolve
+não são considerados presentes ou confirmados por este cadastro. A entrega 3 oferece telemetria e arbitragem compatível com o controlador local,
+sem introduzir atuação física pelo widget. O HLT desta etapa é recipiente aberto de água quente; não envolve
 vapor ou pressurização.
 
 Os widgets e acionamentos legados continuam disponíveis. Cadastrar uma fonte ou
 regra de solicitação não altera regras/acionamentos legados automaticamente.
+
+## Telemetria do Bridge — entrega 3
+
+Atualize também o **Tesseract Device Bridge** e configure as duas aplicações no
+mesmo broker e `topic_prefix`. O aquecedor deve declarar `state_topic`
+e controle por janela. Importe/reimporte a configuração: o importador agora preenche
+os tópicos MQTT ausentes, preservando os personalizados. Se o Device Manager já foi
+configurado manualmente, confira seus tópicos de estado/comando e o nome da função,
+que deve coincidir com o `id` do dispositivo no Bridge.
+
+Na preparação do tanque, selecione **Controlador de aquecimento (telemetria Bridge)**
+entre os atuadores mapeados no próprio tanque. O widget mostrará demanda calculada,
+teto térmico, automático limitado, percentual selecionado, janela aplicada, saída
+lógica GPIO e quem está no controle. Identifica backend real/simulado e leitura antiga.
+Janela e seleção podem diferir até a próxima janela, como acordado no controle local.
+Esses valores não medem corrente, potência elétrica real ou presença de chama.
+
+Para as solicitações usarem essa demanda, configure a origem **Receita local do
+controlador Bridge**. Exige backend real, proprietário `local_recipe`, ausência de
+falha, leituras recentes e contexto compatível: alvo com diferença até 0,1 °C e
+sensor principal com diferença até 0,5 °C. Em modo simulado é possível validar o
+painel, mas a demanda do Bridge não libera pedidos. A alternativa de sensor percentual
+separado da entrega 2 continua disponível. O modo por distância do alvo também permanece.
+A seleção de controlador não inicia ou sincroniza receitas entre as aplicações.
+
+No YAML do Bridge, `hardware.external_control_policy` admite `manual_override`
+(padrão que preserva os comandos existentes) ou `local_only`. Em `local_only`,
+comandos MQTT de aquecimento e liberação são bloqueados; OFF continua aceito.
+Após esse OFF, o operador local libera o override quando apropriado. O Tesseract
+também rejeita comandos incompatíveis com a última política recebida; a autoridade
+final continua no Bridge. Não há transferência automática para um PID no servidor.
+
+Mensagens repetidas, retidas, fora de ordem ou com relógio inválido não renovam a
+telemetria de controle. Um sensor retido pode atualizar a exibição legada, mas não
+se torna observação recente para as regras. Mantenha os relógios sincronizados.
+A tolerância de transporte é de até 120 s de atraso e 2 s no futuro; as regras ainda
+aplicam sua idade máxima configurada, normalmente 15 s.
+
+O widget continua sem enviar comandos físicos. Gás permanece manual/advisory;
+confirmação elétrica, supervisão de chama e novas ações automáticas de gás não fazem
+parte desta entrega. Consulte também o manual de integração no repositório do Bridge.

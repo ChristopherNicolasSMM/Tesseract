@@ -32,6 +32,7 @@ isso sobe TAMBÉM pro log global (logger padrão deste módulo).
 from __future__ import annotations
 
 import logging
+from copy import deepcopy
 from datetime import datetime, timezone
 
 from core.db import db
@@ -177,6 +178,12 @@ def get_observation(identifier: str) -> dict | None:
             "source": "mqtt_state", "actor_external_id": actor.external_id}
 
 
+def get_heating_telemetry(identifier: str) -> dict | None:
+    """Received versioned Bridge state; never synthesized from a command cache."""
+    actor = _resolve_actor(identifier)
+    return deepcopy(actor.get_config().get('runtime', {}).get('bridge_heating')) if actor else None
+
+
 def set_value(identifier: str, value, *, publish: bool = True) -> bool:
     """
     Define o valor de um DeviceActor (tipicamente um atuador).
@@ -190,6 +197,12 @@ def set_value(identifier: str, value, *, publish: bool = True) -> bool:
     """
     actor = _resolve_actor(identifier)
     if actor is None:
+        return False
+
+    policy = actor.get_config().get('runtime', {}).get('bridge_heating') or {}
+    is_off = value is False or (isinstance(value, (int, float)) and not isinstance(value, bool) and value == 0)
+    if publish and policy.get('external_policy') == 'local_only' and not is_off:
+        logger.warning('Comando rejeitado: Bridge %s está em local_only.', actor.name)
         return False
 
     if not _validate_range(actor, value):
@@ -274,7 +287,7 @@ def _maybe_publish(actor: DeviceActor, value) -> None:
                                  retain=mqtt_config.get("retain", False))
 
 
-def update_from_mqtt(actor: DeviceActor, value) -> None:
+def update_from_mqtt(actor: DeviceActor, value, *, heating_telemetry=None, retained=False) -> bool:
     """
     Chamado pelo mqtt_client_service quando chega uma mensagem em um
     state_topic — atualiza o cache SEM republicar (publish=False),
@@ -284,6 +297,17 @@ def update_from_mqtt(actor: DeviceActor, value) -> None:
     dado real (que pode ser sintoma de um sensor com defeito, algo
     que vale registrar, não esconder). Só gera log de erro global.
     """
+    from .bridge_heating_telemetry import validate
+    received_at = datetime.now(timezone.utc).isoformat()
+    previous = actor.get_config().get('runtime', {}).get('bridge_heating')
+    heating = None
+    if heating_telemetry is not None:
+        try:
+            heating = validate(heating_telemetry, actor.function.name if actor.function else None,
+                               received_at, previous, retained)
+        except (ValueError, TypeError, KeyError) as exc:
+            logger.warning('Telemetria de aquecimento rejeitada para %s: %s', actor.name, exc)
+            return False
     if not _validate_range(actor, value):
         logger.error(
             "Leitura fora da faixa — actor=%s value=%r (min=%s, max=%s). Valor registrado mesmo assim.",
@@ -296,8 +320,10 @@ def update_from_mqtt(actor: DeviceActor, value) -> None:
     runtime = config.setdefault("runtime", {})
     runtime["last_value"] = value
     runtime["last_seen_at"] = datetime.now(timezone.utc).isoformat()
-    runtime["observed_value"] = value
-    runtime["observed_at"] = runtime["last_seen_at"]
+    runtime["observed_value"] = None if retained else value
+    runtime["observed_at"] = None if retained else runtime["last_seen_at"]
+    if heating is not None or actor.actor_type != 'sensor':
+        runtime['bridge_heating'] = heating
     actor.set_config(config)
     db.session.commit()
     _fire_on_change(actor.external_id, value)
@@ -305,3 +331,4 @@ def update_from_mqtt(actor: DeviceActor, value) -> None:
     from core.event_bus import event_bus
     event_bus.publish("device_manager.actor.observation_received",
                       function_name=actor.function.name if actor.function else None)
+    return True

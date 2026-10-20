@@ -16,6 +16,10 @@
 </div>
 <div class="col-md-2"><label class="form-label" for="heatingTarget{{ vessel.id }}">Alvo planejado (°C)</label><input class="form-control" id="heatingTarget{{ vessel.id }}" type="number" step="any" min="0" max="110" name="target_temp" value="{{ cfg.target_temp if cfg.target_temp is not none else '' }}"></div>
 <div class="col-md-2"><label class="form-label" for="heatingVolume{{ vessel.id }}">Volume planejado (L)</label><input class="form-control" id="heatingVolume{{ vessel.id }}" type="number" step="any" min="0" max="100000" name="planned_volume_liters" value="{{ cfg.planned_volume_liters if cfg.planned_volume_liters is not none else '' }}"></div>
+<div class="col-md-6"><label class="form-label" for="heatingController{{ vessel.id }}Search">Controlador de aquecimento (telemetria Bridge)</label>
+{% set controller = heating_controllers[vessel.id]|selectattr('id','equalto',cfg.controller_mapping_id)|first %}
+{{ reference('heatingController' ~ vessel.id, 'brew_plant_mappings', name='controller_mapping_id', value=cfg.controller_mapping_id, text=(controller.label_text or controller.role_key) if controller else '', ids=heating_controllers[vessel.id]|map(attribute='id')|list, placeholder='Atuador controlador deste tanque') }}
+<div class="form-text">Recebe métricas; não envia comandos nem transfere o controle.</div></div>
 <div class="col-12 small text-muted">Volume planejado não é medição de nível nem vazão. Sem seleção explícita, usa o sensor legado canônico/único; múltiplos sensores exigem escolha. Durante sessão ativa/pausada a configuração fica bloqueada.</div>
 <div class="col-12"><button type="submit" class="btn btn-primary">Salvar preparação do tanque</button></div>
 </form>

@@ -44,7 +44,7 @@ def scoped_vessel(plant_id, vessel_id):
 
 def config(vessel):
     value = {"usage": "hlt" if vessel.vessel_type == "hlt" else "process",
-             "primary_sensor_mapping_id": None, "target_temp": None,
+             "primary_sensor_mapping_id": None, "controller_mapping_id": None, "target_temp": None,
              "planned_volume_liters": None, "sources": []}
     if isinstance(vessel.heating_config_json, dict):
         value.update(deepcopy(vessel.heating_config_json))
@@ -134,6 +134,18 @@ def save_profile(vessel, data):
     if selected is not None and selected not in {m.id for m in sensor_options(vessel)}:
         raise HeatingError("Selecione um sensor de temperatura deste tanque.")
     value["primary_sensor_mapping_id"] = selected
+    if 'controller_mapping_id' in data:
+        from .heating_telemetry_service import controller_options
+        controller = data.get('controller_mapping_id')
+        if isinstance(controller, bool) or not isinstance(controller, (str, int, type(None))):
+            raise HeatingError('Controlador inválido.')
+        try:
+            controller = int(controller) if controller not in (None, '') else None
+        except ValueError:
+            raise HeatingError('Controlador inválido.') from None
+        if controller is not None and controller not in {m.id for m in controller_options(vessel)}:
+            raise HeatingError('Selecione um atuador controlador deste tanque.')
+        value['controller_mapping_id'] = controller
     value["target_temp"] = _number(data.get("target_temp"), "Temperatura planejada (°C)", 0, 110)
     value["planned_volume_liters"] = _number(data.get("planned_volume_liters"), "Volume planejado (L)", 0, 100000)
     return _save(vessel, value, data.get("expected_version"))
@@ -204,8 +216,10 @@ def snapshot(vessel, session=None):
         if step is not None and step.target_temp is not None:
             target = step.target_temp
             target_origin = "etapa da sessão"
-    from .heating_request_service import view
+    from .heating_request_service import view, rule
     requests = view(vessel, session)
+    from .heating_telemetry_service import read
+    controller = read(vessel, max_age=rule(vessel)["max_age_seconds"])
     return {"vessel_id": vessel.id, "vessel_name": vessel.label_text, "usage": value["usage"],
             "usage_label": USAGES[value["usage"]], "temperature": temperature,
             "sensor_label": (sensor.label_text or sensor.role_key) if sensor else None,
@@ -215,19 +229,21 @@ def snapshot(vessel, session=None):
             "sources": [{**s, "type_label": SOURCE_TYPES[s["type"]], "role_label": SOURCE_ROLES[s["role"]],
                          "mode_label": MODES[s["mode"]], "state": "sem confirmação de funcionamento"} for s in value["sources"]],
             "automatic_demand_percent": requests["automatic_demand_percent"],
-            "power_status": "observação percentual recebida; não confirma potência aplicada" if requests["automatic_demand_percent"] is not None else "telemetria de demanda não disponível",
-            "request_rule": requests, "rule_status": requests["status"],
+            "power_status": "observação percentual recebida; não confirma potência aplicada" if requests["automatic_demand_percent"] is not None else "demanda não utilizada ou indisponível para a regra",
+            "request_rule": requests, "rule_status": requests["status"], "controller": controller,
             "protections": [{"key": key, "label": label, "state": "não configurada / sem confirmação"} for key, label in PROTECTIONS.items()],
             "can_actuate": False}
 
 
 def workspace_context(vessels):
     from .heating_request_service import rule, demand_options
+    from .heating_telemetry_service import controller_options
     return {"heating_configs": {v.id: config(v) for v in vessels},
             "heating_sensors": {v.id: sensor_options(v) for v in vessels},
             "heating_mappings": {v.id: [m for m in mappings(v) if (get_function_by_name(m.device_function_name) or {}).get("category") in ("actuator", "hybrid")] for v in vessels},
             "heating_function_ids": {v.id: [meta["id"] for m in mappings(v)
                 if (meta := get_function_by_name(m.device_function_name)) and meta.get("category") in ("actuator", "hybrid")] for v in vessels},
+            "heating_controllers": {v.id: controller_options(v) for v in vessels},
             "heating_rules": {v.id: rule(v) for v in vessels},
             "heating_demands": {v.id: demand_options(v) for v in vessels},
             "heating_usages": USAGES, "heating_types": SOURCE_TYPES,

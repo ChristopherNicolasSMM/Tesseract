@@ -9,7 +9,7 @@
 2. **Regras e solicitações (entrega 2 implementada):** demanda acima de X% por tempo mínimo, distância ao alvo,
    histerese, ciclo de solicitação/resposta do operador e auditoria. Avaliação no servidor,
    independente do navegador. Sem dados reais de demanda, mostrar indisponibilidade.
-3. **Telemetria e controle (futura):** demanda PID, potência limitada, override e retorno do
+3. **Telemetria e arbitragem (entrega 3 implementada):** demanda PID, potência limitada, override e retorno do
    equipamento com origem/data/qualidade; arbitragem por controlador local/externo. Sem novo
    loop PID no navegador. Automação do gás depende de supervisão/corte locais apropriados.
 
@@ -82,3 +82,7 @@ aprovados e 27 falhas preexistentes. JavaScript: 15 aprovados.
 A entrega 2 está descrita no [roteiro de regras e solicitações](mash-control-aquecimento-entrega2.md).
 Manual e contrato técnico foram atualizados para refletir as entregas 1 e 2.
 A descrição e os resultados da entrega 1 acima são o registro histórico daquela validação.
+
+A entrega 3 foi registrada no [roteiro de telemetria e arbitragem](mash-control-aquecimento-entrega3.md).
+Potência lógica/janela/GPIO não são confirmação elétrica ou de chama; novas ações
+automáticas e proteções físicas permanecem fora do escopo implementado.

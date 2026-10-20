@@ -74,3 +74,13 @@ estado recebido, publica-se `device_manager.actor.observation_received` com
 `function_name`. Cache/evento anteriores permanecem compatíveis. Dados antigos
 sem observação explícita retornam `None` até nova recepção; nunca usar
 `last_seen_at` de um comando para comprovar frescor de telemetria.
+
+## Telemetria Bridge v1 — entrega 3
+
+O ingresso MQTT decodifica envelopes JSON antes de chamar `update_from_mqtt`. Este
+aceita `heating_telemetry`/`retained` opcionais e valida versão, sequência/boot, data
+e identidade. `get_heating_telemetry` retorna cópia de `runtime.bridge_heating`; não
+há novas colunas. Comandos não atualizam esse estado e respeitam `local_only`
+recebido (OFF permitido). Retenção não renova observações de controle. O importador
+Bridge preenche tópicos MQTT ausentes sem substituir os personalizados. O contrato
+completo está em `docs/technical/08-aquecimento-hlt-sparge.md` na raiz do projeto.

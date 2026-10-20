@@ -1,4 +1,4 @@
-# Mash Control — contrato de aquecimento (entregas 1 e 2)
+# Mash Control — contrato de aquecimento (entregas 1, 2 e 3)
 
 Plano e etapas: [expansão](../patches/mash-control-aquecimento-expansao.md).
 Operação: [manual](../manual/08-aquecimento-hlt-sparge.md).
@@ -140,3 +140,47 @@ Sem novas observações/tarefa, uma linha persistida pode continuar `requested` 
 expirar, mas `currently_valid=false` e sem botões; a resposta é recusada com
 reconciliação. Isso não autoriza atuação. Não há abertura/corte de gás ou confirmação
 de potência/chama/proteções em nenhuma transição.
+
+## Entrega 3 — contrato e arbitragem
+
+Não há migration nova: seleção do controlador e origem da demanda ficam no JSON
+versionado existente. `controller_mapping_id` é opcional, validado entre os atuadores/
+híbridos do tanque; formulários antigos que não enviam o campo não apagam a seleção.
+`rule.demand_source` admite `sensor` (padrão compatível) ou `bridge`. Ambos respeitam
+`require_demand`; a seleção Bridge exige controlador disponível ao salvar.
+
+O adaptador MQTT decodifica JSON (envelope `value` ou primitivo) antes de atualizar o
+Device Manager, corrigindo o armazenamento anterior do envelope como texto. Strings
+simples legadas continuam aceitas. Mensagens sem valor/JSON quebrado são ignoradas.
+`bridge_heating_telemetry.validate` valida envelope v1 `heating`, identidade pela função,
+boot/sequência, timestamps com fuso, enumerações e métricas finitas/ranges. Ignora campos
+extras. Rejeita retenção, repetição/out-of-order, boot novo com data não posterior e
+transporte com atraso >120 s ou futuro >2 s. O receptor guarda somente observações
+aceitas com data de origem e recebimento, não sintetiza valores de comandos.
+Estado retido de sensor permanece cache de exibição, mas invalida a observação recente.
+
+DTO público `get_heating_telemetry(identifier)` retorna cópia do último frame aceito em
+`runtime.bridge_heating`. O widget usa `fresh()` nas duas datas e idade máxima da regra.
+Na demanda Bridge, exige receita local em backend real e sem falha; alvo coincide em
+0,1 °C e temperatura em 0,5 °C com o sensor principal. Boot do Bridge entra no contexto
+persistido da regra: reinício invalida candidato/pedido anterior. Mensagens do atuador
+agora chegam ao listener já existente por `observation_received`, sem novo scheduler.
+
+`set_value` não atualiza observações e rejeita aquecimento/liberação com a última
+política recebida `local_only`; permite OFF. Essa prevenção não substitui a rejeição
+local implementada no Bridge. O padrão `manual_override` preserva o contrato de override
+manual remoto existente, sem adicionar um loop PID externo ou alterar as janelas.
+O widget `heating` continua recusando o endpoint de acionamento e só oferece respostas
+manuais auditadas. Sensores/atuadores genéricos legados continuam com seus caminhos.
+
+Importação cria `mqtt_config` com tópicos presentes no YAML e `hardware_mapping`; ao
+reutilizar ator, preenche somente tópicos ausentes. Não substitui ajustes de instalação.
+
+Contrato comum: `tests/fixtures/heating_telemetry_v1.json`. O Bridge publica sem retain
+após aplicar watchdog/receita/janela, com demanda antes do teto, teto, automático após
+teto, seleção do árbitro, janela travada e saída lógica separados. `backend` identifica
+a configuração de origem e não é atestado físico. Frames não são autenticados pelo
+formato: confiança/ACL do broker pertencem à instalação. GPIO não confirma potência,
+chama ou acionamento mecânico. Nenhuma função nova atua automaticamente no GLP.
+
+Roteiro e validação: [entrega 3](../patches/mash-control-aquecimento-entrega3.md).

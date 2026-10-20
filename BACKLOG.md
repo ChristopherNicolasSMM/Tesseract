@@ -5863,7 +5863,7 @@ Plano registrado antes da implementação em `docs/patches/mash-control-aquecime
   widget Aquecimento, configuração no workspace, preparação HLT e água de lavagem/sparge.
 - [x] Entrega 2: regras persistentes de solicitação, demanda > X% por tempo mínimo,
   distância do alvo, histerese e respostas do operador; não depende do navegador.
-- [ ] Entrega 3: telemetria real de demanda/potência e estados confirmados, arbitragem e
+- [x] Entrega 3: telemetria lógica de demanda/potência e origem do controle, arbitragem e
   integração com controlador local; gás automático condicionado a proteções adequadas.
 - Fogareiro atual: GLP de botijão, piloto sem supervisão; somente representação manual/
   solicitação nesta fase. Sensores de gás/chama/nível/fluxo ficam previstos, não simulados.
@@ -5884,3 +5884,15 @@ Plano registrado antes da implementação em `docs/patches/mash-control-aquecime
 - [x] Motor por eventos no servidor, estado persistido, auditoria e respostas no widget.
 - [x] Migração, testes e manual; plano: `docs/patches/mash-control-aquecimento-entrega2.md`.
 - Automação física/solenoide e arbitragem local continuam fora desta entrega.
+
+### Aquecimento — execução da entrega 3
+
+- [x] Telemetria versionada, recepção MQTT tipada e proteção de frescor/replay.
+- [x] Controlador por tanque, integração da demanda às regras e métricas no widget.
+- [x] Arbitragem local/override remoto explícita, contrato e testes nos dois repositórios.
+- Plano: `docs/patches/mash-control-aquecimento-entrega3.md`. Gás permanece manual.
+
+- [ ] Evolução posterior: medição elétrica e estados físicos confirmados; automação
+  adicional condicionada a contrato de delegação/intertravamentos. GLP continua manual.
+- Validação entrega 3: 265 testes Python no Tesseract, 491 no Bridge e 17 JS aprovados;
+  integração por mensagem real/fixture comum, sem broker/hardware de produção.
