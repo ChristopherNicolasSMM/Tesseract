@@ -39,6 +39,9 @@ class FeatureMashControl(FeatureBase):
         from addons.addon_brewstation.features.feature_mash_control.services import dashboard_reading_logger
         dashboard_reading_logger.register()
 
+        from .services import heating_request_service
+        heating_request_service.register(app)
+
     def get_transactions(self) -> list:
         return [
             {

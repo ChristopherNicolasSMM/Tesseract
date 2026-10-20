@@ -3,13 +3,16 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const script = fs.readFileSync('addons/addon_brewstation/features/feature_mash_control/templates/dashboards/_scripts.html', 'utf8');
-function setup() {
+function setup(canRespondHeating = true) {
   const body = {children: [], replaceChildren() {this.children = [];}, appendChild(node) {this.children.push(node);}};
   const link = {};
   const el = {querySelector: selector => selector === '.db-heating-body' ? body : link};
-  const context = {document: {createElement: () => ({})}, plantId: 42, fmtValue: value => String(value)};
+  const calls = [];
+  const context = {document: {createElement: () => ({listeners: {}, addEventListener(type, fn) {this.listeners[type] = fn;}})}, plantId: 42, canRespondHeating, fmtValue: value => String(value),
+    fetch: (url, options) => {calls.push({url, options}); return Promise.resolve({json: () => Promise.resolve({ok: true, message: 'Registrado'})});},
+    window: {__tesseractToast: {show() {}}}};
   vm.runInNewContext(script.slice(script.indexOf('  function renderHeating('), script.indexOf('  function renderWidget(')), context);
-  return {body, link, render: data => context.renderHeating(el, data)};
+  return {body, link, calls, render: data => context.renderHeating(el, data)};
 }
 test('renders HLT/sparge plans and unconfirmed source states as text, no HTML commands', () => {
   const ui = setup();
@@ -27,4 +30,29 @@ test('renders HLT/sparge plans and unconfirmed source states as text, no HTML co
   ui.render({error: 'Tanque inválido'});
   assert.equal(ui.body.children.length, 1);
   assert.equal(ui.body.children[0].textContent, 'Tanque inválido');
+});
+
+test('operator responses are explicit, permission gated and contain no actuator value', async () => {
+  const data = {vessel_id: 7, vessel_name: 'HLT', usage_label: 'Sparge', temperature: 60,
+    target_temp: 65, planned_volume_liters: null, sources: [], power_status: 'observado', rule_status: 'Condição atendida',
+    automatic_demand_percent: 95,
+    request_rule: {requests: [{source_name: 'GLP manual', status: 'requested', status_label: 'Pendente',
+      created_at: '2026-10-20', currently_valid: true, can_respond: true, can_complete: false, response_url: '/operator-response'}]}};
+  const ui = setup(); ui.render(data);
+  assert.equal(ui.calls.length, 0);
+  const buttons = ui.body.children.filter(node => node.type === 'button');
+  assert.equal(buttons.length, 2);
+  buttons[0].listeners.click(); buttons[0].listeners.click();
+  assert.equal(ui.calls.length, 1);
+  assert.equal(ui.calls[0].url, '/operator-response');
+  assert.deepEqual(JSON.parse(ui.calls[0].options.body), {action: 'acknowledge'});
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(buttons[0].disabled, false);
+  const reader = setup(false); reader.render(data);
+  assert.equal(reader.body.children.filter(node => node.type === 'button').length, 0);
+  data.request_rule.requests[0].can_respond = false;
+  data.request_rule.requests[0].currently_valid = false;
+  ui.render(data);
+  assert.equal(ui.body.children.filter(node => node.type === 'button').length, 0);
+  assert.ok(ui.body.children.some(node => /Revise manualmente/.test(node.textContent)));
 });

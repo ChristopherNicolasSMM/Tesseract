@@ -1,0 +1,18 @@
+{% set rule = heating_rules[vessel.id] %}
+<details class="border rounded p-2 mt-3"><summary>Regra de solicitação ao operador</summary>
+<p class="small text-muted mt-2">Avaliação no servidor, com sessão ativa. Não liga nem desliga fontes. O pedido é dirigido ao operador responsável.</p>
+<form class="pw-edit-form row g-2" method="post" action="{{ url_for('heating_workspace.save', plant_id=plant.id, vessel_id=vessel.id, action='rule') }}">
+<input type="hidden" name="expected_version" value="{{ vessel.heating_version }}">
+<div class="col-md-6"><label class="form-label" for="heatingRuleSource{{ vessel.id }}">Fonte para solicitação</label>
+<select id="heatingRuleSource{{ vessel.id }}" name="source_id" class="form-select"><option value="">Selecionar fonte</option>{% for item in cfg.sources if item.enabled and item.mode == 'advisory' %}<option value="{{ item.id }}" {{ 'selected' if rule.source_id == item.id else '' }}>{{ item.name }} · {{ heating_roles[item.role] }}</option>{% endfor %}</select></div>
+<div class="col-md-6 align-self-center"><label><input class="form-check-input" name="enabled" type="checkbox" {{ 'checked' if rule.enabled else '' }}> Habilitar solicitações</label></div>
+<div class="col-md-6"><label class="form-label" for="heatingDemand{{ vessel.id }}Search">Sensor de demanda percentual (opcional)</label>
+{% set demand = heating_demands[vessel.id]|selectattr('id','equalto',rule.demand_mapping_id)|first %}
+{{ reference('heatingDemand' ~ vessel.id, 'brew_plant_mappings', name='demand_mapping_id', value=rule.demand_mapping_id, text=(demand.label_text or demand.role_key) if demand else '', ids=heating_demands[vessel.id]|map(attribute='id')|list, placeholder='Sensor percentual deste tanque') }}</div>
+<div class="col-md-6 align-self-center"><label><input name="require_demand" class="form-check-input" type="checkbox" {{ 'checked' if rule.require_demand else '' }}> Exigir também demanda acima do limite</label><div class="form-text">Sem observação recebida e recente, a condição fica bloqueada. Desmarcado: avalia somente distância do alvo.</div></div>
+{% for key,label,minimum,maximum in [('demand_threshold','Demanda acima de (%)',0,100),('demand_hysteresis','Histerese da demanda (%)',0,100),('minimum_gap','Distância mínima abaixo do alvo (°C)',0.1,50),('gap_hysteresis','Histerese de temperatura (°C)',0.1,50),('minimum_seconds','Tempo mínimo da condição (s)',1,3600),('cooldown_seconds','Intervalo mínimo entre pedidos (s)',1,86400),('validity_seconds','Prazo para resposta (s)',5,3600),('max_age_seconds','Idade máxima da leitura (s)',1,300)] %}
+<div class="col-md-3"><label class="form-label" for="heatingRule{{ key }}{{ vessel.id }}">{{ label }}</label><input id="heatingRule{{ key }}{{ vessel.id }}" name="{{ key }}" type="number" class="form-control" min="{{ minimum }}" max="{{ maximum }}" step="any" value="{{ rule[key] }}" required></div>
+{% endfor %}
+<div class="col-12 small text-muted">Padrões de fábrica: demanda &gt; 80%, distância ≥ 2 °C por 10 s; histereses 10% / 0,5 °C; intervalo 60 s; resposta 120 s; leitura até 15 s. Regra desabilitada por padrão. Após recusar/concluir, só haverá novo pedido quando a condição sair da faixa e voltar.</div>
+<div class="col-12"><button class="btn btn-outline-primary" type="submit">Salvar regra de solicitação</button></div>
+</form></details>

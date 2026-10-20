@@ -9,7 +9,7 @@ from core.db import db
 from annotations import label, plural, required, display_field, enum_field, weak_ref, readonly_fields
 
 
-@readonly_fields(["heating_config_json", "heating_version"])
+@readonly_fields(["heating_config_json", "heating_version", "heating_runtime_json"])
 @label("Tanque")
 @plural("brew_plant_vessels")
 @enum_field("vessel_type", options=["mash_tun", "boil_kettle", "hlt", "fermenter", "bright_tank"])
@@ -32,6 +32,7 @@ class BrewPlantVessel(db.Model):
 
     # Typed/validated by heating_configuration_service, not a second device registry.
     heating_config_json = db.Column(db.JSON, nullable=True)
+    heating_runtime_json = db.Column(db.JSON, nullable=True)
     heating_version = db.Column(db.Integer, nullable=False, default=0, server_default="0")
 
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)

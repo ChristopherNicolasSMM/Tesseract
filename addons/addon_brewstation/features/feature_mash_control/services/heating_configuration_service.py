@@ -17,7 +17,7 @@ from addons.addon_device_manager.root.services.device_function_lookup import get
 USAGES = {"process": "Processo / etapa da sessão", "hlt": "Água quente (HLT)", "sparge": "Água para lavagem (sparge)"}
 SOURCE_TYPES = {"electric": "Elétrico", "gas": "Gás", "other": "Outro"}
 SOURCE_ROLES = {"primary": "Principal", "auxiliary": "Auxiliar"}
-MODES = {"manual": "Manual", "advisory": "Solicitação ao operador (futura)"}
+MODES = {"manual": "Manual", "advisory": "Solicitação ao operador"}
 PROTECTIONS = {"flame": "Supervisão de chama", "gas_leak": "Vazamento de gás", "minimum_level": "Nível mínimo", "flow": "Fluxo", "over_temperature": "Sobretemperatura independente"}
 
 
@@ -204,6 +204,8 @@ def snapshot(vessel, session=None):
         if step is not None and step.target_temp is not None:
             target = step.target_temp
             target_origin = "etapa da sessão"
+    from .heating_request_service import view
+    requests = view(vessel, session)
     return {"vessel_id": vessel.id, "vessel_name": vessel.label_text, "usage": value["usage"],
             "usage_label": USAGES[value["usage"]], "temperature": temperature,
             "sensor_label": (sensor.label_text or sensor.role_key) if sensor else None,
@@ -212,17 +214,21 @@ def snapshot(vessel, session=None):
             "planned_volume_liters": value["planned_volume_liters"],
             "sources": [{**s, "type_label": SOURCE_TYPES[s["type"]], "role_label": SOURCE_ROLES[s["role"]],
                          "mode_label": MODES[s["mode"]], "state": "sem confirmação de funcionamento"} for s in value["sources"]],
-            "automatic_demand_percent": None, "power_status": "telemetria de demanda não disponível",
-            "rule_status": "regras de solicitação previstas para a entrega 2",
+            "automatic_demand_percent": requests["automatic_demand_percent"],
+            "power_status": "observação percentual recebida; não confirma potência aplicada" if requests["automatic_demand_percent"] is not None else "telemetria de demanda não disponível",
+            "request_rule": requests, "rule_status": requests["status"],
             "protections": [{"key": key, "label": label, "state": "não configurada / sem confirmação"} for key, label in PROTECTIONS.items()],
             "can_actuate": False}
 
 
 def workspace_context(vessels):
+    from .heating_request_service import rule, demand_options
     return {"heating_configs": {v.id: config(v) for v in vessels},
             "heating_sensors": {v.id: sensor_options(v) for v in vessels},
             "heating_mappings": {v.id: [m for m in mappings(v) if (get_function_by_name(m.device_function_name) or {}).get("category") in ("actuator", "hybrid")] for v in vessels},
             "heating_function_ids": {v.id: [meta["id"] for m in mappings(v)
                 if (meta := get_function_by_name(m.device_function_name)) and meta.get("category") in ("actuator", "hybrid")] for v in vessels},
+            "heating_rules": {v.id: rule(v) for v in vessels},
+            "heating_demands": {v.id: demand_options(v) for v in vessels},
             "heating_usages": USAGES, "heating_types": SOURCE_TYPES,
             "heating_roles": SOURCE_ROLES, "heating_modes": MODES}

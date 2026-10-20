@@ -161,6 +161,22 @@ def get_value(identifier: str):
     return runtime.get("last_value")
 
 
+def get_observation(identifier: str) -> dict | None:
+    """Last RECEIVED observation, independent of commands/last_value cache.
+
+    Old caches intentionally return None until a new state message arrives.
+    DTO only: no ORM object crosses the addon boundary.
+    """
+    actor = _resolve_actor(identifier)
+    if actor is None:
+        return None
+    runtime = actor.get_config().get("runtime", {})
+    if not runtime.get("observed_at"):
+        return None
+    return {"value": runtime.get("observed_value"), "observed_at": runtime["observed_at"],
+            "source": "mqtt_state", "actor_external_id": actor.external_id}
+
+
 def set_value(identifier: str, value, *, publish: bool = True) -> bool:
     """
     Define o valor de um DeviceActor (tipicamente um atuador).
@@ -280,7 +296,12 @@ def update_from_mqtt(actor: DeviceActor, value) -> None:
     runtime = config.setdefault("runtime", {})
     runtime["last_value"] = value
     runtime["last_seen_at"] = datetime.now(timezone.utc).isoformat()
+    runtime["observed_value"] = value
+    runtime["observed_at"] = runtime["last_seen_at"]
     actor.set_config(config)
     db.session.commit()
     _fire_on_change(actor.external_id, value)
     _publish_value_changed_event(actor, value)
+    from core.event_bus import event_bus
+    event_bus.publish("device_manager.actor.observation_received",
+                      function_name=actor.function.name if actor.function else None)

@@ -5861,7 +5861,7 @@ Plano registrado antes da implementação em `docs/patches/mash-control-aquecime
 
 - [x] Entrega 1: fontes principais/auxiliares, sensor principal explícito,
   widget Aquecimento, configuração no workspace, preparação HLT e água de lavagem/sparge.
-- [ ] Entrega 2: regras persistentes de solicitação, demanda > X% por tempo mínimo,
+- [x] Entrega 2: regras persistentes de solicitação, demanda > X% por tempo mínimo,
   distância do alvo, histerese e respostas do operador; não depende do navegador.
 - [ ] Entrega 3: telemetria real de demanda/potência e estados confirmados, arbitragem e
   integração com controlador local; gás automático condicionado a proteções adequadas.
@@ -5876,3 +5876,11 @@ Plano registrado antes da implementação em `docs/patches/mash-control-aquecime
 - [ ] Revisar regressões preexistentes de preparação/envase/estorno do workspace,
   incluindo fixtures que não fornecem organização exigida pelo estoque atual.
   Falhas reproduzidas no commit base `0c610ac`; não alterar o fluxo de estoque nesta entrega.
+
+### Aquecimento — execução da entrega 2
+
+- [x] Regra por tanque, demanda percentual observada opcional,
+  distância do alvo, tempo mínimo, histerese, cooldown, validade e frescor.
+- [x] Motor por eventos no servidor, estado persistido, auditoria e respostas no widget.
+- [x] Migração, testes e manual; plano: `docs/patches/mash-control-aquecimento-entrega2.md`.
+- Automação física/solenoide e arbitragem local continuam fora desta entrega.

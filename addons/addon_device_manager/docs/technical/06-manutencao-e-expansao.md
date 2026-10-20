@@ -64,3 +64,13 @@ arquivos de 5 MB) — configurável via `addon.json: logging.*`. Erro
 que importa para operação (valor fora de faixa, falha de
 fail-safe) sempre sobe **também** para o log global do Core — nunca
 fica só ali.
+
+## Observações recebidas — aquecimento Mash Control (20/10/2026)
+
+`device_service.get_observation(identifier)` retorna DTO com valor, `observed_at`,
+`source=mqtt_state` e identificação externa. Apenas recepção por `update_from_mqtt`
+atualiza esses campos; comandos `set_value` não são observações. Após persistir o
+estado recebido, publica-se `device_manager.actor.observation_received` com
+`function_name`. Cache/evento anteriores permanecem compatíveis. Dados antigos
+sem observação explícita retornam `None` até nova recepção; nunca usar
+`last_seen_at` de um comando para comprovar frescor de telemetria.

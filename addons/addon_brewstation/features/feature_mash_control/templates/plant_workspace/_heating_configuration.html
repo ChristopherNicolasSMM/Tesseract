@@ -29,6 +29,7 @@
 {% endfor %}
 {% if current_user.has_permission('brew_plant_vessels.update') %}
 <details class="mt-3"><summary>Adicionar fonte principal/auxiliar</summary>{% set source = none %}{% include 'plant_workspace/_heating_source_form.html' %}</details>
+{% include 'plant_workspace/_heating_rule_form.html' %}
 {% endif %}
 <p class="small text-muted mt-3 mb-0">Proteções de chama, vazamento de gás, nível mínimo, fluxo e sobretemperatura independente: não configuradas / sem confirmação nesta etapa. Gás com piloto sem supervisão permanece manual; o widget não abre solenoide.</p>
 </details>

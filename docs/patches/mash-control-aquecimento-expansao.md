@@ -6,7 +6,7 @@
    sensor principal explícito; perfil de uso do recipiente (mostura, fervura, água quente/HLT e
    sparge); alvo e volume planejados de água de lavagem; widget Aquecimento no editor existente;
    configurações na aba Planta do workspace. Preservar dashboards e mapeamentos antigos.
-2. **Regras e solicitações (futura):** demanda acima de X% por tempo mínimo, distância ao alvo,
+2. **Regras e solicitações (entrega 2 implementada):** demanda acima de X% por tempo mínimo, distância ao alvo,
    histerese, ciclo de solicitação/resposta do operador e auditoria. Avaliação no servidor,
    independente do navegador. Sem dados reais de demanda, mostrar indisponibilidade.
 3. **Telemetria e controle (futura):** demanda PID, potência limitada, override e retorno do
@@ -76,3 +76,9 @@ Resultado consolidado (casos únicos dos três módulos): **340 aprovados e 27 f
 todas as falhas reproduzidas no commit base. Nenhuma falha nova identificada na
 comparação. Dashboard: 111 aprovados; aquecimento: 19 aprovados; workspace: 210
 aprovados e 27 falhas preexistentes. JavaScript: 15 aprovados.
+
+## Continuidade
+
+A entrega 2 está descrita no [roteiro de regras e solicitações](mash-control-aquecimento-entrega2.md).
+Manual e contrato técnico foram atualizados para refletir as entregas 1 e 2.
+A descrição e os resultados da entrega 1 acima são o registro histórico daquela validação.

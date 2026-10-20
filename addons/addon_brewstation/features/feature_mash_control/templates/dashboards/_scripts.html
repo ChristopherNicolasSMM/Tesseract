@@ -187,6 +187,8 @@
       });
   }
 
+  const canRespondHeating = {{ current_user.has_permission('brew_sessions.update') | tojson }};
+
   function renderHeating(el, data) {
     const body = el.querySelector('.db-heating-body');
     body.replaceChildren();
@@ -205,8 +207,35 @@
       line((source.enabled ? 'Disponível na configuração' : 'Desabilitada') + ' · ' + source.state + (source.nominal_power_kw === null ? '' : ' · nominal ' + source.nominal_power_kw + ' kW'), 'small text-muted mb-2');
     });
     if (!data.sources.length) line('Nenhuma fonte cadastrada. Equipamentos legados permanecem nos mapeamentos.');
-    line('Demanda automática: — · ' + data.power_status, 'small text-muted mb-2');
+    line('Demanda automática: ' + (data.automatic_demand_percent == null ? '—' : data.automatic_demand_percent + '%') + ' · ' + data.power_status, 'small text-muted mb-2');
     line(data.rule_status, 'small text-muted mb-2');
+    ((data.request_rule || {}).requests || []).forEach(function (request) {
+      line(request.source_name + ' · ' + request.status_label, 'small fw-bold mb-2');
+      line('Pedido: ' + request.created_at + (request.reason ? ' · ' + request.reason : ''), 'small text-muted mb-2');
+      if (!request.currently_valid && ['requested', 'acknowledged'].includes(request.status)) {
+        line('Condição atual inválida ou prazo encerrado. Revise manualmente a fonte.', 'small text-warning mb-2');
+      }
+      (request.responses || []).forEach(function (response) {
+        const labels = {acknowledge: 'Ação manual declarada', decline: 'Recusada', complete: 'Concluída'};
+        line((labels[response.action] || response.action) + ' · usuário #' + response.user_id + ' · ' + response.at, 'small text-muted mb-2');
+      });
+      if (!canRespondHeating) return;
+      const actions = request.can_respond ? [['acknowledge', 'Registrar ação manual'], ['decline', 'Recusar']] : request.can_complete ? [['complete', 'Concluir atendimento']] : [];
+      actions.forEach(function (action) {
+        const button = document.createElement('button'); button.type = 'button';
+        button.className = 'db-no-drag btn btn-sm btn-outline-warning me-1 mb-2'; button.textContent = action[1];
+        button.addEventListener('click', function () {
+          if (button.disabled) return;
+          button.disabled = true;
+          fetch(request.response_url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: action[0]})})
+            .then(function (response) { return response.json(); }).then(function (result) {
+              window.__tesseractToast.show(result.message || result.error, result.ok ? 'success' : 'error');
+            }).catch(function () { window.__tesseractToast.show('Não foi possível registrar a resposta.', 'error'); })
+            .finally(function () { button.disabled = false; });
+        });
+        body.appendChild(button);
+      });
+    });
     line('Proteções: não configuradas / sem confirmação.', 'small text-muted mb-2');
     const link = el.querySelector('.db-heating-config');
     if (link && plantId) link.href = '/brewstation/plant-workspace/' + plantId + '?tab=plant#heating-' + data.vessel_id;

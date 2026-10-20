@@ -375,4 +375,6 @@ def stop_session(session_id: int):
         return jsonify({"ok": False, "error": f"Sessão está '{session.status}', não dá pra parar."}), 400
     session.status = "completed"
     db.session.commit()
+    from ..services.heating_request_service import reconcile_plant
+    reconcile_plant(session.plant_id)
     return jsonify({"ok": True, "status": session.status})

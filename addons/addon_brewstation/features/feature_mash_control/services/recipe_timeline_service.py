@@ -80,6 +80,8 @@ def toggle_pause_session(session: BrewSession) -> str:
         session.status = "active"
         session.paused_at = None
     db.session.commit()
+    from .heating_request_service import reconcile_plant
+    reconcile_plant(session.plant_id)
     return session.status
 
 
@@ -354,6 +356,11 @@ def adjust_session_step(session_step_id: int, *, field: str, new_value, user_id:
         detail_json={"field": field, "old_value": old_value, "new_value": new_value, "user_id": user_id},
     ))
     db.session.commit()
+    if field == "target_temp":
+        from .heating_request_service import reconcile_plant
+        session = db.session.get(BrewSession, step.session_id)
+        if session:
+            reconcile_plant(session.plant_id)
     return step
 
 
@@ -470,6 +477,8 @@ def resync_session_steps(session_id: int) -> dict:
             removed.append(session_step.name)
 
     db.session.commit()
+    from .heating_request_service import reconcile_plant
+    reconcile_plant(session.plant_id)
     return {"created": created, "updated": updated, "removed": removed}
 
 
@@ -528,6 +537,8 @@ def go_back_step(session_id: int) -> dict:
     previous.actual_duration_s = None
 
     db.session.commit()
+    from .heating_request_service import reconcile_plant
+    reconcile_plant(session.plant_id)
     return get_step_card_data(session)
 
 
@@ -561,6 +572,8 @@ def confirm_and_advance_step(session_id: int) -> dict:
         next_step.started_at = now
 
     db.session.commit()
+    from .heating_request_service import reconcile_plant
+    reconcile_plant(session.plant_id)
     return get_step_card_data(session)
 
 
