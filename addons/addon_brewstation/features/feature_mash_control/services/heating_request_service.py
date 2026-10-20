@@ -293,6 +293,12 @@ def view(vessel, selected_session=None):
 
 def reconcile_plant(plant_id):
     """Lifecycle reconciliation; failures never undo an already committed session action."""
+    from .automatic_heating_service import reconcile_plant as reconcile_automatic
+    try:
+        reconcile_automatic(plant_id)
+    except Exception:
+        db.session.rollback()
+        logger.exception('Falha ao reconciliar fontes automáticas da planta %s', plant_id)
     ids = [v.id for v in BrewPlantVessel.query.filter_by(plant_id=plant_id).all()
            if rule(v)['enabled'] or v.heating_runtime_json]
     for vessel_id in ids:

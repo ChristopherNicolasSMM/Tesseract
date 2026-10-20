@@ -115,6 +115,7 @@ def _on_message(client: mqtt.Client, userdata, msg) -> None:
             if 'value' not in decoded:
                 return
             device_service.update_from_mqtt(actor, decoded['value'], heating_telemetry=decoded.get('heating'),
+                                            source_telemetry=decoded.get('heat_source'),
                                             retained=bool(getattr(msg, 'retain', False)))
         elif not isinstance(decoded, list):
             device_service.update_from_mqtt(actor, decoded, retained=bool(getattr(msg, 'retain', False)))

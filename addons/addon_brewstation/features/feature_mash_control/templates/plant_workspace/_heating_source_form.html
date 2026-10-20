@@ -11,4 +11,9 @@
 <div class="form-text">Validação no servidor exige mapeamento neste tanque. A associação não envia comandos.</div></div>
 <div class="col-md-2 align-self-center"><label class="form-check-label"><input name="enabled" type="checkbox" class="form-check-input" {{ 'checked' if source and source.enabled else '' }}> Disponível na configuração</label></div>
 <div class="col-12"><button type="submit" class="btn btn-outline-primary">{{ 'Salvar fonte' if source else 'Adicionar fonte' }}</button></div>
+<div class="col-12 small text-muted">Automático: exige fonte protegida configurada no Bridge e proteção externa de chama com corte independente. Salvar não habilita a saída; habilite no widget durante a sessão.</div>
+{% for key,label,default,low,high in [('demand_threshold','Demanda mínima auxiliar (%)',80,10,100),('minimum_gap','Distância para ligar (°C)',2,1,20),('minimum_seconds','Condição sustentada (s)',10,1,120),('cooldown_seconds','Tempo mínimo desligado (s)',30,10,300)] %}
+<div class="col-md-3"><label class="form-label" for="{{ key }}{{ suffix }}">{{ label }}</label><input id="{{ key }}{{ suffix }}" name="{{ key }}" type="number" min="{{ low }}" max="{{ high }}" step="any" required class="form-control" value="{{ source.get('automatic_limits', {}).get(key, default) if source else default }}"></div>
+{% endfor %}
+<div class="col-12 form-text">Principal usa temperatura; auxiliar também exige demanda PID. OFF a 0,5 °C abaixo do alvo ou menos; nenhuma temporização adia esse corte. Os limites só passam a valer em nova habilitação.</div>
 </form>

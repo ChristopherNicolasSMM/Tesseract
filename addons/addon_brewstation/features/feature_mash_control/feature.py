@@ -41,6 +41,8 @@ class FeatureMashControl(FeatureBase):
 
         from .services import heating_request_service
         heating_request_service.register(app)
+        from .services import automatic_heating_service
+        automatic_heating_service.register(app)
 
     def get_transactions(self) -> list:
         return [

@@ -17,7 +17,7 @@ from addons.addon_device_manager.root.services.device_function_lookup import get
 USAGES = {"process": "Processo / etapa da sessão", "hlt": "Água quente (HLT)", "sparge": "Água para lavagem (sparge)"}
 SOURCE_TYPES = {"electric": "Elétrico", "gas": "Gás", "other": "Outro"}
 SOURCE_ROLES = {"primary": "Principal", "auxiliary": "Auxiliar"}
-MODES = {"manual": "Manual", "advisory": "Solicitação ao operador"}
+MODES = {"manual": "Manual", "advisory": "Solicitação ao operador", "automatic": "Automático protegido (Bridge)"}
 PROTECTIONS = {"flame": "Supervisão de chama", "gas_leak": "Vazamento de gás", "minimum_level": "Nível mínimo", "flow": "Fluxo", "over_temperature": "Sobretemperatura independente"}
 
 
@@ -176,6 +176,14 @@ def save_source(vessel, data, source_id=None):
               "enabled": data.get("enabled") in (True, "on", "true"),
               "nominal_power_kw": _number(data.get("nominal_power_kw"), "Potência nominal (kW)", 0, 10000),
               "device_function_name": function_name}
+    if source['mode'] == 'automatic' and not function_name:
+        raise HeatingError('Modo automático exige função de atuador deste tanque.')
+    defaults = {'demand_threshold':80, 'minimum_gap':2, 'minimum_seconds':10, 'cooldown_seconds':30}
+    bounds = {'demand_threshold':(10,100), 'minimum_gap':(1,20), 'minimum_seconds':(1,120), 'cooldown_seconds':(10,300)}
+    source['automatic_limits'] = {key:_number(data.get(key, (existing or {}).get('automatic_limits', {}).get(key, default)), key, *bounds[key])
+                                  for key,default in defaults.items()}
+    if any(v is None for v in source['automatic_limits'].values()):
+        raise HeatingError('Preencha todos os limites do aquecimento automático.')
     if existing:
         value["sources"] = [source if s["id"] == source_id else s for s in value["sources"]]
     else:
@@ -220,6 +228,7 @@ def snapshot(vessel, session=None):
     requests = view(vessel, session)
     from .heating_telemetry_service import read
     controller = read(vessel, max_age=rule(vessel)["max_age_seconds"])
+    from .automatic_heating_service import view as automatic_view
     return {"vessel_id": vessel.id, "vessel_name": vessel.label_text, "usage": value["usage"],
             "usage_label": USAGES[value["usage"]], "temperature": temperature,
             "sensor_label": (sensor.label_text or sensor.role_key) if sensor else None,
@@ -227,12 +236,13 @@ def snapshot(vessel, session=None):
             "sensor_status": sensor_status, "target_temp": target, "target_origin": target_origin,
             "planned_volume_liters": value["planned_volume_liters"],
             "sources": [{**s, "type_label": SOURCE_TYPES[s["type"]], "role_label": SOURCE_ROLES[s["role"]],
-                         "mode_label": MODES[s["mode"]], "state": "sem confirmação de funcionamento"} for s in value["sources"]],
+                         "mode_label": MODES[s["mode"]], "state": "sem confirmação de funcionamento",
+                         "automatic": automatic_view(vessel, s)} for s in value["sources"]],
             "automatic_demand_percent": requests["automatic_demand_percent"],
             "power_status": "observação percentual recebida; não confirma potência aplicada" if requests["automatic_demand_percent"] is not None else "demanda não utilizada ou indisponível para a regra",
             "request_rule": requests, "rule_status": requests["status"], "controller": controller,
             "protections": [{"key": key, "label": label, "state": "não configurada / sem confirmação"} for key, label in PROTECTIONS.items()],
-            "can_actuate": False}
+            "can_actuate": any(s['mode'] == 'automatic' and s['enabled'] for s in value['sources'])}
 
 
 def workspace_context(vessels):

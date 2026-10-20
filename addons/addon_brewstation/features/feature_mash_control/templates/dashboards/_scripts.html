@@ -204,6 +204,35 @@
     if (data.planned_volume_liters !== null) line('Volume planejado: ' + data.planned_volume_liters + ' L (não medido)');
     (data.sources || []).forEach(function (source) {
       line(source.name + ' · ' + source.type_label + ' · ' + source.role_label + ' · ' + source.mode_label);
+      if (source.type === 'gas' && source.mode !== 'automatic') {
+        line('Gás: operação manual. Solicitações neste widget não abrem a válvula nem confirmam chama.', 'small text-warning mb-2');
+      }
+      if (source.mode === 'automatic' && source.automatic) {
+        const automatic = source.automatic;
+        line('Controle automático: ' + (automatic.fresh ? (automatic.armed ? 'habilitado' : 'desabilitado') : 'sem telemetria fresca') +
+          ' · saída lógica: ' + (automatic.output_on == null ? '—' : automatic.output_on ? 'ON' : 'OFF') + ' · backend: ' + (automatic.backend || '—'));
+        line(automatic.reason, automatic.fault ? 'small text-danger mb-2' : 'small text-muted mb-2');
+        line('Proteção de chama externa e independente. Saída lógica não confirma válvula aberta nem chama.', 'small text-warning mb-2');
+        if (canRespondHeating) {
+          function controlButton(text, action) {
+            const button = document.createElement('button');
+            button.type = 'button'; button.className = 'db-no-drag ' + (action === 'stop' ? 'btn btn-sm btn-danger me-2 mb-2' : 'btn btn-sm btn-outline-primary me-2 mb-2');
+            button.textContent = text;
+            button.addEventListener('click', function () {
+              if (button.disabled) return;
+              button.disabled = true;
+              fetch(automatic.control_url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:action})})
+                .then(function (response) {return response.json();})
+                .then(function (result) {window.__tesseractToast.show(result.message || result.error || 'Sem confirmação do comando.');})
+                .catch(function () {window.__tesseractToast.show('Sem confirmação. Para parada imediata, use o corte físico local.');})
+                .finally(function () {button.disabled = false;});
+            });
+            body.appendChild(button);
+          }
+          if (automatic.can_arm) controlButton('Habilitar automático' + (automatic.backend === 'simulated' ? ' (simulação)' : ' (saída real)'), 'arm');
+          controlButton('Parar automático', 'stop');
+        }
+      }
       line((source.enabled ? 'Disponível na configuração' : 'Desabilitada') + ' · ' + source.state + (source.nominal_power_kw === null ? '' : ' · nominal ' + source.nominal_power_kw + ' kW'), 'small text-muted mb-2');
     });
     if (!data.sources.length) line('Nenhuma fonte cadastrada. Equipamentos legados permanecem nos mapeamentos.');

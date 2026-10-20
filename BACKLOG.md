@@ -5892,7 +5892,23 @@ Plano registrado antes da implementação em `docs/patches/mash-control-aquecime
 - [x] Arbitragem local/override remoto explícita, contrato e testes nos dois repositórios.
 - Plano: `docs/patches/mash-control-aquecimento-entrega3.md`. Gás permanece manual.
 
+- [x] Widget explicita operação manual de fontes a gás; nenhuma abertura de válvula.
+- [ ] Próxima etapa GLP: validar proteção de chama e contrato de controle, depois
+  simulação isolada e comissionamento. Roteiro:
+  `docs/patches/mash-control-aquecimento-proximas-etapas.md`.
+
 - [ ] Evolução posterior: medição elétrica e estados físicos confirmados; automação
   adicional condicionada a contrato de delegação/intertravamentos. GLP continua manual.
 - Validação entrega 3: 265 testes Python no Tesseract, 491 no Bridge e 17 JS aprovados;
   integração por mensagem real/fixture comum, sem broker/hardware de produção.
+
+### Aquecimento — fonte automática protegida (entrega 4)
+
+- [x] Modo automático opcional por fonte, principal/auxiliar, parâmetros de fábrica.
+- [x] Widget habilitar/parar, telemetria fresca e distinção de saída lógica/estado físico.
+- [x] Autorização de curta duração renovada por observações, ligada à sessão/alvo/boot;
+  pausa, falha ou reinício exigem nova habilitação. ON genérico bloqueado no Bridge.
+- [x] Manual: `docs/manual/09-aquecimento-automatico.md`; sem nova migração.
+- [ ] Retorno da proteção externa de chama, estado físico de válvula, vazamento e nível/fluxo.
+- [ ] Coordenação de autorizações entre múltiplos workers; executar HTTP/MQTT juntos.
+- [ ] Intensidade de fervura e validação física Windows/Raspberry Pi/circuito de gás.

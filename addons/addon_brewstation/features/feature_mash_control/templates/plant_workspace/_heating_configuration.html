@@ -35,7 +35,7 @@
 <details class="mt-3"><summary>Adicionar fonte principal/auxiliar</summary>{% set source = none %}{% include 'plant_workspace/_heating_source_form.html' %}</details>
 {% include 'plant_workspace/_heating_rule_form.html' %}
 {% endif %}
-<p class="small text-muted mt-3 mb-0">Proteções de chama, vazamento de gás, nível mínimo, fluxo e sobretemperatura independente: não configuradas / sem confirmação nesta etapa. Gás com piloto sem supervisão permanece manual; o widget não abre solenoide.</p>
+<p class="small text-muted mt-3 mb-0">O modo automático exige proteção de chama com corte elétrico independente, configurada no Bridge. O software não confirma sua instalação nem recebe estado de chama. Habilitar no widget autoriza o acionamento físico em backend real. Vazamento, nível, fluxo e sobretemperatura independente continuam sem confirmação.</p>
 </details>
 {% else %}<p class="text-muted">Cadastre um tanque, inclusive Água quente (HLT), para preparar o aquecimento.</p>{% endfor %}
 </div></div>

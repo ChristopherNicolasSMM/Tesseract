@@ -1,5 +1,9 @@
 # Aquecimento, HLT e água de lavagem — entregas 1, 2 e 3
 
+> Evolução: [aquecimento automático protegido — ambiente de testes](09-aquecimento-automatico.md).
+> As restrições de ausência de comandos neste documento descrevem as entregas 1–3
+> e os modos manual/solicitação. O modo automático é opcional e tem configuração própria.
+
 ## Atualização
 
 Após atualizar o repositório, com o ambiente virtual ativado, execute na raiz:

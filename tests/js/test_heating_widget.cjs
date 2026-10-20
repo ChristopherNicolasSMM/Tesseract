@@ -77,3 +77,38 @@ test('Bridge metrics keep demand, selected duty and current window distinct and 
   assert.doesNotMatch(text,/Janela aplicada: 100%/);
   assert.equal(ui.calls.length,0);
 });
+
+test('gas source explains manual operation without issuing a valve command', () => {
+  const ui = setup();
+  ui.render({vessel_id:7, vessel_name:'Mostura', sources:[{type:'gas', name:'GLP',
+    type_label:'Gás', role_label:'Auxiliar', mode_label:'Manual', enabled:true,
+    state:'sem confirmação de funcionamento', nominal_power_kw:null}]});
+  const text = ui.body.children.map(node => node.textContent).join('\n');
+  assert.match(text, /Gás: operação manual/);
+  assert.match(text, /não abrem a válvula nem confirmam chama/);
+  assert.equal(ui.calls.length, 0);
+  assert.equal(ui.body.children.filter(node => node.type === 'button').length, 0);
+});
+
+test('automatic widget explicitly arms or stops and never renews during rendering', async () => {
+  const data={vessel_id:7,sources:[{type:'gas',mode:'automatic',name:'GLP',type_label:'Gás',role_label:'Principal',
+    mode_label:'Automático',enabled:true,state:'sem confirmação física',nominal_power_kw:8,
+    automatic:{fresh:true,armed:false,output_on:false,backend:'simulated',reason:'Pronto',can_arm:true,control_url:'/control'}}]};
+  const ui=setup();ui.render(data);ui.render(data);
+  assert.equal(ui.calls.length,0);
+  let buttons=ui.body.children.filter(n=>n.type==='button');
+  assert.equal(buttons.length,2);
+  assert.match(buttons[0].textContent,/simulação/);
+  buttons[0].listeners.click();buttons[0].listeners.click();
+  assert.equal(ui.calls.length,1);
+  assert.deepEqual(JSON.parse(ui.calls[0].options.body),{action:'arm'});
+  buttons[1].listeners.click();
+  assert.deepEqual(JSON.parse(ui.calls[1].options.body),{action:'stop'});
+  await new Promise(resolve=>setImmediate(resolve));
+  const reader=setup(false);reader.render(data);
+  assert.equal(reader.body.children.filter(n=>n.type==='button').length,0);
+  data.sources[0].automatic={fresh:false,armed:false,output_on:null,can_arm:false,control_url:'/control'};
+  ui.render(data);buttons=ui.body.children.filter(n=>n.type==='button');
+  assert.equal(buttons.length,1);assert.match(buttons[0].textContent,/Parar/);
+  assert.ok(ui.body.children.some(n=>/saída lógica: —/.test(n.textContent)));
+});

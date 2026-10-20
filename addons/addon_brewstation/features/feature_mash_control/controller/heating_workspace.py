@@ -1,4 +1,4 @@
-"""Heating configuration in the existing Plant workspace; no actuation routes."""
+"""Heating preparation, operator requests and explicit protected-source authorization."""
 from flask import Blueprint, jsonify, request, redirect, url_for, flash, current_app
 from flask_login import login_required, current_user
 from core.db import db
@@ -60,3 +60,20 @@ def respond(plant_id, vessel_id, request_id):
         current_app.logger.exception('Falha ao responder solicitação de aquecimento')
         return jsonify(ok=False, error='Não foi possível registrar a resposta.'), 500
     return jsonify(ok=True, message='Declaração registrada. Nenhum comando físico enviado.')
+
+
+@heating_workspace_bp.route('/<int:plant_id>/vessels/<int:vessel_id>/heating/sources/<source_id>/automatic', methods=['POST'])
+@login_required
+@permission_required('brew_sessions.update')
+def automatic(plant_id, vessel_id, source_id):
+    from ..services import automatic_heating_service
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(ok=False, error='Dados inválidos.'), 400
+    try:
+        vessel = service.scoped_vessel(plant_id, vessel_id)
+        message = automatic_heating_service.control(vessel, source_id, data.get('action'), current_user.id)
+    except service.HeatingError as exc:
+        db.session.rollback()
+        return jsonify(ok=False, error=str(exc)), exc.code
+    return jsonify(ok=True, message=message)
