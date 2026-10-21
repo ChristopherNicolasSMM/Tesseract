@@ -75,7 +75,9 @@ def test_actuador_legacy_duplicate_can_be_repaired_without_reset(setup,app,clien
     pid,vid=setup
     with app.app_context():
         function=DeviceFunction.query.filter_by(name='aux_gas').one()
-        function.category='actuador'
+        # Simulate a row saved before category normalization existed.
+        from sqlalchemy import update
+        db.session.execute(update(DeviceFunction).where(DeviceFunction.id==function.id).values(category='actuador'))
         old=BrewPlantMapping(vessel_id=vid,role_key='actor_heat',device_function_name='aux_gas')
         db.session.add(old);db.session.commit();mid=old.id;fid=function.id
     headers={'X-Requested-With':'XMLHttpRequest'}

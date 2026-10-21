@@ -21,13 +21,9 @@ from __future__ import annotations
 from addons.addon_device_manager.root.model.device_function import DeviceFunction
 
 
-def canonical_category(value):
-    """Normalize known UI aliases without changing stored functions or guessing unknown categories."""
-    key = value.strip().casefold() if isinstance(value, str) else value
-    return {'atuador': 'actuator', 'actuador': 'actuator', 'actuator': 'actuator', 'sensor': 'sensor',
-            'híbrido': 'hybrid', 'hibrido': 'hybrid', 'hybrid': 'hybrid'}.get(key, key)
+from ..model.device_function_options import canonical_category
 
- 
+
 def get_function_by_name(name: str | None) -> dict | None:
     """
     Resolve uma DeviceFunction pelo nome único. Retorna um dict (nunca

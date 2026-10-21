@@ -5924,3 +5924,11 @@ Plano registrado antes da implementação em `docs/patches/mash-control-aquecime
 - [x] Compatibilidade adicional com categoria legada `actuador`; reparação do vínculo
   antigo do gás para auxiliar sem recriar equipamentos. Formulários esclarecem o
   escopo dos seletores e a separação entre controle automático e solicitação manual.
+
+### Seletores anotados de funções — 2026-10-21
+
+- [x] Categoria e tipo de dado com opções fixas anotadas, rótulos em português e
+  validação transacional para criação/alteração, inclusive API.
+- [x] Edição segura de aliases e categorias legadas desconhecidas, preservando ids.
+- [x] Diretriz de formulários: `docs/technical/10-opcoes-fixas-formularios.md`;
+  enum para vocabulário fechado e weak_ref para referências, sem schema novo.

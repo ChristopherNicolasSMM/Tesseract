@@ -158,3 +158,12 @@ A lista de fontes de solicitação mostra apenas fontes em modo **Solicitação 
 operador**; uma fonte automática não aparece ali. Para automação protegida, use os
 limites da própria fonte e deixe a regra de solicitação desabilitada. O sensor
 percentual opcional não é necessário: o modo auxiliar usa a demanda do PID Bridge.
+
+### Categoria e tipo de dado por seleção
+
+Em Device Manager → Funções, **Categoria** agora é uma lista: Sensor, Atuador ou
+Híbrido. Para a solenoide, escolha **Atuador** e tipo de dado **Liga/desliga**.
+O sistema grava `actuator` e `bool`; não digite esses códigos em texto livre.
+Categorias antigas reconhecidas aparecem na opção correta e podem ser salvas
+padronizadas, sem mudar o nome interno da função. Valores desconhecidos são
+sinalizados para correção explícita, sem selecionar uma categoria por engano.
