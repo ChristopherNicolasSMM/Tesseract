@@ -1,5 +1,18 @@
 # Backlog — Tesseract
 
+## 2026-10-21 — Compatibilidade de controles Bridge / Mash Control
+
+Concluído nesta etapa: contrato opt-in `device_control` v1; potência preparada,
+manual habilitado, liberação ao PID e OFF 0%; bomba manual/liberação/confirmação;
+widget Aquecimento com leitura real do Bridge, permissões e escopo por tanque;
+rejeição de comandos retidos, expirados e repetidos; operação local preservada.
+Sem migration. Ativação e validação em [manual](docs/manual/10-controles-bridge-mostura.md).
+
+Pendências: sincronizar sessão/receita/etapa e ciclo de execução; expor parâmetros
+térmicos/fábrica; completar alarmes/navegação/diagnóstico. Não declarar equivalência
+integral dos dashboards antes dessas próximas entregas e validação em equipamento.
+
+
 > Lista viva. Itens migram de `Planejado` → `Em andamento` → `Concluído`.
 > Cada item referencia a Fase do plano de construção (ver
 > `README.md` → seção Fases) e a skill/doc relevante quando aplicável.

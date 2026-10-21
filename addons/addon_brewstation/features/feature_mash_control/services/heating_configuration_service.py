@@ -227,6 +227,7 @@ def snapshot(vessel, session=None):
     from .heating_request_service import view, rule
     requests = view(vessel, session)
     from .heating_telemetry_service import read
+    from .bridge_control_service import view as bridge_controls
     controller = read(vessel, max_age=rule(vessel)["max_age_seconds"])
     from .automatic_heating_service import view as automatic_view
     return {"vessel_id": vessel.id, "vessel_name": vessel.label_text, "usage": value["usage"],
@@ -240,7 +241,7 @@ def snapshot(vessel, session=None):
                          "automatic": automatic_view(vessel, s)} for s in value["sources"]],
             "automatic_demand_percent": requests["automatic_demand_percent"],
             "power_status": "observação percentual recebida; não confirma potência aplicada" if requests["automatic_demand_percent"] is not None else "demanda não utilizada ou indisponível para a regra",
-            "request_rule": requests, "rule_status": requests["status"], "controller": controller,
+            "request_rule": requests, "rule_status": requests["status"], "controller": controller, "bridge_controls": bridge_controls(vessel),
             "protections": [{"key": key, "label": label, "state": "não configurada / sem confirmação"} for key, label in PROTECTIONS.items()],
             "can_actuate": any(s['mode'] == 'automatic' and s['enabled'] for s in value['sources'])}
 

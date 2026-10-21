@@ -181,3 +181,7 @@ aplicam sua idade máxima configurada, normalmente 15 s.
 O widget continua sem enviar comandos físicos. Gás permanece manual/advisory;
 confirmação elétrica, supervisão de chama e novas ações automáticas de gás não fazem
 parte desta entrega. Consulte também o manual de integração no repositório do Bridge.
+
+
+Para controlar resistência e bombas do Bridge pelo widget, veja
+[potência e bombas no Mash Control](10-controles-bridge-mostura.md).

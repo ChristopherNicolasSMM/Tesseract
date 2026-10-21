@@ -112,3 +112,28 @@ test('automatic widget explicitly arms or stops and never renews during renderin
   assert.equal(buttons.length,1);assert.match(buttons[0].textContent,/Parar/);
   assert.ok(ui.body.children.some(n=>/saída lógica: —/.test(n.textContent)));
 });
+
+test('electrical and pump controls are explicit and rendering never sends commands', async () => {
+  const data={vessel_id:7,sources:[],bridge_controls:[{mapping_id:3,label:'Resistência',kind:'power',fresh:true,
+    external_policy:'manual_override',manual_percent:40,manual_enabled:false,owner:'local_recipe',backend:'simulated',output_on:false,control_url:'/power'},
+    {mapping_id:4,label:'Bomba',kind:'pump',fresh:true,manual_enabled:false,owner:'automatic',backend:'simulated',output_on:false,pending_confirmation:true,control_url:'/pump'}]};
+  const ui=setup();ui.render(data);
+  assert.equal(ui.calls.length,0);
+  const find=text=>ui.body.children.find(n=>n.textContent===text);
+  const input=ui.body.children.find(n=>n.type==='number');input.value='75';input.listeners.input();
+  ui.render(data);
+  assert.equal(ui.body.children.find(n=>n.type==='number').value,'75');
+  find('Definir %').listeners.click();
+  assert.deepEqual(JSON.parse(ui.calls[0].options.body),{action:'power_prepare',value:75});
+  find('Autorizar bomba na receita').listeners.click();
+  assert.equal(ui.calls[1].url,'/pump');
+  assert.equal(JSON.parse(ui.calls[1].options.body).action,'pump_confirm');
+  await new Promise(resolve=>setImmediate(resolve));
+  const reader=setup(false);reader.render(data);
+  assert.equal(reader.body.children.filter(n=>n.type==='button').length,0);
+  data.bridge_controls[0].external_policy='local_only';ui.render(data);
+  assert.equal(find('Habilitar manual').disabled,true);
+  assert.equal(find('Desligar / manter 0%').disabled,false);
+  data.bridge_controls[0].fresh=false;ui.render(data);
+  assert.equal(find('Desligar / manter 0%').disabled,true);
+});

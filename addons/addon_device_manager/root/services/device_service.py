@@ -184,6 +184,27 @@ def get_heating_telemetry(identifier: str) -> dict | None:
     return deepcopy(actor.get_config().get('runtime', {}).get('bridge_heating')) if actor else None
 
 
+def get_control_telemetry(identifier):
+    actor = _resolve_actor(identifier)
+    return deepcopy(actor.get_config().get('runtime', {}).get('bridge_control')) if actor else None
+
+
+def send_device_control(identifier, action, value=None):
+    from . import mqtt_client_service
+    from .bridge_device_control import command
+    actor = _resolve_actor(identifier)
+    if actor is None or not actor.is_active or actor.is_deleted:
+        raise ValueError('Equipamento indisponível.')
+    config = actor.get_config()
+    if config.get('runtime', {}).get('bridge_source'):
+        raise ValueError('Fonte protegida possui controle próprio.')
+    payload = command(get_control_telemetry(identifier), action, value)
+    topic = (config.get('mqtt_config') or {}).get('command_topic')
+    if not topic or not mqtt_client_service.is_connected() or not mqtt_client_service.publish(topic, {'device_control':payload}, qos=1, retain=False):
+        raise ValueError('MQTT indisponível; comando não confirmado.')
+    return payload['request_id']
+
+
 def get_source_telemetry(identifier):
     actor = _resolve_actor(identifier)
     return deepcopy(actor.get_config().get('runtime', {}).get('bridge_source')) if actor else None
@@ -215,6 +236,10 @@ def set_value(identifier: str, value, *, publish: bool = True) -> bool:
     leitura mesmo fora de faixa, por ser dado observado, não comando).
     """
     actor = _resolve_actor(identifier)
+    if actor and actor.get_config().get('runtime', {}).get('bridge_control'):
+        # Preserve legacy OFF paths, but never synthesize an observed state.
+        is_off = value is False or (type(value) in (int, float) and value == 0)
+        return send_source_command(identifier, {'action':'stop'}) if is_off else False
     if actor is None:
         return False
 
@@ -309,7 +334,7 @@ def _maybe_publish(actor: DeviceActor, value) -> None:
                                  retain=mqtt_config.get("retain", False))
 
 
-def update_from_mqtt(actor: DeviceActor, value, *, heating_telemetry=None, source_telemetry=None, retained=False) -> bool:
+def update_from_mqtt(actor: DeviceActor, value, *, heating_telemetry=None, source_telemetry=None, control_telemetry=None, retained=False) -> bool:
     """
     Chamado pelo mqtt_client_service quando chega uma mensagem em um
     state_topic — atualiza o cache SEM republicar (publish=False),
@@ -324,6 +349,15 @@ def update_from_mqtt(actor: DeviceActor, value, *, heating_telemetry=None, sourc
     previous = actor.get_config().get('runtime', {}).get('bridge_heating')
     heating = None
     source = None
+    control = None
+    if control_telemetry is not None:
+        from .bridge_device_control import validate as validate_control
+        try:
+            control = validate_control(control_telemetry, actor.function.name if actor.function else None,
+                received_at, actor.get_config().get('runtime', {}).get('bridge_control'), retained)
+        except (ValueError, TypeError, KeyError) as exc:
+            logger.warning('Telemetria de controle rejeitada para %s: %s', actor.name, exc)
+            return False
     if source_telemetry is not None:
         from .bridge_source_control import validate as validate_source
         try:
@@ -357,6 +391,8 @@ def update_from_mqtt(actor: DeviceActor, value, *, heating_telemetry=None, sourc
         runtime['bridge_heating'] = heating
     if source is not None or actor.actor_type != 'sensor':
         runtime['bridge_source'] = source
+    if control is not None or actor.actor_type != 'sensor':
+        runtime['bridge_control'] = control
     actor.set_config(config)
     db.session.commit()
     _fire_on_change(actor.external_id, value)

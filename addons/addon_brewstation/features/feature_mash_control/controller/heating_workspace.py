@@ -77,3 +77,21 @@ def automatic(plant_id, vessel_id, source_id):
         db.session.rollback()
         return jsonify(ok=False, error=str(exc)), exc.code
     return jsonify(ok=True, message=message)
+
+
+@heating_workspace_bp.route('/<int:plant_id>/vessels/<int:vessel_id>/heating/mappings/<int:mapping_id>/control', methods=['POST'])
+@login_required
+@permission_required('brew_sessions.update')
+def bridge_device_control(plant_id, vessel_id, mapping_id):
+    from ..services import bridge_control_service
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(ok=False, error='Dados inválidos.'), 400
+    try:
+        vessel = service.scoped_vessel(plant_id, vessel_id)
+        request_id = bridge_control_service.control(vessel, mapping_id, data.get('action'), data.get('value'))
+    except service.HeatingError as exc:
+        return jsonify(ok=False, error=str(exc)), exc.code
+    current_app.logger.info('Controle Bridge enviado: planta=%s tanque=%s mapeamento=%s operador=%s ação=%s request_id=%s',
+                            plant_id, vessel_id, mapping_id, current_user.id, data.get('action'), request_id)
+    return jsonify(ok=True, request_id=request_id, message='Comando enviado. Aguarde confirmação na telemetria do Bridge.')

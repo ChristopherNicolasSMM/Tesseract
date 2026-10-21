@@ -357,7 +357,8 @@ def _apply_actuator_value(function_name: Optional[str], value, *, session_id: Op
 
     ok = device_service.set_value(external_id, value)
     mqtt_connected = mqtt_client_service.is_connected()
-    error = None if ok else "Valor fora da faixa permitida pra este atuador."
+    managed = device_service.get_control_telemetry(external_id)
+    error = None if ok else ("Use os controles de potência e bombas do widget Aquecimento; verifique a conexão MQTT." if managed else "Valor fora da faixa permitida pra este atuador.")
 
     if ok:
         _record_action_log(
@@ -432,6 +433,7 @@ def get_plant_device_status(plant_id: int) -> list[dict]:
             "label": m.label_text or m.role_key,
             "function_name": m.device_function_name,
             "is_risk": bool(actor_meta and actor_meta.get("is_risk")),
+            "bridge_managed": bool(external_id and device_service.get_control_telemetry(external_id)),
             **meta,
         })
     return out

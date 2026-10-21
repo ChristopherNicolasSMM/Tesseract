@@ -250,6 +250,54 @@
       }
       line('Telemetria lógica; não mede potência elétrica nem confirma chama.', 'small text-muted mb-2');
     } else { line(controller.status || 'Telemetria Bridge não configurada.', 'small text-muted mb-2'); }
+    (data.bridge_controls || []).forEach(function (control) {
+      line(control.label + ' · ' + (control.kind === 'power' ? 'Potência elétrica' : 'Bomba'), 'fw-bold mb-2');
+      line((control.fresh ? 'Estado recebido' : 'Estado antigo; aguarde atualização') + ' · saída lógica: ' + (control.output_on ? 'ON' : 'OFF') + ' · backend: ' + control.backend);
+      const owners = {local_recipe:'Receita local', local_manual:'Manual no Bridge', remote_manual:'Manual remoto', failsafe:'Falha / emergência', idle:'Repouso', manual:'Manual', automatic:'Receita / automático'};
+      line('Responsável: ' + (owners[control.owner] || control.owner) + (control.manual_enabled ? ' · manual habilitado' : ' · manual desabilitado'));
+      if (control.fault) line(control.fault, 'small text-danger mb-2');
+      if (control.last_command) line('Último comando: ' + control.last_command.request_id + ' · ' + (control.last_command.status === 'applied' ? 'aceito pelo Bridge' : 'rejeitado') + ' · ' + control.last_command.message, 'small text-muted mb-2');
+      if (!canRespondHeating) return;
+      function button(label, action, value) {
+        const node = document.createElement('button'); node.type = 'button';
+        node.className = 'db-no-drag btn btn-sm btn-outline-primary me-1 mb-2'; node.textContent = label;
+        node.disabled = !control.fresh || (control.external_policy === 'local_only' && action !== 'power_off');
+        node.addEventListener('click', function () {
+          if (node.disabled) return;
+          const selected = typeof value === 'function' ? value() : value;
+          if (action === 'power_prepare' && (!Number.isFinite(selected) || selected < 0 || selected > 100)) {
+            window.__tesseractToast.show('Informe potência de 0 a 100%.', 'error'); return;
+          }
+          node.disabled = true;
+          fetch(control.control_url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:action, value:selected})})
+            .then(function (response) {return response.json();})
+            .then(function (result) {window.__tesseractToast.show(result.message || result.error, result.ok ? 'success' : 'error');})
+            .catch(function () {window.__tesseractToast.show('Sem confirmação do Bridge. Verifique o painel local.', 'error');})
+            .finally(function () {node.disabled = !control.fresh || (control.external_policy === 'local_only' && action !== 'power_off');});
+        });
+        body.appendChild(node);
+      }
+      if (control.kind === 'power') {
+        const input = document.createElement('input'); input.type = 'number'; input.min = '0'; input.max = '100'; input.step = '1';
+        el._bridgePowerDrafts = el._bridgePowerDrafts || {};
+        input.value = el._bridgePowerDrafts[control.mapping_id] == null ? (control.manual_percent == null ? '0' : String(control.manual_percent)) : el._bridgePowerDrafts[control.mapping_id];
+        input.addEventListener('input', function () {el._bridgePowerDrafts[control.mapping_id] = input.value;});
+        input.className = 'db-no-drag form-control form-control-sm mb-2'; input.title = 'Potência manual em porcentagem (0 a 100)'; input.ariaLabel = input.title;
+        body.appendChild(input);
+        line('Definir % ajusta o manual; se já estiver habilitado, altera a potência. Automático continua no PID local.', 'small text-muted mb-2');
+        button('Definir %', 'power_prepare', function () {return input.value.trim() === '' ? NaN : Number(input.value);});
+        button('Habilitar manual', 'power_enable'); button('Liberar para automático', 'power_release');
+        button('Desligar / manter 0%', 'power_off');
+      } else {
+        button('Ligar manual', 'pump_set', true); button('Desligar manual', 'pump_set', false);
+        button('Liberar para receita', 'pump_release');
+        if (control.pending_confirmation) {
+          line('A receita solicita esta bomba. Confirme que há líquido e que o circuito está pronto.', 'small text-warning mb-2');
+          button('Autorizar bomba na receita', 'pump_confirm'); button('Manter desligada', 'pump_decline');
+        }
+      }
+      line('Liberar automático permite à receita local retomar o acionamento. Saída lógica não confirma funcionamento físico.', 'small text-muted mb-2');
+    });
     line(data.rule_status, 'small text-muted mb-2');
     ((data.request_rule || {}).requests || []).forEach(function (request) {
       line(request.source_name + ' · ' + request.status_label, 'small fw-bold mb-2');
@@ -1411,13 +1459,13 @@
         label.textContent = item.label || item.role_key;
         const meta = document.createElement('div');
         meta.className = 'db-status-item-meta';
-        meta.textContent = (item.vessel_name || '') + (item.is_risk ? ' · risco' : '');
+        meta.textContent = (item.vessel_name || '') + (item.is_risk ? ' · risco' : '') + (item.bridge_managed ? ' · controle no widget Aquecimento' : '');
         info.appendChild(label);
         info.appendChild(meta);
         row.appendChild(info);
 
         const isActuator = item.role_key && item.role_key.indexOf('actor_') === 0;
-        if (isActuator && typeof item.value === 'boolean') {
+        if (isActuator && !item.bridge_managed && typeof item.value === 'boolean') {
           // Deixa pronto pra quando o hardware MQTT chegar (conversa) —
           // aciona de verdade via device_service.set_value(), mesmo sem
           // broker conectado ainda no ambiente de teste.
