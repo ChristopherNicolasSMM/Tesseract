@@ -9,11 +9,13 @@ service (services.device_function_lookup.get_function_by_name).
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, weak_ref
+from annotations import label, plural, required, weak_ref, enum_field
+from .mapping_roles import ROLE_OPTIONS
  
 
 @label("Mapeamento de Equipamento")
 @plural("brew_plant_mappings")
+@enum_field('role_key', options=ROLE_OPTIONS, label='Papel')
 @required("role_key", message="Papel (role_key) é obrigatório")
 @weak_ref("vessel_id",
           resolver="addons.addon_brewstation.features.feature_mash_control.services.mash_control_lookups.get_vessel",

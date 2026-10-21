@@ -219,14 +219,19 @@ def _save_mapping(plant_id, mapping=None):
     if not vessel:
         return _workspace_form_error("Selecione um tanque desta planta.", 400, plant_id=plant_id, tab="plant")
     role_key = (request.form.get("role_key") or "").strip()
-    category_for_role = {"sensor_temp": "sensor", "actor_heat": "actuator", "actor_flow": "actuator"}
+    from ..model.mapping_roles import ROLE_CATEGORIES
+    category_for_role = ROLE_CATEGORIES
     preserve_custom_role = mapping is not None and role_key == mapping.role_key and role_key not in category_for_role
     if role_key not in category_for_role and not preserve_custom_role:
         return _workspace_form_error("Selecione um papel válido.", 400, plant_id=plant_id, tab="plant")
     function_name = (request.form.get("device_function_name") or "").strip()
+    if not function_name:
+        return _workspace_form_error('Busque e selecione a função na lista; digitar apenas o nome não cria a referência.', 400, plant_id=plant_id, tab='plant')
     function = get_function_by_name(function_name)
-    if not function or (not preserve_custom_role and function.get("category") not in (category_for_role[role_key], "hybrid")):
-        return _workspace_form_error("Selecione uma função compatível com o papel.", 400, plant_id=plant_id, tab="plant")
+    if not function:
+        return _workspace_form_error('Função não encontrada. Selecione uma referência existente na lista.', 400, plant_id=plant_id, tab='plant')
+    if not preserve_custom_role and function.get('category') not in (category_for_role[role_key], 'hybrid'):
+        return _workspace_form_error(f"A função selecionada tem categoria '{function.get('category')}'. Este papel exige '{category_for_role[role_key]}' ou 'hybrid' no Device Manager.", 400, plant_id=plant_id, tab='plant')
     duplicate = BrewPlantMapping.query.filter_by(vessel_id=vessel_id, role_key=role_key, is_deleted=False)
     if mapping is not None:
         duplicate = duplicate.filter(BrewPlantMapping.id != mapping.id)
@@ -618,12 +623,14 @@ def tab_plant(plant_id: int):
         )
     vessels_by_id = {v.id: v for v in vessels}
     from ..services.heating_configuration_service import workspace_context
+    from ..model.mapping_roles import ROLE_OPTIONS
 
     return render_template(
         "plant_workspace/_tab_plant.html",
         plant=plant, vessels=vessels, mappings=mappings, vessels_by_id=vessels_by_id,
         **workspace_context(vessels),
         device_functions=list_functions_for_mapping(),
+        mapping_role_options=ROLE_OPTIONS,
         vessel_trash=BrewPlantVessel.query.filter_by(plant_id=plant_id, is_deleted=True).order_by(BrewPlantVessel.id).paginate(page=max(1, request.args.get("vessels_trash_page", 1, type=int) or 1), per_page=20, error_out=False),
         mapping_trash=BrewPlantMapping.query.join(BrewPlantVessel).filter(BrewPlantVessel.plant_id == plant_id, BrewPlantMapping.is_deleted.is_(True)).order_by(BrewPlantMapping.id).paginate(page=max(1, request.args.get("mappings_trash_page", 1, type=int) or 1), per_page=20, error_out=False),
     )

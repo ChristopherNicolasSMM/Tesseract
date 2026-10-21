@@ -123,3 +123,23 @@ entrega não certificam o circuito de gás, Windows ou Raspberry Pi.
 
 Sensores de vazamento, retorno da proteção de chama, nível/fluxo, watchdog elétrico,
 coordenação multiworker e controle de fervura por intensidade seguem no backlog.
+
+## Incluir gás como fonte auxiliar pela Planta
+
+Em Planta → Mapeamentos, adicione o vínculo com papel **Atuador de aquecimento
+auxiliar** (`actor_heat_aux`). Mantenha a resistência em **Atuador de aquecimento
+principal** (`actor_heat`); não reutilize esse papel para uma segunda fonte.
+Busque a função do gás e clique na opção retornada para gravar sua referência.
+Apenas digitar o texto visível não seleciona a função.
+
+A tela `/brewstation/brew-plant-mappings/` oferece o mesmo catálogo de papéis.
+Categorias padrão de função: `sensor`, `actuator`, `hybrid`; aliases conhecidos
+como `Atuador`/`Híbrido` são reconhecidos na resolução pública sem alterar os dados
+originais. Categorias desconhecidas continuam bloqueadas com mensagem específica.
+
+Depois, em **Aquecimento e água de lavagem**, adicione a fonte: tipo **Gás**,
+participação **Auxiliar**, modo **Automático protegido (Bridge)**, função do gás e
+fonte disponível. Selecione a resistência como controlador e o sensor principal
+no perfil do tanque. O Bridge precisa ter a capacidade protegida correspondente,
+conforme a seção de configuração deste manual; o cadastro no Tesseract não altera
+seus pinos nem seu YAML remotamente. Habilite somente pelo widget durante a sessão.

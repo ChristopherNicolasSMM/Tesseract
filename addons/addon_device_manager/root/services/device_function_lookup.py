@@ -20,6 +20,13 @@ from __future__ import annotations
 
 from addons.addon_device_manager.root.model.device_function import DeviceFunction
 
+
+def canonical_category(value):
+    """Normalize known UI aliases without changing stored functions or guessing unknown categories."""
+    key = value.strip().casefold() if isinstance(value, str) else value
+    return {'atuador': 'actuator', 'actuator': 'actuator', 'sensor': 'sensor',
+            'híbrido': 'hybrid', 'hibrido': 'hybrid', 'hybrid': 'hybrid'}.get(key, key)
+
  
 def get_function_by_name(name: str | None) -> dict | None:
     """
@@ -37,6 +44,7 @@ def get_function_by_name(name: str | None) -> dict | None:
     if not obj:
         return None
     data = obj.to_dict()
+    data['category'] = canonical_category(data['category'])
     display_field = getattr(DeviceFunction, "_display_field", "name")
     data["display"] = getattr(obj, display_field, None) or f"Função #{obj.id}"
     return data
@@ -57,6 +65,7 @@ def get_function_by_id(function_id: int | None) -> dict | None:
     if not obj:
         return None
     data = obj.to_dict()
+    data['category'] = canonical_category(data['category'])
     display_field = getattr(DeviceFunction, "_display_field", "name")
     data["display"] = getattr(obj, display_field, None) or f"Função #{obj.id}"
     return data
@@ -81,6 +90,6 @@ def list_functions_for_mapping() -> list[dict]:
                  .order_by(DeviceFunction.display_name, DeviceFunction.name).all())
     return [
         {"name": obj.name, "display": obj.display_name or obj.name,
-         "category": obj.category}
+         "category": canonical_category(obj.category)}
         for obj in functions
     ]

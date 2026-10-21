@@ -109,9 +109,9 @@
       <div class="col-md-3"><label class="form-label" for="pwMappingRole">Papel</label>
         <select class="form-select" id="pwMappingRole" name="role_key" required>
           <option value="">Selecione</option>
-          <option value="sensor_temp">Sensor de temperatura</option>
-          <option value="actor_heat">Atuador de aquecimento</option>
-          <option value="actor_flow">Atuador de fluxo</option>
+          {% for value, text in mapping_role_options %}
+          <option value="{{ value }}">{{ text }}</option>
+          {% endfor %}
         </select></div>
       <div class="col-md-3"><label class="form-label" for="pwMappingFunction">Função do dispositivo</label>
         <button type="button" class="btn btn-sm btn-link p-0 ms-1" data-plant-hint data-bs-toggle="tooltip" title="Selecione um sensor para temperatura ou um atuador para aquecimento/fluxo." aria-label="Ajuda sobre função do dispositivo"><i class="bi bi-question-circle" aria-hidden="true"></i></button>

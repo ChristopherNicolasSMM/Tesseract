@@ -5912,3 +5912,11 @@ Plano registrado antes da implementação em `docs/patches/mash-control-aquecime
 - [ ] Retorno da proteção externa de chama, estado físico de válvula, vazamento e nível/fluxo.
 - [ ] Coordenação de autorizações entre múltiplos workers; executar HTTP/MQTT juntos.
 - [ ] Intensidade de fervura e validação física Windows/Raspberry Pi/circuito de gás.
+
+### Correção de mapeamento da fonte auxiliar — 2026-10-21
+
+- [x] Catálogo compartilhado de papéis no CRUD e workspace, com `actor_heat_aux`
+  separado da resistência principal; preservação de papéis legados na edição.
+- [x] Resolução de aliases conhecidos de categoria e mensagens específicas para
+  função não selecionada, inexistente ou incompatível; bloqueio de criação duplicada no CRUD.
+- [x] Testes do cadastro de fonte auxiliar e documentação do procedimento; sem migração.
