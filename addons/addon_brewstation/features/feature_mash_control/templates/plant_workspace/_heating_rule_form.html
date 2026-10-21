@@ -1,6 +1,7 @@
 {% set rule = heating_rules[vessel.id] %}
 <details class="border rounded p-2 mt-3"><summary>Regra de solicitação ao operador</summary>
 <p class="small text-muted mt-2">Avaliação no servidor, com sessão ativa. Não liga nem desliga fontes. O pedido é dirigido ao operador responsável.</p>
+<p class="small text-muted">Exclusiva de fontes em modo Solicitação ao operador. Para Automático protegido (Bridge), configure os limites na fonte acima; não é necessário preencher esta regra nem cadastrar sensor percentual.</p>
 <form class="pw-edit-form row g-2" method="post" action="{{ url_for('heating_workspace.save', plant_id=plant.id, vessel_id=vessel.id, action='rule') }}">
 <input type="hidden" name="expected_version" value="{{ vessel.heating_version }}">
 <div class="col-md-6"><label class="form-label" for="heatingRuleSource{{ vessel.id }}">Fonte para solicitação</label>

@@ -5920,3 +5920,7 @@ Plano registrado antes da implementação em `docs/patches/mash-control-aquecime
 - [x] Resolução de aliases conhecidos de categoria e mensagens específicas para
   função não selecionada, inexistente ou incompatível; bloqueio de criação duplicada no CRUD.
 - [x] Testes do cadastro de fonte auxiliar e documentação do procedimento; sem migração.
+
+- [x] Compatibilidade adicional com categoria legada `actuador`; reparação do vínculo
+  antigo do gás para auxiliar sem recriar equipamentos. Formulários esclarecem o
+  escopo dos seletores e a separação entre controle automático e solicitação manual.

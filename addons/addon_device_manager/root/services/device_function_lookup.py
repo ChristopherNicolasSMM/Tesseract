@@ -24,7 +24,7 @@ from addons.addon_device_manager.root.model.device_function import DeviceFunctio
 def canonical_category(value):
     """Normalize known UI aliases without changing stored functions or guessing unknown categories."""
     key = value.strip().casefold() if isinstance(value, str) else value
-    return {'atuador': 'actuator', 'actuator': 'actuator', 'sensor': 'sensor',
+    return {'atuador': 'actuator', 'actuador': 'actuator', 'actuator': 'actuator', 'sensor': 'sensor',
             'híbrido': 'hybrid', 'hibrido': 'hybrid', 'hybrid': 'hybrid'}.get(key, key)
 
  

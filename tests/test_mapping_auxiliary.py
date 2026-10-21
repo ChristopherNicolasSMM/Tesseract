@@ -69,3 +69,35 @@ def test_generic_creation_respects_duplicate_and_category_checks(setup,app,clien
     assert client.post(url,data=data).status_code==302
     with app.app_context():
         assert BrewPlantMapping.query.filter_by(vessel_id=vid,role_key='actor_heat_aux',is_deleted=False).count()==1
+
+
+def test_actuador_legacy_duplicate_can_be_repaired_without_reset(setup,app,client):
+    pid,vid=setup
+    with app.app_context():
+        function=DeviceFunction.query.filter_by(name='aux_gas').one()
+        function.category='actuador'
+        old=BrewPlantMapping(vessel_id=vid,role_key='actor_heat',device_function_name='aux_gas')
+        db.session.add(old);db.session.commit();mid=old.id;fid=function.id
+    headers={'X-Requested-With':'XMLHttpRequest'}
+    response=client.post(f'/brewstation/plant-workspace/{pid}/mappings/{mid}/edit',
+        data={'vessel_id':vid,'role_key':'actor_heat_aux','device_function_name':'aux_gas'},headers=headers)
+    assert response.status_code==200,response.data
+    with app.app_context():
+        assert db.session.get(BrewPlantMapping,mid).role_key=='actor_heat_aux'
+        assert BrewPlantMapping.query.filter_by(vessel_id=vid,role_key='actor_heat').one().device_function_name=='heater'
+        vessel=db.session.get(BrewPlantVessel,vid)
+        assert any(m.device_function_name=='aux_gas' for m in heating.workspace_context([vessel])['heating_mappings'][vid])
+        # Normalization is public resolution only: existing device identifiers/data survive.
+        assert DeviceFunction.query.filter_by(name='aux_gas').one().category=='actuador'
+    response=client.post(f'/brewstation/plant-workspace/{pid}/vessels/{vid}/heating/source',json={
+        'name':'Solenoide GLP','type':'gas','role':'auxiliary','mode':'automatic','enabled':True,
+        'device_function_name':'aux_gas','expected_version':0})
+    assert response.status_code==200,response.data
+    with app.app_context():
+        source=heating.config(db.session.get(BrewPlantVessel,vid))['sources'][0]
+        assert source['enabled'] and source['mode']=='automatic'
+    page=client.get(f'/brewstation/plant-workspace/{pid}/tab/plant').get_data(as_text=True)
+    assert 'value="aux_gas"' in page
+    options=client.get(f'/api/options/device_functions?ids={fid}&value_field=name').get_json()['results']
+    assert {'id':'aux_gas','text':'Aquecimento Auxiliar Gás'} in options
+    assert 'não é necessário preencher esta regra' in page

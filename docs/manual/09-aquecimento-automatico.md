@@ -143,3 +143,18 @@ fonte disponível. Selecione a resistência como controlador e o sensor principa
 no perfil do tanque. O Bridge precisa ter a capacidade protegida correspondente,
 conforme a seção de configuração deste manual; o cadastro no Tesseract não altera
 seus pinos nem seu YAML remotamente. Habilite somente pelo widget durante a sessão.
+
+### Aproveitar configurações já cadastradas
+
+Não é necessário recriar planta, funções, atores ou sensores. Na função do gás,
+confira a categoria padrão `actuator` (as grafias legadas `Atuador` e `actuador`
+também são reconhecidas). Não altere seu nome interno: ele identifica o dispositivo.
+Se o vínculo antigo do gás foi salvo como `actor_heat`, edite esse mesmo vínculo
+para `actor_heat_aux`, mantendo tanque e função; preserve a resistência em `actor_heat`.
+
+Salve primeiro o vínculo. Depois recarregue a aba Planta e selecione o gás na lista
+da fonte auxiliar. Marque **Disponível na configuração** antes de salvar a fonte.
+A lista de fontes de solicitação mostra apenas fontes em modo **Solicitação ao
+operador**; uma fonte automática não aparece ali. Para automação protegida, use os
+limites da própria fonte e deixe a regra de solicitação desabilitada. O sensor
+percentual opcional não é necessário: o modo auxiliar usa a demanda do PID Bridge.
