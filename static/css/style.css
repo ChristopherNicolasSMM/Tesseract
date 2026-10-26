@@ -1305,5 +1305,18 @@ html[data-theme="dark"] .tooltip {
   --hint-border: var(--dark-border, #334155);
 }
 
+/* Grupos hierárquicos da página inicial seguem o colapso da sidebar. */
+.home-menu-toggle {
+  border-bottom: 1px solid var(--bs-border-color);
+  font-size: 1.05rem;
+  padding-bottom: 0.5rem !important;
+}
+.home-menu-toggle .bi-chevron-down {
+  transition: transform 0.2s ease;
+}
+.home-menu-toggle.collapsed .bi-chevron-down {
+  transform: rotate(-90deg);
+}
+
 /* Visual standby leaves content visible and controls usable. */
 #dbCanvas.db-visual-standby { filter: brightness(0.8); }
