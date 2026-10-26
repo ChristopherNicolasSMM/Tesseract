@@ -533,6 +533,16 @@ html[data-theme="dark"] textarea,
   border-color: var(--bs-dark-border);
 }
 
+html[data-theme="dark"] .form-select:disabled,
+[data-theme="dark"] .form-select:disabled,
+body.dark .form-select:disabled,
+body[data-theme="dark"] .form-select:disabled {
+  background-color: var(--bs-dark-bg-2);
+  color: var(--bs-dark-text);
+  border-color: var(--bs-dark-border);
+  opacity: 1;
+}
+
 html[data-theme="dark"] .form-control:focus,
 [data-theme="dark"] .form-control:focus {
   background: var(--bs-dark-bg-2);

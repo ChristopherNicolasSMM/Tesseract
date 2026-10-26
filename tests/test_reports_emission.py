@@ -109,3 +109,11 @@ def test_emission_does_not_require_template_editor_access(client,monkeypatch):
     monkeypatch.setattr(User,'has_permission',lambda self,key:key!='report_templates.detail')
     assert client.get('/api/reports/emission/receitas').status_code==200
     assert client.get('/api/reports/examples/receita-completa/choices').status_code==403
+
+
+def test_modelo_publicado_usa_grade_dos_filtros_e_estilo_dark_desativado():
+    from pathlib import Path
+    template=Path('addons/addon_reports/root/templates/addon_reports/emission.html').read_text(encoding='utf-8')
+    dark_css=Path('static/css/style_dark.css').read_text(encoding='utf-8')
+    assert '<div class="col-md-4"><label for="emission-template"' in template
+    assert 'html[data-theme="dark"] .form-select:disabled' in dark_css
