@@ -369,6 +369,27 @@ html[data-theme="dark"] .sidebar-nav .nav-content a.active,
   color: var(--bs-dark-primary);
 }
 
+html[data-theme="dark"] .home-menu-toggle,
+[data-theme="dark"] .home-menu-toggle {
+  background: var(--bs-dark-surface);
+  border-color: var(--bs-dark-border-2);
+  color: var(--bs-dark-text);
+}
+
+html[data-theme="dark"] .home-menu-toggle:hover,
+html[data-theme="dark"] .home-menu-toggle:not(.collapsed),
+[data-theme="dark"] .home-menu-toggle:hover,
+[data-theme="dark"] .home-menu-toggle:not(.collapsed) {
+  background: var(--bs-dark-bg-3);
+  border-color: var(--bs-dark-border-2);
+  color: #ffffff;
+}
+
+html[data-theme="dark"] .home-menu-toggle i,
+[data-theme="dark"] .home-menu-toggle i {
+  color: var(--bs-dark-primary);
+}
+
 /* ------------------------------------------------------------
    Dropdowns / Menus
 ------------------------------------------------------------ */

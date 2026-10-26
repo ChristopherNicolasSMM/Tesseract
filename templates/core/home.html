@@ -25,7 +25,7 @@
     {% set tx = node.tx %}
     {% if node.children %}
     <div class="col-12">
-      <button type="button" class="home-menu-toggle btn btn-link link-body-emphasis text-decoration-none d-flex align-items-center w-100 px-0 mt-3 collapsed"
+      <button type="button" class="home-menu-toggle d-flex align-items-center w-100 mt-3 collapsed"
               data-bs-toggle="collapse" data-bs-target="#home-node-{{ tx.code }}"
               aria-expanded="false" aria-controls="home-node-{{ tx.code }}">
         <i class="{{ tx.icon or 'bi-folder2-open' }} me-2"></i>

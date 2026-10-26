@@ -1307,9 +1307,25 @@ html[data-theme="dark"] .tooltip {
 
 /* Grupos hierárquicos da página inicial seguem o colapso da sidebar. */
 .home-menu-toggle {
-  border-bottom: 1px solid var(--bs-border-color);
+  appearance: none;
+  background: var(--bs-tertiary-bg, #f8f9fa);
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 0.375rem;
+  color: var(--bs-body-color, #212529);
+  cursor: pointer;
+  font: inherit;
   font-size: 1.05rem;
-  padding-bottom: 0.5rem !important;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.home-menu-toggle:hover,
+.home-menu-toggle:not(.collapsed) {
+  background: var(--bs-secondary-bg, #e9ecef);
+}
+.home-menu-toggle:focus-visible {
+  outline: 2px solid var(--bs-primary, #0d6efd);
+  outline-offset: 2px;
 }
 .home-menu-toggle .bi-chevron-down {
   transition: transform 0.2s ease;
