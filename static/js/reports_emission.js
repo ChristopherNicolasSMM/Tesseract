@@ -7,7 +7,7 @@
   const status=message=>{$('emission-status').textContent=message;};
   function select(element,items,blank='Todos') {
     element.replaceChildren(new Option(blank,''));
-    items.forEach(item=>element.add(new Option(item.label,JSON.stringify(item.value))));element.disabled=false;
+    items.forEach(item=>element.appendChild(new Option(item.label,JSON.stringify(item.value))));element.disabled=false;
   }
   function invalidate() {window.TesseractReportsPreview.clear($('emission-preview'),$('emission-print'));$('emission-preview-panel').hidden=true;}
   function parameters() {
@@ -26,7 +26,7 @@
       }
       Object.entries(value.item.filters).forEach(([field,items])=>{if($('emission-'+field))select($('emission-'+field),items);});
       $('emission-template').replaceChildren(new Option('Selecione',''));
-      templates.forEach(row=>$('emission-template').add(new Option(row.name+' · v'+row.version,row.key)));
+      templates.forEach(row=>$('emission-template').appendChild(new Option(row.name+' · v'+row.version,row.key)));
       $('emission-template').disabled=!templates.length;$('emission-generate').disabled=!templates.length;
       if(templates.length===1)$('emission-template').value=templates[0].key;
       const wanted=config.initial.model==='checklist'?'ready.checklist-receita':null;
