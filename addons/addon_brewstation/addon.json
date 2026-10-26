@@ -8,6 +8,7 @@
   "table_prefix": "brewstation",
   "tesseract_min_version": "1.0.0",
   "requires": ["device_manager", "estoque"],
+  "deprecated_transactions": ["TX_YEAST_STARTER_LOGS"],
   "provides": ["recipe_data", "inventory_data"],
   "features": [
     {

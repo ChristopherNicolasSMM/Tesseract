@@ -187,6 +187,19 @@
               {% for col in visible_columns %}<td>{% if col in weak_ref_fields %}{{ weak_ref_display.get(item.id, {}).get(col) or data.get(col) }}{% else %}{{ data.get(col) }}{% endif %}</td>{% endfor %}
               <td>
                 <a href="{{ url_for('yeast_bank_items.detail', id=item.id) }}" class="btn btn-sm btn-outline-primary">Ver / Editar</a>
+                {% if current_user.has_permission('yeast_bank_items.create') %}
+                <button type="button" class="btn btn-sm btn-outline-success js-duplicate-item"
+                        data-bs-toggle="modal" data-bs-target="#duplicateItemModal"
+                        data-url="{{ url_for('yeast_bank_items.duplicate', id=item.id) }}"
+                        data-strain="{{ item.strain.name if item.strain else ('Cepa #' ~ item.strain_id) }}"
+                        data-storage-type="{{ item.storage_type }}" data-container="{{ item.container_id }}"
+                        data-location="{{ item.location or '' }}" data-slot="{{ item.storage_slot or '' }}"
+                        data-label="{{ item.label_text or '' }}"
+                        data-prepared="{{ item.prepared_date.isoformat() if item.prepared_date else '' }}"
+                        data-expiry="{{ item.expiry_date.isoformat() if item.expiry_date else '' }}">
+                  <i class="bi bi-copy"></i> Duplicar
+                </button>
+                {% endif %}
                 <form method="post" action="{{ url_for('yeast_bank_items.trash', id=item.id) }}" class="d-inline" data-confirm-key="core.confirm.trash_generic">
                   <button type="submit" class="btn btn-sm btn-outline-danger">Lixeira</button>
                 </form>
@@ -214,10 +227,70 @@
   </div>
 </section>
 
+{% if current_user.has_permission('yeast_bank_items.create') %}
+<div class="modal fade" id="duplicateItemModal" tabindex="-1" aria-labelledby="duplicateItemModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" id="duplicateItemForm">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="duplicateItemModalLabel"><i class="bi bi-copy me-2"></i>Duplicar amostra</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted">Será criado um registro independente, ativo e sem eventos ou histórico de viabilidade.</p>
+          <div class="mb-3">
+            <label class="form-label" for="duplicateStrain">Cepa</label>
+            <input id="duplicateStrain" class="form-control" readonly>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="duplicateStorageType">Tipo de armazenamento</label>
+              <select class="form-select" id="duplicateStorageType" name="storage_type" required>
+                {% for opt in enum_field_options.get('storage_type', []) %}<option value="{{ opt.value }}">{{ opt.label }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="duplicateContainer">Container</label>
+              <select class="form-select" id="duplicateContainer" name="container_id" required>
+                {% for container in duplicate_containers %}<option value="{{ container.id }}">{{ container.name }}{% if container.device %} — {{ container.device.name }}{% endif %}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6"><label class="form-label" for="duplicateSlot">Posição no container</label><input class="form-control" id="duplicateSlot" name="storage_slot" maxlength="120"></div>
+            <div class="col-md-6"><label class="form-label" for="duplicateLabel">Etiqueta</label><input class="form-control" id="duplicateLabel" name="label_text" maxlength="120"></div>
+            <div class="col-md-6"><label class="form-label" for="duplicateLocation">Localização</label><input class="form-control" id="duplicateLocation" name="location" maxlength="120"></div>
+            <div class="col-md-6"><label class="form-label" for="duplicatePrepared">Data de preparo</label><input class="form-control" id="duplicatePrepared" name="prepared_date" type="date"></div>
+            <div class="col-md-6"><label class="form-label" for="duplicateExpiry">Validade</label><input class="form-control" id="duplicateExpiry" name="expiry_date" type="date"></div>
+          </div>
+          <input type="hidden" name="return_to" value="{{ request.full_path }}">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success"><i class="bi bi-copy me-1"></i>Criar cópia</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <script src="{{ url_for('static', filename='js/rule_engine.js') }}"></script>
 <script src="{{ url_for('static', filename='js/weak_ref_combo.js') }}"></script>
 <script src="{{ url_for('static', filename='js/decimal_input_normalizer.js') }}"></script>
 <script>
+  document.querySelectorAll('.js-duplicate-item').forEach(function (button) {
+    button.addEventListener('click', function () {
+      const form = document.getElementById('duplicateItemForm');
+      form.action = button.dataset.url;
+      document.getElementById('duplicateStrain').value = button.dataset.strain;
+      document.getElementById('duplicateStorageType').value = button.dataset.storageType;
+      document.getElementById('duplicateContainer').value = button.dataset.container;
+      document.getElementById('duplicateLocation').value = button.dataset.location;
+      document.getElementById('duplicateSlot').value = button.dataset.slot;
+      document.getElementById('duplicateLabel').value = button.dataset.label;
+      document.getElementById('duplicatePrepared').value = button.dataset.prepared;
+      document.getElementById('duplicateExpiry').value = button.dataset.expiry;
+    });
+  });
   document.getElementById('createForm').addEventListener('submit', function (e) {
     if (!RuleEngine.validateForm(this)) {
       e.preventDefault();

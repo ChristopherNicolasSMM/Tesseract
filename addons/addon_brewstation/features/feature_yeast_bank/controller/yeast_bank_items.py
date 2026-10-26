@@ -45,6 +45,8 @@ yeast_bank_items_bp = Blueprint(
     "yeast_bank_items", __name__, url_prefix="/brewstation/yeast-bank-items"
 )
 _service = YeastBankItemService()
+# Rotas específicas da entidade ficam no hook para sobreviver à regeneração.
+_hook("register_routes")(yeast_bank_items_bp)
 
 # Campos editáveis via formulário — calculado por introspecção das
 # colunas do model (genérico, não precisa saber o schema de antemão).
@@ -300,6 +302,9 @@ def _manage_context(submitted_data: dict | None = None, form_error: str | None =
     items = query.order_by(YeastBankItem.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
     pages = max(1, (total + per_page - 1) // per_page)
 
+    from addons.addon_brewstation.features.feature_yeast_bank.model.yeast_container import YeastContainer
+    containers = YeastContainer.query.filter_by(is_deleted=False).order_by(YeastContainer.name).all()
+
     return dict(
         items=items, label="Item do Banco", fields=_EDITABLE_FIELDS, summary_field=_SUMMARY_FIELD,
         page=page, pages=pages, total=total, per_page=per_page, search=search,
@@ -317,6 +322,7 @@ def _manage_context(submitted_data: dict | None = None, form_error: str | None =
         submitted_data=submitted_data,
         form_error=form_error,
         pode_inativar_em_massa=_PODE_INATIVAR_EM_MASSA,
+        duplicate_containers=containers,
     )
 
 
