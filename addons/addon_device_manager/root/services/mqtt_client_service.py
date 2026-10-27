@@ -132,8 +132,8 @@ def _find_actor_by_state_topic(full_topic: str) -> DeviceActor | None:
 
 def start(app) -> mqtt.Client:
     """
-    Inicia o cliente MQTT e conecta ao broker (não-bloqueante —
-    paho usa loop em thread própria via loop_start()). Idempotente:
+    Inicia o cliente MQTT sem bloquear a criação da aplicação. Se o broker
+    estiver indisponível, o Paho tenta reconectar em segundo plano. Idempotente:
     chamadas repetidas reusam o cliente já iniciado.
     """
     global _client
@@ -160,11 +160,19 @@ def start(app) -> mqtt.Client:
         client.on_connect = _on_connect
         client.on_message = _on_message
 
-        client.connect(host, port, keepalive=30)
+        # connect() abre o socket imediatamente e propaga ConnectionRefusedError.
+        # Como start() roda durante create_app(), um broker offline derrubava
+        # todo o Tesseract. connect_async() deixa a conexão para o loop do Paho,
+        # que também aplica a política de reconexão abaixo.
+        client.reconnect_delay_set(min_delay=1, max_delay=60)
+        client.connect_async(host, port, keepalive=30)
+        _client = client
         client.loop_start()
 
-        _client = client
-        logger.info("Cliente MQTT iniciado (%s:%s, client_id=%s).", host, port, client_id)
+        logger.info(
+            "Cliente MQTT iniciado em modo assíncrono (%s:%s, client_id=%s); "
+            "aguardando conexão com o broker.", host, port, client_id,
+        )
         return client
 
 
