@@ -89,6 +89,41 @@ diagnóstico:
   recente, as ações usam o contrato e as verificações de segurança do
   Mash Control e mostram o último ACK.
 
+### Teste local do Device Bridge simulado
+
+O arquivo `tools/mqtt_test_broker.py` pode subir o broker e também um
+simulador do contrato Device Bridge v1, sem hardware. Configure o ator com
+`protocol=mqtt`, `command_topic` e `state_topic`. O `device_id` do simulador
+deve ser exatamente o nome técnico da função (`DeviceFunction.name`) ligada
+ao ator. Os tópicos são relativos ao prefixo MQTT configurado no Tesseract.
+
+1. No `.env`, habilite MQTT, use host `127.0.0.1`, porta `1883` e o mesmo
+   `MQTT_TOPIC_PREFIX` que será usado no simulador. Para este broker local,
+   deixe usuário e senha em branco.
+2. Em um terminal, inicie `python tools/mqtt_test_broker.py --topic-prefix tesseract`.
+   Abra `http://127.0.0.1:5055`.
+3. Em outro terminal, inicie o Tesseract. Na aba **Mash Control** do painel,
+   os atores aparecem; antes da telemetria Bridge v1, ficam desabilitados com
+   indicação do que falta.
+4. No painel Flask do broker, preencha o device_id, `command_topic`,
+   `state_topic`, tipo `power` ou `pump` e política `manual_override`; inicie
+   o simulador. Os tópicos precisam coincidir com o `mqtt_config` do ator.
+5. Aguarde alguns segundos. O simulador publica telemetria a cada segundo;
+   quando o Tesseract receber um contrato válido e recente, o seletor Mash
+   Control habilita o ator.
+6. Para potência, envie **Preparar potência** (ex.: 40%) e depois **Ligar**.
+   Confira o comando recebido no painel do broker e o `last_command` com
+   `status=applied` no estado do ator. Teste também **Liberar potência** e
+   **Desligar**. Para bomba, teste `pump_set` com `true` e `false`; para
+   `pump_confirm`/`pump_decline`, marque a opção de confirmação pendente antes
+   de iniciar o simulador.
+7. Pare o simulador e aguarde mais de cinco segundos: os comandos Mash devem
+   ser bloqueados por telemetria ausente/desatualizada. Use `local_only` para
+   confirmar que somente `power_off` é aceito.
+
+O simulador não energiza GPIO, resistência, bomba ou válvula. `applied` é
+somente confirmação lógica da simulação.
+
 O teste REST verifica a chamada de saída e sua resposta. O addon ainda
 não fornece uma rota genérica para receber telemetria REST de devices;
 essa integração precisa definir autenticação e contrato por dispositivo.

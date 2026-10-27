@@ -102,14 +102,20 @@
       const role = actor.actor_type === 'actuator' ? 'atuador' : 'sensor';
       return { id: actor.id, label: `${actor.name} · ${role} · ${topic || 'sem tópico MQTT'}` };
     }), 'Sem ator — informar tópico manualmente');
-    const bridgeActors = actors.filter(hasBridge);
-    const bridgeActuators = bridgeActors.filter((actor) => actor.actor_type === 'actuator' && actor.is_active && actor.device_active && actor.command_topic);
-    fillSelect('bridge-actor', bridgeActuators.map((actor) => ({ id: actor.id, label: `${actor.name} · ${bridgeKind(actor)}` })), 'Selecione um ator Bridge…');
+    const bridgeActors = actors.filter((actor) => actor.bridge?.candidate || hasBridge(actor) ||
+      (actor.actor_type === 'actuator' && actor.command_topic));
+    fillSelect('bridge-actor', actors.map((actor) => {
+      const controlReady = Boolean(actor.actor_type === 'actuator' && actor.command_topic && actor.state_topic && actor.bridge?.control);
+      const reason = actor.actor_type !== 'actuator' ? ' · sensor (sem comandos Bridge)' :
+        !actor.command_topic ? ' · sem command_topic' : !actor.state_topic ? ' · sem state_topic' :
+          !actor.bridge?.control ? ' · aguardando telemetria Bridge v1' : '';
+      return { id: actor.id, label: `${actor.name} · ${actor.function_label || actor.function_name || actor.actor_type}${reason}`, disabled: !controlReady || !actor.is_active || !actor.device_active };
+    }), 'Selecione um ator — opções indisponíveis mostram o motivo');
 
     const bridgeBody = $('bridge-table');
     bridgeBody.replaceChildren();
     if (!bridgeActors.length) {
-      const row = bridgeBody.insertRow(); cell(row, 'Nenhuma telemetria Bridge associada aos atores.', 'text-muted'); row.cells[0].colSpan = 5;
+      const row = bridgeBody.insertRow(); cell(row, 'Nenhum ator MQTT candidato. Confira tipo de dispositivo, command_topic e state_topic nos cadastros.', 'text-muted'); row.cells[0].colSpan = 5;
     } else {
       bridgeActors.forEach((actor) => {
         const row = bridgeBody.insertRow();
@@ -117,8 +123,9 @@
         const telemetry = bridge.control || bridge.heating || bridge.source || {};
         const ack = bridge.control && bridge.control.last_command;
         cell(row, actor.name);
-        cell(row, `${bridgeKind(actor)}${telemetry.external_policy ? ` · ${telemetry.external_policy}` : ''}`);
-        cell(row, bridgeState(telemetry, actor));
+        const candidateLabel = bridge.control ? bridgeKind(actor) : 'MQTT · aguardando contrato Bridge v1';
+        cell(row, `${candidateLabel}${telemetry.external_policy ? ` · ${telemetry.external_policy}` : ''}`);
+        cell(row, bridge.control ? bridgeState(telemetry, actor) : actor.state_topic ? `Aguardando ${actor.state_topic}` : 'Sem state_topic configurado');
         cell(row, ack ? `${ack.status}: ${ack.message || ack.request_id}` : 'Sem ACK recente');
         cell(row, fmtTime(telemetry.received_at || telemetry.observed_at));
       });
@@ -128,6 +135,10 @@
   function hasBridge(actor) {
     const bridge = actor.bridge || {};
     return Boolean(bridge.detected || bridge.control || bridge.heating || bridge.source);
+  }
+  function isBridgeCandidate(actor) {
+    return Boolean(hasBridge(actor) || actor.bridge?.candidate ||
+      (actor.actor_type === 'actuator' && actor.device_protocol === 'mqtt' && actor.command_topic));
   }
   function bridgeKind(actor) {
     const bridge = actor.bridge || {};
@@ -148,7 +159,7 @@
   function selectActorForTest(actorId) {
     const actor = actors.find((item) => String(item.id) === String(actorId));
     if (!actor) return;
-    const bridgeTab = hasBridge(actor) && actor.actor_type === 'actuator';
+    const bridgeTab = isBridgeCandidate(actor) && actor.actor_type === 'actuator';
     if (bridgeTab) {
       $('bridge-actor').value = String(actor.id);
       const control = actor.bridge && actor.bridge.control;

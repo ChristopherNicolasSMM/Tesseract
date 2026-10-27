@@ -163,17 +163,15 @@ def _actor_bridge_status(actor: DeviceActor) -> dict:
         )}
     config = actor.get_config() or {}
     mqtt = config.get("mqtt_config") or {}
-    gateway_mqtt = bool(
-        actor.device
-        and actor.device.device_type == "gateway"
-        and actor.device.protocol == "mqtt"
-        and (mqtt.get("state_topic") or mqtt.get("command_topic"))
+    mqtt_candidate = bool(
+        actor.actor_type == "actuator" and actor.device
+        and actor.device.protocol == "mqtt" and mqtt.get("command_topic")
     )
-    detected = bool(heating or control or source or gateway_mqtt)
+    detected = bool(heating or control or source)
     kind = (control or {}).get("kind") or (
-        "source" if source else "heating" if heating else "gateway_mqtt" if gateway_mqtt else None
+        "source" if source else "heating" if heating else "gateway_mqtt" if mqtt_candidate else None
     )
-    return {"detected": detected, "kind": kind, "heating": heating_summary,
+    return {"detected": detected, "candidate": mqtt_candidate, "kind": kind, "heating": heating_summary,
             "control": control_summary, "source": source_summary}
 
 
@@ -192,6 +190,8 @@ def list_actor_diagnostics() -> list[dict]:
             "external_id": actor.external_id,
             "name": actor.name,
             "device_name": actor.device.name if actor.device else None,
+            "device_protocol": actor.device.protocol if actor.device else None,
+            "device_type": actor.device.device_type if actor.device else None,
             "device_active": bool(actor.device and actor.device.is_active and not actor.device.is_deleted),
             "function_name": actor.function.name if actor.function else None,
             "function_label": actor.function.display_name if actor.function else None,
