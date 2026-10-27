@@ -41,14 +41,46 @@ ainda funciona, só usa um tópico gerado a partir de um identificador
 interno, menos legível de acompanhar direto no broker.
 
 ## Dispositivos Emulados
-Simula leituras sem hardware real — útil pra testar antes de comprar
-o equipamento.
+
+O cadastro permite selecionar um modo (`sine_wave`, `random_walk` ou
+`manual`) e manter a configuração JSON associada. Nesta versão, esse
+cadastro ainda **não inicia um gerador de leituras** nem publica dados
+no MQTT. O estado “Em execução” e o horário da última publicação são
+mantidos como campos de sistema e não podem ser alterados manualmente.
+Para testar leituras, use um Bridge/hardware em modo simulado. Evite
+publicar mensagens de teste em `state_topic` de produção: elas são
+processadas como telemetria real e podem disparar regras de automação.
 
 ## Comunicação em tempo real (MQTT)
-Quando configurado (ver `02-primeiros-passos.md`), os dispositivos se
-comunicam de fato com o sistema pela rede — leituras de sensor chegam
-automaticamente, e comandos enviados (manuais ou por regras de
-automação) chegam ao equipamento.
+O protocolo operacional desta versão é MQTT (ver
+`02-primeiros-passos.md`). Com o broker configurado, as leituras de
+sensor chegam automaticamente, e comandos enviados (manuais ou por
+regras de automação) chegam ao equipamento.
+
+O menu **Dispositivos IoT → Testes de Comunicação** reúne os fluxos de
+diagnóstico:
+
+- **MQTT:** testa conexão, subscribe, publish e retorno no broker em um
+  tópico aleatório de diagnóstico. O painel também acompanha quando um
+  ator recebe telemetria em seu `state_topic`.
+- **Comando MQTT:** envia um valor JSON ao `command_topic` de um atuador
+  ativo, respeitando tipo e limites cadastrados. Exige confirmação e não
+  permite publicação bruta em atuadores de risco nem em controles Bridge.
+  A publicação confirma o broker, não a execução física; verifique a
+  telemetria/ACK publicado pelo dispositivo.
+- **REST:** envia GET, POST, PUT, PATCH ou DELETE com cabeçalhos e corpo
+  JSON, mostrando código HTTP, tempo, cabeçalhos e resposta. A chamada
+  parte do servidor Tesseract e, por segurança, só aceita `localhost` e
+  IPs numéricos privados/locais, sem seguir redirecionamentos. A chamada
+  é transitória; cabeçalhos e credenciais não são salvos.
+- **Mash Control:** mostra telemetria recebida de aquecimento, fonte e
+  controle Bridge, incluindo o último ACK. As ações usam o contrato e
+  as verificações de segurança existentes no Mash Control e exigem
+  telemetria recente.
+
+O teste REST verifica a chamada de saída e sua resposta. O addon ainda
+não fornece uma rota genérica para receber telemetria REST de devices;
+essa integração precisa definir autenticação e contrato por dispositivo.
 
 ## Regras de automação
 Em "Controle de Mostura", você pode criar regras do tipo "se a

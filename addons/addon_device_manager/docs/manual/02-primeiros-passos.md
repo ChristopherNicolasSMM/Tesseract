@@ -3,9 +3,10 @@
 1. Cadastre as Funções que seus dispositivos vão usar (ex.: "Sensor
    de Temperatura", "Atuador de Aquecimento") — defina uma faixa de
    valores aceitável, se fizer sentido pra essa função.
-2. Cadastre o Dispositivo (ex.: "Freezer Principal") — se ainda não
-   tem o equipamento físico, use "Dispositivo Emulado" no lugar (ver
-   `03-funcionalidades.md`).
+2. Cadastre o Dispositivo (ex.: "Freezer Principal"). O cadastro de
+   Dispositivo Emulado guarda modo e configuração, mas ainda não gera
+   leituras automaticamente; veja a limitação em
+   `03-funcionalidades.md`.
 3. Cadastre um Ator: associe uma porta do dispositivo a uma Função,
    escolhendo se essa porta é um sensor (leitura) ou um atuador
    (comando).

@@ -22,7 +22,7 @@ erDiagram
         string external_id "UUID, exposto externamente"
         string name
         string device_type "sensor, actuator, gateway"
-        string protocol "mqtt, http, websocket"
+        string protocol "MQTT na v1"
         text port_config "JSON serializado — GPIO, entradas/saídas"
         bool is_active
     }

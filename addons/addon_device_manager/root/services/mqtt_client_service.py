@@ -183,8 +183,8 @@ def publish(relative_topic: str, value, *, qos: int = 0, retain: bool = False) -
         logger.debug("publish() chamado sem cliente MQTT ativo — ignorado (%s).", relative_topic)
         return False
     payload = value if isinstance(value, str) else json.dumps(value)
-    _client.publish(_full_topic(relative_topic), payload, qos=qos, retain=retain)
-    return True
+    info = _client.publish(_full_topic(relative_topic), payload, qos=qos, retain=retain)
+    return info.rc == mqtt.MQTT_ERR_SUCCESS
 
 
 def is_connected() -> bool:

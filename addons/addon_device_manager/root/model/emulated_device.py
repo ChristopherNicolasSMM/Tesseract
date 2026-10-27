@@ -13,13 +13,29 @@ clássico do Python, não do SQLAlchemy). Trocado por
 em todo o resto do Tesseract).
 """
 from datetime import datetime, timezone
+import json
+from sqlalchemy import event, inspect
 
 from core.db import db
-from annotations import label, plural, required, weak_ref
+from annotations import (
+    label,
+    plural,
+    required,
+    weak_ref,
+    enum_field,
+    field_labels,
+    readonly_fields,
+)
 
 
 @label("Dispositivo Emulado")
 @plural("emulated_devices")
+@enum_field(
+    "emulation_mode",
+    options=[("sine_wave", "Onda senoidal"), ("random_walk", "Variação aleatória"), ("manual", "Manual")],
+)
+@field_labels({"functions_config": "Configuração das funções (JSON)"})
+@readonly_fields(["is_running", "last_published_at"])
 @required("emulation_mode", message="Modo de emulação é obrigatório")
 @weak_ref("device_id",
           resolver="addons.addon_device_manager.root.services.device_metadata_lookup.get_device_metadata",
@@ -66,3 +82,26 @@ class EmulatedDevice(db.Model):
 
     def __repr__(self) -> str:
         return f"<EmulatedDevice device_id={self.device_id} mode={self.emulation_mode}>"
+
+
+@event.listens_for(EmulatedDevice, "before_insert")
+@event.listens_for(EmulatedDevice, "before_update")
+def validate_emulation_mode(mapper, connection, target):
+    state = inspect(target)
+    if state.pending or state.attrs.functions_config.history.has_changes():
+        raw_config = target.functions_config
+        if raw_config is None:
+            raw_config = {}
+        if isinstance(raw_config, str):
+            try:
+                raw_config = json.loads(raw_config) if raw_config.strip() else {}
+            except json.JSONDecodeError as exc:
+                raise ValueError("Configuração das funções precisa ser um JSON válido.") from exc
+        if not isinstance(raw_config, dict):
+            raise ValueError("Configuração das funções precisa ser um objeto JSON.")
+        target.functions_config = raw_config
+    if state.pending or state.attrs.emulation_mode.history.has_changes():
+        if state.pending and target.emulation_mode is None:
+            target.emulation_mode = "sine_wave"
+        if target.emulation_mode not in {"sine_wave", "random_walk", "manual"}:
+            raise ValueError("Modo de emulação inválido. Selecione uma opção da lista.")

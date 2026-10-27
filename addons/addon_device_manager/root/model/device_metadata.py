@@ -11,15 +11,26 @@ external_id, exposto a sistemas externos (broker MQTT etc.), e o
 `id` interno é Integer como toda outra tabela do Tesseract.
 """
 import uuid
+import json
 from datetime import datetime, timezone
 
 from core.db import db
-from annotations import label, plural, required, max_length, display_field, enum_field
+from sqlalchemy import event, inspect
+from annotations import (
+    label, plural, required, max_length, display_field, enum_field,
+    field_labels, readonly_fields,
+)
 
 
 @label("Dispositivo IoT")
 @plural("device_metadatas")
-@enum_field("device_type", options=["sensor", "actuator", "gateway"])
+@enum_field(
+    "device_type",
+    options=[("sensor", "Sensor"), ("actuator", "Atuador"), ("gateway", "Gateway")],
+)
+@enum_field("protocol", options=[("mqtt", "MQTT")])
+@field_labels({"protocol": "Protocolo", "port_config": "Configuração das portas (JSON)"})
+@readonly_fields(["external_id"])
 @display_field("name")
 @required("name", message="Nome do dispositivo é obrigatório")
 @max_length("name", 100)
@@ -34,7 +45,7 @@ class DeviceMetadata(db.Model):
 
     name = db.Column(db.String(100), nullable=False)
     device_type = db.Column(db.String(50), nullable=True)  # sensor, actuator, gateway
-    protocol = db.Column(db.String(20), nullable=True)  # mqtt, http, websocket
+    protocol = db.Column(db.String(20), nullable=True)  # v1: MQTT
     config_path = db.Column(db.String(500), nullable=True)  # JSON de config em disco
     state_path = db.Column(db.String(500), nullable=True)  # JSON de estado em disco
     is_active = db.Column(db.Boolean, default=True, nullable=False)
@@ -82,3 +93,31 @@ class DeviceMetadata(db.Model):
 
     def __repr__(self) -> str:
         return f"<DeviceMetadata {self.name} ({self.device_type})>"
+
+
+@event.listens_for(DeviceMetadata, "before_insert")
+@event.listens_for(DeviceMetadata, "before_update")
+def validate_fixed_options(mapper, connection, target):
+    """Dropdown values are enforced for browser forms and JSON API alike."""
+    state = inspect(target)
+    if state.pending or state.attrs.port_config.history.has_changes():
+        raw_config = target.port_config
+        if isinstance(raw_config, str):
+            try:
+                raw_config = json.loads(raw_config) if raw_config.strip() else None
+            except json.JSONDecodeError as exc:
+                raise ValueError("Configuração das portas precisa ser um JSON válido.") from exc
+        if raw_config is not None and not isinstance(raw_config, dict):
+            raise ValueError("Configuração das portas precisa ser um objeto JSON.")
+        target.port_config = json.dumps(raw_config, ensure_ascii=False) if raw_config else None
+    for field, allowed, label in (
+        ("device_type", {"sensor", "actuator", "gateway"}, "tipo de dispositivo"),
+        ("protocol", {"mqtt"}, "protocolo"),
+    ):
+        if state.pending or state.attrs[field].history.has_changes():
+            value = getattr(target, field)
+            if value in (None, ""):
+                setattr(target, field, None)
+                continue
+            if value not in allowed:
+                raise ValueError(f"Valor inválido para {label}. Selecione uma opção da lista.")

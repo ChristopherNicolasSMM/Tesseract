@@ -1,0 +1,77 @@
+{% extends "core/base.html" %}
+{% block content %}
+<div class="pagetitle d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div><h1>Testes de Comunicação</h1><p class="text-muted mb-0">Diagnóstico de dispositivos, broker MQTT e endpoints REST.</p></div>
+  <button class="btn btn-outline-secondary" id="refresh-status"><i class="bi bi-arrow-clockwise"></i> Atualizar status</button>
+</div>
+
+<section class="section mt-3">
+  <div class="row g-3 mb-3">
+    <div class="col-md-4"><div class="card h-100"><div class="card-body"><div class="text-muted small">MQTT no Tesseract</div><div class="fs-5 fw-semibold" id="mqtt-status">Carregando…</div><div class="small text-muted" id="mqtt-meta">—</div></div></div></div>
+    <div class="col-md-4"><div class="card h-100"><div class="card-body"><div class="text-muted small">Atores configurados</div><div class="fs-5 fw-semibold" id="actors-count">—</div><div class="small text-muted">Estado atualizado automaticamente a cada 5 segundos.</div></div></div></div>
+    <div class="col-md-4"><div class="card h-100"><div class="card-body"><div class="text-muted small">Último resultado</div><div class="fs-6 fw-semibold" id="last-result">Nenhum teste executado</div><div class="small text-muted" id="last-result-meta">—</div></div></div></div>
+  </div>
+
+  <div class="card"><div class="card-body">
+    <ul class="nav nav-tabs" id="communicationTabs" role="tablist">
+      <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#overview-pane" type="button">Visão geral</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#mqtt-pane" type="button">MQTT</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rest-pane" type="button">REST</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#mash-pane" type="button">Mash Control</button></li>
+    </ul>
+    <div class="tab-content pt-4">
+      <div class="tab-pane fade show active" id="overview-pane">
+        <div class="alert alert-info"><strong>O que este painel comprova:</strong> o teste MQTT valida conexão, inscrição, publicação e retorno no broker; a tabela mostra mensagens de estado realmente recebidas pelos atores. O teste REST envia uma requisição ao dispositivo e exibe a resposta.</div>
+        <div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Ator</th><th>Dispositivo / função</th><th>Tipo</th><th>Estado recebido</th><th>Último recebimento</th></tr></thead><tbody id="actor-table"><tr><td colspan="5" class="text-muted">Carregando atores…</td></tr></tbody></table></div>
+      </div>
+
+      <div class="tab-pane fade" id="mqtt-pane">
+        <div class="row g-4">
+          <div class="col-lg-6">
+            <h5>Conexão e fluxo de ida e volta</h5>
+            <p class="text-muted">Abre uma conexão temporária com as mesmas credenciais do broker configuradas no Tesseract. Inscreve e publica um nonce em tópico de diagnóstico único; não altera tópicos de estado/controle dos devices.</p>
+            <button class="btn btn-primary" id="mqtt-probe"><i class="bi bi-plug"></i> Testar conexão MQTT</button>
+            <div class="small text-muted mt-2" id="mqtt-probe-output" aria-live="polite"></div>
+          </div>
+          <div class="col-lg-6">
+            <h5>Enviar comando a um atuador</h5>
+            <p class="text-muted">Publica JSON no <code>command_topic</code> do ator. A validação respeita tipo e limites cadastrados. Para receber confirmação física, o dispositivo precisa publicar estado/ACK.</p>
+            <div class="mb-2"><label class="form-label" for="command-actor">Atuador</label><select id="command-actor" class="form-select"><option value="">Selecione…</option></select></div>
+            <div class="mb-2"><label class="form-label" for="command-value">Valor JSON</label><input id="command-value" class="form-control font-monospace" value="true" placeholder='true, 42, 12.5 ou "texto"'></div>
+            <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="command-confirm"><label class="form-check-label" for="command-confirm">Confirmo que este comando será enviado ao equipamento real.</label></div>
+            <button class="btn btn-warning" id="send-command">Publicar comando</button>
+            <div class="small mt-2" id="command-output" aria-live="polite"></div>
+          </div>
+        </div>
+        <hr><div class="small text-muted">Atuadores marcados como risco e controles Bridge não aceitam publicação bruta. Use a aba Mash Control para comandos protegidos. O resultado da publicação confirma o broker, não a execução física.</div>
+      </div>
+
+      <div class="tab-pane fade" id="rest-pane">
+        <h5>Enviar requisição HTTP ao dispositivo</h5>
+        <p class="text-muted">A requisição parte do servidor Tesseract, evitando limitações de CORS do navegador. Por segurança, esta versão aceita apenas <code>localhost</code> e IPs numéricos privados/locais, sem redirecionamentos. Não salva URL, cabeçalhos ou credenciais.</p>
+        <form id="rest-form" class="row g-3">
+          <div class="col-md-2"><label class="form-label" for="rest-method">Método</label><select id="rest-method" class="form-select"><option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select></div>
+          <div class="col-md-10"><label class="form-label" for="rest-url">URL</label><input id="rest-url" class="form-control" required placeholder="http://192.168.1.50/api/status"></div>
+          <div class="col-md-6"><label class="form-label" for="rest-headers">Cabeçalhos (JSON)</label><textarea id="rest-headers" class="form-control font-monospace" rows="5">{"Accept":"application/json"}</textarea><div class="form-text">Authorization e outros cabeçalhos são transitórios e não aparecem nos logs do painel.</div></div>
+          <div class="col-md-6"><label class="form-label" for="rest-body">Corpo JSON</label><textarea id="rest-body" class="form-control font-monospace" rows="5" placeholder='{"command":"ping"}'></textarea></div>
+          <div class="col-12"><button class="btn btn-primary" type="submit" id="rest-send"><i class="bi bi-send"></i> Enviar requisição</button><span class="small text-muted ms-2" id="rest-message" aria-live="polite"></span></div>
+        </form>
+        <div class="mt-4 d-none" id="rest-result-card"><h6>Resposta <span id="rest-status" class="badge"></span> <small class="text-muted" id="rest-time"></small></h6><div class="row g-3"><div class="col-lg-4"><label class="form-label">Cabeçalhos</label><pre class="border rounded p-2 bg-light small" id="rest-response-headers"></pre></div><div class="col-lg-8"><label class="form-label">Corpo</label><pre class="border rounded p-2 bg-light small" id="rest-response-body"></pre></div></div></div>
+      </div>
+
+      <div class="tab-pane fade" id="mash-pane">
+        <div class="alert alert-warning">Comandos passam pelas políticas de segurança do Bridge e exigem telemetria recente. Comandos em políticas locais podem ser bloqueados. Confirme ACK em <code>last_command</code> após atualizar.</div>
+        <div class="row g-3 align-items-end mb-4">
+          <div class="col-md-4"><label class="form-label" for="bridge-actor">Ator Bridge</label><select id="bridge-actor" class="form-select"><option value="">Selecione…</option></select></div>
+          <div class="col-md-3"><label class="form-label" for="bridge-action">Ação</label><select id="bridge-action" class="form-select"><option value="power_prepare">Preparar potência</option><option value="power_enable">Ligar</option><option value="power_release">Liberar potência</option><option value="power_off">Desligar</option><option value="pump_set">Definir bomba</option><option value="pump_release">Liberar bomba</option><option value="pump_confirm">Confirmar bomba</option><option value="pump_decline">Recusar bomba</option></select></div>
+          <div class="col-md-2"><label class="form-label" for="bridge-value">Valor</label><input id="bridge-value" class="form-control" placeholder="% ou true/false"></div>
+          <div class="col-md-3"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="bridge-confirm"><label class="form-check-label" for="bridge-confirm">Confirmo ação no equipamento real.</label></div><button class="btn btn-warning" id="bridge-send">Enviar ação protegida</button></div>
+        </div>
+        <div class="small mb-3" id="bridge-output" aria-live="polite"></div>
+        <h5>Telemetria Mash Control</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Ator</th><th>Bridge / política</th><th>Estado</th><th>Último comando/ACK</th><th>Recebido em</th></tr></thead><tbody id="bridge-table"><tr><td colspan="5" class="text-muted">Carregando…</td></tr></tbody></table></div>
+      </div>
+    </div>
+  </div></div>
+</section>
+<script src="{{ url_for('static', filename='js/device_manager_communication.js') }}"></script>
+{% endblock %}

@@ -11,16 +11,31 @@ e confirmado funcionando (skill 02 + BACKLOG.md, Fase 5b) — o prefixo
 é aplicado antes de `create_all()`/configuração de mapper, então
 `relationship()` funciona normalmente aqui.
 """
+import json
 import uuid
 from datetime import datetime, timezone
+from sqlalchemy import event, inspect
 
 from core.db import db
-from annotations import label, plural, required, weak_ref, enum_field
+from annotations import (
+    label,
+    plural,
+    required,
+    weak_ref,
+    enum_field,
+    readonly_fields,
+    field_labels,
+)
 
 
 @label("Ator de Dispositivo")
 @plural("device_actors")
-@enum_field("actor_type", options=["sensor", "actuator", "rule_trigger"])
+@enum_field(
+    "actor_type",
+    options=[("sensor", "Sensor"), ("actuator", "Atuador"), ("rule_trigger", "Gatilho de regra")],
+)
+@readonly_fields(["external_id"])
+@field_labels({"config_json": "Configuração MQTT / Hardware (JSON)"})
 @required("port_name", message="Nome da porta é obrigatório")
 @required("actor_type", message="Tipo do ator é obrigatório (sensor/actuator/rule_trigger)")
 @weak_ref("device_id",
@@ -106,6 +121,7 @@ class DeviceActor(db.Model):
             "name": self.name,
             "description": self.description,
             "config": self.get_config(),
+            "config_json": self.config_json,
             "plugin_name": self.plugin_name,
             "plugin_entity_id": self.plugin_entity_id,
             "failsafe_value": self.failsafe_value,
@@ -118,3 +134,22 @@ class DeviceActor(db.Model):
 
     def __repr__(self) -> str:
         return f"<DeviceActor {self.name} ({self.actor_type}) device_id={self.device_id}>"
+
+
+@event.listens_for(DeviceActor, "before_insert")
+@event.listens_for(DeviceActor, "before_update")
+def validate_actor_type(mapper, connection, target):
+    state = inspect(target)
+    if state.pending or state.attrs.config_json.history.has_changes():
+        raw_config = target.config_json
+        if isinstance(raw_config, str):
+            try:
+                raw_config = json.loads(raw_config) if raw_config.strip() else None
+            except json.JSONDecodeError as exc:
+                raise ValueError("Config Json precisa ser um JSON válido.") from exc
+        if raw_config is not None and not isinstance(raw_config, dict):
+            raise ValueError("Config Json precisa ser um objeto JSON.")
+        target.config_json = json.dumps(raw_config, ensure_ascii=False) if raw_config else None
+    if state.pending or state.attrs.actor_type.history.has_changes():
+        if target.actor_type not in {"sensor", "actuator", "rule_trigger"}:
+            raise ValueError("Tipo de ator inválido. Selecione Sensor, Atuador ou Gatilho de regra.")

@@ -24,6 +24,9 @@
                     {% if fv.get('required') %}required{% endif %}
                     {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
               {% if not fv.get('required') %}<option value="" {{ 'selected' if submitted_data and not submitted_data.get(field) else '' }}>—</option>{% endif %}
+              {% if fv.get('required') and (not submitted_data or submitted_data.get(field) not in (enum_field_options[field]|map(attribute='value')|list)) %}
+              <option value="" disabled selected>{{ 'Valor inválido — selecione uma opção' if submitted_data and submitted_data.get(field) else 'Selecione uma opção' }}</option>
+              {% endif %}
               {% for opt in enum_field_options[field] %}
               <option value="{{ opt.value }}" {{ 'selected' if submitted_data and submitted_data.get(field) == opt.value else '' }}>{{ opt.label }}</option>
               {% endfor %}
@@ -43,6 +46,10 @@
                      {% if submitted_data and submitted_data.get(field) in ('true', 'True', '1', 'on') %}checked{% endif %}
                      {% if field_rules.get(field) %}data-rules='{{ field_rules[field] | tojson }}'{% endif %}>
             </div>
+            {% elif field == 'functions_config' %}
+            <textarea name="{{ field }}" class="form-control" rows="5" spellcheck="false"
+                      placeholder='{"temperature": {"min": 18, "max": 72}}'>{{ submitted_data.get(field, '') if submitted_data else '' }}</textarea>
+            <div class="form-text">Objeto JSON com os valores/configurações usados no modo de emulação.</div>
             {% elif fv.get('html_type') == 'textarea' %}
             <textarea name="{{ field }}" class="form-control" rows="3"
                       {% if fv.get('required') %}required{% endif %}
@@ -183,7 +190,7 @@
             <tr>
               <td><input type="checkbox" class="form-check-input crudgen-checkbox-selecionar-item" data-item-id="{{ item.id }}" data-item-display="{{ data.get(summary_field, '') }}"></td>
               <td>{{ item.id }}</td>
-              {% for col in visible_columns %}<td>{% if col in weak_ref_fields %}{{ weak_ref_display.get(item.id, {}).get(col) or data.get(col) }}{% else %}{{ data.get(col) }}{% endif %}</td>{% endfor %}
+              {% for col in visible_columns %}<td>{% if col in weak_ref_fields %}{{ weak_ref_display.get(item.id, {}).get(col) or data.get(col) }}{% elif data.get(col) is mapping %}<code>{{ data.get(col) | tojson }}</code>{% else %}{{ data.get(col) }}{% endif %}</td>{% endfor %}
               <td>
                 <a href="{{ url_for('emulated_devices.detail', id=item.id) }}" class="btn btn-sm btn-outline-primary">Ver / Editar</a>
                 <form method="post" action="{{ url_for('emulated_devices.trash', id=item.id) }}" class="d-inline" data-confirm-key="core.confirm.trash_generic">

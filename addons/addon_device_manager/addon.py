@@ -74,6 +74,15 @@ class AddonDeviceManager(AddonBase):
                 "permission_required": "device_actors.list",
             },
             {
+                "code": "TX_DEVICE_COMMUNICATION",
+                "label": "Testes de Comunicação",
+                "parent_code": "TX_GROUP_DEVICE_MANAGER",
+                "description": "Diagnóstico REST, MQTT e telemetria do Mash Control.",
+                "icon": "bi-activity",
+                "route": "/device-manager/communication",
+                "permission_required": "device_actors.list",
+            },
+            {
                 "code": "TX_EMULATED_DEVICES",
                 "label": "Dispositivos Emulados",
                 "parent_code": "TX_GROUP_DEVICE_MANAGER",

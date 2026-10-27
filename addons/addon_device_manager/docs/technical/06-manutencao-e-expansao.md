@@ -34,6 +34,19 @@ protocolo da v1, deliberadamente. Se/quando precisar de outro
 (Modbus, Serial), a recomendação é uma **nova Feature** dentro deste
 mesmo Addon (ex.: `feature_modbus_bridge`), não um redesenho do core.
 
+Na v1, `DeviceMetadata.protocol` aceita somente `mqtt`; os valores
+históricos `http`/`websocket` podem continuar no banco, mas não são
+protocolos operacionais deste Addon.
+
+## Estado dos cadastros JSON
+
+`DeviceMetadata.port_config`, `DeviceActor.config_json` e
+`EmulatedDevice.functions_config` são editados como objetos JSON.
+Formulário e API rejeitam JSON inválido ou valores que não sejam
+objetos, preservando o último cadastro válido. `external_id` dos
+dispositivos e atores é gerado pelo sistema e não pode ser alterado por
+formulário/API.
+
 ## Adicionar uma nova ação para o motor de automação
 
 `AutomationRule.actor_action` hoje suporta `ON`/`OFF`/`SET_VALUE`/
@@ -84,3 +97,21 @@ há novas colunas. Comandos não atualizam esse estado e respeitam `local_only`
 recebido (OFF permitido). Retenção não renova observações de controle. O importador
 Bridge preenche tópicos MQTT ausentes sem substituir os personalizados. O contrato
 completo está em `docs/technical/08-aquecimento-hlt-sparge.md` na raiz do projeto.
+
+## Painel de Testes de Comunicação
+
+`/device-manager/communication` e as rotas `/api/device-manager/communication/*`
+formam o painel MQTT/REST. O blueprint exige autenticação e permissões
+`device_actors.list` (consulta) e `device_actors.update` (sondagens/envio). O
+diagnóstico MQTT usa cliente Paho temporário e tópico aleatório
+`{MQTT_TOPIC_PREFIX}/diagnostics/loopback/<nonce>`; não publica em `state_topic`.
+Comandos comuns passam por `mqtt_client_service.publish`; atuadores de risco e
+Bridge passam pelas barreiras do Mash Control. A aceitação pelo broker não
+equivale a ACK físico.
+
+O teste REST é transitório, com timeout de 8 s, corpo de envio limitado a 32 KB,
+resposta limitada a 64 KB e redirecionamentos bloqueados. Só permite `localhost`
+ou IP numérico loopback/privado; DNS, IP público, link-local e multicast são
+recusados para limitar SSRF. Não persistir cabeçalhos/credenciais. Não existe
+ingresso genérico REST de telemetria: antes de adicionar um, definir autenticação,
+autorização por dispositivo e contrato de payload.

@@ -23,7 +23,11 @@
 
 ## UC04 — Emular um dispositivo sem hardware real
 - **Ator**: usuário com `emulated_devices.create`
-- **Fluxo**: escolhe modo de emulação (sine_wave/random_walk/manual)
+- **Fluxo disponível**: cadastra o dispositivo, escolhe modo
+  (sine_wave/random_walk/manual) e salva a configuração JSON.
+- **Limitação atual**: não há worker que gere leituras ou publique no
+  MQTT. Este caso de uso só será considerado concluído quando esse
+  ciclo de execução for implementado e ligado a iniciar/parar.
 
 ## UC05 — Atuador recebe comando de outro módulo
 - **Ator**: outro Addon (ex.: `feature_mash_control`, via
@@ -37,8 +41,7 @@
   `False`, nada é publicado no broker.
 
 ## UC06 — Sensor publica leitura via MQTT
-- **Ator**: hardware (real, via `tesseract-device-bridge`, ou
-  emulado)
+- **Ator**: hardware/Bridge real ou simulado
 - **Fluxo**: publica no `state_topic`; `mqtt_client_service` resolve o
   `DeviceActor` correspondente e chama
   `device_service.update_from_mqtt()`.
