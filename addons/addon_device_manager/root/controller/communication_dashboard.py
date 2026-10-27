@@ -1,7 +1,7 @@
 """Painel autenticado para diagnóstico REST, MQTT e Mash Control."""
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, render_template, request, url_for
 from flask_login import login_required
 
 from core.permissions import permission_required
@@ -21,8 +21,14 @@ def dashboard():
 @login_required
 @permission_required("device_actors.list")
 def status():
-    return jsonify({"broker": diagnostics.broker_settings(),
-                    "actors": diagnostics.list_actor_diagnostics()})
+    actors = diagnostics.list_actor_diagnostics()
+    for actor in actors:
+        actor["links"] = {
+            "actor": url_for("device_actors.detail", id=actor["id"]),
+            "device": url_for("device_metadatas.detail", id=actor["device_id"]),
+            "function": url_for("device_functions.detail", id=actor["function_id"]),
+        }
+    return jsonify({"broker": diagnostics.broker_settings(), "actors": actors})
 
 
 @communication_dashboard_bp.post("/api/device-manager/communication/mqtt/probe")

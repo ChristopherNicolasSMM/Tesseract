@@ -62,7 +62,8 @@ diagnóstico:
 
 - **MQTT:** testa conexão, subscribe, publish e retorno no broker em um
   tópico aleatório de diagnóstico. O painel também acompanha quando um
-  ator recebe telemetria em seu `state_topic`.
+  ator recebe telemetria em seu `state_topic`. Pela visão geral, abra o
+  ator, dispositivo ou função, ou selecione o ator para ir ao fluxo MQTT.
 - **Comando MQTT:** envia um valor JSON ao `command_topic` de um atuador
   ativo, respeitando tipo e limites cadastrados. Exige confirmação e não
   permite publicação bruta em atuadores de risco nem em controles Bridge.
@@ -73,10 +74,11 @@ diagnóstico:
   parte do servidor Tesseract e, por segurança, só aceita `localhost` e
   IPs numéricos privados/locais, sem seguir redirecionamentos. A chamada
   é transitória; cabeçalhos e credenciais não são salvos.
-- **Mash Control:** mostra telemetria recebida de aquecimento, fonte e
-  controle Bridge, incluindo o último ACK. As ações usam o contrato e
-  as verificações de segurança existentes no Mash Control e exigem
-  telemetria recente.
+- **Mash Control:** lista os atores configurados no gateway MQTT mesmo
+  antes da primeira mensagem. Enquanto a telemetria Bridge não chegar,
+  as ações ficam sem confirmação e não podem ser enviadas. Com telemetria
+  recente, as ações usam o contrato e as verificações de segurança do
+  Mash Control e mostram o último ACK.
 
 O teste REST verifica a chamada de saída e sua resposta. O addon ainda
 não fornece uma rota genérica para receber telemetria REST de devices;

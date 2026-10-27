@@ -160,7 +160,20 @@ def _actor_bridge_status(actor: DeviceActor) -> dict:
             "participation", "armed", "output_on", "external_protection", "temperature_sensor",
             "temperature", "target", "fault", "reason", "observed_at", "received_at",
         )}
-    return {"heating": heating_summary, "control": control_summary, "source": source_summary}
+    config = actor.get_config() or {}
+    mqtt = config.get("mqtt_config") or {}
+    gateway_mqtt = bool(
+        actor.device
+        and actor.device.device_type == "gateway"
+        and actor.device.protocol == "mqtt"
+        and (mqtt.get("state_topic") or mqtt.get("command_topic"))
+    )
+    detected = bool(heating or control or source or gateway_mqtt)
+    kind = (control or {}).get("kind") or (
+        "source" if source else "heating" if heating else "gateway_mqtt" if gateway_mqtt else None
+    )
+    return {"detected": detected, "kind": kind, "heating": heating_summary,
+            "control": control_summary, "source": source_summary}
 
 
 def list_actor_diagnostics() -> list[dict]:
@@ -173,6 +186,8 @@ def list_actor_diagnostics() -> list[dict]:
         observation = device_service.get_observation(actor.external_id)
         results.append({
             "id": actor.id,
+            "device_id": actor.device_id,
+            "function_id": actor.function_id,
             "external_id": actor.external_id,
             "name": actor.name,
             "device_name": actor.device.name if actor.device else None,

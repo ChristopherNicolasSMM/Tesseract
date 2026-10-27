@@ -4,6 +4,7 @@
   const api = '/api/device-manager/communication';
   const $ = (id) => document.getElementById(id);
   let actors = [];
+  let brokerEnabled = false;
 
   function setMessage(id, message, ok = true) {
     const node = $(id);
@@ -49,7 +50,7 @@
     if (!actors.length) {
       const row = body.insertRow();
       cell(row, 'Nenhum ator cadastrado.', 'text-muted');
-      row.cells[0].colSpan = 5;
+      row.cells[0].colSpan = 6;
       return;
     }
     actors.forEach((actor) => {
@@ -58,14 +59,38 @@
       cell(row, [actor.device_name, actor.function_label || actor.function_name].filter(Boolean).join(' / '));
       cell(row, actor.actor_type + (actor.is_risk ? ' · risco' : ''));
       const observation = actor.observation;
-      cell(row, observation ? JSON.stringify(observation.value) : 'Aguardando mensagem MQTT');
+      cell(row, observation ? JSON.stringify(observation.value) :
+        (actor.state_topic ? (brokerEnabled ? `Aguardando MQTT · ${actor.state_topic}` : 'MQTT desativado') : 'Sem state_topic'));
       cell(row, fmtTime(observation && observation.observed_at));
+      const actions = row.insertCell();
+      actions.className = 'text-nowrap';
+      [
+        ['actor', 'bi-pencil-square', 'Abrir ator'],
+        ['device', 'bi-cpu', 'Abrir dispositivo'],
+        ['function', 'bi-sliders', 'Abrir função'],
+      ].forEach(([key, icon, title]) => {
+        if (!actor.links || !actor.links[key]) return;
+        const link = document.createElement('a');
+        link.className = 'btn btn-sm btn-outline-secondary me-1';
+        link.href = actor.links[key];
+        link.title = title;
+        link.setAttribute('aria-label', title);
+        const glyph = document.createElement('i'); glyph.className = `bi ${icon}`;
+        link.append(glyph); actions.append(link);
+      });
+      const choose = document.createElement('button');
+      choose.type = 'button';
+      choose.className = 'btn btn-sm btn-outline-primary select-actor-test';
+      choose.dataset.actorId = actor.id;
+      choose.innerHTML = '<i class="bi bi-crosshair"></i> Testar';
+      actions.append(choose);
     });
 
-    const actuaters = actors.filter((actor) => actor.actor_type === 'actuator' && !actor.is_risk && actor.is_active && actor.device_active && actor.command_topic && !hasBridge(actor));
-    fillSelect('command-actor', actuaters.map((actor) => ({ id: actor.id, label: `${actor.name} · ${actor.command_topic}` })), 'Selecione um atuador…');
+    const actuators = actors.filter((actor) => actor.actor_type === 'actuator' && !actor.is_risk && actor.is_active && actor.device_active && actor.command_topic && !hasBridge(actor));
+    fillSelect('command-actor', actuators.map((actor) => ({ id: actor.id, label: `${actor.name} · ${actor.command_topic}` })), 'Selecione um atuador…');
     const bridgeActors = actors.filter(hasBridge);
-    fillSelect('bridge-actor', bridgeActors.map((actor) => ({ id: actor.id, label: `${actor.name} · ${bridgeKind(actor)}` })), 'Selecione um ator Bridge…');
+    const bridgeActuators = bridgeActors.filter((actor) => actor.actor_type === 'actuator' && actor.is_active && actor.device_active && actor.command_topic);
+    fillSelect('bridge-actor', bridgeActuators.map((actor) => ({ id: actor.id, label: `${actor.name} · ${bridgeKind(actor)}` })), 'Selecione um ator Bridge…');
 
     const bridgeBody = $('bridge-table');
     bridgeBody.replaceChildren();
@@ -79,7 +104,7 @@
         const ack = bridge.control && bridge.control.last_command;
         cell(row, actor.name);
         cell(row, `${bridgeKind(actor)}${telemetry.external_policy ? ` · ${telemetry.external_policy}` : ''}`);
-        cell(row, bridgeState(telemetry));
+        cell(row, bridgeState(telemetry, actor));
         cell(row, ack ? `${ack.status}: ${ack.message || ack.request_id}` : 'Sem ACK recente');
         cell(row, fmtTime(telemetry.received_at || telemetry.observed_at));
       });
@@ -88,14 +113,15 @@
 
   function hasBridge(actor) {
     const bridge = actor.bridge || {};
-    return Boolean(bridge.control || bridge.heating || bridge.source);
+    return Boolean(bridge.detected || bridge.control || bridge.heating || bridge.source);
   }
   function bridgeKind(actor) {
     const bridge = actor.bridge || {};
-    return bridge.control?.kind || (bridge.source ? 'fonte' : bridge.heating ? 'aquecimento' : 'Bridge');
+    const kind = bridge.control?.kind || (bridge.source ? 'fonte' : bridge.heating ? 'aquecimento' : bridge.kind);
+    return ({ power: 'potência', pump: 'bomba', source: 'fonte', heating: 'aquecimento', gateway_mqtt: 'Gateway MQTT' })[kind] || 'Bridge';
   }
-  function bridgeState(value) {
-    if (!value || !Object.keys(value).length) return 'Sem telemetria';
+  function bridgeState(value, actor) {
+    if (!value || !Object.keys(value).length) return brokerEnabled ? 'Aguardando telemetria Bridge' : 'MQTT desativado';
     const data = [];
     if (value.output_on !== undefined) data.push(value.output_on ? 'ligado' : 'desligado');
     if (value.temperature !== undefined) data.push(`${value.temperature}°`);
@@ -105,6 +131,27 @@
     return data.join(' · ') || value.owner || 'Telemetria recebida';
   }
 
+  function selectActorForTest(actorId) {
+    const actor = actors.find((item) => String(item.id) === String(actorId));
+    if (!actor) return;
+    const bridgeTab = hasBridge(actor) && actor.actor_type === 'actuator';
+    if (bridgeTab) {
+      $('bridge-actor').value = String(actor.id);
+      const control = actor.bridge && actor.bridge.control;
+      if (control?.kind === 'power') $('bridge-action').value = 'power_prepare';
+      if (control?.kind === 'pump') $('bridge-action').value = 'pump_set';
+      window.bootstrap?.Tab.getOrCreateInstance(document.querySelector('[data-bs-target="#mash-pane"]')).show();
+      $('bridge-output').textContent = `Ator selecionado: ${actor.name}. O envio exige telemetria Bridge recente.`;
+      return;
+    }
+    if ([...$('command-actor').options].some((option) => option.value === String(actor.id))) {
+      $('command-actor').value = String(actor.id);
+    }
+    const topic = actor.state_topic ? ` Tópico de estado: ${actor.state_topic}.` : '';
+    $('selected-actor-context').textContent = `Ator selecionado: ${actor.name}.${topic} A recepção aparece nesta visão quando chegar uma mensagem no state_topic.`;
+    window.bootstrap?.Tab.getOrCreateInstance(document.querySelector('[data-bs-target="#mqtt-pane"]')).show();
+  }
+
   async function refresh() {
     try {
       const response = await fetch(`${api}/status`, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
@@ -112,6 +159,7 @@
       const state = await response.json();
       actors = state.actors || [];
       const broker = state.broker || {};
+      brokerEnabled = Boolean(broker.enabled);
       $('mqtt-status').textContent = broker.enabled ? (broker.connected ? 'Conectado' : 'Desconectado') : 'Desativado';
       $('mqtt-status').className = `fs-5 fw-semibold ${broker.connected ? 'text-success' : 'text-warning'}`;
       $('mqtt-meta').textContent = `${broker.host || '—'}:${broker.port || '—'} · client_id ${broker.client_id || '—'} · prefixo ${broker.topic_prefix || '—'}`;
@@ -124,6 +172,10 @@
   }
 
   $('refresh-status').addEventListener('click', refresh);
+  $('actor-table').addEventListener('click', (event) => {
+    const button = event.target.closest('.select-actor-test');
+    if (button) selectActorForTest(button.dataset.actorId);
+  });
   $('mqtt-probe').addEventListener('click', async (event) => {
     const button = event.currentTarget;
     button.disabled = true; $('mqtt-probe-output').textContent = 'Testando conexão, subscribe, publish e retorno…';

@@ -22,7 +22,7 @@
     <div class="tab-content pt-4">
       <div class="tab-pane fade show active" id="overview-pane">
         <div class="alert alert-info"><strong>O que este painel comprova:</strong> o teste MQTT valida conexão, inscrição, publicação e retorno no broker; a tabela mostra mensagens de estado realmente recebidas pelos atores. O teste REST envia uma requisição ao dispositivo e exibe a resposta.</div>
-        <div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Ator</th><th>Dispositivo / função</th><th>Tipo</th><th>Estado recebido</th><th>Último recebimento</th></tr></thead><tbody id="actor-table"><tr><td colspan="5" class="text-muted">Carregando atores…</td></tr></tbody></table></div>
+        <div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Ator</th><th>Dispositivo / função</th><th>Tipo</th><th>Estado recebido</th><th>Último recebimento</th><th>Ações</th></tr></thead><tbody id="actor-table"><tr><td colspan="6" class="text-muted">Carregando atores…</td></tr></tbody></table></div>
       </div>
 
       <div class="tab-pane fade" id="mqtt-pane">
@@ -32,6 +32,7 @@
             <p class="text-muted">Abre uma conexão temporária com as mesmas credenciais do broker configuradas no Tesseract. Inscreve e publica um nonce em tópico de diagnóstico único; não altera tópicos de estado/controle dos devices.</p>
             <button class="btn btn-primary" id="mqtt-probe"><i class="bi bi-plug"></i> Testar conexão MQTT</button>
             <div class="small text-muted mt-2" id="mqtt-probe-output" aria-live="polite"></div>
+            <div class="alert alert-secondary small mt-3 mb-0" id="selected-actor-context">Selecione um ator na visão geral para acompanhar seus tópicos e estado.</div>
           </div>
           <div class="col-lg-6">
             <h5>Enviar comando a um atuador</h5>
@@ -61,14 +62,14 @@
 
       <div class="tab-pane fade" id="mash-pane">
         <div class="alert alert-warning">Comandos passam pelas políticas de segurança do Bridge e exigem telemetria recente. Comandos em políticas locais podem ser bloqueados. Confirme ACK em <code>last_command</code> após atualizar.</div>
-        <div class="row g-3 align-items-end mb-4">
+        <div class="row g-3 align-items-end mb-2">
           <div class="col-md-4"><label class="form-label" for="bridge-actor">Ator Bridge</label><select id="bridge-actor" class="form-select"><option value="">Selecione…</option></select></div>
           <div class="col-md-3"><label class="form-label" for="bridge-action">Ação</label><select id="bridge-action" class="form-select"><option value="power_prepare">Preparar potência</option><option value="power_enable">Ligar</option><option value="power_release">Liberar potência</option><option value="power_off">Desligar</option><option value="pump_set">Definir bomba</option><option value="pump_release">Liberar bomba</option><option value="pump_confirm">Confirmar bomba</option><option value="pump_decline">Recusar bomba</option></select></div>
           <div class="col-md-2"><label class="form-label" for="bridge-value">Valor</label><input id="bridge-value" class="form-control" placeholder="% ou true/false"></div>
           <div class="col-md-3"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="bridge-confirm"><label class="form-check-label" for="bridge-confirm">Confirmo ação no equipamento real.</label></div><button class="btn btn-warning" id="bridge-send">Enviar ação protegida</button></div>
         </div>
         <div class="small mb-3" id="bridge-output" aria-live="polite"></div>
-        <h5>Telemetria Mash Control</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Ator</th><th>Bridge / política</th><th>Estado</th><th>Último comando/ACK</th><th>Recebido em</th></tr></thead><tbody id="bridge-table"><tr><td colspan="5" class="text-muted">Carregando…</td></tr></tbody></table></div>
+        <h5>Telemetria Mash Control</h5><p class="text-muted small">Atores do gateway aparecem mesmo antes da primeira telemetria; o painel indica quando aguardam conexão MQTT.</p><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Ator</th><th>Bridge / política</th><th>Estado</th><th>Último comando/ACK</th><th>Recebido em</th></tr></thead><tbody id="bridge-table"><tr><td colspan="5" class="text-muted">Carregando…</td></tr></tbody></table></div>
       </div>
     </div>
   </div></div>

@@ -1714,3 +1714,11 @@ h1, h2, h3, h4, h5, h6{
   }
 }
 /* --- END PATCH --- */
+
+/* Device Manager communication tabs need readable active text in dark mode. */
+html[data-theme="dark"] #communicationTabs .nav-link.active,
+[data-theme="dark"] #communicationTabs .nav-link.active {
+  color: #f8fafc !important;
+  background-color: #263449;
+  border-color: #475569 #475569 #263449;
+}
