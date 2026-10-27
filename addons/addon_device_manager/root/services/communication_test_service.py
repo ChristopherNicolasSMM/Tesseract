@@ -22,6 +22,7 @@ REST_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE"}
 REST_MAX_BODY = 32_768
 REST_MAX_RESPONSE = 65_536
 REST_TIMEOUT_SECONDS = 8
+MQTT_TEST_MAX_PAYLOAD = 32_768
 _BLOCKED_HEADERS = {"host", "content-length", "connection", "transfer-encoding", "proxy-authorization", "proxy-connection", "upgrade"}
 _PRIVATE_V4 = tuple(ipaddress.ip_network(value) for value in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
 _PRIVATE_V6 = (ipaddress.ip_network("fc00::/7"),)
@@ -255,6 +256,56 @@ def publish_actor_test_command(actor_id: int, value, *, confirmed: bool) -> dict
         raise CommunicationTestError("A publicação não foi aceita pelo cliente MQTT.")
     return {"success": True, "topic": topic, "qos": qos,
             "message": "Comando enviado ao broker. Isso confirma a publicação, não a execução física pelo dispositivo."}
+
+
+def publish_mqtt_test_message(topic: str, payload: str, *, payload_format: str = "json",
+                              qos: int = 0, retain: bool = False, confirmed: bool = False) -> dict:
+    """Publica em tópico MQTT livre, com ou sem ator associado, para diagnóstico manual."""
+    if confirmed is not True:
+        raise CommunicationTestError("Confirme que a publicação pode alterar dados ou acionar um equipamento real.")
+    if not isinstance(topic, str):
+        raise CommunicationTestError("Informe o tópico MQTT de destino.")
+    topic = topic.strip().lstrip("/")
+    try:
+        topic_size = len(topic.encode("utf-8"))
+    except UnicodeEncodeError as exc:
+        raise CommunicationTestError("O tópico contém caracteres inválidos.") from exc
+    if not topic or topic_size > 1024 or any(char in topic for char in ("+", "#", "\x00")):
+        raise CommunicationTestError("Tópico vazio, longo ou inválido. Publicações não aceitam curingas + ou #.")
+    if not isinstance(payload, str):
+        raise CommunicationTestError("O payload precisa ser enviado como texto.")
+    try:
+        payload_size = len(payload.encode("utf-8"))
+    except UnicodeEncodeError as exc:
+        raise CommunicationTestError("O payload contém caracteres inválidos.") from exc
+    if payload_size > MQTT_TEST_MAX_PAYLOAD:
+        raise CommunicationTestError("Payload excede o limite de 32 KB.")
+    if not isinstance(payload_format, str) or payload_format not in {"json", "text"}:
+        raise CommunicationTestError("Formato de payload deve ser JSON ou texto.")
+    if payload_format == "json":
+        try:
+            json.loads(payload)
+        except json.JSONDecodeError as exc:
+            raise CommunicationTestError("O payload informado não é um JSON válido.") from exc
+    if type(qos) is not int or qos not in (0, 1, 2):
+        raise CommunicationTestError("QoS precisa ser 0, 1 ou 2.")
+    if type(retain) is not bool:
+        raise CommunicationTestError("Retain precisa ser verdadeiro ou falso.")
+    if not mqtt_client_service.is_connected():
+        raise CommunicationTestError("Tesseract não está conectado ao broker MQTT configurado.")
+    if not mqtt_client_service.publish(topic, payload, qos=qos, retain=retain):
+        raise CommunicationTestError("O cliente MQTT não aceitou a publicação.")
+
+    prefix = broker_settings()["topic_prefix"]
+    full_topic = f"{prefix}/{topic}" if prefix else topic
+    return {
+        "success": True,
+        "topic": topic,
+        "full_topic": full_topic,
+        "qos": qos,
+        "retain": retain,
+        "message": "Publicação aceita pelo cliente MQTT. Confira o recebimento no broker ou device; isso não confirma execução física.",
+    }
 
 
 def send_bridge_control(actor_id: int, action: str, value=None, *, confirmed: bool) -> dict:

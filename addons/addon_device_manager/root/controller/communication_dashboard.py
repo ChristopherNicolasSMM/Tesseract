@@ -53,6 +53,23 @@ def mqtt_command():
         return jsonify({"success": False, "message": str(exc)}), 400
 
 
+@communication_dashboard_bp.post("/api/device-manager/communication/mqtt/publish")
+@login_required
+@permission_required("device_actors.update")
+def mqtt_publish():
+    payload = request.get_json(silent=True) or {}
+    try:
+        result = diagnostics.publish_mqtt_test_message(
+            topic=payload.get("topic", ""), payload=payload.get("payload", ""),
+            payload_format=payload.get("payload_format", "json"),
+            qos=payload.get("qos", 0), retain=payload.get("retain", False),
+            confirmed=payload.get("confirmed") is True,
+        )
+        return jsonify(result)
+    except diagnostics.CommunicationTestError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+
+
 @communication_dashboard_bp.post("/api/device-manager/communication/mqtt/bridge-command")
 @login_required
 @permission_required("device_actors.update")

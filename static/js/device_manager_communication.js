@@ -40,7 +40,11 @@
     const select = $(id);
     const prior = select.value;
     select.replaceChildren(new Option(firstLabel, ''));
-    options.forEach(({ id: value, label }) => select.add(new Option(label, value)));
+    options.forEach(({ id: value, label, disabled = false }) => {
+      const option = new Option(label, value);
+      option.disabled = Boolean(disabled);
+      select.add(option);
+    });
     if ([...select.options].some((option) => option.value === prior)) select.value = prior;
   }
 
@@ -86,8 +90,18 @@
       actions.append(choose);
     });
 
-    const actuators = actors.filter((actor) => actor.actor_type === 'actuator' && !actor.is_risk && actor.is_active && actor.device_active && actor.command_topic && !hasBridge(actor));
-    fillSelect('command-actor', actuators.map((actor) => ({ id: actor.id, label: `${actor.name} · ${actor.command_topic}` })), 'Selecione um atuador…');
+    const actuators = actors.filter((actor) => actor.actor_type === 'actuator' && actor.command_topic);
+    fillSelect('command-actor', actuators.map((actor) => {
+      const protectedActor = actor.is_risk || hasBridge(actor);
+      const inactive = !actor.is_active || !actor.device_active;
+      const reason = protectedActor ? ' · envio protegido via Mash Control' : inactive ? ' · inativo' : '';
+      return { id: actor.id, label: `${actor.name} · ${actor.command_topic}${reason}`, disabled: protectedActor || inactive };
+    }), 'Selecione um atuador…');
+    fillSelect('mqtt-test-actor', actors.map((actor) => {
+      const topic = actor.command_topic || actor.state_topic;
+      const role = actor.actor_type === 'actuator' ? 'atuador' : 'sensor';
+      return { id: actor.id, label: `${actor.name} · ${role} · ${topic || 'sem tópico MQTT'}` };
+    }), 'Sem ator — informar tópico manualmente');
     const bridgeActors = actors.filter(hasBridge);
     const bridgeActuators = bridgeActors.filter((actor) => actor.actor_type === 'actuator' && actor.is_active && actor.device_active && actor.command_topic);
     fillSelect('bridge-actor', bridgeActuators.map((actor) => ({ id: actor.id, label: `${actor.name} · ${bridgeKind(actor)}` })), 'Selecione um ator Bridge…');
@@ -176,6 +190,18 @@
     const button = event.target.closest('.select-actor-test');
     if (button) selectActorForTest(button.dataset.actorId);
   });
+  $('mqtt-test-actor').addEventListener('change', (event) => {
+    const actor = actors.find((item) => String(item.id) === event.currentTarget.value);
+    if (!actor) {
+      $('mqtt-test-actor-hint').textContent = 'Sem ator selecionado. Informe qualquer tópico MQTT manualmente.';
+      return;
+    }
+    const suggestedTopic = actor.command_topic || actor.state_topic;
+    if (suggestedTopic) $('mqtt-test-topic').value = suggestedTopic;
+    $('mqtt-test-actor-hint').textContent = suggestedTopic
+      ? `Tópico sugerido para ${actor.name}. Você pode editá-lo antes de publicar.`
+      : `${actor.name} não tem tópico MQTT configurado. Informe o tópico manualmente.`;
+  });
   $('mqtt-probe').addEventListener('click', async (event) => {
     const button = event.currentTarget;
     button.disabled = true; $('mqtt-probe-output').textContent = 'Testando conexão, subscribe, publish e retorno…';
@@ -200,6 +226,29 @@
       $('last-result').textContent = result.success ? 'Comando publicado' : 'Comando recusado';
       $('last-result-meta').textContent = result.message || '';
     } catch (error) { setMessage('command-output', error.message, false); }
+    finally { button.disabled = false; }
+  });
+
+  $('mqtt-test-publish').addEventListener('click', async (event) => {
+    const payload = $('mqtt-test-payload').value;
+    if ($('mqtt-test-format').value === 'json') {
+      try { JSON.parse(payload); }
+      catch (_) { setMessage('mqtt-test-output', 'O payload precisa ser JSON válido.', false); return; }
+    }
+    const button = event.currentTarget; button.disabled = true;
+    try {
+      const result = await post('mqtt/publish', {
+        topic: $('mqtt-test-topic').value,
+        payload,
+        payload_format: $('mqtt-test-format').value,
+        qos: Number($('mqtt-test-qos').value),
+        retain: $('mqtt-test-retain').checked,
+        confirmed: $('mqtt-test-confirm').checked,
+      });
+      setMessage('mqtt-test-output', `${result.message || 'Publicação concluída.'}${result.full_topic ? ` Tópico efetivo: ${result.full_topic}` : ''}`, result.success);
+      $('last-result').textContent = result.success ? 'MQTT publicado' : 'Publicação MQTT recusada';
+      $('last-result-meta').textContent = result.message || '';
+    } catch (error) { setMessage('mqtt-test-output', error.message, false); }
     finally { button.disabled = false; }
   });
 

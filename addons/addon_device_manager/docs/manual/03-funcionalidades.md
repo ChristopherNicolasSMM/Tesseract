@@ -66,7 +66,16 @@ diagnóstico:
   ator, dispositivo ou função, ou selecione o ator para ir ao fluxo MQTT.
 - **Comando MQTT:** envia um valor JSON ao `command_topic` de um atuador
   ativo, respeitando tipo e limites cadastrados. Exige confirmação e não
-  permite publicação bruta em atuadores de risco nem em controles Bridge.
+  permite envio direto por esse fluxo em atuadores de risco ou controles
+  Bridge. O seletor mostra os atuadores configurados e indica quais usam
+  o fluxo protegido do Mash Control.
+- **Publicação MQTT dinâmica:** permite selecionar qualquer ator para
+  sugerir um tópico ou deixar o ator vazio e informar tópico e payload
+  manualmente. Aceita JSON ou texto, QoS e retain. O prefixo MQTT do
+  Tesseract é aplicado ao tópico. Exige confirmação porque é uma publicação
+  de baixo nível: não valida limites da função nem políticas Bridge e pode
+  alterar telemetria ou acionar equipamento real. Use em bancada ou com
+  confirmação do efeito esperado.
   A publicação confirma o broker, não a execução física; verifique a
   telemetria/ACK publicado pelo dispositivo.
 - **REST:** envia GET, POST, PUT, PATCH ou DELETE com cabeçalhos e corpo

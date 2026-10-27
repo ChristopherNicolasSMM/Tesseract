@@ -37,14 +37,43 @@
           <div class="col-lg-6">
             <h5>Enviar comando a um atuador</h5>
             <p class="text-muted">Publica JSON no <code>command_topic</code> do ator. A validação respeita tipo e limites cadastrados. Para receber confirmação física, o dispositivo precisa publicar estado/ACK.</p>
-            <div class="mb-2"><label class="form-label" for="command-actor">Atuador</label><select id="command-actor" class="form-select"><option value="">Selecione…</option></select></div>
+            <div class="mb-2"><label class="form-label" for="command-actor">Atuador compatível</label><select id="command-actor" class="form-select"><option value="">Selecione…</option></select><div class="form-text">Este envio validado lista atuadores que aceitam comando direto. Para testes sem ator ou em tópico livre, use a publicação dinâmica abaixo.</div></div>
             <div class="mb-2"><label class="form-label" for="command-value">Valor JSON</label><input id="command-value" class="form-control font-monospace" value="true" placeholder='true, 42, 12.5 ou "texto"'></div>
             <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="command-confirm"><label class="form-check-label" for="command-confirm">Confirmo que este comando será enviado ao equipamento real.</label></div>
             <button class="btn btn-warning" id="send-command">Publicar comando</button>
             <div class="small mt-2" id="command-output" aria-live="polite"></div>
           </div>
         </div>
-        <hr><div class="small text-muted">Atuadores marcados como risco e controles Bridge não aceitam publicação bruta. Use a aba Mash Control para comandos protegidos. O resultado da publicação confirma o broker, não a execução física.</div>
+        <div class="border rounded p-3 mt-4">
+          <h5>Publicação MQTT dinâmica <span class="text-muted fs-6">(ator opcional)</span></h5>
+          <p class="text-muted mb-3">Teste qualquer tópico e payload pelo cliente MQTT do Tesseract. Você pode escolher um ator para sugerir um tópico ou enviar sem ator, informando o tópico manualmente. O prefixo MQTT configurado no Tesseract é aplicado ao tópico.</p>
+          <div class="row g-3">
+            <div class="col-lg-5">
+              <label class="form-label" for="mqtt-test-actor">Ator para sugerir tópico (opcional)</label>
+              <select id="mqtt-test-actor" class="form-select"><option value="">Sem ator — informar tópico manualmente</option></select>
+              <div class="form-text" id="mqtt-test-actor-hint">A lista inclui atores com e sem tópico MQTT configurado.</div>
+              <label class="form-label mt-3" for="mqtt-test-topic">Tópico MQTT</label>
+              <input id="mqtt-test-topic" class="form-control font-monospace" maxlength="1024" placeholder="devices/test/state">
+              <div class="form-text">Informe o tópico relativo ao prefixo. Ex.: com prefixo <code>tesseract</code>, <code>devices/test/state</code> publica em <code>tesseract/devices/test/state</code>.</div>
+            </div>
+            <div class="col-lg-7">
+              <label class="form-label" for="mqtt-test-payload">Payload</label>
+              <textarea id="mqtt-test-payload" class="form-control font-monospace" rows="5">{"value": 21.5}</textarea>
+              <div class="row g-2 mt-1 align-items-end">
+                <div class="col-sm-4"><label class="form-label" for="mqtt-test-format">Formato</label><select id="mqtt-test-format" class="form-select"><option value="json">JSON</option><option value="text">Texto</option></select></div>
+                <div class="col-sm-3"><label class="form-label" for="mqtt-test-qos">QoS</label><select id="mqtt-test-qos" class="form-select"><option value="0">0</option><option value="1">1</option><option value="2">2</option></select></div>
+                <div class="col-sm-5"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="mqtt-test-retain"><label class="form-check-label" for="mqtt-test-retain">Retain</label></div></div>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="alert alert-warning py-2 small">Uma publicação em tópico de comando pode acionar equipamento real. Em tópico de estado, pode alterar a telemetria percebida pelo Tesseract. Use somente em broker e devices de teste, ou confirme a operação física antes de enviar.</div>
+              <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="mqtt-test-confirm"><label class="form-check-label" for="mqtt-test-confirm">Confirmo que este tópico e payload podem afetar o broker, a telemetria ou um equipamento real.</label></div>
+              <button class="btn btn-warning" id="mqtt-test-publish"><i class="bi bi-send"></i> Publicar payload MQTT</button>
+              <div class="small mt-2" id="mqtt-test-output" aria-live="polite"></div>
+            </div>
+          </div>
+        </div>
+        <hr><div class="small text-muted">O envio validado por ator bloqueia atuadores de risco e controles Bridge. A publicação dinâmica é de baixo nível: não aplica a política Bridge nem valida limites da função e pode acionar hardware. Para operação do Mash Control, use sempre o fluxo protegido; o retorno de publicação confirma o transporte MQTT, não a execução física.</div>
       </div>
 
       <div class="tab-pane fade" id="rest-pane">
