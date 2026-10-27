@@ -194,7 +194,14 @@ def _start_monitor() -> mqtt.Client:
     )
 
     def on_connect(client, _userdata, _flags, reason_code, _properties=None):
-        if int(reason_code) == 0:
+        # Paho 2.x passa mqtt.ReasonCode, cujo valor numérico fica em .value.
+        # Converter diretamente com int(reason_code) gera TypeError.
+        code_value = getattr(reason_code, "value", reason_code)
+        try:
+            connected = int(code_value) == 0
+        except (TypeError, ValueError):
+            connected = not getattr(reason_code, "is_failure", True)
+        if connected:
             MONITOR_CONNECTED.set()
             client.subscribe("#", qos=0)
             LOG.info("Monitor conectado e inscrito em todos os tópicos (#).")
